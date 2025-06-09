@@ -11,6 +11,6 @@
 
 #include "lang/workspace.h"
 
-bool muon_json_to_dict(struct workspace *wk, char *json_str, obj *res);
+bool muon_json_to_obj(struct workspace *wk, const struct str *js, obj *res);
 
 #endif

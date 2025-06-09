@@ -16,6 +16,7 @@
 #include "install.h"
 #include "lang/object.h"
 #include "lang/typecheck.h"
+#include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -36,34 +37,39 @@ introspect_python_interpreter(struct workspace *wk, const char *path, struct obj
 	}
 
 	obj res_introspect;
-	bool success = muon_json_to_dict(wk, cmd_ctx.out.buf, &res_introspect);
+	{
+		bool success = muon_json_to_obj(wk, &TSTR_STR(&cmd_ctx.out), &res_introspect);
+		run_cmd_ctx_destroy(&cmd_ctx);
 
-	if (!success) {
-		goto end;
+		if (!success) {
+			return false;
+		}
 	}
 
-	if (!obj_dict_index_str(wk, res_introspect, "version", &python->language_version)) {
-		success = false;
-		goto end;
+	if (get_obj_type(wk, res_introspect) != obj_dict) {
+		LOG_E("introspection object is not a dictionary");
+		return false;
 	}
 
-	if (!obj_dict_index_str(wk, res_introspect, "sysconfig_paths", &python->sysconfig_paths)) {
-		success = false;
-		goto end;
+	struct {
+		const char *key;
+		obj *dest;
+	} key_to_dest[] = {
+		{ "version", &python->language_version },
+		{ "sysconfig_paths", &python->sysconfig_paths },
+		{ "variables", &python->sysconfig_vars },
+		{ "install_paths", &python->install_paths },
+	};
+
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(key_to_dest); ++i) {
+		if (!obj_dict_index_str(wk, res_introspect, key_to_dest[i].key, key_to_dest[i].dest)) {
+			LOG_E("introspection object missing key '%s'", key_to_dest[i].key);
+			return false;
+		}
 	}
 
-	if (!obj_dict_index_str(wk, res_introspect, "variables", &python->sysconfig_vars)) {
-		success = false;
-		goto end;
-	}
-
-	if (!obj_dict_index_str(wk, res_introspect, "install_paths", &python->install_paths)) {
-		success = false;
-		goto end;
-	}
-end:
-	run_cmd_ctx_destroy(&cmd_ctx);
-	return success;
+	return true;
 }
 
 static bool

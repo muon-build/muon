@@ -940,7 +940,9 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 		}
 	}
 
-	obj_to_json(wk, doc, sb);
+	if (!obj_to_json(wk, doc, sb)) {
+		UNREACHABLE;
+	}
 }
 
 void

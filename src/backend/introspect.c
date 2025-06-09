@@ -329,8 +329,8 @@ introspect_write(struct workspace *wk, void *_ctx, FILE *f)
 	if (!o) {
 		return false;
 	}
-	obj_to_json(wk, o, &buf);
-	return true;
+
+	return obj_to_json(wk, o, &buf);
 }
 
 static bool

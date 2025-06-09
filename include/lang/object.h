@@ -105,7 +105,7 @@ enum feature_opt_state {
 	feature_opt_disabled,
 };
 
-#define FOREACH_BUILTIN_MODULE(_)                                                  \
+#define FOREACH_BUILTIN_MODULE(_)                                               \
 	_(fs, "public/fs", true)                                                \
 	_(keyval, "public/keyval", true)                                        \
 	_(pkgconfig, "public/pkgconfig", true)                                  \
@@ -115,7 +115,8 @@ enum feature_opt_state {
 	_(toolchain, "private/toolchain", true)                                 \
 	_(subprojects, "private/subprojects", true)                             \
 	_(getopt, "private/getopt", true)                                       \
-	_(curl, "private/curl", true)                                       \
+	_(curl, "private/curl", true)                                           \
+	_(json, "private/json", true)                                           \
 	_(cmake, "public/cmake", false)                                         \
 	_(dlang, "public/dlang", false)                                         \
 	_(gnome, "public/gnome", false)                                         \
@@ -632,7 +633,7 @@ struct tstr;
 const char *obj_type_to_s(enum obj_type t);
 bool s_to_type_tag(const char *s, type_tag *t);
 void obj_to_s(struct workspace *wk, obj o, struct tstr *sb);
-void obj_to_json(struct workspace *wk, obj o, struct tstr *sb);
+bool obj_to_json(struct workspace *wk, obj o, struct tstr *sb);
 bool obj_equal(struct workspace *wk, obj left, obj right);
 bool obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret);
 

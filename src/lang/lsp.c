@@ -192,7 +192,7 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 
 		char end = buf->buf[content_length];
 		buf->buf[content_length] = 0;
-		if (!muon_json_to_dict(wk, buf->buf, msg)) {
+		if (!muon_json_to_obj(wk, &TSTR_STR(buf), msg) || get_obj_type(wk, *msg) != obj_dict) {
 			LOG_E("failed to parse json: '%.*s'", buf->len, buf->buf);
 			return false;
 		}
@@ -210,7 +210,9 @@ az_srv_write(struct az_srv *srv, struct workspace *wk, obj msg)
 {
 	obj_lprintf(wk, log_debug, ">>> %#o\n", msg);
 	TSTR(buf);
-	obj_to_json(wk, msg, &buf);
+	if (!obj_to_json(wk, msg, &buf)) {
+		UNREACHABLE;
+	}
 
 	fprintf(srv->transport.out, "Content-Length: %d\r\n\r\n%s", buf.len, buf.buf);
 	fflush(srv->transport.out);

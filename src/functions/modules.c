@@ -13,6 +13,7 @@
 #include "functions/modules/curl.h"
 #include "functions/modules/fs.h"
 #include "functions/modules/getopt.h"
+#include "functions/modules/json.h"
 #include "functions/modules/keyval.h"
 #include "functions/modules/pkgconfig.h"
 #include "functions/modules/python.h"
@@ -296,6 +297,7 @@ struct func_impl_group module_func_impl_groups[module_count][language_mode_count
 	[module_subprojects] = { { 0 },                         { impl_tbl_module_subprojects }        },
 	[module_getopt]      = { { 0 },                         { impl_tbl_module_getopt }             },
 	[module_curl]        = { { 0 },                         { impl_tbl_module_curl }             },
+	[module_json]        = { { 0 },                         { impl_tbl_module_json }             },
 };
 
 const struct func_impl impl_tbl_module[] = {
