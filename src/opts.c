@@ -27,7 +27,7 @@ check_operands(uint32_t argc, uint32_t argi, int32_t expected)
 		LOG_E("missing operand");
 		return false;
 	} else if (rem > (uint32_t)expected) {
-		LOG_E("too many operands (did you try passing options after operands?)");
+		LOG_E("too many operands, got %d but expected %d (did you try passing options after operands?)", rem, expected);
 		return false;
 	}
 
