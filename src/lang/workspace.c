@@ -421,6 +421,17 @@ workspace_cwd(struct workspace *wk)
 	}
 }
 
+const char *
+workspace_build_dir(struct workspace *wk)
+{
+	if (wk->vm.lang_mode == language_internal) {
+		return wk->build_root;
+	} else {
+		return get_cstr(wk, current_project(wk)->build_dir);
+	}
+}
+
+
 bool
 workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
 {

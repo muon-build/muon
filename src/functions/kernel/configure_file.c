@@ -602,7 +602,7 @@ configure_file_with_command(struct workspace *wk,
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
 
-	if (!path_chdir(get_cstr(wk, current_project(wk)->build_dir))) {
+	if (!path_chdir(workspace_build_dir(wk))) {
 		return false;
 	}
 
@@ -805,11 +805,11 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 			return false;
 		}
 
-		if (!fs_mkdir_p(get_cstr(wk, current_project(wk)->build_dir))) {
+		if (!fs_mkdir_p(workspace_build_dir(wk))) {
 			return false;
 		}
 
-		path_join(wk, &out_path, get_cstr(wk, current_project(wk)->build_dir), out);
+		path_join(wk, &out_path, workspace_build_dir(wk), out);
 
 		LOG_I("configuring '%s'", out_path.buf);
 		output_str = tstr_into_str(wk, &out_path);

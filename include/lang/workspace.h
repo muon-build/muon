@@ -123,7 +123,7 @@ void workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr);
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir);
 struct project *current_project(struct workspace *wk);
-
+const char *workspace_build_dir(struct workspace *wk);
 const char *workspace_cwd(struct workspace *wk);
 
 void workspace_print_summaries(struct workspace *wk, FILE *out);
