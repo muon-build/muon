@@ -235,6 +235,11 @@ language_mode_from_optarg(const char *arg, enum language_mode *langmode)
 		}
 	}
 
+	LOG_E("invalid language mode: %s", arg);
+	LOG_I("supported language modes are:");
+	for (i = 0; i < ARRAY_LEN(modes); ++i) {
+		LOG_I("  - %s | %s", modes[i].short_name, modes[i].long_name);
+	}
 	return false;
 }
 
