@@ -556,6 +556,7 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct workspace wk;
 	workspace_init_bare(&wk);
+	workspace_setup_paths(&wk, path_cwd(), argv[0], argc, argv);
 
 	const char *filename;
 	bool embedded = false;
