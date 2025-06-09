@@ -441,7 +441,7 @@ coerce_into_file(struct workspace *wk, struct coerce_into_files_ctx *ctx, obj va
 			}
 			break;
 		case mode_output:
-			if (!path_is_basename(get_cstr(wk, val)) && wk->vm.lang_mode != language_extended) {
+			if (!path_is_basename(get_cstr(wk, val)) && wk->vm.lang_mode == language_external) {
 				vm_error_at(
 					wk, ctx->node, "output file '%s' contains path separators", get_cstr(wk, val));
 				return ir_err;

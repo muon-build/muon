@@ -801,8 +801,19 @@ func_configure_file(struct workspace *wk, obj _, obj *res)
 		TSTR(out_path);
 
 		if (!path_is_basename(out)) {
-			vm_error_at(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);
-			return false;
+			if (wk->vm.lang_mode == language_external) {
+				vm_error_at(wk,
+					akw[kw_output].node,
+					"config file output '%s' contains path separator",
+					out);
+				return false;
+			}
+
+			TSTR(dir);
+			path_dirname(wk, &dir, out);
+			if (!fs_mkdir_p(dir.buf)) {
+				return false;
+			}
 		}
 
 		if (!fs_mkdir_p(workspace_build_dir(wk))) {
