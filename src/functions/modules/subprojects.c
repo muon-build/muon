@@ -570,6 +570,7 @@ func_subprojects_fetch(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = {
 		{ tc_string, .desc = "The wrap file to fetch." },
+		{ tc_string, .optional = true, .desc = "The directory to fetch into" },
 		ARG_TYPE_NULL,
 	};
 	enum kwargs {
@@ -589,7 +590,7 @@ func_subprojects_fetch(struct workspace *wk, obj self, obj *res)
 			.wrap_mode = wrap_handle_mode_update,
 			.job_count = 1,
 			.progress_bar = true,
-			.subprojects_dir = path_cwd(),
+			.subprojects_dir = an[1].set ? get_cstr(wk, an[1].val) : path_cwd(),
 			.single_file = true,
 			.res = res,
 		});
@@ -606,15 +607,8 @@ func_subprojects_load_wrap(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	const char *subprojects;
-	if (wk->vm.lang_mode == language_internal) {
-		subprojects = path_cwd();
-	} else {
-		subprojects = subprojects_dir(wk);
-	}
-
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(wk, subprojects, get_cstr(wk, an[0].val), &wrap)) {
+	if (!wrap_parse(wk, ".", get_cstr(wk, an[0].val), &wrap)) {
 		return false;
 	}
 

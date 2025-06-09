@@ -15,30 +15,35 @@
 #include "platform/path.h"
 #include "wrap.h"
 
+static obj
+cmd_subprojects_escape_str(struct workspace *wk, const char *s)
+{
+	TSTR(escaped);
+	tstr_push(wk, &escaped, '\'');
+	str_escape(wk, &escaped, &STRL(s), false);
+	tstr_push(wk, &escaped, '\'');
+	return tstr_into_str(wk, &escaped);
+}
+
 static bool
-cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[], const char *cmd, obj extra_args, bool array)
+cmd_subprojects_eval_cmd(struct workspace *wk,
+	uint32_t argc,
+	uint32_t argi,
+	char *const argv[],
+	const char *cmd,
+	obj extra_args)
 {
 	obj cmd_args = make_obj(wk, obj_array);
 
-	if (argc > argi) {
-		if (array) {
-			obj list = make_obj(wk, obj_array);
-			for (; argc > argi; ++argi) {
-				obj_array_push(wk, list, make_str(wk, argv[argi]));
-			}
-
-			TSTR(list_str);
-			obj_to_s(wk, list, &list_str);
-			obj_array_push(wk, cmd_args, tstr_into_str(wk, &list_str));
-		} else {
-			for (; argc > argi; ++argi) {
-				TSTR(escaped);
-				tstr_push(wk, &escaped, '\'');
-				str_escape(wk, &escaped,  &STRL(argv[argi]), false);
-				tstr_push(wk, &escaped, '\'');
-				obj_array_push(wk, cmd_args, tstr_into_str(wk, &escaped));
-			}
+	if (argc && argc > argi) {
+		obj list = make_obj(wk, obj_array);
+		for (; argc > argi; ++argi) {
+			obj_array_push(wk, list, make_str(wk, argv[argi]));
 		}
+
+		TSTR(list_str);
+		obj_to_s(wk, list, &list_str);
+		obj_array_push(wk, cmd_args, tstr_into_str(wk, &list_str));
 	}
 
 	if (extra_args) {
@@ -49,13 +54,7 @@ cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, cha
 	obj_array_join(wk, false, cmd_args, make_str(wk, ", "), &joined);
 
 	char snippet[512];
-	snprintf(
-			snippet,
-			sizeof(snippet),
-			"import('subprojects').%s(%s)",
-			cmd,
-			get_str(wk, joined)->s
-	);
+	snprintf(snippet, sizeof(snippet), "import('subprojects').%s(%s)", cmd, get_str(wk, joined)->s);
 
 	L("evaluating %s", snippet);
 
@@ -72,7 +71,7 @@ cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const arg
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", 0, true);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", 0);
 }
 
 static bool
@@ -87,7 +86,7 @@ cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[
 	obj extra_args = make_obj(wk, obj_array);
 	obj_array_push(wk, extra_args, make_str(wk, "print: true"));
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "list", extra_args, true);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "list", extra_args);
 }
 
 static bool
@@ -106,7 +105,7 @@ cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv
 	obj extra_args = make_obj(wk, obj_array);
 	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "clean", extra_args, true);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "clean", extra_args);
 }
 
 static bool
@@ -114,18 +113,29 @@ cmd_subprojects_fetch(void *_ctx, uint32_t argc, uint32_t argi, char *const argv
 {
 	struct workspace *wk = _ctx;
 	bool force = false;
+	const char *subprojects = 0;
 
-	OPTSTART("f") {
+	OPTSTART("fo:") {
 	case 'f': force = true; break;
+	case 'o': subprojects = optarg; break;
 	}
 	OPTEND(argv[argi], " <subproject.wrap>", "  -f - force the operation\n", NULL, 1)
 
 	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
 
 	obj extra_args = make_obj(wk, obj_array);
+
+	{
+		obj_array_push(wk, extra_args, cmd_subprojects_escape_str(wk, argv[argi]));
+
+		if (subprojects) {
+			obj_array_push(wk, extra_args, cmd_subprojects_escape_str(wk, subprojects));
+		}
+	}
+
 	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "fetch", extra_args, false);
+	return cmd_subprojects_eval_cmd(wk, 0, 0, 0, "fetch", extra_args);
 }
 
 struct cmd_subprojects_ctx {
