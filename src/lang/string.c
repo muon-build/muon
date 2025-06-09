@@ -28,7 +28,7 @@ str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool esc
 	uint32_t i;
 
 	for (i = 0; i < ss->len; ++i) {
-		esc = ss->s[i] < 32 || ss->s[i] == '\'';
+		esc = ss->s[i] < 32 || ss->s[i] == '\'' || ss->s[i] == '\\';
 		if (!escape_printable && strchr("\t\n\r'", ss->s[i])) {
 			esc = false;
 		}
@@ -36,6 +36,8 @@ str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool esc
 		if (esc) {
 			if (ss->s[i] == '\'') {
 				tstr_pushf(wk, sb, "\\'");
+			} else if (ss->s[i] == '\\') {
+				tstr_pushf(wk, sb, "\\\\");
 			} else if (7 <= ss->s[i] && ss->s[i] <= 13) {
 				tstr_pushf(wk, sb, "\\%c", "abtnvfr"[ss->s[i] - 7]);
 			} else {
