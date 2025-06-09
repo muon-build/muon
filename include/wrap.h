@@ -133,7 +133,7 @@ struct wrap_handle_ctx {
 };
 
 void wrap_destroy(struct wrap *wrap);
-bool wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap);
+bool wrap_parse(struct workspace *wk, const char *subprojects, const char *wrap_file, struct wrap *wrap);
 bool wrap_handle(struct workspace *wk, const char *wrap_file, struct wrap_handle_ctx *ctx);
 void wrap_handle_async_start(struct workspace *wk);
 void wrap_handle_async_end(struct workspace *wk);

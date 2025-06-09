@@ -28,17 +28,13 @@ struct subprojects_foreach_ctx {
 static const char *
 subprojects_dir(struct workspace *wk)
 {
-	if (wk->vm.lang_mode == language_internal) {
-		return path_cwd();
-	} else {
-		TSTR(path);
-		path_join(wk,
-			&path,
-			get_cstr(wk, current_project(wk)->source_root),
-			get_cstr(wk, current_project(wk)->subprojects_dir));
+	TSTR(path);
+	path_join(wk,
+		&path,
+		get_cstr(wk, current_project(wk)->source_root),
+		get_cstr(wk, current_project(wk)->subprojects_dir));
 
-		return get_str(wk, tstr_into_str(wk, &path))->s;
-	}
+	return get_str(wk, tstr_into_str(wk, &path))->s;
 }
 
 static enum iteration_result
@@ -71,18 +67,14 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 		obj v;
 		obj_array_for(wk, list, v) {
 			const char *name = get_cstr(wk, v);
-			if (fs_file_exists(name)) {
-				path_copy(wk, &wrap_file, name);
-			} else {
-				path_join(wk, &wrap_file, subprojects_dir(wk), name);
+			path_join(wk, &wrap_file, subprojects_dir(wk), name);
 
-				tstr_pushs(wk, &wrap_file, ".wrap");
+			tstr_pushs(wk, &wrap_file, ".wrap");
 
-				if (!fs_file_exists(wrap_file.buf)) {
-					LOG_E("wrap file for '%s' not found", name);
-					res = false;
-					break;
-				}
+			if (!fs_file_exists(wrap_file.buf)) {
+				LOG_E("wrap file for '%s' not found", name);
+				res = false;
+				break;
 			}
 
 			if (cb(wk, usr_ctx, wrap_file.buf) == ir_err) {
@@ -124,7 +116,9 @@ subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx
 struct subprojects_process_opts {
 	uint32_t job_count;
 	enum wrap_handle_mode wrap_mode;
+	const char *subprojects_dir;
 	obj *res;
+	bool single_file;
 	bool progress_bar;
 };
 
@@ -265,12 +259,25 @@ static bool
 subprojects_process(struct workspace *wk, obj list, struct subprojects_process_opts *opts)
 {
 	// Init ctx
-	struct subprojects_common_ctx ctx = { .res = opts->res };
+	struct subprojects_common_ctx ctx = {
+		.res = opts->res
+	};
 	arr_init(&ctx.handlers, 8, sizeof(struct wrap_handle_ctx));
 	*ctx.res = make_obj(wk, obj_array);
 
 	// Gather subprojects
-	subprojects_foreach(wk, list, &ctx, subprojects_gather_iter);
+	if (opts->single_file) {
+		struct wrap_handle_ctx wrap_ctx = {
+			.path = get_str(wk, list)->s,
+			.opts = {
+				.allow_download = true,
+				.subprojects = opts->subprojects_dir,
+			},
+		};
+		arr_push(&ctx.handlers, &wrap_ctx);
+	} else {
+		subprojects_foreach(wk, list, &ctx, subprojects_gather_iter);
+	}
 
 	// Progress bar setup
 	log_progress_push_state(wk);
@@ -324,7 +331,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 			wrap_ctx->ok = true;
 			++cnt_running;
 
-			if (cnt_running >= opts->job_count) {
+			if (cnt_running > opts->job_count) {
 				break;
 			}
 
@@ -491,7 +498,7 @@ static enum iteration_result
 subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx, const char *path)
 {
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(wk, path, &wrap)) {
+	if (!wrap_parse(wk, subprojects_dir(wk), path, &wrap)) {
 		goto cont;
 	}
 
@@ -550,6 +557,36 @@ func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 	return subprojects_foreach(wk, an[0].val, &ctx, subprojects_clean_iter);
 }
 
+static bool
+func_subprojects_fetch(struct workspace *wk, obj self, obj *res)
+{
+	struct args_norm an[] = {
+		{ tc_string, .desc = "The wrap file to fetch." },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_force,
+	};
+	struct args_kw akw[] = {
+		[kw_force] = { "force", tc_bool, .desc = "Force the operation." },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	return subprojects_process(wk,
+		an[0].val,
+		&(struct subprojects_process_opts){
+			.wrap_mode = wrap_handle_mode_update,
+			.job_count = 1,
+			.progress_bar = true,
+			.subprojects_dir = path_cwd(),
+			.single_file = true,
+			.res = res,
+		});
+}
+
 const struct func_impl impl_tbl_module_subprojects[] = {
 	{ "update", func_subprojects_update, .flags = func_impl_flag_sandbox_disable, .desc = "Update subprojects with .wrap files" },
 	{ "list",
@@ -557,6 +594,7 @@ const struct func_impl impl_tbl_module_subprojects[] = {
 		tc_array,
 		.flags = func_impl_flag_sandbox_disable,
 		.desc = "List subprojects with .wrap files and their status." },
-	{ "clean", func_subprojects_clean, .flags = func_impl_flag_sandbox_disable, .desc = "Clean wrap-git subprojects" },
+	{ "clean", func_subprojects_clean, .flags = func_impl_flag_sandbox_disable, .desc = "Clean subprojects with .wrap files" },
+	{ "fetch", func_subprojects_fetch, .flags = func_impl_flag_sandbox_disable, .desc = "Fetch a project using a .wrap file" },
 	{ NULL, NULL },
 };

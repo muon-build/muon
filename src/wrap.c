@@ -555,10 +555,9 @@ wrap_destroy(struct wrap *wrap)
 }
 
 bool
-wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap)
+wrap_parse(struct workspace *wk, const char *subprojects, const char *wrap_file, struct wrap *wrap)
 {
 	bool res = false;
-	TSTR(subprojects);
 	struct wrap_parse_ctx ctx = { 0 };
 
 	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
@@ -589,8 +588,7 @@ wrap_parse(struct workspace *wk, const char *wrap_file, struct wrap *wrap)
 		dir = wrap->name.buf;
 	}
 
-	path_dirname(wk, &subprojects, wrap_file);
-	path_join(wk, &wrap->dest_dir, subprojects.buf, dir);
+	path_join(wk, &wrap->dest_dir, subprojects, dir);
 
 	res = true;
 ret:
@@ -1172,7 +1170,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		ctx->sub_state = wrap_handle_sub_state_running;
 		timer_start(&ctx->duration);
 
-		if (!wrap_parse(wk, wrap_file, &ctx->wrap)) {
+		if (!wrap_parse(wk, ctx->opts.subprojects, wrap_file, &ctx->wrap)) {
 			return false;
 		}
 
@@ -1381,7 +1379,7 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	}
 
 	struct wrap wrap = { 0 };
-	if (!wrap_parse(ctx->wk, ctx->path->buf, &wrap)) {
+	if (!wrap_parse(ctx->wk, ctx->subprojects, ctx->path->buf, &wrap)) {
 		return ir_err;
 	}
 

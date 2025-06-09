@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "cmd_subprojects.h"
 #include "lang/analyze.h"
@@ -15,19 +16,29 @@
 #include "wrap.h"
 
 static bool
-cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[], const char *cmd, obj extra_args)
+cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[], const char *cmd, obj extra_args, bool array)
 {
 	obj cmd_args = make_obj(wk, obj_array);
 
 	if (argc > argi) {
-		obj list = make_obj(wk, obj_array);
-		for (; argc > argi; ++argi) {
-			obj_array_push(wk, list, make_str(wk, argv[argi]));
-		}
+		if (array) {
+			obj list = make_obj(wk, obj_array);
+			for (; argc > argi; ++argi) {
+				obj_array_push(wk, list, make_str(wk, argv[argi]));
+			}
 
-		TSTR(list_str);
-		obj_to_s(wk, list, &list_str);
-		obj_array_push(wk, cmd_args, tstr_into_str(wk, &list_str));
+			TSTR(list_str);
+			obj_to_s(wk, list, &list_str);
+			obj_array_push(wk, cmd_args, tstr_into_str(wk, &list_str));
+		} else {
+			for (; argc > argi; ++argi) {
+				TSTR(escaped);
+				tstr_push(wk, &escaped, '\'');
+				str_escape(wk, &escaped,  &STRL(argv[argi]), false);
+				tstr_push(wk, &escaped, '\'');
+				obj_array_push(wk, cmd_args, tstr_into_str(wk, &escaped));
+			}
+		}
 	}
 
 	if (extra_args) {
@@ -46,6 +57,8 @@ cmd_subprojects_eval_cmd(struct workspace *wk, uint32_t argc, uint32_t argi, cha
 			get_str(wk, joined)->s
 	);
 
+	L("evaluating %s", snippet);
+
 	obj res;
 	return eval_str(wk, snippet, eval_mode_repl, &res);
 }
@@ -59,7 +72,7 @@ cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const arg
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", 0);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", 0, true);
 }
 
 static bool
@@ -74,7 +87,7 @@ cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[
 	obj extra_args = make_obj(wk, obj_array);
 	obj_array_push(wk, extra_args, make_str(wk, "print: true"));
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "list", extra_args);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "list", extra_args, true);
 }
 
 static bool
@@ -93,7 +106,26 @@ cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv
 	obj extra_args = make_obj(wk, obj_array);
 	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "clean", extra_args);
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "clean", extra_args, true);
+}
+
+static bool
+cmd_subprojects_fetch(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct workspace *wk = _ctx;
+	bool force = false;
+
+	OPTSTART("f") {
+	case 'f': force = true; break;
+	}
+	OPTEND(argv[argi], " <subproject.wrap>", "  -f - force the operation\n", NULL, 1)
+
+	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
+
+	obj extra_args = make_obj(wk, obj_array);
+	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
+
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "fetch", extra_args, false);
 }
 
 struct cmd_subprojects_ctx {
@@ -107,6 +139,7 @@ cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		{ "update", cmd_subprojects_update, "update subprojects with .wrap files" },
 		{ "list", cmd_subprojects_list, "list subprojects with .wrap files and their status" },
 		{ "clean", cmd_subprojects_clean, "clean wrap-git subprojects" },
+		{ "fetch", cmd_subprojects_fetch, "fetch a single subproject from a .wrap file" },
 		{ 0 },
 	};
 
