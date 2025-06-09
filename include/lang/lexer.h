@@ -80,10 +80,11 @@ enum token_type {
 	token_type_return,
 	token_type_returntype,
 	token_type_doc_comment,
+	token_type_null,
 };
 
 // Keep in sync with above
-#define token_type_count (token_type_doc_comment + 1)
+#define token_type_count (token_type_null + 1)
 
 enum cm_token_subtype {
 	cm_token_subtype_none,

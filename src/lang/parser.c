@@ -106,6 +106,7 @@ node_type_to_s(enum node_type t)
 
 	switch (t) {
 		nt(bool);
+		nt(null);
 		nt(id);
 		nt(id_lit);
 		nt(number);
@@ -524,6 +525,12 @@ parse_bool(struct parser *p, bool assignment_allowed)
 }
 
 static struct node *
+parse_null(struct parser *p, bool assignment_allowed)
+{
+	return make_node_t(p, node_type_null);
+}
+
+static struct node *
 parse_fstring(struct parser *p, bool assignment_allowed)
 {
 	uint32_t i, j;
@@ -741,6 +748,9 @@ parse_type(struct parser *p, type_tag *type, bool top_level)
 			parse_error(p, NULL, "unknown type %s", typestr);
 			return false;
 		}
+	} else if (parse_accept(p, token_type_null)) {
+		typestr = "null";
+		*type = TYPE_TAG_ALLOW_NULL;
 	} else {
 		return true;
 	}
@@ -1249,6 +1259,7 @@ static const struct parse_rule parse_rules_base[token_type_count] = {
 	[token_type_fstring]     = { parse_fstring,  0,             0                           },
 	[token_type_true]        = { parse_bool,     0,             0                           },
 	[token_type_false]       = { parse_bool,     0,             0                           },
+	[token_type_null]        = { parse_null,     0,             0                           },
 	['(']                    = { parse_grouping, parse_call,    parse_precedence_call       },
 	['[']                    = { parse_array,    parse_index,   parse_precedence_call       },
 	['{']                    = { parse_dict,     0,             0                           },

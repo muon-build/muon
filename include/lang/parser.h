@@ -15,6 +15,7 @@ enum node_type {
 	node_type_stmt,
 	node_type_group,
 	node_type_bool,
+	node_type_null,
 	node_type_id,
 	node_type_maybe_id,
 	node_type_id_lit,

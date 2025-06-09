@@ -485,6 +485,8 @@ type_tags_eql(struct workspace *wk, type_tag a, type_tag b)
 type_tag
 flatten_type(struct workspace *wk, type_tag t)
 {
+	t &= ~TYPE_TAG_ALLOW_NULL;
+
 	if (!(t & TYPE_TAG_COMPLEX)) {
 		t &= ~TYPE_TAG_GLOB;
 

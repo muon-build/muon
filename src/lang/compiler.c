@@ -203,6 +203,10 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_constant);
 		push_constant(wk, n->data.num ? obj_bool_true : obj_bool_false);
 		break;
+	case node_type_null:
+		push_code(wk, op_constant);
+		push_constant(wk, 0);
+		break;
 	case node_type_string:
 		push_code(wk, op_constant);
 		push_constant(wk, n->data.str);

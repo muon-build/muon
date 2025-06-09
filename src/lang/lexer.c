@@ -75,6 +75,7 @@ token_type_to_s(enum token_type type)
 	case token_type_bitor: return "|";
 	case token_type_returntype: return "->";
 	case token_type_doc_comment: return "doc comment";
+	case token_type_null: return "null";
 	}
 
 	UNREACHABLE_RETURN;
@@ -246,6 +247,7 @@ static const struct lex_str_token_table lex_keyword_tokens_func[] = {
 	{ STR_static("endfunc"), token_type_endfunc },
 	{ STR_static("func"), token_type_func },
 	{ STR_static("return"), token_type_return },
+	{ STR_static("null"), token_type_null },
 };
 
 static void

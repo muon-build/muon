@@ -1036,6 +1036,10 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 		fr->str = make_str(f->wk, n->data.num ? "true" : "false");
 		break;
 	}
+	case node_type_null: {
+		fr->str = make_str(f->wk, "null");
+		break;
+	}
 	case node_type_negate: {
 		fr->str = make_str(f->wk, "-");
 		fr->flags |= fmt_frag_flag_stick_right;
