@@ -118,7 +118,7 @@ is_digit(const char c)
 	return '0' <= c && c <= '9';
 }
 
-static bool
+bool
 is_hex_digit(const char c)
 {
 	return is_digit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
@@ -315,8 +315,8 @@ lex_number(struct lexer *lexer, struct token *token)
 	}
 }
 
-static bool
-lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct tstr *buf, uint32_t val)
+bool
+lex_string_escape_utf8(struct workspace *wk, struct tstr *buf, uint32_t val)
 {
 	uint8_t pre, b, pre_len;
 	uint32_t len, i;
@@ -329,7 +329,7 @@ lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct tstr *bu
 	 * */
 
 	if (val <= 0x7f) {
-		tstr_push(lexer->wk, buf, val);
+		tstr_push(wk, buf, val);
 		return true;
 	} else if (val <= 0x07ff) {
 		len = 2;
@@ -347,14 +347,13 @@ lex_string_escape_utf8(struct lexer *lexer, struct token *token, struct tstr *bu
 		pre = 0xf0;
 		b = 21;
 	} else {
-		lex_error_token(lexer, token, "invalid utf-8 escape 0x%x", val);
 		return false;
 	}
 
-	tstr_push(lexer->wk, buf, pre | (val >> (b - pre_len)));
+	tstr_push(wk, buf, pre | (val >> (b - pre_len)));
 
 	for (i = 1; i < len; ++i) {
-		tstr_push(lexer->wk, buf, 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f));
+		tstr_push(wk, buf, 0x80 | ((val >> (b - pre_len - (6 * i))) & 0x3f));
 	}
 
 	return true;
@@ -422,7 +421,11 @@ lex_string_escape(struct lexer *lexer, struct token *token, struct tstr *buf)
 
 		uint32_t val = strtol(num, 0, 16);
 
-		return lex_string_escape_utf8(lexer, token, buf, val);
+		if (!lex_string_escape_utf8(lexer->wk, buf, val)) {
+			lex_error_token(lexer, token, "invalid utf-8 escape 0x%x", val);
+			return false;
+		}
+		return true;
 	}
 	case '0':
 	case '1':
