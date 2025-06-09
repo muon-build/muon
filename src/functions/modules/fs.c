@@ -987,7 +987,6 @@ func_module_fs_canonicalize(struct workspace *wk, obj self, obj *res)
 
 const struct func_impl impl_tbl_module_fs_internal[] = {
 	{ "as_posix", func_module_fs_as_posix, tc_string, true },
-	{ "copyfile", func_module_fs_copyfile },
 	{ "exists", func_module_fs_exists, tc_bool },
 	{ "expanduser", func_module_fs_expanduser, tc_string },
 	{ "hash", func_module_fs_hash, tc_string },
