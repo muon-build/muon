@@ -2307,6 +2307,7 @@ const struct func_impl impl_tbl_kernel[] =
 
 const struct func_impl impl_tbl_kernel_internal[] = {
 	{ "assert", func_assert, .flags = func_impl_flag_throws_error },
+	{ "configure_file", func_configure_file, tc_file },
 	{ "configuration_data", func_configuration_data, tc_configuration_data },
 	{ "disabler", func_disabler, tc_disabler },
 	{ "environment", func_environment, tc_environment },
