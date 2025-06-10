@@ -2296,7 +2296,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 
 	obj output;
 	if (akw[kw_output].set) {
-		output = akw[kw_output].set;
+		output = akw[kw_output].val;
 	} else {
 		output = make_str(wk, "@PLAINNAME@.i");
 	}
