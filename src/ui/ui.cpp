@@ -940,6 +940,7 @@ render_option(struct workspace *wk, obj k, obj o)
 		}
 		break;
 	}
+	case op_shell_array:
 	case op_array: {
 		char preview[256];
 		obj_snprintf(wk, preview, sizeof(preview), "%o", opt->val);
