@@ -44,6 +44,9 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 	if (str_has_null(ss)) {
 		LOG_E("option cannot contain NUL");
 		return false;
+	} else if (!key_only && !memchr(ss->s, '=', ss->len)) {
+		LOG_E("option must contain =, got %s", ss->s);
+		return false;
 	}
 
 	struct str subproject = { 0 }, key = { 0 }, val = { 0 }, cur = { 0 };
@@ -93,9 +96,6 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 		return false;
 	} else if (key_only && val.len) {
 		LOG_E("unexpected '=' in option '%s'", ss->s);
-		return false;
-	} else if (!key_only && !val.len) {
-		LOG_E("expected '=' in option '%s'", ss->s);
 		return false;
 	}
 
