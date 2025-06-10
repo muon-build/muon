@@ -652,13 +652,15 @@ find_program_check_fallback(struct workspace *wk, struct find_program_ctx *ctx, 
 		if (!find_program_check_override(wk, ctx, prog)) {
 			return false;
 		} else if (!ctx->found) {
+			LO("%o, %o\n", wk->find_program_overrides[0], wk->find_program_overrides[1]);
 			obj _;
 			if (!obj_dict_index(wk, wk->find_program_overrides[ctx->machine], prog, &_)) {
 				vm_warning_at(wk,
 					0,
-					"subproject %o claims to provide %o, but did not override it",
+					"subproject %o claims to provide %o for the %s machine, but did not override it",
 					subproj_name,
-					prog);
+					prog,
+					machine_kind_to_s(ctx->machine));
 			}
 		}
 	}
