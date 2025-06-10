@@ -1458,7 +1458,7 @@ func_declare_dependency(struct workspace *wk, obj _, obj *res)
 		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
 		[kw_version] = { "version", obj_string },
 		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
-		[kw_variables] = { "variables", tc_array | tc_dict },
+		[kw_variables] = { "variables", tc_string | tc_array | tc_dict },
 		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
 		[kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		[kw_extra_files] = { "extra_files", TYPE_TAG_LISTIFY | tc_coercible_files }, // ignored
