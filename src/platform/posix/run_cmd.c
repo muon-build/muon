@@ -195,6 +195,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	TSTR_manual(cmd);
 
 	if (!fs_find_cmd(NULL, &cmd, _cmd)) {
+		L("failed to run command '%s': not found", _cmd);
 		ctx->err_msg = "command not found";
 		return false;
 	}
