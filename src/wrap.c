@@ -270,8 +270,8 @@ wrap_parse_provides_cb(void *_ctx,
 		error_messagef(src, location, log_error, "empty provides key \"%s\"", k);
 		return false;
 	} else if (!*v) {
-		error_messagef(src, location, log_error, "empty provides value \"%s\"", v);
-		return false;
+		error_messagef(src, location, log_warn, "empty provides value \"%s\"", v);
+		return true;
 	}
 
 	ctx->add_provides_tgt = 0;
