@@ -15,6 +15,7 @@
 #include "coerce.h"
 #include "error.h"
 #include "functions/generator.h"
+#include "functions/kernel.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/string.h"
 #include "install.h"
@@ -256,6 +257,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 
 	obj ss;
 	enum obj_type t = get_obj_type(wk, val);
+	obj extra_args = 0;
 
 	switch (t) {
 	case obj_both_libs:
@@ -263,8 +265,8 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_external_program:
 	case obj_python_installation:
 	case obj_file: {
-		obj str, args;
-		if (!coerce_executable(wk, ctx->opts->err_node, val, &str, &args)) {
+		obj str;
+		if (!coerce_executable(wk, ctx->opts->err_node, val, &str, &extra_args)) {
 			return ir_err;
 		}
 
@@ -273,13 +275,6 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 		if (!ctx->skip_depends) {
 			obj_array_push(wk, ctx->opts->depends, ss);
 		}
-
-		if (args) {
-			obj_array_push(wk, *ctx->res, ss);
-			obj_array_extend_nodup(wk, *ctx->res, args);
-			return ir_cont;
-		}
-
 		break;
 	}
 	case obj_string: {
@@ -310,6 +305,24 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_err;
 		}
 		ss = s;
+
+		if (ctx->i == 0 && !path_is_absolute(get_str(wk, ss)->s)) {
+			obj argv0 = 0;
+			struct find_program_ctx find_program_ctx = {
+				.res = &argv0,
+				.requirement = requirement_required,
+				.machine = coerce_machine_kind(wk, 0),
+			};
+			if (!find_program(wk, &find_program_ctx, ss)) {
+				return false;
+			}
+
+			if (!find_program_ctx.found) {
+				return false;
+			}
+
+			return custom_target_cmd_fmt_iter(wk, ctx, argv0);
+		}
 		break;
 	}
 	case obj_custom_target: {
@@ -334,6 +347,10 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 	assert(get_obj_type(wk, ss) == obj_string);
 
 	obj_array_push(wk, *ctx->res, ss);
+
+	if (extra_args) {
+		obj_array_extend_nodup(wk, *ctx->res, extra_args);
+	}
 cont:
 	++ctx->i;
 	return ir_cont;
@@ -360,6 +377,7 @@ process_custom_target_commandline(struct workspace *wk,
 		vm_error_at(wk, opts->err_node, "cmd cannot be empty");
 		return false;
 	}
+
 	return true;
 }
 
@@ -863,12 +881,7 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 	struct obj_custom_target *tgt = get_obj_custom_target(wk, *res);
 	tgt->flags |= custom_target_build_always_stale;
 
-	if (!install_custom_target(wk,
-		    tgt,
-		    &akw[kw_install],
-		    0,
-		    akw[kw_install_dir].val,
-		    akw[kw_install_mode].val)) {
+	if (!install_custom_target(wk, tgt, &akw[kw_install], 0, akw[kw_install_dir].val, akw[kw_install_mode].val)) {
 		return false;
 	}
 
