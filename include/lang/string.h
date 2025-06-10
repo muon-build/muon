@@ -26,7 +26,7 @@ struct workspace;
 #define STRL(__str)                              \
 	(struct str)                             \
 	{                                        \
-		.s = __str, .len = strlen(__str) \
+		.s = __str, .len = (uint32_t)strlen(__str) \
 	}
 
 /* tstr - Temporary STRing
