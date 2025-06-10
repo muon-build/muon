@@ -189,7 +189,7 @@ workspace_destroy(struct workspace *wk)
 	TracyCZoneAutoE;
 }
 
-bool
+void
 workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
 {
 	TSTR(build_root);
@@ -209,7 +209,11 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	TSTR(muon_private);
 	path_join(wk, &muon_private, wk->build_root, output_path.private_dir);
 	wk->muon_private = get_cstr(wk, tstr_into_str(wk, &muon_private));
+}
 
+static bool
+workspace_create_build_dir(struct workspace *wk)
+{
 	if (!fs_mkdir_p(wk->muon_private)) {
 		return false;
 	}
@@ -445,7 +449,9 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 	bool progress = log_is_progress_bar_enabled();
 	log_progress_disable();
 
-	if (!workspace_setup_paths(wk, build, argv0, argc, argv)) {
+	workspace_setup_paths(wk, build, argv0, argc, argv);
+
+	if (!workspace_create_build_dir(wk)) {
 		goto ret;
 	}
 
