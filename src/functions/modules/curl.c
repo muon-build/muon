@@ -59,7 +59,7 @@ done:
 const struct func_impl impl_tbl_module_curl[] = {
 	{ "fetch",
 		func_module_curl_fetch,
-		tc_array,
+		tc_string,
 		.desc = "Begin fetching a url using libcurl.  Only available if libcurl support is enabeld." },
 	{ NULL, NULL },
 };
