@@ -2223,7 +2223,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 	struct args_kw akw[] = {
 		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | tc_string },
 		[kw_include_directories] = { "include_directories", TYPE_TAG_LISTIFY | tc_coercible_inc },
-		[kw_output] = { "output", tc_string, .required = true },
+		[kw_output] = { "output", tc_string },
 		[kw_dependencies] = { "dependencies", TYPE_TAG_LISTIFY | tc_dependency },
 		[kw_depends] = { "depends", tc_depends_kw },
 		0,
@@ -2294,6 +2294,13 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
+	obj output;
+	if (akw[kw_output].set) {
+		output = akw[kw_output].set;
+	} else {
+		output = make_str(wk, "@PLAINNAME@.i");
+	}
+
 	obj v;
 	obj_array_for(wk, an[0].val, v) {
 		obj cmd;
@@ -2304,10 +2311,8 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 
 		struct make_custom_target_opts opts = {
 			.input_node = an[0].node,
-			.output_node = akw[kw_output].node,
-			.command_node = 0,
 			.input_orig = v,
-			.output_orig = akw[kw_output].val,
+			.output_orig = output,
 			.output_dir = output_dir.buf,
 			.command_orig = cmd,
 			.extra_args_valid = true,
