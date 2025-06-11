@@ -584,7 +584,7 @@ fs_wait_for_input(int fd)
 	HANDLE h = (HANDLE)_h;
 
 	if (WaitForSingleObject(h, INFINITE) != WAIT_OBJECT_0) {
-		LOG_E("failed WaitForSingleObject(%d): %s", h, win32_error());
+		LOG_E("failed WaitForSingleObject(0x%p): %s", h, win32_error());
 		return false;
 	}
 
