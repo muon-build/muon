@@ -454,38 +454,35 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 {
 	struct obj_option *o = get_obj_option(wk, opt);
 
-	// Only set options that haven't set from a source with higher
-	// precedence.  This means that option precedence doesn't have to rely
-	// on the order in which options are set.  This means that e.g.
-	// command-line set options can be set before the main meson.build file
-	// has even been parsed.
-	//
-	// This mostly follows meson's behavior, except that deprecated options
-	// cannot override command line options.
-
-	/* { */
-	/* 	const char *sourcenames[] = { */
-	/* 		[option_value_source_unset] = "unset", */
-	/* 		[option_value_source_default] = "default", */
-	/* 		[option_value_source_environment] = "environment", */
-	/* 		[option_value_source_default_options] = "default_options", */
-	/* 		[option_value_source_subproject_default_options] = "subproject_default_options", */
-	/* 		[option_value_source_yield] = "yield", */
-	/* 		[option_value_source_commandline] = "commandline", */
-	/* 		[option_value_source_deprecated_rename] = "deprecated rename", */
-	/* 		[option_value_source_override_options] = "override_options", */
-	/* 	}; */
-	/* 	obj_fprintf(wk, log_file(), */
-	/* 		"%s option %o to %o from %s, last set by %s\n", */
-	/* 		o->source > source */
-	/* 		? "\033[31mnot setting\033[0m" */
-	/* 		: "\033[32msetting\033[0m", */
-	/* 		o->name, new_val, sourcenames[source], sourcenames[o->source]); */
-	/* } */
+	// Only set options that have not been set from a source with higher
+	// precedence.
 
 	if (o->source > source) {
 		return true;
 	}
+
+	if (false) {
+		const char *sourcenames[] = {
+			[option_value_source_unset] = "unset",
+			[option_value_source_default] = "default",
+			[option_value_source_environment] = "environment",
+			[option_value_source_default_options] = "default_options",
+			[option_value_source_subproject_default_options] = "subproject_default_options",
+			[option_value_source_yield] = "yield",
+			[option_value_source_commandline] = "commandline",
+			[option_value_source_deprecated_rename] = "deprecated rename",
+			[option_value_source_override_options] = "override_options",
+		};
+		obj_lprintf(wk,
+			log_debug,
+			"%s option %o to %o from %s, last set by %s\n",
+			o->source > source ? "\033[31mnot setting\033[0m" : "\033[32msetting\033[0m",
+			o->name,
+			new_val,
+			sourcenames[source],
+			sourcenames[o->source]);
+	}
+
 	o->source = source;
 
 	if (get_obj_type(wk, o->deprecated) == obj_bool && get_obj_bool(wk, o->deprecated)) {
