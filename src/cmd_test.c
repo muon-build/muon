@@ -937,6 +937,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	unfiltered_tests = obj_array_index(wk, arr, 0);
 
 	struct run_test_ctx *ctx = _ctx;
+	ctx->proj_name = proj_name;
 	ctx->deps = make_obj(wk, obj_array);
 
 	ctx->stats.test_i = 0;
@@ -965,8 +966,6 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	LOG_I("running %ss for project '%s'", test_category_label(ctx->opts->cat), get_cstr(wk, proj_name));
 
 	ctx->stats.ran_tests = true;
-
-	ctx->proj_name = proj_name;
 
 	if (!obj_array_foreach(wk, tests, ctx, run_test)) {
 		return ir_err;
