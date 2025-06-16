@@ -457,7 +457,7 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 	// Only set options that have not been set from a source with higher
 	// precedence.
 
-	if (o->source > source) {
+	if (o->source >= source) {
 		return true;
 	}
 
