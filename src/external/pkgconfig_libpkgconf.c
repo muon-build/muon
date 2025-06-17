@@ -43,9 +43,12 @@ muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
 	c->personality = pkgconf_cross_personality_default();
 	pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
 
-	obj opt;
-	get_option_value(wk, current_project(wk), "pkg_config_path", &opt);
-	const struct str *pkg_config_path = get_str(wk, opt);
+	struct obj_array *pkg_config_path;
+	{
+		obj opt;
+		get_option_value(wk, current_project(wk), "pkg_config_path", &opt);
+		pkg_config_path = get_obj_array(wk, opt);
+	}
 
 #ifdef MUON_STATIC
 	if (!pkg_config_path->len) {
@@ -56,7 +59,10 @@ muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
 #endif
 
 	if (pkg_config_path->len) {
-		pkgconf_path_split(pkg_config_path->s, &c->client.dir_list, true);
+		obj v;
+		obj_array_for_array(wk, pkg_config_path, v) {
+			pkgconf_path_add(get_cstr(wk, v), &c->client.dir_list, true);
+		}
 	} else {
 		// pkgconf_client_dir_list_build uses PKG_CONFIG_PATH and
 		// PKG_CONFIG_LIBDIR from the environment, as well as the

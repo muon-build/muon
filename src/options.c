@@ -654,7 +654,7 @@ set_compile_opt_from_env(struct workspace *wk, const char *name, const char *fla
 }
 
 static void
-set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt_name)
+set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt_name, const char *split)
 {
 	obj opt;
 	if (!get_option(wk, NULL, &STRL(opt_name), &opt)) {
@@ -663,7 +663,14 @@ set_str_opt_from_env(struct workspace *wk, const char *env_name, const char *opt
 
 	const char *env_val;
 	if ((env_val = os_get_env(env_name)) && *env_val) {
-		set_option(wk, opt, make_str(wk, env_val), option_value_source_environment, false);
+		obj val;
+		if (split) {
+			val = str_split(wk, &STRL(env_val), &STRL(split));
+		} else {
+			val = make_str(wk, env_val);
+		}
+
+		set_option(wk, opt, val, option_value_source_environment, false);
 	}
 }
 
@@ -916,7 +923,7 @@ init_global_options(struct workspace *wk)
 		make_compiler_env_option(wk, langs[i].l, toolchain_component_linker);
 	}
 
-	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path");
+	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path", ENV_PATH_SEP_STR);
 
 	set_binary_from_env(wk, "AR", "env.AR");
 	set_binary_from_env(wk, "NINJA", "env.NINJA");

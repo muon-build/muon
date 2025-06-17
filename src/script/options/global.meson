@@ -176,8 +176,8 @@ option(
 )
 option(
     'pkg_config_path',
-    type: 'string',
-    value: '',
+    type: 'array',
+    value: [],
     description: 'List of additional paths for pkg-config to search',
 )
 option(
