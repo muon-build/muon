@@ -2,30 +2,106 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 # Directories
-option('prefix', type: 'string', value: '/usr/local')
-option('bindir', type: 'string', value: 'bin', kind: 'prefixed_dir')
-option('datadir', type: 'string', value: 'share', kind: 'prefixed_dir')
-option('includedir', type: 'string', value: 'include', kind: 'prefixed_dir')
-option('infodir', type: 'string', value: 'share/info', kind: 'prefixed_dir')
-option('libdir', type: 'string', value: 'lib', kind: 'prefixed_dir')
-option('libexecdir', type: 'string', value: 'libexec', kind: 'prefixed_dir')
-option('licensedir', type: 'string', value: '', kind: 'prefixed_dir')
-option('localedir', type: 'string', value: 'share/locale', kind: 'prefixed_dir')
-option('localstatedir', type: 'string', value: '/var')
-option('mandir', type: 'string', value: 'share/man', kind: 'prefixed_dir')
-option('sbindir', type: 'string', value: 'sbin', kind: 'prefixed_dir')
-option('sharedstatedir', type: 'string', value: 'com', kind: 'prefixed_dir')
-option('sysconfdir', type: 'string', value: '/etc')
+option(
+    'prefix',
+    type: 'string',
+    value: '/usr/local',
+)
+option(
+    'bindir',
+    type: 'string',
+    value: 'bin',
+    kind: 'prefixed_dir',
+)
+option(
+    'datadir',
+    type: 'string',
+    value: 'share',
+    kind: 'prefixed_dir',
+)
+option(
+    'includedir',
+    type: 'string',
+    value: 'include',
+    kind: 'prefixed_dir',
+)
+option(
+    'infodir',
+    type: 'string',
+    value: 'share/info',
+    kind: 'prefixed_dir',
+)
+option(
+    'libdir',
+    type: 'string',
+    value: 'lib',
+    kind: 'prefixed_dir',
+)
+option(
+    'libexecdir',
+    type: 'string',
+    value: 'libexec',
+    kind: 'prefixed_dir',
+)
+option(
+    'licensedir',
+    type: 'string',
+    value: '',
+    kind: 'prefixed_dir',
+)
+option(
+    'localedir',
+    type: 'string',
+    value: 'share/locale',
+    kind: 'prefixed_dir',
+)
+option(
+    'localstatedir',
+    type: 'string',
+    value: '/var',
+)
+option(
+    'mandir',
+    type: 'string',
+    value: 'share/man',
+    kind: 'prefixed_dir',
+)
+option(
+    'sbindir',
+    type: 'string',
+    value: 'sbin',
+    kind: 'prefixed_dir',
+)
+option(
+    'sharedstatedir',
+    type: 'string',
+    value: 'com',
+    kind: 'prefixed_dir',
+)
+option(
+    'sysconfdir',
+    type: 'string',
+    value: '/etc',
+)
 
 # Core options
-option('auto_features', type: 'feature', value: 'auto')
+option(
+    'auto_features',
+    type: 'feature',
+    value: 'auto',
+)
 option(
     'backend',
     type: 'combo',
     value: 'ninja',
     choices: ['ninja', 'xcode'],
 )
-option('backend_max_links', type: 'integer', value: 0, min: 0)
+option(
+    'backend_max_links',
+    type: 'integer',
+    value: 0,
+    min: 0,
+)
 option(
     'buildtype',
     type: 'combo',
@@ -39,10 +115,26 @@ option(
         'custom',
     ],
 )
-option('cmake_prefix_path', type: 'array', value: []) # TODO
-option('debug', type: 'boolean', value: true)
-option('errorlogs', type: 'boolean', value: true) # TODO
-option('install_umask', type: 'string', value: '022') # TODO
+option(
+    'cmake_prefix_path',
+    type: 'array',
+    value: [],
+) # TODO
+option(
+    'debug',
+    type: 'boolean',
+    value: true,
+)
+option(
+    'errorlogs',
+    type: 'boolean',
+    value: true,
+) # TODO
+option(
+    'install_umask',
+    type: 'string',
+    value: '022',
+) # TODO
 option(
     'layout',
     type: 'combo',
@@ -57,23 +149,44 @@ option(
     value: '0',
     choices: ['plain', '0', 'g', '1', '2', '3', 's'],
 )
-option('pkg_config_path', type: 'string', value: '')
-option('stdsplit', type: 'boolean', value: true) # TODO
-option('strip', type: 'boolean', value: false) # TODO
+option(
+    'pkg_config_path',
+    type: 'string',
+    value: '',
+)
+option(
+    'stdsplit',
+    type: 'boolean',
+    value: true,
+) # TODO
+option(
+    'strip',
+    type: 'boolean',
+    value: false,
+) # TODO
 option(
     'unity',
     type: 'combo',
     value: 'off',
     choices: ['off'],
 )
-option('unity_size', type: 'integer', value: 4, min: 2) # TODO
+option(
+    'unity_size',
+    type: 'integer',
+    value: 4,
+    min: 2,
+) # TODO
 option(
     'wrap_mode',
     type: 'combo',
     value: 'nopromote',
     choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
 )
-option('force_fallback_for', type: 'array', value: [])
+option(
+    'force_fallback_for',
+    type: 'array',
+    value: [],
+)
 option(
     'default_both_libraries',
     type: 'combo',
@@ -82,42 +195,91 @@ option(
 )
 
 # Base options
-option('b_asneeded', type: 'boolean', value: true) # TODO
-option('b_bitcode', type: 'boolean', value: false) # TODO
+option(
+    'b_asneeded',
+    type: 'boolean',
+    value: true,
+) # TODO
+option(
+    'b_bitcode',
+    type: 'boolean',
+    value: false,
+) # TODO
 option(
     'b_colorout',
     type: 'combo',
     value: 'always',
     choices: ['auto', 'always', 'never'],
 )
-option('b_coverage', type: 'boolean', value: false)
-option('b_lundef', type: 'boolean', value: true) # TODO
-option('b_lto', type: 'boolean', value: false)
-option('b_lto_threads', type: 'integer', value: 0, min: 0) # TODO
+option(
+    'b_coverage',
+    type: 'boolean',
+    value: false,
+)
+option(
+    'b_lundef',
+    type: 'boolean',
+    value: true,
+) # TODO
+option(
+    'b_lto',
+    type: 'boolean',
+    value: false,
+)
+option(
+    'b_lto_threads',
+    type: 'integer',
+    value: 0,
+    min: 0,
+) # TODO
 option(
     'b_lto_mode',
     type: 'combo',
     value: 'default',
     choices: ['default', 'thin'],
 ) # TODO
-option('b_thinlto_cache', type: 'boolean', value: false) # TODO
-option('b_thinlto_cache_dir', type: 'string', value: '') # TODO
+option(
+    'b_thinlto_cache',
+    type: 'boolean',
+    value: false,
+) # TODO
+option(
+    'b_thinlto_cache_dir',
+    type: 'string',
+    value: '',
+) # TODO
 option(
     'b_ndebug',
     type: 'combo',
     value: 'false',
     choices: ['true', 'false', 'if-release'],
 )
-option('b_pch', type: 'boolean', value: true) # TODO
+option(
+    'b_pch',
+    type: 'boolean',
+    value: true,
+) # TODO
 option(
     'b_pgo',
     type: 'combo',
     value: 'off',
     choices: ['off', 'generate', 'use'],
 )
-option('b_sanitize', type: 'string', value: 'none')
-option('b_staticpic', type: 'boolean', value: true)
-option('b_pie', type: 'boolean', value: false)
+option(
+    'b_sanitize',
+    type: 'string',
+    value: 'none',
+)
+option(
+    'b_staticpic',
+    type: 'boolean',
+    value: true,
+)
+option(
+    'b_pie',
+    type: 'boolean',
+    value: false,
+)
 option(
     'b_vscrt',
     type: 'combo',
@@ -135,33 +297,97 @@ option(
 
 # Compiler options
 
-option('c_winlibs', type: 'array', value: [])
-option('c_thread_count', type: 'integer', value: 4, min: 0) # TODO
-option('cpp_debugstl', type: 'boolean', value: false) # TODO
+option(
+    'c_winlibs',
+    type: 'array',
+    value: [],
+)
+option(
+    'c_thread_count',
+    type: 'integer',
+    value: 4,
+    min: 0,
+) # TODO
+option(
+    'cpp_debugstl',
+    type: 'boolean',
+    value: false,
+) # TODO
 option(
     'cpp_eh',
     type: 'combo',
     value: 'default',
     choices: ['none', 'default', 'a', 's', 'sc'],
 ) # TODO
-option('cpp_rtti', type: 'boolean', value: true) # TODO
-option('cpp_thread_count', type: 'integer', value: 4, min: 0) # TODO
-option('cpp_winlibs', type: 'array', value: []) # TODO
-option('prefer_static', type: 'boolean', value: false)
-option('vsenv', type: 'boolean', value: false)
+option(
+    'cpp_rtti',
+    type: 'boolean',
+    value: true,
+) # TODO
+option(
+    'cpp_thread_count',
+    type: 'integer',
+    value: 4,
+    min: 0,
+) # TODO
+option(
+    'cpp_winlibs',
+    type: 'array',
+    value: [],
+) # TODO
+option(
+    'prefer_static',
+    type: 'boolean',
+    value: false,
+)
+option(
+    'vsenv',
+    type: 'boolean',
+    value: false,
+)
 
 # Python specific options
-option('python.bytecompile', type: 'integer', value: 0, min: -1, max: 2)
-option('python.purelibdir', type: 'string', value: '')
-option('python.platlibdir', type: 'string', value: '')
-option('python.allow_limited_api', type: 'boolean', value: true)
+option(
+    'python.bytecompile',
+    type: 'integer',
+    value: 0,
+    min: -1,
+    max: 2,
+)
+option(
+    'python.purelibdir',
+    type: 'string',
+    value: '',
+)
+option(
+    'python.platlibdir',
+    type: 'string',
+    value: '',
+)
+option(
+    'python.allow_limited_api',
+    type: 'boolean',
+    value: true,
+)
 
 # muon-specific options.  These are safe from being overridden because meson
 # forbids . in an option name
 
-option('env.AR', type: 'shell_array', value: ['ar'])
-option('env.NINJA', type: 'shell_array', value: ['ninja'])
-option('env.PKG_CONFIG', type: 'shell_array', value: ['pkg-config'])
+option(
+    'env.AR',
+    type: 'shell_array',
+    value: ['ar'],
+)
+option(
+    'env.NINJA',
+    type: 'shell_array',
+    value: ['ninja'],
+)
+option(
+    'env.PKG_CONFIG',
+    type: 'shell_array',
+    value: ['pkg-config'],
+)
 
 option(
     'muon.pkgconfig',
