@@ -313,7 +313,16 @@ option(
 )
 option(
     'b_sanitize',
-    type: 'string',
+    type: 'combo',
+    choices: [
+        'none',
+        'address',
+        'thread',
+        'undefined',
+        'memory',
+        'leak',
+        'address,undefined',
+    ],
     value: 'none',
     description: 'Code sanitizer to use',
 )
