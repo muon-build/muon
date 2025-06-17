@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-name: vs2019
+name: vs
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
         compiler:
           - msvc
     name: ${{ matrix.arch }} - ${{ matrix.compiler }}
-    runs-on: windows-2019
+    runs-on: windows-2022
     defaults:
       run:
         shell: cmd
