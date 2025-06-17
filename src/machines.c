@@ -382,8 +382,9 @@ machine_init(void)
 
 	build_machine.kind = machine_kind_build;
 	build_machine.sys = machine_system(&STRL(sysstr));
-	build_machine.subsystem = build_machine.sys == machine_system_darwin ? machine_subsystem_macos :
-									       machine_subsystem_unknown;
+	build_machine.subsystem = build_machine.sys == machine_system_darwin ?
+					  machine_subsystem_macos :
+					  (enum machine_subsystem)build_machine.sys;
 	machine_cpu(&build_machine, &STRL(mstr));
 	machine_cpu_family(&build_machine);
 	build_machine.endianness = uname_endian();

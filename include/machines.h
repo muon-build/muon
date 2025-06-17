@@ -53,7 +53,7 @@ FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
 };
 
 #define FOREACH_MACHINE_SUBSYSTEM(_) \
-	_(unknown) \
+	FOREACH_MACHINE_SYSTEM(_) \
 	_(macos) \
 	_(ios) \
 	_(tvos) \
