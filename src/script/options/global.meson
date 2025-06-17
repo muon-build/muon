@@ -6,82 +6,96 @@ option(
     'prefix',
     type: 'string',
     value: '/usr/local',
+    description: 'Installation prefix',
 )
 option(
     'bindir',
     type: 'string',
     value: 'bin',
+    description: 'Executable directory',
     kind: 'prefixed_dir',
 )
 option(
     'datadir',
     type: 'string',
     value: 'share',
+    description: 'Data file directory',
     kind: 'prefixed_dir',
 )
 option(
     'includedir',
     type: 'string',
     value: 'include',
+    description: 'Header file directory',
     kind: 'prefixed_dir',
 )
 option(
     'infodir',
     type: 'string',
     value: 'share/info',
+    description: 'Info page directory',
     kind: 'prefixed_dir',
 )
 option(
     'libdir',
     type: 'string',
     value: 'lib',
+    description: 'Library directory',
     kind: 'prefixed_dir',
 )
 option(
     'libexecdir',
     type: 'string',
     value: 'libexec',
+    description: 'Library executable directory',
     kind: 'prefixed_dir',
 )
 option(
     'licensedir',
     type: 'string',
     value: '',
+    description: 'Licenses directory',
     kind: 'prefixed_dir',
 )
 option(
     'localedir',
     type: 'string',
     value: 'share/locale',
+    description: 'Locale data directory',
     kind: 'prefixed_dir',
 )
 option(
     'localstatedir',
     type: 'string',
     value: '/var',
+    description: 'Localstate data directory',
 )
 option(
     'mandir',
     type: 'string',
     value: 'share/man',
+    description: 'Manual page directory',
     kind: 'prefixed_dir',
 )
 option(
     'sbindir',
     type: 'string',
     value: 'sbin',
+    description: 'System executable directory',
     kind: 'prefixed_dir',
 )
 option(
     'sharedstatedir',
     type: 'string',
     value: 'com',
+    description: 'Architecture-independent data directory',
     kind: 'prefixed_dir',
 )
 option(
     'sysconfdir',
     type: 'string',
     value: '/etc',
+    description: 'Sysconf data directory',
 )
 
 # Core options
@@ -89,18 +103,21 @@ option(
     'auto_features',
     type: 'feature',
     value: 'auto',
+    description: 'Override value of all "auto" features',
 )
 option(
     'backend',
     type: 'combo',
     value: 'ninja',
     choices: ['ninja', 'xcode'],
+    description: 'Backend to use',
 )
 option(
     'backend_max_links',
     type: 'integer',
     value: 0,
     min: 0,
+    description: 'Maximum number of linker processes to run or 0 for no limit',
 )
 option(
     'buildtype',
@@ -114,26 +131,31 @@ option(
         'minsize',
         'custom',
     ],
+    description: 'Build type to use',
 )
 option(
     'cmake_prefix_path',
     type: 'array',
     value: [],
+    description: 'List of additional prefixes for cmake to search',
 ) # TODO
 option(
     'debug',
     type: 'boolean',
     value: true,
+    description: 'Enable debug symbols and other information',
 )
 option(
     'errorlogs',
     type: 'boolean',
     value: true,
+    description: 'Whether to print the logs from failing tests',
 ) # TODO
 option(
     'install_umask',
     type: 'string',
     value: '022',
+    description: 'Default umask to apply on permissions of installed files',
 ) # TODO
 option(
     'layout',
@@ -142,56 +164,66 @@ option(
     choices: [
         'mirror',
     ],
+    description: 'Build directory layout',
 )
 option(
     'optimization',
     type: 'combo',
     value: '0',
     choices: ['plain', '0', 'g', '1', '2', '3', 's'],
+    description: 'Optimization level',
 )
 option(
     'pkg_config_path',
     type: 'string',
     value: '',
+    description: 'List of additional paths for pkg-config to search',
 )
 option(
     'stdsplit',
     type: 'boolean',
     value: true,
+    description: 'Split stdout and stderr in test logs',
 ) # TODO
 option(
     'strip',
     type: 'boolean',
     value: false,
+    description: 'Strip targets on install',
 ) # TODO
 option(
     'unity',
     type: 'combo',
     value: 'off',
     choices: ['off'],
+    description: 'Unity build',
 )
 option(
     'unity_size',
     type: 'integer',
     value: 4,
     min: 2,
+    description: 'Unity block size',
 ) # TODO
 option(
     'wrap_mode',
     type: 'combo',
     value: 'nopromote',
     choices: ['nofallback', 'nodownload', 'forcefallback', 'nopromote'],
+    description: 'Wrap mode',
 )
 option(
     'force_fallback_for',
     type: 'array',
     value: [],
+    description: 'Force fallback for those subprojects',
 )
 option(
     'default_both_libraries',
     type: 'combo',
     choices: ['auto', 'static', 'shared'],
     value: 'auto',
+    description: 'Default library type for both_libraries',
 )
 
 # Base options
@@ -199,86 +231,102 @@ option(
     'b_asneeded',
     type: 'boolean',
     value: true,
+    description: 'Use -Wl,--as-needed when linking',
 ) # TODO
 option(
     'b_bitcode',
     type: 'boolean',
     value: false,
+    description: 'Generate and embed bitcode (only macOS/iOS/tvOS)',
 ) # TODO
 option(
     'b_colorout',
     type: 'combo',
     value: 'always',
     choices: ['auto', 'always', 'never'],
+    description: 'Use colored output',
 )
 option(
     'b_coverage',
     type: 'boolean',
     value: false,
+    description: 'Enable coverage tracking.',
 )
 option(
     'b_lundef',
     type: 'boolean',
     value: true,
+    description: 'Use -Wl,--no-undefined when linking',
 ) # TODO
 option(
     'b_lto',
     type: 'boolean',
     value: false,
+    description: 'Use link time optimization',
 )
 option(
     'b_lto_threads',
     type: 'integer',
     value: 0,
     min: 0,
+    description: 'Use multiple threads for Link Time Optimization',
 ) # TODO
 option(
     'b_lto_mode',
     type: 'combo',
     value: 'default',
     choices: ['default', 'thin'],
+    description: 'Select between different LTO modes.',
 ) # TODO
 option(
     'b_thinlto_cache',
     type: 'boolean',
     value: false,
+    description: 'Use LLVM ThinLTO caching for faster incremental builds',
 ) # TODO
 option(
     'b_thinlto_cache_dir',
     type: 'string',
     value: '',
+    description: 'Directory to store ThinLTO cache objects',
 ) # TODO
 option(
     'b_ndebug',
     type: 'combo',
     value: 'false',
     choices: ['true', 'false', 'if-release'],
+    description: 'Disable asserts',
 )
 option(
     'b_pch',
     type: 'boolean',
     value: true,
+    description: 'Use precompiled headers',
 ) # TODO
 option(
     'b_pgo',
     type: 'combo',
     value: 'off',
     choices: ['off', 'generate', 'use'],
+    description: 'Use profile guided optimization',
 )
 option(
     'b_sanitize',
     type: 'string',
     value: 'none',
+    description: 'Code sanitizer to use',
 )
 option(
     'b_staticpic',
     type: 'boolean',
     value: true,
+    description: 'Build static libraries as position independent',
 )
 option(
     'b_pie',
     type: 'boolean',
     value: false,
+    description: 'Build executables as position independent',
 )
 option(
     'b_vscrt',
@@ -339,11 +387,13 @@ option(
     'prefer_static',
     type: 'boolean',
     value: false,
+    description: 'Whether to try static linking before shared linking',
 )
 option(
     'vsenv',
     type: 'boolean',
     value: false,
+    description: 'Activate Visual Studio environment',
 )
 
 # Python specific options
