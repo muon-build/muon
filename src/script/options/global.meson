@@ -67,7 +67,7 @@ option(
 option(
     'localstatedir',
     type: 'string',
-    value: '/var',
+    value: '/var/local',
     description: 'Localstate data directory',
 )
 option(
@@ -87,15 +87,16 @@ option(
 option(
     'sharedstatedir',
     type: 'string',
-    value: 'com',
+    value: '/var/local/lib',
     description: 'Architecture-independent data directory',
     kind: 'prefixed_dir',
 )
 option(
     'sysconfdir',
     type: 'string',
-    value: '/etc',
+    value: 'etc',
     description: 'Sysconf data directory',
+    kind: 'prefixed_dir',
 )
 
 # Core options
