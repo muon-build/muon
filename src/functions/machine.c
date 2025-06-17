@@ -51,6 +51,11 @@ func_machine_subsystem(struct workspace *wk, obj self, obj *res)
 
 	struct machine_definition *m = get_machine_for_self(wk, self);
 
+	if (!m->subsystem) {
+		vm_error(wk, "subsystem is undefined");
+		return false;
+	}
+
 	*res = str_enum_get(
 		wk, complex_type_enum_get(wk, tc_cx_enum_machine_subsystem), machine_subsystem_to_s(m->subsystem));
 	return true;
@@ -188,9 +193,7 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 		m->sys = props.system;
 	}
 
-	if (props.subsystem) {
-		m->subsystem = props.subsystem;
-	}
+	m->subsystem = props.subsystem;
 
 	if (props.endian) {
 		m->endianness = props.endian;
