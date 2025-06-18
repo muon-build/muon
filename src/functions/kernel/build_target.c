@@ -199,6 +199,11 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	d->path = tstr_into_str(wk, &dir);
 	obj_array_push(wk, ctx->prepend_include_directories, inc);
 
+	// mkdir so that the include dir doesn't get pruned later on
+	if (!fs_mkdir_p(dir.buf)) {
+		return false;
+	}
+
 	return true;
 }
 
