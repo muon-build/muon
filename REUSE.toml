@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2022 Andrea Pappacoda <andrea@pappacoda.it>
+# SPDX-FileCopyrightText: 2022 - 2025 Stone Tickle <lattis@mochiro.moe>
+# SPDX-FileCopyrightText: 2024 Andrew McNulty <amcn102@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+
+version = 1
+SPDX-PackageName = "muon"
+SPDX-PackageSupplier = "Stone Tickle <lattis@mochiro.moe>"
+SPDX-PackageDownloadLocation = "https://muon.build"
+
+[[annotations]]
+path = "tests/project/unit/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["The Meson development team", "Stone Tickle <lattis@mochiro.moe>"]
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "tests/fmt/cases/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Stone Tickle <lattis@mochiro.moe>"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+[[annotations]]
+path = "doc/book/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Stone Tickle <lattis@mochiro.moe>"
+SPDX-License-Identifier = "GPL-3.0-only"
