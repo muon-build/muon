@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "coerce.h"
 #include "functions/modules/subprojects.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
@@ -102,10 +103,6 @@ subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx
 {
 	struct wrap_handle_ctx wrap_ctx = {
 		.path = get_str(wk, make_str(wk, path))->s,
-		.opts = {
-			.allow_download = true,
-			.subprojects = subprojects_dir(wk),
-		},
 	};
 
 	arr_push(&ctx->handlers, &wrap_ctx);
@@ -120,6 +117,7 @@ struct subprojects_process_opts {
 	obj *res;
 	bool single_file;
 	bool progress_bar;
+	bool fail_if_update_skipped;
 };
 
 struct subprojects_process_progress_decorate_ctx {
@@ -184,7 +182,9 @@ subprojects_process_progress_decorate(void *_ctx, uint32_t width)
 		char buf[512] = { 0 };
 		uint32_t buf_i = 0;
 
-		snprintf_append(buf, &buf_i, "%6.2fs " CLR(c_magenta, c_bold) "%-20.20s" CLR(0) " " CLR(c_blue) "%-9s" CLR(0),
+		snprintf_append(buf,
+			&buf_i,
+			"%6.2fs " CLR(c_magenta, c_bold) "%-20.20s" CLR(0) " " CLR(c_blue) "%-9s" CLR(0),
 			list[i].dur,
 			list[i].wrap_ctx->wrap.name.buf,
 			wrap_handle_state_to_s(list[i].wrap_ctx->prev_state));
@@ -239,7 +239,7 @@ subprojects_process_progress_decorate(void *_ctx, uint32_t width)
 			}
 			++w;
 
-			if (w >= width)  {
+			if (w >= width) {
 				buf[j] = 0;
 				break;
 			}
@@ -274,9 +274,7 @@ static bool
 subprojects_process(struct workspace *wk, obj list, struct subprojects_process_opts *opts)
 {
 	// Init ctx
-	struct subprojects_common_ctx ctx = {
-		.res = opts->res
-	};
+	struct subprojects_common_ctx ctx = { .res = opts->res };
 	arr_init(&ctx.handlers, 8, sizeof(struct wrap_handle_ctx));
 	*ctx.res = make_obj(wk, obj_array);
 
@@ -284,10 +282,6 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	if (opts->single_file) {
 		struct wrap_handle_ctx wrap_ctx = {
 			.path = get_str(wk, list)->s,
-			.opts = {
-				.allow_download = true,
-				.subprojects = opts->subprojects_dir,
-			},
 		};
 		arr_push(&ctx.handlers, &wrap_ctx);
 	} else {
@@ -316,7 +310,12 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	for (i = 0; i < ctx.handlers.len; ++i) {
 		wrap_ctx = arr_get(&ctx.handlers, i);
 
-		wrap_ctx->opts.mode = opts->wrap_mode;
+		wrap_ctx->opts = (struct wrap_opts){
+			.mode = opts->wrap_mode,
+			.allow_download = true,
+			.subprojects = opts->subprojects_dir ? opts->subprojects_dir : subprojects_dir(wk),
+			.fail_if_update_skipped = opts->fail_if_update_skipped,
+		};
 	}
 
 	wrap_handle_async_start(wk);
@@ -368,8 +367,8 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		log_progress_subval(wk, cnt_complete, cnt_complete + cnt_running);
 
 		float loop_dur_ns = (timer_read(&ctx.duration) - loop_start) * 1e9;
-		if (loop_dur_ns < ((double)SLEEP_TIME/10.0)) {
-			timer_sleep(((double)SLEEP_TIME/10.0) - loop_dur_ns);
+		if (loop_dur_ns < ((double)SLEEP_TIME / 10.0)) {
+			timer_sleep(((double)SLEEP_TIME / 10.0) - loop_dur_ns);
 		}
 	}
 
@@ -415,9 +414,24 @@ func_subprojects_update(struct workspace *wk, obj self, obj *res)
 		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
 		ARG_TYPE_NULL,
 	};
+	enum kwargs {
+		kw_required,
+	};
+	struct args_kw akw[] = {
+		[kw_required]
+		= { "required", tc_required_kw, .desc = "Fail if any update would have been skipped (e.g. if the destination is dirty)." },
+		0,
+	};
 
-	if (!pop_args(wk, an, 0)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
+	}
+
+	enum requirement_type req = requirement_auto;
+	if (akw[kw_required].set) {
+		if (!coerce_requirement(wk, &akw[kw_required], &req)) {
+			return false;
+		}
 	}
 
 	return subprojects_process(wk,
@@ -427,6 +441,7 @@ func_subprojects_update(struct workspace *wk, obj self, obj *res)
 			.job_count = 8,
 			.progress_bar = true,
 			.res = res,
+			.fail_if_update_skipped = req == requirement_required,
 		});
 }
 
@@ -619,14 +634,26 @@ func_subprojects_load_wrap(struct workspace *wk, obj self, obj *res)
 }
 
 const struct func_impl impl_tbl_module_subprojects[] = {
-	{ "update", func_subprojects_update, .flags = func_impl_flag_sandbox_disable, .desc = "Update subprojects with .wrap files" },
+	{ "update",
+		func_subprojects_update,
+		.flags = func_impl_flag_sandbox_disable,
+		.desc = "Update subprojects with .wrap files" },
 	{ "list",
 		func_subprojects_list,
 		tc_array,
 		.flags = func_impl_flag_sandbox_disable,
 		.desc = "List subprojects with .wrap files and their status." },
-	{ "clean", func_subprojects_clean, .flags = func_impl_flag_sandbox_disable, .desc = "Clean subprojects with .wrap files" },
-	{ "fetch", func_subprojects_fetch, .flags = func_impl_flag_sandbox_disable, .desc = "Fetch a project using a .wrap file" },
-	{ "load_wrap", func_subprojects_load_wrap, .flags = func_impl_flag_sandbox_disable, .desc = "Load a wrap file into a dict" },
+	{ "clean",
+		func_subprojects_clean,
+		.flags = func_impl_flag_sandbox_disable,
+		.desc = "Clean subprojects with .wrap files" },
+	{ "fetch",
+		func_subprojects_fetch,
+		.flags = func_impl_flag_sandbox_disable,
+		.desc = "Fetch a project using a .wrap file" },
+	{ "load_wrap",
+		func_subprojects_load_wrap,
+		.flags = func_impl_flag_sandbox_disable,
+		.desc = "Load a wrap file into a dict" },
 	{ NULL, NULL },
 };

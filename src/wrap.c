@@ -1281,11 +1281,11 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 		if (ctx->wrap.dirty) {
 			wrap_log(ctx,
-				log_warn,
+				ctx->opts.fail_if_update_skipped ? log_error : log_warn,
 				"cannot safely update outdated %s because it is dirty",
 				ctx->wrap.dest_dir.buf);
 			wrap_set_state(ctx, wrap_handle_state_apply_patch);
-			return true;
+			return ctx->opts.fail_if_update_skipped ? false : true;
 		}
 
 		ctx->opts.force_update = true;

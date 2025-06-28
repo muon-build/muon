@@ -67,11 +67,23 @@ cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const arg
 {
 	struct workspace *wk = _ctx;
 
-	OPTSTART("") {
+	bool required = false;
+
+	OPTSTART("f") {
+	case 'f': {
+		required = true;
+		break;
+	}
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
 
-	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", 0);
+	obj extra_args = 0;
+	if (required) {
+		extra_args = make_obj(wk, obj_array);
+		obj_array_push(wk, extra_args, make_str(wk, "required: true"));
+	}
+
+	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "update", extra_args);
 }
 
 static bool
