@@ -154,7 +154,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 	case '-':
 		arg = SAMU_EARGF(samu_usage(ctx));
 		if (strcmp(arg, "version") == 0) {
-			samu_printf(ctx, "%d.%d.0\n", ninjamajor, ninjaminor);
+			samu_printf(ctx, "%d.%d.0\n", samu_ninjamajor, samu_ninjaminor);
 			return true;
 		} else if (strcmp(arg, "verbose") == 0) {
 			ctx->buildopts.verbose = true;

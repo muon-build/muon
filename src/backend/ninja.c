@@ -18,8 +18,8 @@
 #include "backend/output.h"
 #include "error.h"
 #include "external/samurai.h"
+#include "functions/kernel.h"
 #include "log.h"
-#include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
@@ -183,8 +183,11 @@ ninja_write_all(struct workspace *wk)
 			obj_array_push(wk, args, make_str(wk, "restat"));
 			obj_array_push(wk, args, make_str(wk, "build.ninja"));
 
-			ninja_run(
-				wk, args, wk->build_root, 0, ninja_run_flag_ignore_errors | ninja_run_flag_prefer_ninja);
+			ninja_run(wk,
+				args,
+				wk->build_root,
+				0,
+				ninja_run_flag_ignore_errors | ninja_run_flag_require_ninja);
 		}
 	}
 
@@ -211,6 +214,35 @@ ninja_write_all(struct workspace *wk)
 bool
 ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture, enum ninja_run_flag flags)
 {
+	bool use_internal_samurai = false;
+	{
+		obj found_ninja;
+		obj version = make_obj(wk, obj_array);
+		obj_array_push(wk, version, make_str(wk, ">=1.7.1"));
+		struct find_program_ctx fp_ctx = {
+			.res = &found_ninja,
+			.version = version,
+			.requirement = requirement_required,
+			.machine = machine_kind_build,
+		};
+		if (!find_program(wk, &fp_ctx, make_str(wk, "ninja"))) {
+			return false;
+		} else if (!fp_ctx.found) {
+			return false;
+		}
+
+		struct obj_external_program *ep = get_obj_external_program(wk, found_ninja);
+
+		if (str_eql(get_str(wk, obj_array_index(wk, ep->cmd_array, 0)), &STRL(wk->argv0))) {
+			use_internal_samurai = true;
+		} else {
+			obj cmd_array_dup;
+			obj_array_dup(wk, ep->cmd_array, &cmd_array_dup);
+			obj_array_extend_nodup(wk, cmd_array_dup, args);
+			args = cmd_array_dup;
+		}
+	}
+
 	const char *argstr;
 	uint32_t argstr_argc;
 
@@ -227,7 +259,13 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		}
 	}
 
-	if (have_samurai && !(flags & ninja_run_flag_prefer_ninja)) {
+	if (use_internal_samurai) {
+		if (flags & ninja_run_flag_require_ninja) {
+			if (!(flags & ninja_run_flag_ignore_errors)) {
+				obj_lprintf(wk, log_error, "ninja is required for the command `ninja %o`, but only internal samurai was found\n", args);
+			}
+			goto ret;
+		}
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
 
@@ -250,16 +288,6 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 
 		TSTR_manual(cmd);
 		const char *prepend = NULL;
-
-		obj cmd_arr;
-		{
-			obj ninja_opt;
-			get_option_value(wk, NULL, "env.NINJA", &ninja_opt);
-
-			obj_array_dup(wk, ninja_opt, &cmd_arr);
-			obj_array_extend_nodup(wk, cmd_arr, args);
-			args = cmd_arr;
-		}
 
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
 		argc = argstr_to_argv(argstr, argstr_argc, prepend, &argv);

@@ -645,7 +645,7 @@ find_program_check_fallback(struct workspace *wk, struct find_program_ctx *ctx, 
 
 		obj subproj;
 		if (!(subproject(wk, subproj_name, requirement_auto, ctx->default_options, NULL, &subproj)
-			&& get_obj_subproject(wk, subproj)->found)) {
+			    && get_obj_subproject(wk, subproj)->found)) {
 			return true;
 		}
 
@@ -692,6 +692,7 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 	const char *str;
 	obj ver = 0;
 	bool guessed_ver = false;
+	obj cmd_array = 0;
 
 	type_tag tc_allowed = tc_file | tc_string | tc_external_program | tc_python_installation;
 	if (!typecheck(wk, ctx->node, prog, tc_allowed)) {
@@ -713,7 +714,7 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 	default: UNREACHABLE_RETURN;
 	}
 
-	const char *path;
+	const char *path = 0;
 
 	TSTR(buf);
 	struct find_program_custom_dir_ctx dir_ctx = {
@@ -735,7 +736,8 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 				argv0_resolved = wk->argv0;
 			}
 
-			obj ver = 0, cmd_array = make_obj(wk, obj_array);
+			obj ver = 0;
+			cmd_array = make_obj(wk, obj_array);
 			obj_array_push(wk, cmd_array, make_str(wk, argv0_resolved));
 
 			if (is_meson) {
@@ -807,7 +809,24 @@ find_program_step_4:
 		goto found;
 	}
 
-	/* 6. PATH environment variable */
+	/* 6. PATH environment variable, and program specific environment variables */
+	{
+		// TODO: avoid duplicating this
+		// TODO: should this apply to compiler envvars, e.g. env.CC?
+		const char *program_specific_envvar = 0;
+		if (strcmp(str, "ninja") == 0) {
+			program_specific_envvar = "env.NINJA";
+		} else if (strcmp(str, "ar") == 0) {
+			program_specific_envvar = "env.AR";
+		} else if (strcmp(str, "pkg-config") == 0 || strcmp(str, "pkgconf") == 0) {
+			program_specific_envvar = "env.PKG_CONFIG";
+		}
+
+		if (program_specific_envvar) {
+			get_option_value(wk, NULL, program_specific_envvar, &cmd_array);
+		}
+	}
+
 	if (fs_find_cmd(wk, &buf, str)) {
 		path = buf.buf;
 		goto found;
@@ -832,13 +851,19 @@ find_program_step_8:
 	/* 8. Special cases, only if the binary was not found by regular means */
 	if (t == obj_string) {
 		if (have_samurai && (strcmp(str, "ninja") == 0 || strcmp(str, "samu") == 0)) {
+			obj ver = make_strf(wk, "%d.%d.0", samu_ninjamajor, samu_ninjaminor);
+			if (!find_program_check_version(wk, ctx, ver)) {
+				return true;
+			}
+
 			*ctx->res = make_obj(wk, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
 			ep->cmd_array = make_obj(wk, obj_array);
 			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
 			obj_array_push(wk, ep->cmd_array, make_str(wk, "samu"));
-
+			ep->guessed_ver = true;
+			ep->ver = ver;
 			ctx->found = true;
 			return true;
 		}
@@ -846,9 +871,10 @@ find_program_step_8:
 
 	return true;
 found: {
-	obj cmd_array;
-	cmd_array = make_obj(wk, obj_array);
-	obj_array_push(wk, cmd_array, make_str(wk, path));
+	if (!cmd_array) {
+		cmd_array = make_obj(wk, obj_array);
+		obj_array_push(wk, cmd_array, make_str(wk, path));
+	}
 
 	if (ctx->version) {
 		find_program_guess_version(wk, cmd_array, ctx->version_argument, &ver);

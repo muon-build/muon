@@ -16,7 +16,7 @@ struct write_tgt_ctx {
 
 enum ninja_run_flag {
 	ninja_run_flag_ignore_errors = 1 << 0,
-	ninja_run_flag_prefer_ninja = 1 << 1,
+	ninja_run_flag_require_ninja = 1 << 1,
 };
 
 bool ninja_write_all(struct workspace *wk);

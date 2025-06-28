@@ -11,6 +11,7 @@
 
 #include "external/samurai/ctx.h"
 
+#include "external/samurai.h"
 #include "external/samurai/env.h"
 #include "external/samurai/graph.h"
 #include "external/samurai/parse.h"
@@ -210,8 +211,8 @@ samu_checkversion(const char *ver)
 
 	if (sscanf(ver, "%d.%d", &major, &minor) < 1)
 		samu_fatal("invalid ninja_required_version");
-	if (major > ninjamajor || (major == ninjamajor && minor > ninjaminor))
-		samu_fatal("ninja_required_version %s is newer than %d.%d", ver, ninjamajor, ninjaminor);
+	if (major > samu_ninjamajor || (major == samu_ninjamajor && minor > samu_ninjaminor))
+		samu_fatal("ninja_required_version %s is newer than %d.%d", ver, samu_ninjamajor, samu_ninjaminor);
 }
 
 void

@@ -1144,6 +1144,7 @@ tests_run(struct test_options *opts, const char *argv0)
 
 	struct workspace wk;
 	workspace_init_bare(&wk);
+	wk.vm.lang_mode = language_internal;
 	wk.argv0 = argv0;
 
 	if (!opts->jobs) {

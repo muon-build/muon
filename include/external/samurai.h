@@ -14,6 +14,12 @@ struct samu_opts {
 	FILE *out;
 };
 
+/* supported ninja version */
+enum {
+	samu_ninjamajor = 1,
+	samu_ninjaminor = 9,
+};
+
 extern const bool have_samurai;
 
 bool samu_main(int argc, char *argv[], struct samu_opts *opts);
