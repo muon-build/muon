@@ -14,6 +14,7 @@
 #include "functions/build_target.h"
 #include "functions/generator.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/assert.h"
@@ -156,27 +157,26 @@ func_build_target_full_path(struct workspace *wk, obj self, obj *res)
 }
 
 struct build_target_extract_objects_ctx {
-	uint32_t err_node;
 	struct obj_build_target *tgt;
 	obj tgt_id;
 	obj *res;
+	bool verify_exists;
 };
 
-static enum iteration_result
-build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
+static bool
+build_target_extract_object(struct workspace *wk, struct build_target_extract_objects_ctx *ctx, obj val)
 {
-	struct build_target_extract_objects_ctx *ctx = _ctx;
 	obj file;
 	enum obj_type t = get_obj_type(wk, val);
 
-	if (!typecheck(wk, ctx->err_node, val, tc_file | tc_string | tc_custom_target | tc_generated_list)) {
+	if (!typecheck(wk, 0, val, tc_file | tc_string | tc_custom_target | tc_generated_list)) {
 		return false;
 	}
 
 	switch (t) {
 	case obj_string: {
 		if (!coerce_string_to_file(wk, get_cstr(wk, ctx->tgt->cwd), val, &file)) {
-			return ir_err;
+			return false;
 		}
 		break;
 	}
@@ -184,28 +184,34 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_custom_target: {
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, val);
 
-		if (!obj_array_foreach(wk, tgt->output, ctx, build_target_extract_objects_iter)) {
-			return ir_err;
+		obj v;
+		obj_array_for(wk, tgt->output, v) {
+			if (!build_target_extract_object(wk, ctx, v)) {
+				return false;
+			}
 		}
-		return ir_cont;
+		return true;
 	}
 	case obj_generated_list: {
-		obj res;
-		if (!generated_list_process_for_target(wk, ctx->err_node, val, ctx->tgt_id, false, &res)) {
-			return ir_err;
+		obj processed;
+		if (!generated_list_process_for_target(wk, 0, val, ctx->tgt_id, false, &processed)) {
+			return false;
 		}
 
-		if (!obj_array_foreach(wk, res, ctx, build_target_extract_objects_iter)) {
-			return ir_err;
+		obj v;
+		obj_array_for(wk, processed, v) {
+			if (!build_target_extract_object(wk, ctx, v)) {
+				return false;
+			}
 		}
-		return ir_cont;
+		return true;
 	}
 	default: UNREACHABLE_RETURN;
 	}
 
 	enum compiler_language l;
 	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
-		return ir_cont;
+		return false;
 	}
 
 	switch (l) {
@@ -215,7 +221,7 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_objcpp_hdr:
 	case compiler_language_c_obj:
 		// skip non-compileable sources
-		return ir_cont;
+		return true;
 	case compiler_language_assembly:
 	case compiler_language_nasm:
 	case compiler_language_c:
@@ -227,14 +233,14 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	case compiler_language_count: UNREACHABLE;
 	}
 
-	if (!obj_array_in(wk, ctx->tgt->src, file)) {
-		vm_error_at(wk, ctx->err_node, "%o is not in target sources (%o)", file, ctx->tgt->src);
-		return ir_err;
+	if (ctx->verify_exists && !obj_array_in(wk, ctx->tgt->src, file)) {
+		vm_error_at(wk, 0, "%o is not in target sources (%o)", file, ctx->tgt->src);
+		return false;
 	}
 
 	TSTR(dest_path);
 	if (!tgt_src_to_object_path(wk, ctx->tgt, l, file, false, &dest_path)) {
-		return ir_err;
+		return false;
 	}
 
 	obj new_file;
@@ -242,21 +248,6 @@ build_target_extract_objects_iter(struct workspace *wk, void *_ctx, obj val)
 	*get_obj_file(wk, new_file) = tstr_into_str(wk, &dest_path);
 	obj_array_push(wk, *ctx->res, new_file);
 	return ir_cont;
-}
-
-static bool
-build_target_extract_objects(struct workspace *wk, obj self, uint32_t err_node, obj *res, obj arr)
-{
-	*res = make_obj(wk, obj_array);
-
-	struct build_target_extract_objects_ctx ctx = {
-		.err_node = err_node,
-		.res = res,
-		.tgt = get_obj_build_target(wk, self),
-		.tgt_id = self,
-	};
-
-	return obj_array_foreach_flat(wk, arr, &ctx, build_target_extract_objects_iter);
 }
 
 static bool
@@ -268,37 +259,103 @@ func_build_target_extract_objects(struct workspace *wk, obj self, obj *res)
 		return false;
 	}
 
-	return build_target_extract_objects(wk, self, an[0].node, res, an[0].val);
-}
-
-static enum iteration_result
-build_target_extract_all_objects_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct build_target_extract_objects_ctx *ctx = _ctx;
-
-	return build_target_extract_objects_iter(wk, ctx, val);
-}
-
-bool
-build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, obj *res, bool recursive)
-{
 	*res = make_obj(wk, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
 		.res = res,
 		.tgt = get_obj_build_target(wk, self),
 		.tgt_id = self,
+		.verify_exists = true,
 	};
 
-	if (!obj_array_foreach_flat(wk, ctx.tgt->src, &ctx, build_target_extract_all_objects_iter)) {
+	obj v;
+	obj_array_for(wk, an[0].val, v) {
+		if (!build_target_extract_object(wk, &ctx, v)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool build_target_extract_all_objects_impl(struct workspace *wk, obj self, obj *res, bool recursive);
+
+static bool
+build_targets_extract_all_objects(struct workspace *wk, obj arr, obj *res)
+{
+	if (!arr) {
+		return true;
+	}
+
+	obj v;
+	obj_array_for(wk, arr, v) {
+		if (get_obj_type(wk, v) != obj_build_target) {
+			continue;
+		}
+
+		if (!build_target_extract_all_objects_impl(wk, v, res, true)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool
+build_target_extract_all_objects_recurse(struct workspace *wk, struct build_dep *dep, obj *res)
+{
+	if (!build_targets_extract_all_objects(wk, dep->raw.link_with, res)) {
 		return false;
+	}
+
+	if (!build_targets_extract_all_objects(wk, dep->raw.link_whole, res)) {
+		return false;
+	}
+
+	if (dep->raw.deps) {
+		obj v;
+		obj_array_for(wk, dep->raw.deps, v) {
+			struct obj_dependency *dep = get_obj_dependency(wk, v);
+			if (!build_target_extract_all_objects_recurse(wk, &dep->dep, res)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+static bool
+build_target_extract_all_objects_impl(struct workspace *wk, obj self, obj *res, bool recursive)
+{
+	struct build_target_extract_objects_ctx ctx = {
+		.res = res,
+		.tgt = get_obj_build_target(wk, self),
+		.tgt_id = self,
+	};
+
+	obj v;
+	obj_array_for(wk, ctx.tgt->src, v) {
+		if (!build_target_extract_object(wk, &ctx, v)) {
+			return false;
+		}
 	}
 
 	if (recursive) {
 		obj_array_extend(wk, *res, ctx.tgt->objects);
+		if (!build_target_extract_all_objects_recurse(wk, &ctx.tgt->dep_internal, res)) {
+			return false;
+		}
 	}
 
 	return true;
+}
+
+bool
+build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, obj *res, bool recursive)
+{
+	*res = make_obj(wk, obj_array);
+	return build_target_extract_all_objects_impl(wk, self, res, recursive);
 }
 
 static bool
