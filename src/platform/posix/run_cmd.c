@@ -23,6 +23,8 @@
 
 extern char **environ;
 
+const int32_t fail_to_exec_exit_code = 163;
+
 enum copy_pipe_result {
 	copy_pipe_result_finished,
 	copy_pipe_result_waiting,
@@ -162,6 +164,11 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 		return run_cmd_error;
 	}
 
+	if (ctx->status == fail_to_exec_exit_code) {
+		ctx->err_msg = "command failed to execute";
+		return run_cmd_error;
+	}
+
 	return run_cmd_finished;
 }
 
@@ -261,25 +268,25 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 		if (ctx->chdir) {
 			if (chdir(ctx->chdir) == -1) {
 				LOG_E("failed to chdir to %s: %s", ctx->chdir, strerror(errno));
-				exit(1);
+				exit(fail_to_exec_exit_code);
 			}
 		}
 
 		if (ctx->stdin_path) {
 			if (dup2(ctx->input_fd, 0) == -1) {
 				LOG_E("failed to dup stdin: %s", strerror(errno));
-				exit(1);
+				exit(fail_to_exec_exit_code);
 			}
 		}
 
 		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
 			if (dup2(ctx->pipefd_out[1], 1) == -1) {
 				LOG_E("failed to dup stdout: %s", strerror(errno));
-				exit(1);
+				exit(fail_to_exec_exit_code);
 			}
 			if (dup2(ctx->pipefd_err[1], 2) == -1) {
 				LOG_E("failed to dup stderr: %s", strerror(errno));
-				exit(1);
+				exit(fail_to_exec_exit_code);
 			}
 		}
 
@@ -298,7 +305,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 								k,
 								p + 1,
 								strerror(err));
-							exit(1);
+							exit(fail_to_exec_exit_code);
 						}
 						k = NULL;
 
@@ -312,7 +319,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 
 		if (execve(cmd.buf, (char *const *)argv, environ) == -1) {
 			LOG_E("%s: %s", cmd.buf, strerror(errno));
-			exit(1);
+			exit(fail_to_exec_exit_code);
 		}
 
 		abort();
