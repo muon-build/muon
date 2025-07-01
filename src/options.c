@@ -876,7 +876,7 @@ const char *toolchain_component_option_name[compiler_language_count][toolchain_c
 	[compiler_language_cpp] = { "env.CXX", "env.CXX_LD" },
 	[compiler_language_objc] = { "env.OBJC", "env.OBJC_LD" },
 	[compiler_language_objcpp] = { "env.OBJCXX", "env.OBJCXX_LD" },
-	[compiler_language_nasm] = { "env.NASM" },
+	[compiler_language_nasm] = { "env.NASM", "env.NASM_LD" },
 };
 
 bool
