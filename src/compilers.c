@@ -746,16 +746,22 @@ toolchain_exe_detect(struct workspace *wk,
 static bool
 toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang)
 {
+	const char **exe_list = NULL;
+
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
-	enum linker_type t = compilers[compiler->type[toolchain_component_compiler]].default_linker;
 	if (host_machine.sys == machine_system_windows) {
 		if (compiler->type[toolchain_component_compiler] == compiler_clang) {
-			t = linker_lld_link;
+			static const char *clang_list[] = { "lld-link", NULL };
+			exe_list = clang_list;
+		} else {
+			static const char *msvc_list[] = { "link", NULL };
+			exe_list = msvc_list;
 		}
+	} else {
+		static const char *default_list[] = { "lld", "ld", NULL };
+		exe_list = default_list;
 	}
-
-	const char *exe_list[] = { linker_type_to_s(t), "ld", NULL };
 
 	return toolchain_exe_detect(wk,
 		toolchain_component_option_name[lang][toolchain_component_linker],
