@@ -23,7 +23,7 @@
 
 extern char **environ;
 
-const int32_t fail_to_exec_exit_code = 163;
+static const int32_t fail_to_exec_exit_code = 163;
 
 enum copy_pipe_result {
 	copy_pipe_result_finished,
