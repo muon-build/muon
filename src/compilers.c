@@ -399,6 +399,9 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 	bool success = true;
 
 	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
+		L("failed to run command %s", argstr);
+		run_cmd_print_error(cmd_ctx, log_debug);
+
 		run_cmd_ctx_destroy(cmd_ctx);
 		success = false;
 	}
@@ -648,6 +651,8 @@ static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang
 {
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
+	obj_lprintf(wk, log_debug, "checking static linker %o\n", cmd_arr);
+
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd_arr(wk,
 		    &cmd_ctx,
@@ -690,6 +695,8 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 			type = linker_apple;
 		}
 	}
+
+	obj_lprintf(wk, log_debug, "checking linker %o\n", cmd_arr);
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (!run_cmd_arr(wk, &cmd_ctx, cmd_arr, guess_version_arg(wk, msvc_like))) {
@@ -827,17 +834,17 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 	*comp = make_obj(wk, obj_compiler);
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
-		LOG_E("failed to detect compiler");
+		LOG_W("failed to detect compiler for %s", compiler_language_to_s(lang));
 		return false;
 	}
 
 	if (!toolchain_linker_detect(wk, *comp, lang)) {
-		LOG_E("failed to detect linker");
+		LOG_W("failed to detect linker for %s", compiler_language_to_s(lang));
 		return false;
 	}
 
 	if (!toolchain_static_linker_detect(wk, *comp, lang)) {
-		LOG_E("failed to detect static linker");
+		LOG_W("failed to detect static linker for %s", compiler_language_to_s(lang));
 		return false;
 	}
 
@@ -1383,7 +1390,6 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_pch_extension)
 
 	return &args;
 }
-
 
 /* cl compilers
  * see mesonbuild/compilers/mixins/visualstudio.py for reference
