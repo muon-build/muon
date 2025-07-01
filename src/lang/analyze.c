@@ -1056,9 +1056,10 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 		pure = false;
 	}
 
+	bool is_subdir = false;
 	if (!self) {
-		if (strcmp(native_funcs[func_idx].name, "subdir") == 0
-			|| strcmp(native_funcs[func_idx].name, "subproject") == 0
+		is_subdir = strcmp(native_funcs[func_idx].name, "subdir") == 0;
+		if (is_subdir || strcmp(native_funcs[func_idx].name, "subproject") == 0
 			|| strcmp(native_funcs[func_idx].name, "dependency") == 0) {
 			pop_args_ctx.allow_impure_args_except_first = true;
 		} else if (strcmp(native_funcs[func_idx].name, "p") == 0) {
@@ -1084,16 +1085,16 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 		return func_ok;
 	}
 
+	if (is_subdir) {
+		vm_warning(wk, "Unable to analyze this subdir call.  Diagnostics will be incomplete");
+	}
+
 	if (func_idx == az_func_impl_group.off) {
 		// This means the native function we called was
 		// az_injected_native_func and we should respect the return
 		// type.
 	} else {
 		*res = make_typeinfo(wk, native_funcs[func_idx].return_type);
-	}
-
-	if (!args_ok) {
-		// Add error here if func was subdir
 	}
 
 	return args_ok;
@@ -1629,7 +1630,6 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			set_option(
 				wk, wrap_mode, make_str(wk, "forcefallback"), option_value_source_commandline, false);
 		}
-
 	}
 
 	if (opts->single_file) {

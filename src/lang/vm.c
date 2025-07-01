@@ -977,7 +977,7 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 			if (native_funcs[func_idx].flags & func_impl_flag_throws_error) {
 				vm_trigger_error(wk);
 			} else {
-				vm_error(wk, "in native function '%s'", native_funcs[func_idx].name);
+				vm_error(wk, "in function '%s'", native_funcs[func_idx].name);
 			}
 
 			vm_push_dummy(wk);

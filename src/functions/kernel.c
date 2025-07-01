@@ -1332,8 +1332,7 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 	enum kwargs {
 		kw_if_found,
 	};
-	type_tag if_found_type = wk->vm.in_analyzer ? tc_any : TYPE_TAG_LISTIFY | tc_dependency;
-	struct args_kw akw[] = { [kw_if_found] = { "if_found", if_found_type }, 0 };
+	struct args_kw akw[] = { [kw_if_found] = { "if_found", TYPE_TAG_LISTIFY | tc_dependency }, 0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
