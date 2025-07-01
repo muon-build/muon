@@ -403,7 +403,7 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 		run_cmd_print_error(cmd_ctx, log_debug);
 
 		run_cmd_ctx_destroy(cmd_ctx);
-		success = false;
+		return false;
 	}
 
 	cache_val.success = success;
