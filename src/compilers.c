@@ -193,15 +193,9 @@ toolchain_component_type_to_s(enum toolchain_component comp, uint32_t val)
 {
 	const struct toolchain_id *ids = 0;
 	switch (comp) {
-	case toolchain_component_compiler:
-		ids = compiler_type_name;
-		break;
-	case toolchain_component_linker:
-		ids = linker_type_name;
-		break;
-	case toolchain_component_static_linker:
-		ids = static_linker_type_name;
-		break;
+	case toolchain_component_compiler: ids = compiler_type_name; break;
+	case toolchain_component_linker: ids = linker_type_name; break;
+	case toolchain_component_static_linker: ids = static_linker_type_name; break;
 	}
 
 	return &ids[val];
@@ -2314,12 +2308,17 @@ toolchain_dump(struct workspace *wk, struct obj_compiler *comp, struct toolchain
 #undef TOOLCHAIN_ARG_MEMBER_
 }
 
-const char *compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
+const char *
+compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
 {
 	static char buf[256];
 
 	if (machine == machine_kind_build) {
-		snprintf(buf, sizeof(buf), "%s %s machine compiler", compiler_language_to_s(lang), machine_kind_to_s(machine));
+		snprintf(buf,
+			sizeof(buf),
+			"%s %s machine compiler",
+			compiler_language_to_s(lang),
+			machine_kind_to_s(machine));
 	} else {
 		snprintf(buf, sizeof(buf), "%s compiler", compiler_language_to_s(lang));
 	}
