@@ -48,7 +48,7 @@ eval_project(struct workspace *wk,
 	}
 
 	enum build_language lang;
-	const char *build_file = determine_build_file(wk, cwd, &lang);
+	const char *build_file = determine_build_file(wk, cwd, &lang, false);
 
 	if (!build_file) {
 		goto cleanup;
@@ -515,7 +515,7 @@ cont:
 }
 
 const char *
-determine_build_file(struct workspace *wk, const char *cwd, enum build_language *out_lang)
+determine_build_file(struct workspace *wk, const char *cwd, enum build_language *out_lang, bool quiet)
 {
 	const struct {
 		const char *name;
@@ -538,19 +538,22 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 		}
 	}
 
-	if (!found) {
+	if (!quiet && !found) {
 		TSTR(name_buf);
 		for (i = 0; i < ARRAY_LEN(names); ++i) {
 			tstr_pushf(wk, &name_buf, "%s%s", names[i].name, i + 1 == ARRAY_LEN(names) ? "" : ", ");
 		}
 
 		vm_error_at(wk, -1, "no build file found in %s (tried %s)", cwd, name_buf.buf);
+	}
+
+	if (!found) {
 		return 0;
 	}
 
 	*out_lang = names[i].lang;
 
-	if (*out_lang == build_language_cmake) {
+	if (!quiet && *out_lang == build_language_cmake) {
 		vm_warning_at(wk, -1, "using experimental cmake compat mode, this will probably break");
 	}
 

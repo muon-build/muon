@@ -1369,7 +1369,7 @@ func_subdir(struct workspace *wk, obj _, obj *res)
 
 	{
 		enum build_language lang;
-		const char *build_file = determine_build_file(wk, new_cwd.buf, &lang);
+		const char *build_file = determine_build_file(wk, new_cwd.buf, &lang, false);
 		if (!build_file) {
 			goto ret;
 		}

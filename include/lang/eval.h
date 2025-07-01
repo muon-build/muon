@@ -38,5 +38,5 @@ bool eval_str_label(struct workspace *wk, const char *label, const char *str, en
 void repl(struct workspace *wk, bool dbg);
 
 const char *determine_project_root(struct workspace *wk, const char *path);
-const char *determine_build_file(struct workspace *wk, const char *cwd, enum build_language *out_lang);
+const char *determine_build_file(struct workspace *wk, const char *cwd, enum build_language *out_lang, bool quiet);
 #endif

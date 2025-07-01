@@ -1046,6 +1046,15 @@ cmd_setup_help(void)
 	log_plain(log_info, "To see all options, including builtin options, use `muon options -a`.\n");
 }
 
+static void
+make_argv0_absolute(struct workspace *wk, struct tstr *buf, char *const argv[])
+{
+	if (!path_is_basename(argv[0])) {
+		path_make_absolute(wk, buf, argv[0]);
+		((char **)argv)[0] = buf->buf;
+	}
+}
+
 static bool
 cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -1070,7 +1079,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	}
 	OPTEND_CUSTOM(argv[argi],
-		" <build dir>",
+		" <build dir|source dir>",
 		"  -D <option>=<value> - set options\n"
 		"  -# - enable setup progress bar\n",
 		NULL,
@@ -1078,6 +1087,36 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		cmd_setup_help())
 
 	const char *build = argv[argi];
+
+	// The following shenanigans are to support passing the source dir instead
+	// of the build dir.  We decide that the passed dir is a source dir (and
+	// the build dir is the current dir) if the current dir does not contain a
+	// build file.
+	TSTR(argv0);
+	TSTR(new_cwd);
+	TSTR(old_cwd);
+	{
+		path_copy_cwd(&wk, &old_cwd);
+
+		enum build_language _lang;
+		if (!determine_build_file(&wk, path_cwd(), &_lang, true))
+		{
+			// fix argv0 here since if it is a relative path it will be
+			// wrong after chdir
+			make_argv0_absolute(&wk, &argv0, argv);
+
+			if (!path_chdir(build)) {
+				return false;
+			}
+
+			path_copy_cwd(&wk, &new_cwd);
+			wk.source_root = new_cwd.buf;
+			build = old_cwd.buf;
+
+			((const char **)argv)[argi] = build;
+		}
+	}
+
 	++argi;
 
 	// Extract any relevant -D options that need to be handled very early.
@@ -1338,10 +1377,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	case 'C': {
 		// fix argv0 here since if it is a relative path it will be
 		// wrong after chdir
-		if (!path_is_basename(argv[0])) {
-			path_make_absolute(NULL, &argv0, argv[0]);
-			argv[0] = argv0.buf;
-		}
+		make_argv0_absolute(0, &argv0, argv);
 
 		if (!path_chdir(optarg)) {
 			return false;
