@@ -132,3 +132,23 @@ meson.register_dependency_handler(
         return dependency(name, method: 'pkg-config', kwargs: kwargs)
     endfunc,
 )
+
+meson.register_dependency_handler(
+    'dl',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+        if cc.has_function('dlopen', prefix: '#include <dlfcn.h>')
+            return declare_dependency()
+        endif
+
+        return not_found()
+    endfunc,
+    system: func(native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+        if cc.has_header('dlfcn.h')
+            return cc.find_library('dl', required: false)
+        endif
+
+        return not_found()
+    endfunc,
+)
