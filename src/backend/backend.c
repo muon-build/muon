@@ -111,6 +111,7 @@ write_tests(struct workspace *wk, void *_ctx, FILE *out)
 
 			obj_array_push(wk, arr, proj->tests);
 			obj_array_push(wk, arr, proj->test_setups);
+			obj_array_push(wk, arr, make_number(wk, i));
 			obj_dict_set(wk, tests, key, arr);
 		}
 	}

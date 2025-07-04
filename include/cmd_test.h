@@ -35,7 +35,7 @@ struct test_options {
 	uint32_t suites_len, tests_len, jobs, verbosity;
 	enum test_display display;
 	enum test_output output;
-	bool fail_fast, print_summary, no_rebuild, list;
+	bool fail_fast, print_summary, no_rebuild, list, include_subprojects;
 
 	enum test_category cat;
 };

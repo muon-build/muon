@@ -333,9 +333,9 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *clean* - clean wrap-git subprojects
 
 ## test
-	*muon* *test* [*-b*] [*-d* <display mode>] [*-o* <output>] [*-e* <setup>]
-	\[*-f*] [*-j* <jobs>] [*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v [*-v*]*]
-	\[<test> [<test>[...]]
+	*muon* *test* [*-a*] [*-b*] [*-d* <display mode>] [*-o* <output>] [*-e*
+	<setup>] [*-f*] [*-j* <jobs>] [*-l*] [*-R*] [*-s* <suite>] [*-S*] [*-v
+	\[*-v*]*] [<test> [<test>[...]]
 
 	Execute tests defined in _source files_.
 
@@ -356,6 +356,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	the project 'proj'.
 
 	*OPTIONS*:
+	- *-a* - include all tests from all projects
 	- *-b* - run benchmarks instead of tests
 	- *-d* <display mode> - Control test progress output.  _display mode_ can
 	  be one of *auto*, *dots*, or *bar*.  *dots* prints a '.' for success and

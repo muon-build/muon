@@ -925,7 +925,11 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
-	OPTSTART("bs:d:Sfj:lvRe:o:") {
+	OPTSTART("abs:d:Sfj:lvRe:o:") {
+	case 'a': {
+		test_opts.include_subprojects = true;
+		break;
+	}
 	case 'b': {
 		test_opts.cat = test_category_benchmark;
 		test_opts.print_summary = true;
@@ -984,6 +988,7 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	OPTEND(argv[argi],
 		" [test [test [...]]]",
+		"  -a - include all tests from all projects\n"
 		"  -b - run benchmarks instead of tests\n"
 		"  -d <mode> - change progress display mode (auto|dots|bar)\n"
 		"  -o <mode> - set output mode (term|html|json)\n"

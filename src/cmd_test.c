@@ -937,6 +937,12 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	unfiltered_tests = obj_array_index(wk, arr, 0);
 
 	struct run_test_ctx *ctx = _ctx;
+
+	int64_t project_index = get_obj_number(wk, obj_array_index(wk, arr, 2));
+	if (!ctx->opts->include_subprojects && project_index != 0) {
+		goto cont;
+	}
+
 	ctx->proj_name = proj_name;
 	ctx->deps = make_obj(wk, obj_array);
 
@@ -950,9 +956,9 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 
 	if (ctx->opts->list) {
 		obj_array_foreach(wk, tests, ctx, list_tests_iter);
-		return ir_cont;
+		goto cont;
 	} else if (!ctx->stats.test_len) {
-		return ir_cont;
+		goto cont;
 	}
 
 	if (get_obj_array(wk, ctx->deps)->len && !ctx->opts->no_rebuild) {
@@ -982,8 +988,8 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 
 	log_raw("\n");
 
+cont:
 	++ctx->proj_i;
-
 	return ir_cont;
 }
 

@@ -80,7 +80,7 @@ endif
 
 run_command(ninja, '-C', build, check: true)
 
-run_command(muon, '-C', build, 'test', check: true)
+run_command(muon, '-C', build, 'test', '-a', check: true)
 
 run_command(muon, '-C', build, 'install', env: {'DESTDIR': 'destdir'}, check: true)
 
