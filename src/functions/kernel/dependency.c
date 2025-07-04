@@ -964,11 +964,13 @@ func_dependency(struct workspace *wk, obj self, obj *res)
 	}
 
 	if (wk->vm.in_analyzer) {
-		// TODO: check fallback keyword?
-		obj name, _subproj;
-		obj_array_for(wk, an[0].val, name) {
-			if (get_str(wk, name)->len) {
-				subproject(wk, name, requirement_auto, 0, 0, &_subproj);
+		if (wk->vm.lang_mode == language_external) {
+			// TODO: check fallback keyword?
+			obj name, _subproj;
+			obj_array_for(wk, an[0].val, name) {
+				if (get_str(wk, name)->len) {
+					subproject(wk, name, requirement_auto, 0, 0, &_subproj);
+				}
 			}
 		}
 
