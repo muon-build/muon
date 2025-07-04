@@ -69,8 +69,8 @@ struct fmt_ctx {
 	struct workspace *wk;
 	struct tstr *out_buf;
 	obj raw_blocks;
-	uint32_t indent, enclosing, raw_block_idx, measured_len;
-	bool trailing_comment, fmt_on, measuring, line_has_content;
+	uint32_t indent, raw_block_idx, measured_len;
+	bool trailing_comment, fmt_on, measuring, line_has_content, is_enclosed;
 
 	struct bucket_arr frags;
 
@@ -367,7 +367,7 @@ static void
 fmt_write_nl(struct fmt_ctx *f)
 {
 	if (f->measuring) {
-		if (f->enclosing) {
+		if (f->is_enclosed) {
 			f->measured_len += f->opts.max_line_len + 1;
 		}
 		return;
@@ -519,7 +519,7 @@ fmt_write_frag_ws(struct fmt_ctx *f, struct fmt_frag *ws, enum fmt_write_frag_ws
 			break;
 		}
 		case fmt_frag_type_ws_newline: {
-			if (f->enclosing) {
+			if (f->is_enclosed) {
 				if (newlines < 1) {
 					// Skip the first newline
 					++newlines;
@@ -592,7 +592,7 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 	// Write enclosing characters and indent if necessary
 	if (p->enclosing) {
 		fmt_write(f, &p->enclosing[0], 1);
-		++f->enclosing;
+		stack_push(&f->wk->stack, f->is_enclosed, true);
 
 		if (ml) {
 			++f->indent;
@@ -613,6 +613,7 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 			}
 		}
 	} else if (p->type == fmt_frag_type_block) {
+		stack_push(&f->wk->stack, f->is_enclosed, false);
 		++f->indent;
 	}
 
@@ -639,7 +640,7 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 				bool stick_line
 					= (fr->flags & fmt_frag_flag_stick_line_right)
 					  || (fr->next->flags & fmt_frag_flag_stick_line_left)
-					  || (!f->enclosing
+					  || (!f->is_enclosed
 						  && (fr->next->flags & fmt_frag_flag_stick_line_left_unless_enclosed
 							  || fr->next->flags
 								     & fmt_frag_flag_stick_left_unless_enclosed));
@@ -679,12 +680,13 @@ fmt_write_frag(struct fmt_ctx *f, struct fmt_frag *p)
 		}
 
 		fmt_write(f, &p->enclosing[1], 1);
-		--f->enclosing;
+		stack_pop(&f->wk->stack, f->is_enclosed);
 
 		if (ml && p->flags & fmt_frag_flag_enclosed_extra_indent) {
 			--f->indent;
 		}
 	} else if (p->type == fmt_frag_type_block) {
+		stack_pop(&f->wk->stack, f->is_enclosed);
 		--f->indent;
 	}
 
