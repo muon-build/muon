@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
+fs = import('fs')
+
 func clike_compiler(native bool) -> compiler
     foreach candidate : ['c', 'cpp', 'objc', 'objcpp']
         if meson.has_compiler(candidate, native: native)
@@ -123,6 +125,41 @@ meson.register_dependency_handler(
 
 meson.register_dependency_handler(
     'gtest',
+    system: func(main bool: false, native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+        deps = [dependency('threads')]
+
+        gtest_lib = cc.find_library('gtest', required: false)
+        gtest_main_lib = cc.find_library('gtest_main', required: false)
+
+        if gtest_lib.found() and (not main or gtest_main_lib.found())
+            deps += gtest_lib
+            if gtest_main_lib.found()
+                deps += gtest_main_lib
+            endif
+
+            return declare_dependency(dependencies: deps)
+        endif
+
+        foreach s : ['/usr/src/gtest/src', '/usr/src/googletest/googletest/src']
+            if fs.is_dir(s)
+                sources = files(s / 'gtest-all.cc')
+                if main
+                    sources += files(s / 'gtest_main.cc')
+                endif
+
+                return declare_dependency(
+                    sources: sources,
+                    include_directories: [
+                        s / '..',
+                        s / '../include',
+                    ],
+                )
+            endif
+        endforeach
+
+        return not_found()
+    endfunc,
     pkgconfig: func(main bool: false, kwargs glob[any]:) -> dep
         name = 'gtest'
         if main
