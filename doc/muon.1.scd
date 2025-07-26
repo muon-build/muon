@@ -201,7 +201,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-f* - parse in formatting mode
 
 ## internal eval
-	*muon* *internal* *eval* [*-e*] [*-s*] <filename> [<args>]
+	*muon* *internal* *eval* [*-e*] [*-s*] *-c* <command> | <filename> [<args>]
 
 	Evaluate a _source file_.  The interpreter environment is
 	substantially different from the typical environment during *setup*.
@@ -215,6 +215,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  particularly `run_command()`.  The motivation for this flag is so that
 	  automated fuzz testing can be used without accidentally executing
 	  something like `run_command('rm', '-rf', '/')`.
+	- *-c* <command> - evaluate the string _command_ rather than reading from a
+	  file
 
 ## internal exe
 	*muon* *internal* *exe* [*-f* <input file>] [*-c* <output file>] [*-e*

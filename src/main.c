@@ -563,10 +563,10 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	workspace_init_bare(&wk);
 	workspace_setup_paths(&wk, path_cwd(), argv[0], argc, argv);
 
-	const char *filename;
+	const char *string_src = 0;
 	bool embedded = false;
 
-	OPTSTART("esb:") {
+	OPTSTART("esb:c:") {
 	case 'e': embedded = true; break;
 	case 's': {
 		wk.vm.disable_fuzz_unsafe_functions = true;
@@ -576,20 +576,18 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		vm_dbg_push_breakpoint_str(&wk, optarg);
 		break;
 	}
+	case 'c': {
+		string_src = optarg;
+		break;
+	}
 	}
 	OPTEND(argv[argi],
 		" <filename> [args]",
 		"  -e - lookup <filename> as an embedded script\n"
-		"  -s - disable functions that are unsafe to be called at random\n",
+		"  -s - disable functions that are unsafe to be called at random\n"
+		"  -c cmd - evaluate program passed in as string\n",
 		NULL,
 		-1)
-
-	if (argi >= argc) {
-		LOG_E("missing required filename argument");
-		return false;
-	}
-
-	filename = argv[argi];
 
 	bool ret = false;
 
@@ -597,14 +595,31 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	wk.vm.lang_mode = language_internal;
 
-	if (embedded) {
-		if (!(embedded_get(filename, &src))) {
-			LOG_E("failed to find '%s' in embedded sources", filename);
-			goto ret;
+	if (string_src) {
+		if (!check_operands(argc, argi, 0)) {
+			return false;
 		}
+
+		src.label = "commandline";
+		src.src = string_src;
+		src.len = strlen(string_src);
 	} else {
-		if (!fs_read_entire_file(filename, &src)) {
-			goto ret;
+		if (argi >= argc) {
+			LOG_E("missing required filename argument");
+			return false;
+		}
+
+		const char *filename = 0;
+		filename = argv[argi];
+		if (embedded) {
+			if (!(embedded_get(filename, &src))) {
+				LOG_E("failed to find '%s' in embedded sources", filename);
+				goto ret;
+			}
+		} else {
+			if (!fs_read_entire_file(filename, &src)) {
+				goto ret;
+			}
 		}
 	}
 
