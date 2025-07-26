@@ -164,7 +164,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 					get_cstr(wk, order_deps));
 				ctx.have_order_deps = false;
 				implicit_deps = make_obj(wk, obj_array);
-				obj_array_push(wk, implicit_deps, make_strf(wk, "%s-order_deps", esc_path.buf));
+				obj_array_push(wk, implicit_deps, make_strf(wk, "%s-order_deps", rel_build_path.buf));
 				have_custom_order_deps = true;
 			} else {
 				ctx.order_deps = order_deps;
@@ -173,6 +173,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	}
 
 	if (implicit_deps) {
+		// We need to go ahead and join implicit deps here so that they can be
+		// used by pch generation if necessary.  The pch will then be added to
+		// the list of implicit deps for the rest of the compiled sources.
 		ctx.implicit_deps = join_args_ninja(wk, implicit_deps);
 	}
 
