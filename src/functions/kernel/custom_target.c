@@ -318,6 +318,7 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 			}
 
 			if (!find_program_ctx.found) {
+				vm_error_at(wk, ctx->opts->err_node, "program %o not found", ss);
 				return false;
 			}
 
