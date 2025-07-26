@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+image: fedora/latest
+packages:
+  - gcc-c++
+sources:
+  - https://git.sr.ht/~lattis/muon
+tasks:
+  - bootstrap: |
+      cd muon
+      tools/ci/bootstrap.sh build
+
+  - test: |
+      cd muon/build
+      ./muon test -d dots
