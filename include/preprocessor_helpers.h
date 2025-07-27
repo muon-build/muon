@@ -10,6 +10,9 @@
 #define STRINGIZE2(x) #x
 #define LINE_STRING STRINGIZE(__LINE__)
 
+#ifdef CONCAT
+#undef CONCAT
+#endif
 #define CONCAT(first, second) CONCAT_SIMPLE(first, second)
 #define CONCAT_SIMPLE(first, second) first##second
 
