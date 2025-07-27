@@ -14,3 +14,7 @@
 #else
 #define MUON_ATTR_FORMAT(type, start, end)
 #endif
+
+#ifdef __OpenBSD__
+#include <stdarg.h>
+#endif
