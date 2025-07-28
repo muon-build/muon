@@ -192,8 +192,12 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 
 		char end = buf->buf[content_length];
 		buf->buf[content_length] = 0;
-		if (!muon_json_to_obj(wk, &TSTR_STR(buf), msg) || get_obj_type(wk, *msg) != obj_dict) {
-			LOG_E("failed to parse json: '%.*s'", buf->len, buf->buf);
+		const struct str json_msg = { .s = buf->buf, .len = content_length };
+		if (!muon_json_to_obj(wk, &json_msg, msg)) {
+			obj_lprintf(wk, log_error, "failed to parse json: %o", *msg);
+			return false;
+		} else if (get_obj_type(wk, *msg) != obj_dict) {
+			obj_lprintf(wk, log_error, "message was not a dict, got %s", obj_type_to_s(get_obj_type(wk, *msg)));
 			return false;
 		}
 		buf->buf[content_length] = end;
