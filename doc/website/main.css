@@ -93,12 +93,12 @@ summary:hover {
   justify-content: center;
 }
 
-.version-tag-edge {
+.version-tag-dev {
   color: #282A36;
   background-color: #FFB86C;
 }
 
-.version-tag-released {
+.version-tag-latest {
   color: #282A36;
   background-color: #50FA7B;
 }

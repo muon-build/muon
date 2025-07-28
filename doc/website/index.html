@@ -152,9 +152,9 @@ SPDX-License-Identifier: GPL-3.0-only
             summaryTitle.innerHTML = e.ver;
             content.appendChild(summaryTitle);
             if (i == 0) {
-              content.appendChild(versionTag("edge"));
+              content.appendChild(versionTag("dev"));
             } else if (i == 1) {
-              content.appendChild(versionTag("released"));
+              content.appendChild(versionTag("latest"));
             }
 
             const ul = document.createElement("ul");
