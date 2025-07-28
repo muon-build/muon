@@ -916,7 +916,7 @@ init_global_options(struct workspace *wk)
 		make_compiler_option(wk, link_args);
 		if (compile_opt_env_var[langs[i].l][toolchain_component_linker]) {
 			set_compile_opt_from_env(
-				wk, get_str(wk, args)->s, compile_opt_env_var[langs[i].l][toolchain_component_linker]);
+				wk, get_str(wk, link_args)->s, compile_opt_env_var[langs[i].l][toolchain_component_linker]);
 		}
 
 		make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler);
