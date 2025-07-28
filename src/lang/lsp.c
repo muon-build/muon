@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "error.h"
-#include "external/tinyjson.h"
+#include "formats/json.h"
 #include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"

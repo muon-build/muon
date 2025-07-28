@@ -2,9 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 external_deps = []
-dep_sources = [
-    files('tinyjson.c'),
-]
+dep_sources = []
 
 dependency_kwargs = {}
 if get_option('static')

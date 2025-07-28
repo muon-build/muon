@@ -19,6 +19,7 @@ src = files(
     'datastructures/stack.c',
     'formats/editorconfig.c',
     'formats/ini.c',
+    'formats/json.c',
     'formats/lines.c',
     'formats/tap.c',
     'formats/xml.c',

@@ -5,7 +5,7 @@
 
 #include "compat.h"
 
-#include "external/tinyjson.h"
+#include "formats/json.h"
 #include "functions/modules/json.h"
 #include "lang/typecheck.h"
 #include "log.h"

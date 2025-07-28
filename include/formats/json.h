@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#ifndef MUON_EXTERNAL_TINYJSON_H
-#define MUON_EXTERNAL_TINYJSON_H
+#ifndef MUON_FORMATS_JSON_H
+#define MUON_FORMATS_JSON_H
 
 #include <stdbool.h>
 

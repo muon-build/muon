@@ -10,7 +10,7 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "embedded.h"
-#include "external/tinyjson.h"
+#include "formats/json.h"
 #include "functions/external_program.h"
 #include "functions/modules/python.h"
 #include "install.h"

@@ -14,7 +14,7 @@
 
 #include "buf_size.h"
 #include "error.h"
-#include "external/tinyjson.h"
+#include "formats/json.h"
 #include "lang/lexer.h"
 #include "lang/object.h"
 #include "lang/string.h"
