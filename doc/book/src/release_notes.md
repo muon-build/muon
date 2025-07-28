@@ -1,6 +1,23 @@
 # Release Notes
 
-##   0.5.0
+## ✓ 0.5.0
+
+- muon analyze now has an LSP mode
+- pkg-config-exec backend added.  muon now supports shelling out to pkg-config
+  (or pkgconf).
+- bump meson support to 1.7
+- more builtin dependency handlers
+- lots of bug fixes
+- 9 contributors:
+    - Jonathan Schleifer (3)
+    - LoneFox78 (1)
+    - Michael Forney (1)
+    - NRK (6)
+    - Stone Tickle (416)
+    - VaiTon (3)
+    - Vincent Torri (2)
+    - kzc (4)
+    - m-hugo (1)
 
 ## ✓ 0.4.0
 
