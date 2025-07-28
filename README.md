@@ -95,7 +95,9 @@ Stage 1:
 ```
 
 This will by default build a ninja implementation (samu) into the resulting
-executable.  To disable this behavior use `CFLAGS=-DBOOTSTRAP_NO_SAMU`.
+executable.  To disable this behavior use `CFLAGS=-DBOOTSTRAP_NO_SAMU`.  This
+only disables samurai for muon-bootstrap.  To disable samurai in the final muon
+executable use the standard option `-Dsamurai=disabled`.
 
 Stage 2:
 
