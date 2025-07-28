@@ -256,6 +256,11 @@ static void az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt
 static void
 az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt, ...)
 {
+	if (!srv->verbose)
+	{
+		return;
+	}
+
 	va_list ap;
 	va_start(ap, fmt);
 	TSTR(tstr);
