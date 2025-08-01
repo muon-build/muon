@@ -36,7 +36,6 @@ jobs:
       with:
         msystem: ${{ matrix.sys }}
         update: true
-        install: base-devel git pactoys
         pacboy: >-
           toolchain:p
           pkgconf:p
