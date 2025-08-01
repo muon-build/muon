@@ -37,11 +37,6 @@ jobs:
         msystem: ${{ matrix.sys }}
         update: true
         install: base-devel git pactoys
-    - name: '${{ matrix.icon }} Dependencies'
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ${{ matrix.sys }}
-        update: true
         pacboy: >-
           toolchain:p
           pkgconf:p
