@@ -14,33 +14,44 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  test:
+  build:
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
-        config:
-          - msystem: mingw32
-            install: base-devel git mingw-w64-i686-ninja mingw-w64-i686-toolchain mingw-w64-i686-pkgconf mingw-w64-i686-curl mingw-w64-i686-libarchive
-          - msystem: mingw64
-            install: base-devel git mingw-w64-x86_64-ninja mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkgconf mingw-w64-x86_64-curl mingw-w64-x86_64-libarchive
-          - msystem: msys
-            install: base-devel git ninja gcc pkgconf libcurl-devel libarchive-devel
-    name: msys2 - ${{ matrix.config.msystem }}
-    runs-on: windows-latest
+        include:
+          - { icon: '⬛', sys: mingw32, runs-on: 'windows-latest' }
+          - { icon: '🟦', sys: mingw64, runs-on: 'windows-latest' }
+          - { icon: '🟨', sys: ucrt64, runs-on: 'windows-latest' }
+          - { icon: '🟧', sys: clang64, runs-on: 'windows-latest' }
+          - { icon: '🟩', sys: clangarm64, runs-on: 'windows-11-arm' }
+    name: 🚧${{ matrix.icon }} ${{ matrix.sys }}
     defaults:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@master
-    - uses: msys2/setup-msys2@v2
+    - name: '🧰 Checkout'
+      uses: actions/checkout@master
+    - name: '${{ matrix.icon }} Setup MSYS2'
+      uses: msys2/setup-msys2@v2
       with:
-        msystem: ${{ matrix.config.msystem }}
+        msystem: ${{ matrix.sys }}
         update: true
-        install: ${{ matrix.config.install }}
-    - name: bootstrap
+        install: base-devel git pacboy
+    - name: '${{ matrix.icon }} Dependencies'
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.sys }}
+        update: true
+        pacboy: >-
+          toolchain:p
+          pkgconf:p
+          curl:p
+          libarchive:p
+    - name: '🚧 Build TOOL'
       run: |
-        CC=gcc CFLAGS=-std=c99 ./bootstrap.sh build
-        CC=gcc CFLAGS=-std=c99 ./build/muon-bootstrap.exe setup build
-        ninja -C build
-    - name: test
+        CC="gcc -std=c99"  ./bootstrap.sh build
+        CC="gcc -std=c99" ./build/muon-bootstrap.exe setup build
+        build/muon-bootstrap.exe -C build samu
+    - name: '🔬 Tests'
       run: |
         ./build/muon.exe -C build test -v -ddots || true
