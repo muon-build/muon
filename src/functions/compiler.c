@@ -180,23 +180,25 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	obj_array_push(wk, compiler_args, source_path);
 
 	TSTR(test_output_path);
-	const char *output_path;
-	if (opts->output_path) {
-		output_path = opts->output_path;
-	} else if (opts->mode == compiler_check_mode_run) {
-		path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
-		if (machine_definitions[comp->machine]->is_windows) {
-			tstr_pushs(wk, &test_output_path, ".exe");
+	const char *output_path = 0;
+	if (!opts->output_is_stdout) {
+		if (opts->output_path) {
+			output_path = opts->output_path;
+		} else if (opts->mode == compiler_check_mode_run) {
+			path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
+			if (machine_definitions[comp->machine]->is_windows) {
+				tstr_pushs(wk, &test_output_path, ".exe");
+			}
+			output_path = test_output_path.buf;
+		} else {
+			path_join(wk, &test_output_path, wk->muon_private, "test.");
+			tstr_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
+			tstr_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
+			output_path = test_output_path.buf;
 		}
-		output_path = test_output_path.buf;
-	} else {
-		path_join(wk, &test_output_path, wk->muon_private, "test.");
-		tstr_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
-		tstr_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
-		output_path = test_output_path.buf;
-	}
 
-	push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
+		push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
+	}
 
 	if (have_dep) {
 		struct obj_build_target tgt = {
@@ -1051,10 +1053,8 @@ compiler_get_define(struct workspace *wk,
 	const char *def,
 	obj *res)
 {
-	TSTR(output_path);
-	path_join(wk, &output_path, wk->muon_private, "get_define_output");
-
-	opts->output_path = output_path.buf;
+	opts->output_is_stdout = true;
+	opts->keep_cmd_ctx = true;
 	opts->mode = compiler_check_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
@@ -1078,7 +1078,6 @@ compiler_get_define(struct workspace *wk,
 		def,
 		delim_end.s);
 
-	struct source output = { 0 };
 	bool ok;
 	if (!compiler_check(wk, opts, src, err_node, &ok)) {
 		return false;
@@ -1091,9 +1090,7 @@ compiler_get_define(struct workspace *wk,
 		goto done;
 	}
 
-	if (!fs_read_entire_file(output_path.buf, &output)) {
-		return false;
-	}
+	const struct tstr *output = &opts->cmd_ctx.out;
 
 	*res = 0;
 	bool started = false;
@@ -1102,19 +1099,19 @@ compiler_get_define(struct workspace *wk,
 	bool joining = false;
 
 	uint32_t i;
-	for (i = 0; i < output.len; ++i) {
-		struct str output_s = { &output.src[i], output.len - i };
+	for (i = 0; i < output->len; ++i) {
+		struct str output_s = { &output->buf[i], output->len - i };
 
 		if (!started) {
 			// Look for the start delimiter.
 			// The first character check is a minor optimization.
-			if (output.src[i] == '\"' && str_startswith(&output_s, &delim_start)) {
+			if (output->buf[i] == '\"' && str_startswith(&output_s, &delim_start)) {
 				started = true;
 				*res = make_str(wk, "");
 				i += delim_start.len;
 
 				// Skip whitespace before the defined value or subsequent delimiter.
-				for (; i < output.len && is_whitespace(output.src[i]); ++i) {
+				for (; i < output->len && is_whitespace(output->buf[i]); ++i) {
 				}
 
 				// Replay the last character upon loop continue.
@@ -1128,11 +1125,11 @@ compiler_get_define(struct workspace *wk,
 
 		// Stop building defined value if we've encountered the end delimiter.
 		// The first character check is a minor optimization.
-		if (output.src[i] == '\"' && str_startswith(&output_s, &delim_end)) {
+		if (output->buf[i] == '\"' && str_startswith(&output_s, &delim_end)) {
 			break;
 		}
 
-		switch (output.src[i]) {
+		switch (output->buf[i]) {
 		case '"':
 			if (esc) {
 				esc = false;
@@ -1141,13 +1138,13 @@ compiler_get_define(struct workspace *wk,
 				if (!in_quotes || joining) {
 					uint32_t start = i;
 					++i;
-					for (; i < output.len; ++i) {
-						if (!strchr("\t ", output.src[i])) {
+					for (; i < output->len; ++i) {
+						if (!strchr("\t ", output->buf[i])) {
 							break;
 						}
 					}
 
-					if (output.src[i] == '"') {
+					if (output->buf[i] == '"') {
 						joining = true;
 						++i;
 					} else {
@@ -1159,20 +1156,20 @@ compiler_get_define(struct workspace *wk,
 		case '\\': esc = true; break;
 		}
 
-		if (output.src[i] == '\n') {
+		if (output->buf[i] == '\n') {
 			break;
 		}
 
 		if (started) {
-			str_appn(wk, res, &output.src[i], 1);
+			str_appn(wk, res, &output->buf[i], 1);
 		}
 	}
-
-	fs_source_destroy(&output);
 
 	if (*res && str_eql(get_str(wk, *res), &delim_sentinel)) {
 		*res = 0;
 	}
+
+	run_cmd_ctx_destroy(&opts->cmd_ctx);
 
 	compiler_check_cache_set(
 		wk, opts->cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
@@ -1188,7 +1185,6 @@ done:
 	}
 	return true;
 failed:
-	fs_source_destroy(&output);
 	vm_error_at(wk, err_node, "failed to %s define: '%s'", check_only ? "check" : "get", def);
 	return false;
 }
