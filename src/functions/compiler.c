@@ -1058,8 +1058,10 @@ compiler_get_define(struct workspace *wk,
 	opts->mode = compiler_check_mode_preprocess;
 
 	char src[BUF_SIZE_4k];
-	const struct str delim_start = STR("\"MUON_GET_DEFINE_DELIMITER_START\"\n"),
-			 delim_end = STR("\n\"MUON_GET_DEFINE_DELIMITER_END\""),
+
+	// Delimiters must begin and end with with double quotes.
+	const struct str delim_start = STR("\"MUON_GET_DEFINE_DELIMITER_START\""),
+			 delim_end = STR("\"MUON_GET_DEFINE_DELIMITER_END\""),
 			 delim_sentinel = STR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
 	snprintf(src,
 		BUF_SIZE_4k,
@@ -1067,7 +1069,7 @@ compiler_get_define(struct workspace *wk,
 		"#ifndef %s\n"
 		"#define %s %s\n"
 		"#endif \n"
-		"%s%s%s\n",
+		"%s\n%s\n%s\n",
 		prefix,
 		def,
 		def,
@@ -1103,30 +1105,30 @@ compiler_get_define(struct workspace *wk,
 	for (i = 0; i < output.len; ++i) {
 		struct str output_s = { &output.src[i], output.len - i };
 
-		if (!started && str_startswith(&output_s, &delim_start)) {
-			started = true;
-			*res = make_str(wk, "");
-
-			// Check for delim_end right after delim_start.  If there is no
-			// value they will share a newline so we need to do the check here.
-			i += delim_start.len - 1;
-			output_s = (struct str){ &output.src[i], output.len - i };
-			if (str_startswith(&output_s, &delim_end)) {
-				break;
-			}
-			++i;
-			output_s = (struct str){ &output.src[i], output.len - i };
-
-			if (i >= output.len) {
-				break;
-			}
-		}
-
 		if (!started) {
+			// Look for the start delimiter.
+			// The first character check is a minor optimization.
+			if (output.src[i] == '\"' && str_startswith(&output_s, &delim_start)) {
+				started = true;
+				*res = make_str(wk, "");
+				i += delim_start.len;
+
+				// Skip whitespace before the defined value or subsequent delimiter.
+				for (; i < output.len && is_whitespace(output.src[i]); ++i) {
+				}
+
+				// Replay the last character upon loop continue.
+				--i;
+			}
 			continue;
 		}
 
-		if (str_startswith(&output_s, &delim_end)) {
+		// The start delimiter has been parsed at this point and we are building
+		// the defined value `res` while looking for the end delimiter or line end.
+
+		// Stop building defined value if we've encountered the end delimiter.
+		// The first character check is a minor optimization.
+		if (output.src[i] == '\"' && str_startswith(&output_s, &delim_end)) {
 			break;
 		}
 
@@ -1715,8 +1717,9 @@ compiler_has_argument(struct workspace *wk,
 			if (opts.cmd_ctx.err.len && strstr(opts.cmd_ctx.err.buf, "D9002")) {
 				*has_argument = false;
 
-				compiler_check_cache_set(
-					wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = *has_argument });
+				compiler_check_cache_set(wk,
+					opts.cache_key,
+					&(struct compiler_check_cache_value){ .success = *has_argument });
 			}
 		}
 
