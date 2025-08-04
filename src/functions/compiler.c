@@ -1156,13 +1156,14 @@ compiler_get_define(struct workspace *wk,
 		case '\\': esc = true; break;
 		}
 
-		if (output->buf[i] == '\n') {
+		// Defined value ends upon line end.
+		// We need to check both CR and LF.
+		if (output->buf[i] == '\n' || output->buf[i] == '\r') {
 			break;
 		}
 
-		if (started) {
-			str_appn(wk, res, &output->buf[i], 1);
-		}
+		// Append character to the defined value.
+		str_appn(wk, res, &output->buf[i], 1);
 	}
 
 	if (*res && str_eql(get_str(wk, *res), &delim_sentinel)) {
