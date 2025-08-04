@@ -160,6 +160,7 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 #define FOREACH_COMPILER_ARG(_)                                \
 	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0) \
 	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns)   \
+	_(linker_delimiter, compiler, TOOLCHAIN_PARAMS_0)   \
 	_(deps, compiler, TOOLCHAIN_PARAMS_2s)                 \
 	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)          \
 	_(preprocess_only, compiler, TOOLCHAIN_PARAMS_0)       \

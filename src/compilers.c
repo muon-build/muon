@@ -1625,6 +1625,13 @@ TOOLCHAIN_PROTO_0(compiler_cl_args_do_linker_passthrough)
 	return TOOLCHAIN_FALSE;
 }
 
+TOOLCHAIN_PROTO_0(compiler_cl_args_linker_delimiter)
+{
+	TOOLCHAIN_ARGS({ "/link" });
+
+	return &args;
+}
+
 TOOLCHAIN_PROTO_0(compiler_deps_gcc)
 {
 	TOOLCHAIN_ARGS({ "gcc" });
@@ -1945,6 +1952,7 @@ build_compilers(void)
 	msvc.args.deps_type = compiler_deps_msvc;
 	msvc.args.std_supported = compiler_cl_args_std_supported;
 	msvc.args.do_linker_passthrough = compiler_cl_args_do_linker_passthrough;
+	msvc.args.linker_delimiter = compiler_cl_args_linker_delimiter;
 	msvc.default_linker = linker_msvc;
 	msvc.default_static_linker = static_linker_msvc;
 
