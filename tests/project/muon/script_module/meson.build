@@ -34,17 +34,19 @@ assert(h() == 1)
 assert(h() == 2)
 
 # test wrapping meson functions
-cat = find_program('cat')
-copy = m.custom_target_wrap(
-    {
-        'env': {'custom_var': '1'},
-        'command': [cat],
-        'feed': true,
-        'capture': true,
-        'build_by_default': true,
-    },
-)
-copy('f', {'input': 'meson.build', 'output': 'copied_meson.build'})
+cat = find_program('cat', required: false)
+if cat.found()
+    copy = m.custom_target_wrap(
+        {
+            'env': {'custom_var': '1'},
+            'command': [cat],
+            'feed': true,
+            'capture': true,
+            'build_by_default': true,
+        },
+    )
+    copy('f', {'input': 'meson.build', 'output': 'copied_meson.build'})
+endif
 
 stat = find_program('stat', required: false)
 if stat.found()
