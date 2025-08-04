@@ -82,7 +82,14 @@ tgt_src_to_compiled_path(struct workspace *wk,
 	{
 		obj comp_id;
 		if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], opts->lang, &comp_id)) {
-			ext = opts->get_ext(wk, get_obj_compiler(wk, comp_id))->args[0];
+
+			const struct args *args = opts->get_ext(wk, get_obj_compiler(wk, comp_id));
+			if (args->len) {
+				assert(args->len == 1);
+				ext = args->args[0];
+			} else {
+				return false;
+			}
 		}
 	}
 
@@ -99,6 +106,7 @@ tgt_src_to_pch_path(struct workspace *wk,
 {
 	struct tgt_src_to_compiled_path_opts opts = {
 		.relative = true,
+		.default_ext = "",
 		.get_ext = toolchain_compiler_pch_ext,
 		.lang = lang,
 	};

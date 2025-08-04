@@ -495,6 +495,9 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 
 				TSTR(dest_path);
 				if (!tgt_src_to_pch_path(wk, tgt, lang, pch, &dest_path)) {
+					LLOG_E("");
+					obj_lprintf(wk, log_error, "unable to determine pch path for %o\n", pch);
+					LOG_N("muon likely does not have support for pch using the current compiler");
 					return false;
 				}
 
