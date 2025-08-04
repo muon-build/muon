@@ -111,6 +111,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
 
+	// Set up compiler arguments
+
 	obj compiler_args;
 	compiler_args = make_obj(wk, obj_array);
 
@@ -151,22 +153,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		return false;
 	}
 
-	switch (opts->mode) {
-	case compiler_check_mode_preprocess:
-		push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp));
-		break;
-	case compiler_check_mode_compile:
-		push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp));
-		break;
-	case compiler_check_mode_run: break;
-	case compiler_check_mode_link: {
-		push_args(wk,
-			compiler_args,
-			toolchain_compiler_linker_passthrough(wk, comp, toolchain_linker_fatal_warnings(wk, comp)));
-		break;
-	}
-	}
-
 	obj source_path;
 	if (opts->src_is_path) {
 		source_path = make_str(wk, src);
@@ -178,6 +164,12 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	obj_array_push(wk, compiler_args, source_path);
+
+	if (opts->mode == compiler_check_mode_preprocess) {
+		push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp));
+	} else if ( opts->mode == compiler_check_mode_compile) {
+		push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp));
+	}
 
 	TSTR(test_output_path);
 	const char *output_path = 0;
@@ -200,6 +192,15 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
 	}
 
+	// Set up linker arguments
+	if (opts->mode == compiler_check_mode_link) {
+		push_args(wk, compiler_args, toolchain_compiler_linker_delimiter(wk, comp));
+
+		push_args(wk,
+			compiler_args,
+			toolchain_compiler_linker_passthrough(wk, comp, toolchain_linker_fatal_warnings(wk, comp)));
+	}
+
 	if (have_dep) {
 		struct obj_build_target tgt = {
 			.dep_internal = dep,
@@ -208,6 +209,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
 	}
 
+	// Add additional args here.  For compilers that support a linker delimiter
+	// (cl.exe) they will be treated as linker arguments if mode is
+	// compiler_check_mode_link.
 	if (opts->args) {
 		obj_array_extend(wk, compiler_args, opts->args);
 	}
