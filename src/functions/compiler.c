@@ -2306,7 +2306,6 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 		obj cmd;
 		obj_array_dup(wk, base_cmd, &cmd);
 
-		push_args(wk, cmd, toolchain_compiler_output(wk, comp, "@OUTPUT@"));
 		obj_array_push(wk, cmd, make_str(wk, "@INPUT@"));
 
 		struct make_custom_target_opts opts = {
@@ -2316,6 +2315,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 			.output_dir = output_dir.buf,
 			.command_orig = cmd,
 			.extra_args_valid = true,
+			.capture = true,
 		};
 
 		obj tgt;
