@@ -546,11 +546,21 @@ fs_mtime(const char *path, int64_t *mtime)
 bool
 fs_remove(const char *path)
 {
-	if (!DeleteFileA(path)) {
+	bool ok = DeleteFileA(path);
+	if (!ok) {
+		if (GetLastError() == ERROR_ACCESS_DENIED)
+		{
+			if (!fs_chmod(path, _S_IWRITE)) {
+				return false;
+			}
+			ok = DeleteFileA(path);
+		}
+	}
+
+	if (!ok) {
 		LOG_E("failed DeleteFile(\"%s\"): %s", path, win32_error());
 		return false;
 	}
-
 	return true;
 }
 
