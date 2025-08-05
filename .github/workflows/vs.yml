@@ -57,6 +57,6 @@ jobs:
             -o StrictHostKeyChecking=no\
             -p 2975\
             deploy@mochiro.moe\
-            "sh -c 'mkdir -p \"$dest_dir\"; cat -> \"$dest_dir/$exe_name\"'"\
+            "sh -c 'mkdir -p \"$dest_dir\"; cat - > \"$dest_dir/$exe_name\"'"\
             < "build/muon.exe"
         if: matrix.arch == 'amd64' && github.event_name != 'pull_request'
