@@ -30,8 +30,18 @@ SPDX-License-Identifier: GPL-3.0-only
             <td>Alpine</td>
             <td>x86_64</td>
             <td>
-              <a href="https://builds.sr.ht/~lattis/muon?search=image:alpine">
-                <img src="https://builds.sr.ht/~lattis/muon.svg?search=image:alpine"></img>
+              <a href="https://builds.sr.ht/~lattis/muon/commits/master/alpine.yml">
+                <img src="https://builds.sr.ht/~lattis/muon/commits/master/alpine.yml.svg"></img>
+              </a>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Alpine</td>
+            <td>aarch64</td>
+            <td>
+              <a href="https://github.com/muon-build/muon/actions/workflows/alpine-arm.yml">
+                <img src="https://github.com/muon-build/muon/actions/workflows/alpine-arm.yml/badge.svg"></img>
               </a>
             </td>
             <td></td>
@@ -40,8 +50,8 @@ SPDX-License-Identifier: GPL-3.0-only
             <td>NetBSD</td>
             <td>amd64</td>
             <td>
-              <a href="https://builds.sr.ht/~lattis/muon?search=image:netbsd">
-                <img src="https://builds.sr.ht/~lattis/muon.svg?search=image:netbsd"></img>
+              <a href="https://builds.sr.ht/~lattis/muon/commits/master/netbsd.yml">
+                <img src="https://builds.sr.ht/~lattis/muon/commits/master/netbsd.yml.svg"></img>
               </a>
             </td>
             <td>🧪</td>
@@ -50,8 +60,18 @@ SPDX-License-Identifier: GPL-3.0-only
             <td>Debian Stable</td>
             <td>amd64</td>
             <td>
-              <a href="https://builds.sr.ht/~lattis/muon?search=image:debian">
-                <img src="https://builds.sr.ht/~lattis/muon.svg?search=image:debian"></img>
+              <a href="https://builds.sr.ht/~lattis/muon/commits/master/debian.yml">
+                <img src="https://builds.sr.ht/~lattis/muon/commits/master/debian.yml.svg"></img>
+              </a>
+            </td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>Fedora</td>
+            <td>x86_64</td>
+            <td>
+              <a href="https://builds.sr.ht/~lattis/muon/commits/master/fedora.yml">
+                <img src="https://builds.sr.ht/~lattis/muon/commits/master/fedora.yml.svg"></img>
               </a>
             </td>
             <td></td>
@@ -64,7 +84,7 @@ SPDX-License-Identifier: GPL-3.0-only
                 <img src="https://github.com/muon-build/muon/actions/workflows/ubuntu.yml/badge.svg"></img>
               </a>
             </td>
-            <td>⚠ </td>
+            <td></td>
           </tr>
           <tr>
             <td>Solaris 11</td>
@@ -84,21 +104,21 @@ SPDX-License-Identifier: GPL-3.0-only
                 <img src="https://github.com/muon-build/muon/actions/workflows/msys2.yml/badge.svg"></img>
               </a>
             </td>
-            <td>⚠ </td>
+            <td>🧪</td>
           </tr>
           <tr>
-            <td>Windows - vs2019</td>
-            <td>amd64, amd64_x86</td>
+            <td>Windows - vs</td>
+            <td>amd64, x86</td>
             <td>
-              <a href="https://github.com/muon-build/muon/actions/workflows/vs2019.yml">
-                <img src="https://github.com/muon-build/muon/actions/workflows/vs2019.yml/badge.svg"></img>
+              <a href="https://github.com/muon-build/muon/actions/workflows/vs.yml">
+                <img src="https://github.com/muon-build/muon/actions/workflows/vs.yml/badge.svg"></img>
               </a>
             </td>
-            <td>⚠ </td>
+            <td>🧪</td>
           </tr>
           <tr>
-            <td>macOS 12</td>
-            <td>x86_64</td>
+            <td>macOS</td>
+            <td>arm64</td>
             <td>
               <a href="https://github.com/muon-build/muon/actions/workflows/macos.yml">
                 <img src="https://github.com/muon-build/muon/actions/workflows/macos.yml/badge.svg"></img>
@@ -111,8 +131,8 @@ SPDX-License-Identifier: GPL-3.0-only
 
       <h3>flags</h3>
       <ul>
-        <li>🧪 - project tests are disabled</li>
-        <li>⚠  - all tests are disabled</li>
+        <li>🧪 - at least some tests failing.</li>
+        <li>Architectures are named after the upstream port (e.g. Debian uses "amd64" while Alpine uses "x86_64").</li>
       </ul>
     </div>
 
