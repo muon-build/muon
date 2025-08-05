@@ -218,7 +218,8 @@ typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 	_(input_output, linker, TOOLCHAIN_PARAMS_2s)         \
 	_(always, linker, TOOLCHAIN_PARAMS_0)                \
 	_(coverage, linker, TOOLCHAIN_PARAMS_0)              \
-	_(implib, linker, TOOLCHAIN_PARAMS_1s)
+	_(implib, linker, TOOLCHAIN_PARAMS_1s)               \
+	_(def, linker, TOOLCHAIN_PARAMS_1s)
 
 #define FOREACH_STATIC_LINKER_ARG(_)                        \
 	_(base, static_linker, TOOLCHAIN_PARAMS_0)          \

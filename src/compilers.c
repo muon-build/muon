@@ -1792,6 +1792,16 @@ TOOLCHAIN_PROTO_1s(linker_link_args_implib)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1s(linker_link_args_def)
+{
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "/DEF:%s", s1);
+
+	return &args;
+}
+
 TOOLCHAIN_PROTO_0(linker_link_args_always)
 {
 	TOOLCHAIN_ARGS({ "/NOLOGO", NULL });
@@ -2031,6 +2041,7 @@ build_linkers(void)
 	link.args.always = linker_link_args_always;
 	link.args.whole_archive = linker_link_args_whole_archive;
 	link.args.implib = linker_link_args_implib;
+	link.args.def = linker_link_args_def;
 
 	struct linker lld_link = link;
 	lld_link.args.lib = linker_posix_args_lib;

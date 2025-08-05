@@ -279,6 +279,7 @@ struct obj_build_target {
 	obj required_compilers; // obj_dict
 	obj extra_files; // obj_array
 	obj pch; // obj_dict
+	obj vs_module_defs; // obj_file
 	obj callstack; // obj_array
 
 	struct build_dep dep;

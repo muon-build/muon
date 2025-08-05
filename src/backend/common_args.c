@@ -747,6 +747,13 @@ ca_prepare_target_linker_args(struct workspace *wk,
 				ca_push_linker_args(
 					wk, comp, tgt, toolchain_linker_implib(wk, comp, get_cstr(wk, rel)));
 			}
+
+			if (tgt->vs_module_defs) {
+				obj rel;
+				ca_relativize_path(wk, tgt->vs_module_defs, true, &rel);
+				ca_push_linker_args(
+					wk, comp, tgt, toolchain_linker_def(wk, comp, get_cstr(wk, rel)));
+			}
 		}
 	}
 

@@ -50,7 +50,7 @@ enum build_target_kwargs {
 	bt_kw_build_rpath,
 	bt_kw_install_rpath,
 	bt_kw_export_dynamic,
-	bt_kw_vs_module_defs, // TODO
+	bt_kw_vs_module_defs,
 	bt_kw_gnu_symbol_visibility,
 	bt_kw_native,
 	bt_kw_darwin_versions, // TODO
@@ -658,6 +658,13 @@ create_target(struct workspace *wk,
 			}
 
 			tgt->flags |= build_tgt_flag_visibility;
+		}
+
+		if (akw[bt_kw_vs_module_defs].set)
+		{
+			if (!coerce_file(wk, akw[bt_kw_vs_module_defs].node, akw[bt_kw_vs_module_defs].val, &tgt->vs_module_defs)) {
+				return false;
+			}
 		}
 	}
 
