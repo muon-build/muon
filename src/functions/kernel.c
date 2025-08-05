@@ -1034,6 +1034,20 @@ func_generator(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
+static void
+print_assert_or_error_prefix(struct workspace *wk)
+{
+	struct source *src = 0;
+	struct source_location loc = { 0 };
+	vm_lookup_inst_location(&wk->vm, wk->vm.ip - 1, &loc, &src);
+
+	struct detailed_source_location dloc = { 0 };
+	get_detailed_source_location(src, loc, &dloc, get_detailed_source_location_flag_multiline);
+
+	LLOG_E("%s", "");
+	log_plain(log_error, "%s:%d:%d: ", src->label, dloc.line, dloc.col);
+}
+
 static bool
 func_assert(struct workspace *wk, obj _, obj *res)
 {
@@ -1047,7 +1061,8 @@ func_assert(struct workspace *wk, obj _, obj *res)
 
 	if (!get_obj_bool(wk, an[0].val)) {
 		if (an[1].set) {
-			LOG_E("%s", get_cstr(wk, an[1].val));
+			print_assert_or_error_prefix(wk);
+			obj_lprintf(wk, log_error, "%#o\n", an[1].val);
 		} else {
 			vm_error(wk, "assertion failed");
 		}
@@ -1067,14 +1082,7 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 	}
 
 	if (lvl == log_error) {
-		struct source *src = 0;
-		struct source_location loc = { 0 };
-		vm_lookup_inst_location(&wk->vm, wk->vm.ip - 1, &loc, &src);
-
-		struct detailed_source_location dloc = { 0 };
-		get_detailed_source_location(src, loc, &dloc, get_detailed_source_location_flag_multiline);
-
-		log_plain(lvl, "%s:%d:%d: ", src->label, dloc.line, dloc.col);
+		print_assert_or_error_prefix(wk);
 	}
 
 	log_print(false, lvl, "%s", "");
