@@ -249,22 +249,10 @@ func_project(struct workspace *wk, obj _, obj *res)
 				return false;
 			}
 
-			const char *str_ver = ver_src.src;
-			uint32_t i;
-			for (i = 0; ver_src.src[i]; ++i) {
-				if (ver_src.src[i] == '\n') {
-					if (ver_src.src[i + 1]) {
-						vm_error_at(wk,
-							akw[kw_version].node,
-							"version file is more than one line long");
-						return false;
-					}
-					break;
-				}
-			}
+			const struct str ver_str = { ver_src.src, ver_src.len };
+			obj stripped = str_strip(wk, &ver_str, 0, 0);
 
-			current_project(wk)->cfg.version = make_strn(wk, str_ver, i);
-
+			current_project(wk)->cfg.version = stripped;
 			fs_source_destroy(&ver_src);
 		}
 	} else {
