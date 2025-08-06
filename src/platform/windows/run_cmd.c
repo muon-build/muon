@@ -533,7 +533,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 		run_cmd_push_arg(cmd, &arg_buf, "/c");
 		run_cmd_push_arg(cmd, &arg_buf, argv0);
 		have_arg0 = true;
-	} else if (fs_exists(argv0)) {
+	} else if (fs_file_exists(argv0)) {
 		DWORD _binary_type;
 		if (!GetBinaryType(argv0, &_binary_type)) {
 			const char *new_argv0 = 0, *new_argv1 = 0;
