@@ -1083,9 +1083,10 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 
 	if (lvl == log_error) {
 		print_assert_or_error_prefix(wk);
+	} else {
+		log_print(false, lvl, "%s", "");
 	}
 
-	log_print(false, lvl, "%s", "");
 	obj val;
 	obj_array_for(wk, an[0].val, val) {
 		obj_lprintf(wk, lvl, "%#o ", val);
