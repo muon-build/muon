@@ -66,6 +66,7 @@ struct run_test_ctx {
 	} stats;
 
 	struct {
+		obj project_env;
 		obj env;
 		obj exclude_suites;
 		obj wrapper;
@@ -809,20 +810,15 @@ run_test(struct workspace *wk, void *_ctx, obj t)
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
 
+	environment_extend(wk, test->env, ctx->setup.project_env);
+
+	if (ctx->setup.env) {
+		environment_extend(wk, test->env, ctx->setup.env);
+	}
+
 	obj env;
 	if (!environment_to_dict(wk, test->env, &env)) {
 		UNREACHABLE;
-	}
-
-	if (ctx->setup.env) {
-		obj setup_env;
-		if (!environment_to_dict(wk, ctx->setup.env, &setup_env)) {
-			UNREACHABLE;
-		}
-
-		obj merged;
-		obj_dict_merge(wk, env, setup_env, &merged);
-		env = merged;
 	}
 
 	join_args_argstr(wk, &argstr, &argc, cmdline);
@@ -937,6 +933,7 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 	unfiltered_tests = obj_array_index(wk, arr, 0);
 
 	struct run_test_ctx *ctx = _ctx;
+	ctx->setup.project_env = obj_array_index(wk, arr, 3);
 
 	int64_t project_index = get_obj_number(wk, obj_array_index(wk, arr, 2));
 	if (!ctx->opts->include_subprojects && project_index != 0) {
