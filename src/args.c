@@ -36,9 +36,28 @@ push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 	}
 }
 
+static void
+flush_backslashes(struct workspace *wk, struct tstr *sb, uint32_t consecutive_backslashes, uint32_t mul)
+{
+	if (!consecutive_backslashes) {
+		return;
+	}
+
+	for (uint32_t i = 0; i < (consecutive_backslashes * mul); ++i) {
+		tstr_push(wk, sb, '\\');
+	}
+
+	return;
+}
+
 // This function uses double quotes so that can be windows compatible
-void
-shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, const char *escape_inner, const char *need_escaping)
+static void
+shell_escape_custom(struct workspace *wk,
+	struct tstr *sb,
+	const char *str,
+	enum shell_type shell,
+	const char *escape_inner,
+	const char *need_escaping)
 {
 	const char *s;
 	bool do_esc = false;
@@ -62,12 +81,36 @@ shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, cons
 
 	tstr_push(wk, sb, '"');
 
+	uint32_t consecutive_backslashes = 0;
+
 	for (s = str; *s; ++s) {
-		if (strchr(escape_inner, *s)) {
-			tstr_push(wk, sb, '\\');
+		switch (shell) {
+		case shell_type_posix: {
+			if (strchr(escape_inner, *s)) {
+				tstr_push(wk, sb, '\\');
+			}
+
+			tstr_push(wk, sb, *s);
+			break;
 		}
-		tstr_push(wk, sb, *s);
+		case shell_type_cmd: {
+			if (*s == '\\') {
+				++consecutive_backslashes;
+			} else if (*s == '"') {
+				flush_backslashes(wk, sb, consecutive_backslashes, 2);
+				consecutive_backslashes = 0;
+				tstr_pushn(wk, sb, "\\\"", 2);
+			} else {
+				flush_backslashes(wk, sb, consecutive_backslashes, 1);
+				consecutive_backslashes = 0;
+				tstr_push(wk, sb, *s);
+			}
+			break;
+		}
+		}
 	}
+
+	flush_backslashes(wk, sb, consecutive_backslashes, 2);
 
 	tstr_push(wk, sb, '"');
 }
@@ -95,18 +138,29 @@ shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, cons
 //
 // We also add " here.
 #define SH_DOUBLE_QUOTE_CHARS "\\\"`$"
-#define SH_QUOTE_CHARS SH_DOUBLE_QUOTE_CHARS "|&;<>()' \t\n" "*?[]!#"
+#define SH_QUOTE_CHARS                        \
+	SH_DOUBLE_QUOTE_CHARS "|&;<>()' \t\n" \
+			      "*?[]!#"
 
 void
-shell_escape(struct workspace *wk, struct tstr *sb, const char *str)
+shell_escape_posix(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, SH_DOUBLE_QUOTE_CHARS, SH_QUOTE_CHARS);
+	shell_escape_custom(wk, sb, str, shell_type_posix, SH_DOUBLE_QUOTE_CHARS, SH_QUOTE_CHARS);
 }
 
 void
 shell_escape_cmd(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	shell_escape_custom(wk, sb, str, "\\\"", "\\\" \t\r\n");
+	shell_escape_custom(wk, sb, str, shell_type_cmd, 0, "\\\" \t\r\n");
+}
+
+void
+shell_escape(struct workspace *wk, struct tstr *sb, const char *str)
+{
+	switch (shell_type_for_host_machine()) {
+	case shell_type_cmd: shell_escape_cmd(wk, sb, str); break;
+	case shell_type_posix: shell_escape_posix(wk, sb, str); break;
+	}
 }
 
 static void

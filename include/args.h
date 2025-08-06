@@ -14,8 +14,8 @@ struct args {
 };
 
 void shell_escape(struct workspace *wk, struct tstr *sb, const char *str);
+void shell_escape_posix(struct workspace *wk, struct tstr *sb, const char *str);
 void shell_escape_cmd(struct workspace *wk, struct tstr *sb, const char *str);
-void shell_escape_custom(struct workspace *wk, struct tstr *sb, const char *str, const char *escape_inner, const char *need_escaping);
 void ninja_escape(struct workspace *wk, struct tstr *sb, const char *str);
 void pkgconf_escape(struct workspace *wk, struct tstr *sb, const char *str);
 

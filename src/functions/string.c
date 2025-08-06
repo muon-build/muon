@@ -566,7 +566,7 @@ func_string_shell_quote(struct workspace *wk, obj self, obj *res)
 	void (*escape_func)(struct workspace *wk, struct tstr *sb, const char *str) = 0;
 
 	switch (shell) {
-	case shell_type_posix: escape_func = shell_escape; break;
+	case shell_type_posix: escape_func = shell_escape_posix; break;
 	case shell_type_cmd: escape_func = shell_escape_cmd; break;
 	}
 
