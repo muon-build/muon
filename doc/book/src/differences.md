@@ -5,7 +5,7 @@ these is a set-in-stone design decision, just a reflection of the current state
 of affairs.  This document is also not exhaustive, but is a best-effort list.
 
 Some other small differences may be found by searching the tests/project for "#
-different than meson" comments.
+different" comments.
 
 ## nested subproject promotion
 
