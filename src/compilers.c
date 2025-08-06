@@ -1760,22 +1760,12 @@ TOOLCHAIN_PROTO_0(linker_link_args_shared)
 	return &args;
 }
 
-TOOLCHAIN_PROTO_1s(linker_link_args_soname)
-{
-	static char buf[BUF_SIZE_S];
-	TOOLCHAIN_ARGS({ buf });
-
-	snprintf(buf, BUF_SIZE_S, "/OUT:%s", s1);
-
-	return &args;
-}
-
 TOOLCHAIN_PROTO_2s(linker_link_args_input_output)
 {
 	static char buf[BUF_SIZE_S];
 	TOOLCHAIN_ARGS({ buf, NULL });
 
-	snprintf(buf, BUF_SIZE_S, "/out:%s", s2);
+	snprintf(buf, BUF_SIZE_S, "/OUT:%s", s2);
 
 	argv[1] = s1;
 
@@ -2036,7 +2026,6 @@ build_linkers(void)
 	link.args.lib = linker_link_args_lib;
 	link.args.debug = linker_link_args_debug;
 	link.args.shared = linker_link_args_shared;
-	link.args.soname = linker_link_args_soname;
 	link.args.input_output = linker_link_args_input_output;
 	link.args.always = linker_link_args_always;
 	link.args.whole_archive = linker_link_args_whole_archive;
