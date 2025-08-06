@@ -1741,9 +1741,7 @@ func_environment(struct workspace *wk, obj _, obj *res)
 		mode = i;
 	}
 
-	*res = make_obj(wk, obj_environment);
-	struct obj_environment *d = get_obj_environment(wk, *res);
-	d->actions = make_obj(wk, obj_array);
+	*res = make_obj_environment(wk);
 
 	if (an[0].set) {
 		obj dict;

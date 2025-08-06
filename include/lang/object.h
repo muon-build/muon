@@ -419,7 +419,7 @@ struct obj_test {
 	obj name; // obj_string
 	obj exe; // obj_string
 	obj args; // obj_array
-	obj env; // obj_array
+	obj env; // obj_environment
 	obj suites; // obj_array
 	obj workdir; // obj_string
 	obj depends; // obj_array of obj_string

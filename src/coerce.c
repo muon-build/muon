@@ -24,11 +24,23 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 	if (kw->set) {
 		if (get_obj_type(wk, kw->val) == obj_environment) {
 			*res = kw->val;
-		} else if (!coerce_key_value_dict(wk, kw->node, kw->val, res)) {
-			return false;
+		} else {
+			obj dict;
+			if (!coerce_key_value_dict(wk, kw->node, kw->val, &dict)) {
+				return false;
+			}
+
+			*res = make_obj_environment(wk);
+
+			obj key, val;
+			obj_dict_for(wk, dict, key, val) {
+				if (!environment_set(wk, *res, environment_set_mode_set, key, val, 0)) {
+					return false;
+				}
+			}
 		}
 	} else {
-		*res = make_obj(wk, obj_dict);
+		*res = make_obj_environment(wk);
 	}
 
 	set_default_environment_vars(wk, *res, set_subdir);

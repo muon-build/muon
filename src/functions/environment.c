@@ -18,6 +18,22 @@
 #include "platform/os.h"
 #include "platform/path.h"
 
+obj
+make_obj_environment(struct workspace *wk)
+{
+	obj res = make_obj(wk, obj_environment);
+	struct obj_environment *d = get_obj_environment(wk, res);
+	d->actions = make_obj(wk, obj_array);
+	return res;
+}
+
+void
+environment_extend(struct workspace *wk, obj env, obj other)
+{
+	struct obj_environment *a = get_obj_environment(wk, env), *b = get_obj_environment(wk, other);
+	obj_array_extend(wk, a->actions, b->actions);
+}
+
 static enum iteration_result
 evironment_to_dict_iter(struct workspace *wk, void *_ctx, obj action)
 {
