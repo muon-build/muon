@@ -2026,6 +2026,7 @@ build_linkers(void)
 	link.args.lib = linker_link_args_lib;
 	link.args.debug = linker_link_args_debug;
 	link.args.shared = linker_link_args_shared;
+	link.args.shared_module = linker_link_args_shared;
 	link.args.input_output = linker_link_args_input_output;
 	link.args.always = linker_link_args_always;
 	link.args.whole_archive = linker_link_args_whole_archive;

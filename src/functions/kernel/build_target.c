@@ -367,7 +367,7 @@ setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *pl
 		tgt->soname = make_strf(wk, "%s.dll", plain_name);
 	}
 
-	if (tgt->type == tgt_dynamic_library) {
+	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
 		TSTR(implib);
 		tstr_pushf(wk, &implib, "%s-implib.lib", plain_name);
 		TSTR(path);
