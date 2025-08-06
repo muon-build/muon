@@ -1361,7 +1361,6 @@ cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	if (!run_cmd_argv(&ctx, (char *const *)cmd, 0, 0)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		return false;
-		;
 	}
 
 	exit(ctx.status);
