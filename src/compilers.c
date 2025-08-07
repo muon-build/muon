@@ -750,14 +750,12 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
-	if (host_machine.sys == machine_system_windows) {
-		if (compiler->type[toolchain_component_compiler] == compiler_clang) {
-			static const char *clang_list[] = { "lld-link", NULL };
-			exe_list = clang_list;
-		} else {
-			static const char *msvc_list[] = { "link", NULL };
-			exe_list = msvc_list;
-		}
+	if (host_machine.sys == machine_system_windows && compiler->type[toolchain_component_compiler] == compiler_clang) {
+		static const char *clang_list[] = { "lld-link", NULL };
+		exe_list = clang_list;
+	} else if (compiler->type[toolchain_component_compiler] == compiler_msvc) {
+		static const char *msvc_list[] = { "link", NULL };
+		exe_list = msvc_list;
 	} else {
 		static const char *default_list[] = { "lld", "ld", NULL };
 		exe_list = default_list;
