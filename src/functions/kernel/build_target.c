@@ -347,6 +347,27 @@ setup_soname(struct workspace *wk, struct obj_build_target *tgt, const char *pla
 	tgt->soname = make_strf(wk, "%s%s", plain_name, have_soversion ? soversion : "");
 }
 
+static bool
+setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const char *plain_name, struct args_kw *akw)
+{
+	{
+		TSTR(implib);
+		tstr_pushf(wk, &implib, "%s-implib.lib", plain_name);
+		TSTR(path);
+		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
+		tgt->implib = tstr_into_str(wk, &path);
+	}
+
+	if (akw[bt_kw_vs_module_defs].set)
+	{
+		if (!coerce_file(wk, akw[bt_kw_vs_module_defs].node, akw[bt_kw_vs_module_defs].val, &tgt->vs_module_defs)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static void
 setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *plain_name, obj dllver, obj ver)
 {
@@ -365,14 +386,6 @@ setup_dllname(struct workspace *wk, struct obj_build_target *tgt, const char *pl
 
 	if (!tgt->soname) {
 		tgt->soname = make_strf(wk, "%s.dll", plain_name);
-	}
-
-	if (tgt->type & (tgt_dynamic_library | tgt_shared_module)) {
-		TSTR(implib);
-		tstr_pushf(wk, &implib, "%s-implib.lib", plain_name);
-		TSTR(path);
-		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
-		tgt->implib = tstr_into_str(wk, &path);
 	}
 }
 
@@ -586,6 +599,23 @@ create_target(struct workspace *wk,
 		}
 	}
 
+	obj sover = 0;
+	if (akw[bt_kw_soversion].set) {
+		if (!coerce_num_to_string(wk, akw[bt_kw_soversion].node, akw[bt_kw_soversion].val, &sover)) {
+			return false;
+		}
+	}
+
+	if (!determine_target_build_name(wk,
+		    tgt,
+		    sover,
+		    akw[bt_kw_version].val,
+		    akw[bt_kw_name_prefix].val,
+		    akw[bt_kw_name_suffix].val,
+		    plain_name)) {
+		return false;
+	}
+
 	{ // build target flags
 		{ // pic
 			bool pic = false;
@@ -633,6 +663,12 @@ create_target(struct workspace *wk,
 
 		if (akw[bt_kw_export_dynamic].set && get_obj_bool(wk, akw[bt_kw_export_dynamic].val)) {
 			tgt->flags |= build_tgt_flag_export_dynamic;
+
+			if (host_machine.is_windows) {
+				if (!setup_implib_and_defs(wk, tgt, plain_name, akw)) {
+					return false;
+				}
+			}
 		}
 
 		if (!akw[bt_kw_build_by_default].set || get_obj_bool(wk, akw[bt_kw_build_by_default].val)) {
@@ -659,30 +695,6 @@ create_target(struct workspace *wk,
 
 			tgt->flags |= build_tgt_flag_visibility;
 		}
-
-		if (akw[bt_kw_vs_module_defs].set)
-		{
-			if (!coerce_file(wk, akw[bt_kw_vs_module_defs].node, akw[bt_kw_vs_module_defs].val, &tgt->vs_module_defs)) {
-				return false;
-			}
-		}
-	}
-
-	obj sover = 0;
-	if (akw[bt_kw_soversion].set) {
-		if (!coerce_num_to_string(wk, akw[bt_kw_soversion].node, akw[bt_kw_soversion].val, &sover)) {
-			return false;
-		}
-	}
-
-	if (!determine_target_build_name(wk,
-		    tgt,
-		    sover,
-		    akw[bt_kw_version].val,
-		    akw[bt_kw_name_prefix].val,
-		    akw[bt_kw_name_suffix].val,
-		    plain_name)) {
-		return false;
 	}
 
 	{ /* tgt_build_path */
@@ -877,6 +889,9 @@ create_target(struct workspace *wk,
 	if (type & (tgt_dynamic_library | tgt_shared_module)) {
 		if (host_machine.is_windows) {
 			setup_dllname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
+			if (!setup_implib_and_defs(wk, tgt, plain_name, akw)) {
+				return false;
+			}
 		} else {
 			setup_soname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 

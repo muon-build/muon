@@ -1894,7 +1894,8 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 			return false;
 		}
 
-		if (tgt->type != tgt_executable) {
+		// If tgt has an implib then we always want to link with it.
+		if (tgt->implib || tgt->type != tgt_executable) {
 			obj_array_push(wk, dest_link_with, make_str(wk, path));
 		}
 

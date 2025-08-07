@@ -742,7 +742,9 @@ ca_prepare_target_linker_args(struct workspace *wk,
 			ca_push_linker_args(wk, comp, tgt, toolchain_linker_shared(wk, comp));
 
 		}
+	}
 
+	if (tgt) {
 		if (tgt->implib) {
 			obj rel;
 			ca_relativize_path(wk, tgt->implib, true, &rel);
