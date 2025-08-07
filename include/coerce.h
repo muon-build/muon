@@ -7,12 +7,6 @@
 #define MUON_COERCE_H
 #include "lang/workspace.h"
 
-enum requirement_type {
-	requirement_skip,
-	requirement_required,
-	requirement_auto,
-};
-
 bool coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res);
 bool coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res);
 bool coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_node, enum include_type *res);

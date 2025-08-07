@@ -73,4 +73,10 @@ enum error_message_flag {
 	error_message_flag_no_source = 1 << 0,
 	error_message_flag_coalesce = 1 << 1,
 };
+
+enum requirement_type {
+	requirement_skip,
+	requirement_required,
+	requirement_auto,
+};
 #endif
