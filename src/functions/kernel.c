@@ -1145,11 +1145,15 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		kw_check,
 		kw_env,
 		kw_capture,
+		kw_feed,
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
+		[kw_feed] = { "feed", tc_coercible_files,
+			.desc = "Specify a directory to search for .meson files in when import()-ing modules",
+			.extension = true },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -1213,9 +1217,17 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		env_to_envstr(wk, &envstr, &envc, env);
 	}
 
+	obj feed = 0;
+	if (akw[kw_feed].set) {
+		if (!coerce_file(wk, akw[kw_feed].node, akw[kw_feed].val, &feed)) {
+			return false;
+		}
+	}
+
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = {
 		.chdir = current_project(wk) ? get_cstr(wk, current_project(wk)->cwd) : 0,
+		.stdin_path = feed ? get_file_path(wk, feed) : 0,
 	};
 
 	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
