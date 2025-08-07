@@ -26,6 +26,7 @@
 enum fix_file_path_opts {
 	fix_file_path_noexpanduser = 1 << 0,
 	fix_file_path_noabs = 1 << 1,
+	fix_file_path_keep_hyphen = 1 << 2,
 };
 
 static const char *
@@ -78,6 +79,11 @@ fix_file_path(struct workspace *wk, uint32_t err_node, obj path, enum fix_file_p
 	const char *s = fs_coerce_file_path(wk, err_node, path, false);
 	if (!s) {
 		return false;
+	}
+
+	if ((opts & fix_file_path_keep_hyphen) && strcmp(s, "-") == 0) {
+		tstr_push(wk, buf, '-');
+		return true;
 	}
 
 	if (path_is_absolute(s)) {
@@ -199,7 +205,7 @@ func_module_fs_read(struct workspace *wk, obj self, obj *res)
 	}
 
 	TSTR(path);
-	if (!fix_file_path(wk, an[0].node, an[0].val, 0, &path)) {
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_keep_hyphen, &path)) {
 		return false;
 	}
 
