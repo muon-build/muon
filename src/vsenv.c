@@ -45,7 +45,7 @@ vsenv_set_vars(const char *vars, uint32_t len)
 }
 
 bool
-vsenv_setup(const char *cache_path, bool force)
+vsenv_setup(const char *cache_path, enum requirement_type req)
 {
 	if (os_get_env("VSINSTALLDIR")) {
 		return true;
@@ -62,7 +62,7 @@ vsenv_setup(const char *cache_path, bool force)
 		}
 	}
 
-	if (!force) {
+	if (req != requirement_required) {
 		const char *comps[] = {
 			"cc",
 			"gcc",

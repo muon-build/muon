@@ -77,8 +77,12 @@ ret:
 }
 
 static void
-setup_platform_env(const char *build_dir, bool force)
+setup_platform_env(const char *build_dir, enum requirement_type req)
 {
+	if (req == requirement_skip) {
+		return;
+	}
+
 	if (host_machine.sys == machine_system_windows) {
 		TSTR_manual(cache);
 		const char *cache_path = 0;
@@ -92,7 +96,7 @@ setup_platform_env(const char *build_dir, bool force)
 			}
 		}
 
-		vsenv_setup(cache_path, force);
+		vsenv_setup(cache_path, req);
 	}
 }
 
@@ -930,7 +934,7 @@ cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_samu(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	setup_platform_env(".", false);
+	setup_platform_env(".", requirement_auto);
 
 	return samu_main(argc - argi, (char **)&argv[argi], 0);
 }
@@ -1022,7 +1026,7 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".", false);
+	setup_platform_env(".", requirement_auto);
 
 	test_opts.tests = &argv[argi];
 	test_opts.tests_len = argc - argi;
@@ -1143,8 +1147,10 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	// Currently this is only vsenv.  These haven't been added to any options
 	// dict yet so we need to manually scan the option_overrides array.
 	struct {
-		bool vsenv_force;
-	} opts = { 0 };
+		enum requirement_type vsenv_req;
+	} opts = {
+		.vsenv_req = requirement_auto,
+	};
 	{
 		uint32_t i;
 		for (i = 0; i < wk.option_overrides.len; ++i) {
@@ -1157,12 +1163,12 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 			const struct str *v = get_str(&wk, oo->val);
 
 			if (str_eql(&STR("vsenv"), k)) {
-				opts.vsenv_force = str_eql(&STR("true"), v);
+				opts.vsenv_req = str_eql(&STR("true"), v) ? requirement_required : requirement_skip;
 			}
 		}
 	}
 
-	setup_platform_env(build, opts.vsenv_force);
+	setup_platform_env(build, opts.vsenv_req);
 
 	if (!workspace_do_setup(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
 		goto ret;
@@ -1351,7 +1357,7 @@ cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".", true);
+	setup_platform_env(".", requirement_required);
 
 	const char *const *cmd = (const char *const *)&argv[argi];
 
