@@ -140,21 +140,10 @@ copy_pipes(struct run_cmd_ctx *ctx)
 static void
 run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 {
-	if (!ctx->close_pipes) {
-		return;
-	}
-
 	close_handle(&ctx->pipe_err.handle);
 	close_handle(&ctx->pipe_out.handle);
 	close_handle(&ctx->ioport);
-
-	// TODO stdin
-#if 0
-	if (ctx->input_fd_open && close(ctx->input_fd) == -1) {
-		LOG_E("failed to close: %s", win32_error());
-	}
-	ctx->input_fd_open = false;
-#endif
+	close_handle(&ctx->input);
 }
 
 enum run_cmd_state
@@ -277,7 +266,7 @@ open_pipes(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, const char *name
 }
 
 static bool
-open_run_cmd_pipe(struct run_cmd_ctx *ctx)
+open_run_cmd_pipes(struct run_cmd_ctx *ctx)
 {
 	if (ctx->flags & run_cmd_ctx_flag_dont_capture) {
 		return true;
@@ -297,13 +286,11 @@ open_run_cmd_pipe(struct run_cmd_ctx *ctx)
 		return false;
 	}
 
-	ctx->close_pipes = true;
-
 	return true;
 }
 
 static bool
-run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr, uint32_t envc)
+run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *envstr, uint32_t envc)
 {
 	const char *p;
 	BOOL res;
@@ -311,7 +298,13 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	ctx->process = INVALID_HANDLE_VALUE;
 
 	LL("executing: ");
-	log_plain(log_debug, "%s\n", command_line);
+	log_plain(log_debug, "%s\n", cmd->buf);
+
+	if (cmd->len >= 32767) {
+		LOG_E("command too long");
+		run_cmd_ctx_destroy(ctx);
+		return false;
+	}
 
 	if (envstr) {
 		LPSTR oldenv = GetEnvironmentStrings();
@@ -381,20 +374,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		FreeEnvironmentStrings(oldenv);
 	}
 
-	// TODO stdin
-#if 0
-	if (ctx->stdin_path) {
-		ctx->input_fd = open(ctx->stdin_path, O_RDONLY);
-		if (ctx->input_fd == -1) {
-			LOG_E("failed to open %s: %s", ctx->stdin_path, strerror(errno));
-			goto err;
-		}
-
-		ctx->input_fd_open = true;
-	}
-#endif
-
-	if (!open_run_cmd_pipe(ctx)) {
+	if (!open_run_cmd_pipes(ctx)) {
+		run_cmd_ctx_destroy(ctx);
 		return false;
 	}
 
@@ -403,26 +384,35 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
 	security_attributes.bInheritHandle = TRUE;
 
+	DWORD stdin_attributes = FILE_ATTRIBUTE_NORMAL;
+	if (!ctx->stdin_path) {
+		ctx->stdin_path = "NUL";
+		stdin_attributes = 0;
+	}
+
 	// Must be inheritable so subprocesses can dup to children.
-	// TODO: delete when stdin support added
-	HANDLE nul;
-	if (!record_handle(&nul,
-		    CreateFileA("NUL",
-			    GENERIC_READ,
-			    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-			    &security_attributes,
-			    OPEN_EXISTING,
-			    0,
-			    NULL))) {
-		error_unrecoverable("couldn't open nul");
+	if (!record_handle(&ctx->input,
+			CreateFileA(ctx->stdin_path,
+				GENERIC_READ,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				&security_attributes,
+				OPEN_EXISTING,
+				stdin_attributes,
+				NULL))) {
+		LOG_E("failed to open %s: %s", ctx->stdin_path, win32_error());
+		run_cmd_ctx_destroy(ctx);
+		return false;
 	}
 
 	STARTUPINFOA startup_info;
 	memset(&startup_info, 0, sizeof(startup_info));
 	startup_info.cb = sizeof(STARTUPINFO);
-	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		startup_info.dwFlags = STARTF_USESTDHANDLES;
-		startup_info.hStdInput = nul;
+	startup_info.dwFlags |= STARTF_USESTDHANDLES;
+	startup_info.hStdInput = ctx->input;
+	if ((ctx->flags & run_cmd_ctx_flag_dont_capture)) {
+		startup_info.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+		startup_info.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+	} else {
 		startup_info.hStdOutput = ctx->pipe_out.child_handle;
 		startup_info.hStdError = ctx->pipe_err.child_handle;
 	}
@@ -433,41 +423,34 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 	if (ctx->chdir) {
 		if (!fs_dir_exists(ctx->chdir)) {
 			LOG_E("directory %s does not exist: %s", ctx->chdir, win32_error());
-			exit(1);
+			run_cmd_ctx_destroy(ctx);
+			return false;
 		}
 	}
 
-	DWORD process_flags = 0;
-
-	if (strlen(command_line) >= 32767) {
-		LOG_E("command too long");
-	}
-
 	res = CreateProcessA(NULL,
-		command_line,
+		cmd->buf,
 		NULL,
 		NULL,
 		/* inherit handles */ TRUE,
-		process_flags,
+		0,
 		ctx->env.buf,
 		ctx->chdir,
 		&startup_info,
 		&process_info);
 
-	if (!res) {
-		DWORD error = GetLastError();
-		if (error == ERROR_FILE_NOT_FOUND) {
-		}
+	close_handle(&ctx->input);
 
+	if (!res) {
 		LOG_E("CreateProcess() failed: %s", win32_error());
 		ctx->err_msg = "failed to create process";
 	}
 
 	close_handle(&ctx->pipe_out.child_handle);
 	close_handle(&ctx->pipe_err.child_handle);
-	close_handle(&nul);
 
 	if (!res) {
+		run_cmd_ctx_destroy(ctx);
 		return false;
 	}
 
@@ -478,7 +461,12 @@ run_cmd_internal(struct run_cmd_ctx *ctx, char *command_line, const char *envstr
 		return true;
 	}
 
-	return run_cmd_collect(ctx) == run_cmd_finished;
+	res = run_cmd_collect(ctx) == run_cmd_finished;
+	if (!res) {
+		run_cmd_ctx_destroy(ctx);
+		return false;
+	}
+	return true;
 }
 
 static void
@@ -601,7 +589,8 @@ ret:
 bool
 run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
 {
-	return run_cmd_internal(ctx, cmd, envstr, envc);
+	struct tstr _cmd = { cmd, strlen(cmd) };
+	return run_cmd_internal(ctx, &_cmd, envstr, envc);
 }
 
 bool
@@ -615,7 +604,7 @@ run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uin
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd.buf, envstr, envc);
+	ret = run_cmd_internal(ctx, &cmd, envstr, envc);
 
 err:
 	fs_source_destroy(&src);
@@ -635,7 +624,7 @@ run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd.buf, envstr, envc);
+	ret = run_cmd_internal(ctx, &cmd, envstr, envc);
 
 err:
 	fs_source_destroy(&src);

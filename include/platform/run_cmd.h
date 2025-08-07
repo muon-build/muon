@@ -49,8 +49,7 @@ struct run_cmd_ctx {
 	int status;
 	enum run_cmd_ctx_flags flags;
 #ifdef _WIN32
-	HANDLE process, ioport;
-	bool close_pipes;
+	HANDLE process, ioport, input;
 	struct win_pipe_inst pipe_out, pipe_err;
 	struct tstr env;
 	uint32_t cnt_open;
