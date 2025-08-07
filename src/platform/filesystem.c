@@ -179,7 +179,14 @@ fs_read_entire_file(const char *path, struct source *src)
 
 	*src = (struct source){ .label = path, .type = source_type_file };
 
+	/* If the file is seekable (i.e. not a pipe), then we can get the size
+	 * and read it all at once.  Otherwise, read it in chunks.
+	 */
+
+	bool seekable = true;
+
 	if (strcmp(path, "-") == 0) {
+		seekable = false;
 		f = stdin;
 	} else {
 		if (!fs_file_exists(path)) {
@@ -194,13 +201,10 @@ fs_read_entire_file(const char *path, struct source *src)
 		opened = true;
 	}
 
-	/* If the file is seekable (i.e. not a pipe), then we can get the size
-	 * and read it all at once.  Otherwise, read it in chunks.
-	 */
-
-	bool seekable;
-	if (!fs_is_seekable(f, &seekable)) {
-		goto err;
+	if (seekable) {
+		if (!fs_is_seekable(f, &seekable)) {
+			goto err;
+		}
 	}
 
 	if (seekable) {
