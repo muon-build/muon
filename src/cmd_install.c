@@ -282,7 +282,7 @@ install_run(struct install_options *opts)
 
 	obj install;
 	if (!serial_load(&wk, &install, f)) {
-		LOG_E("failed to load %s", output_path.paths[output_path_install]);
+		LOG_E("failed to load %s", output_path.paths[output_path_install].path);
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;
