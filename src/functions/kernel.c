@@ -1130,7 +1130,9 @@ func_print(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
-	log_plain(log_info, "%s", get_cstr(wk, an[0].val));
+	log_plain(log_info, "%s", "");
+	const struct str *s = get_str(wk, an[0].val);
+	log_printn(log_info, s->s, s->len);
 	*res = 0;
 
 	return true;
