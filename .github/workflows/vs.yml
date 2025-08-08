@@ -35,7 +35,7 @@ jobs:
           && build\muon-bootstrap.exe -vC build devenv ./muon-bootstrap.exe -v samu
       - name: test
         run: >
-          build\muon-bootstrap.exe -vC build devenv ./muon.exe -v test
+          build\muon.exe -vC build devenv ./muon.exe -Rv test
       - name: upload-binary
         shell: bash
         env:
