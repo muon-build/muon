@@ -36,7 +36,7 @@ struct win_pipe_inst {
 	OVERLAPPED overlapped;
 	HANDLE handle;
 	HANDLE child_handle;
-	char overlapped_buf[4 << 10];
+	char overlapped_buf[4 * 1024];
 	bool is_reading, is_eof;
 };
 #endif
@@ -52,7 +52,7 @@ struct run_cmd_ctx {
 	HANDLE process, ioport, input;
 	struct win_pipe_inst pipe_out, pipe_err;
 	struct tstr env;
-	uint32_t cnt_open;
+	uint32_t count_open, count_read_threshold;
 #else
 	int pipefd_out[2], pipefd_err[2];
 	int input_fd;

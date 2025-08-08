@@ -23,6 +23,7 @@
 #include "platform/run_cmd.h"
 #include "platform/timer.h"
 #include "platform/windows/win32_error.h"
+#include "tracy.h"
 
 #define record_handle(__h, v) _record_handle(ctx, __h, v, #__h)
 
@@ -33,7 +34,7 @@ _record_handle(struct run_cmd_ctx *ctx, HANDLE *h, HANDLE v, const char *desc)
 		return false;
 	}
 
-	++ctx->cnt_open;
+	++ctx->count_open;
 	*h = v;
 	return true;
 }
@@ -47,14 +48,14 @@ _close_handle(struct run_cmd_ctx *ctx, HANDLE *h, const char *desc)
 		return true;
 	}
 
-	assert(ctx->cnt_open);
+	assert(ctx->count_open);
 
 	if (!CloseHandle(*h)) {
 		LOG_E("failed to close handle %s:%p: %s", desc, *h, win32_error());
 		return false;
 	}
 
-	--ctx->cnt_open;
+	--ctx->count_open;
 	*h = INVALID_HANDLE_VALUE;
 	return true;
 }
@@ -63,13 +64,14 @@ enum copy_pipe_result {
 	copy_pipe_result_finished,
 	copy_pipe_result_waiting,
 	copy_pipe_result_failed,
+	copy_pipe_result_read_some,
 };
 
-static enum copy_pipe_result
-copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr)
+static bool
+copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr, uint32_t *count_read)
 {
 	if (pipe->is_eof) {
-		return copy_pipe_result_finished;
+		return true;
 	}
 
 	DWORD bytes_read;
@@ -78,15 +80,17 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr
 		if (GetLastError() == ERROR_BROKEN_PIPE) {
 			pipe->is_eof = true;
 			if (!close_handle(&pipe->handle)) {
-				return copy_pipe_result_failed;
+				return false;
 			}
-			return copy_pipe_result_finished;
+			return true;
 		}
 
 		win32_fatal("GetOverlappedResult:");
 	}
 
 	if (pipe->is_reading && bytes_read) {
+		TracyCPlot("Pipe read bytes", bytes_read);
+		*count_read += bytes_read;
 		tstr_pushn(0, tstr, pipe->overlapped_buf, bytes_read);
 	}
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
@@ -97,44 +101,62 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr
 		if (GetLastError() == ERROR_BROKEN_PIPE) {
 			pipe->is_eof = true;
 			if (!close_handle(&pipe->handle)) {
-				return copy_pipe_result_failed;
+				return false;
 			}
-			return copy_pipe_result_finished;
+			return true;
 		}
 		if (GetLastError() != ERROR_IO_PENDING) {
 			win32_fatal("ReadFile:");
 		}
 	}
 
-	return copy_pipe_result_waiting;
+	return true;
 }
 
-static enum copy_pipe_result
-copy_pipes(struct run_cmd_ctx *ctx)
+static bool
+copy_pipes(struct run_cmd_ctx *ctx, bool all)
 {
-	DWORD bytes_read;
+	DWORD _bytes_read;
+	OVERLAPPED *_overlapped;
 	struct win_pipe_inst *pipe;
-	OVERLAPPED *overlapped;
+	uint32_t count_read = 0;
 
-	if (!GetQueuedCompletionStatus(ctx->ioport, &bytes_read, (PULONG_PTR)&pipe, &overlapped, 100)) {
-		if (GetLastError() == WAIT_TIMEOUT) {
-			return copy_pipe_result_waiting;
-		} else if (GetLastError() != ERROR_BROKEN_PIPE) {
-			win32_fatal("GetQueuedCompletionStatus:");
+	if (ctx->flags & run_cmd_ctx_flag_dont_capture) {
+		return true;
+	}
+
+	if (!ctx->count_read_threshold) {
+		ctx->count_read_threshold = 4096;
+	}
+
+	while (!(ctx->pipe_out.is_eof && ctx->pipe_err.is_eof)) {
+		if (!GetQueuedCompletionStatus(ctx->ioport, &_bytes_read, (PULONG_PTR)&pipe, &_overlapped, 100)) {
+			if (GetLastError() == WAIT_TIMEOUT) {
+				if (all) {
+					continue;
+				}
+				return true;
+			} else if (GetLastError() != ERROR_BROKEN_PIPE) {
+				win32_fatal("GetQueuedCompletionStatus:");
+			}
+		}
+
+		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
+		if (!copy_pipe(ctx, pipe, tstr, &count_read)) {
+			return false;
+		}
+
+		if (!all && count_read >= ctx->count_read_threshold) {
+			uint64_t new_threshold = ctx->count_read_threshold * 2;
+			if (new_threshold > UINT32_MAX) {
+				new_threshold = UINT32_MAX;
+			}
+			ctx->count_read_threshold = new_threshold;
+			break;
 		}
 	}
 
-	struct tstr *tstr = 0;
-	if (pipe == &ctx->pipe_out) {
-		tstr = &ctx->out;
-	} else if (pipe == &ctx->pipe_err) {
-		tstr = &ctx->err;
-	} else {
-		/* return copy_pipe_result_waiting; */
-		UNREACHABLE;
-	}
-
-	return copy_pipe(ctx, pipe, tstr);
+	return true;
 }
 
 static void
@@ -149,23 +171,22 @@ run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 enum run_cmd_state
 run_cmd_collect(struct run_cmd_ctx *ctx)
 {
+	TracyCZoneAutoS;
 	DWORD res;
 	DWORD status;
 
-	enum copy_pipe_result pipe_res = 0;
-
 	bool loop = true;
 	while (loop) {
-		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture) && !(ctx->pipe_out.is_eof && ctx->pipe_err.is_eof)) {
-			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
-				return run_cmd_error;
-			}
+		if (!copy_pipes(ctx, false)) {
+			TracyCZoneAutoE;
+			return run_cmd_error;
 		}
 
 		res = WaitForSingleObject(ctx->process, 0);
 		switch (res) {
 		case WAIT_TIMEOUT:
 			if (ctx->flags & run_cmd_ctx_flag_async) {
+				TracyCZoneAutoE;
 				return run_cmd_running;
 			}
 			break;
@@ -173,26 +194,33 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 			// State is signalled
 			loop = false;
 			break;
-		case WAIT_FAILED: ctx->err_msg = win32_error(); return run_cmd_error;
-		case WAIT_ABANDONED: ctx->err_msg = "child exited abnormally (WAIT_ABANDONED)"; return run_cmd_error;
+		case WAIT_FAILED: {
+			ctx->err_msg = win32_error();
+			TracyCZoneAutoE;
+			return run_cmd_error;
+		}
+		case WAIT_ABANDONED: {
+			ctx->err_msg = "child exited abnormally (WAIT_ABANDONED)";
+			TracyCZoneAutoE;
+			return run_cmd_error;
+		}
 		}
 	}
 
 	if (!GetExitCodeProcess(ctx->process, &status)) {
 		ctx->err_msg = "can not get process exit code";
+		TracyCZoneAutoE;
 		return run_cmd_error;
 	}
 
 	ctx->status = (int)status;
 
-	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		while (!(ctx->pipe_out.is_eof && ctx->pipe_err.is_eof)) {
-			if (copy_pipes(ctx) == copy_pipe_result_failed) {
-				return run_cmd_error;
-			}
-		}
+	if (!copy_pipes(ctx, true)) {
+		TracyCZoneAutoE;
+		return run_cmd_error;
 	}
 
+	TracyCZoneAutoE;
 	return run_cmd_finished;
 }
 
@@ -392,13 +420,13 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 
 	// Must be inheritable so subprocesses can dup to children.
 	if (!record_handle(&ctx->input,
-			CreateFileA(ctx->stdin_path,
-				GENERIC_READ,
-				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-				&security_attributes,
-				OPEN_EXISTING,
-				stdin_attributes,
-				NULL))) {
+		    CreateFileA(ctx->stdin_path,
+			    GENERIC_READ,
+			    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			    &security_attributes,
+			    OPEN_EXISTING,
+			    stdin_attributes,
+			    NULL))) {
 		LOG_E("failed to open %s: %s", ctx->stdin_path, win32_error());
 		run_cmd_ctx_destroy(ctx);
 		return false;
@@ -643,7 +671,7 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 	tstr_destroy(&ctx->err);
 	tstr_destroy(&ctx->env);
 
-	assert(ctx->cnt_open == 0);
+	assert(ctx->count_open == 0);
 }
 
 bool
