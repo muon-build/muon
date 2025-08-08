@@ -145,6 +145,13 @@ if tracy_dep.found()
     add_languages('cpp')
     c_args += ['-DTRACY_ENABLE']
     deps += tracy_dep
+
+    if platform == 'windows'
+        deps += [
+            cc.find_library('ws2_32'),
+            cc.find_library('dbghelp'),
+        ]
+    endif
 endif
 
 # meson-docs project

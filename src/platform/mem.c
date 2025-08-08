@@ -14,7 +14,7 @@
 #include "platform/mem.h"
 #include "tracy.h"
 
-#ifdef TRACY_ENABLE
+#if defined(TRACY_ENABLE) && !defined(_WIN32)
 #include <sys/resource.h>
 
 #define PlotRSS                         \
