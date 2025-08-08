@@ -267,7 +267,7 @@ install_run(struct install_options *opts)
 {
 	bool ret = true;
 	TSTR_manual(install_src);
-	path_join(NULL, &install_src, output_path.private_dir, output_path.install);
+	path_join(NULL, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
 
 	FILE *f;
 	f = fs_fopen(install_src.buf, "rb");
@@ -282,7 +282,7 @@ install_run(struct install_options *opts)
 
 	obj install;
 	if (!serial_load(&wk, &install, f)) {
-		LOG_E("failed to load %s", output_path.install);
+		LOG_E("failed to load %s", output_path.paths[output_path_install]);
 		goto ret;
 	} else if (!fs_fclose(f)) {
 		goto ret;

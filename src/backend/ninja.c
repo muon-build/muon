@@ -174,8 +174,7 @@ ninja_write_all(struct workspace *wk)
 
 	{
 		TSTR(ninja_log);
-		path_join(wk, &ninja_log, wk->build_root, output_path.private_dir);
-		path_push(wk, &ninja_log, ".ninja_log");
+		path_join(wk, &ninja_log, wk->muon_private, ".ninja_log");
 
 		if (fs_file_exists(ninja_log.buf)) {
 			obj args = make_obj(wk, obj_array);

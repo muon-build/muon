@@ -441,7 +441,25 @@ workspace_build_dir(struct workspace *wk)
 
 
 bool
-workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
+workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags)
+{
+	workspace_setup_paths(wk, build, argv0, argc, argv);
+
+	if (!workspace_create_build_dir(wk)) {
+		return false;
+	}
+
+	if (flags & workspace_do_setup_flag_clear_cache) {
+		if (!output_clear_caches(wk)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool
+workspace_do_setup(struct workspace *wk)
 {
 	FILE *debug_file = 0;
 	bool res = false;
@@ -449,18 +467,13 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 	bool progress = log_is_progress_bar_enabled();
 	log_progress_disable();
 
-	workspace_setup_paths(wk, build, argv0, argc, argv);
-
-	if (!workspace_create_build_dir(wk)) {
-		goto ret;
-	}
 
 	{
 		TSTR(path);
-		path_join(wk, &path, wk->muon_private, output_path.debug_log);
+		path_join(wk, &path, wk->muon_private, output_path.paths[output_path_debug_log].path);
 
 		if (!(debug_file = fs_fopen(path.buf, "wb"))) {
-			return false;
+			goto ret;
 		}
 
 		log_set_debug_file(debug_file);
@@ -470,7 +483,7 @@ workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, u
 
 	{
 		TSTR(path);
-		path_join(wk, &path, wk->muon_private, output_path.compiler_check_cache);
+		path_join(wk, &path, wk->muon_private, output_path.paths[output_path_compiler_check_cache].path);
 		if (fs_file_exists(path.buf)) {
 			FILE *f;
 			if ((f = fs_fopen(path.buf, "rb"))) {

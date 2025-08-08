@@ -127,5 +127,9 @@ const char *workspace_cwd(struct workspace *wk);
 
 void workspace_print_summaries(struct workspace *wk, FILE *out);
 
-bool workspace_do_setup(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
+enum workspace_do_setup_flag {
+	workspace_do_setup_flag_clear_cache = 1 << 0,
+};
+bool workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags);
+bool workspace_do_setup(struct workspace *wk);
 #endif

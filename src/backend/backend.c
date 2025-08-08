@@ -245,12 +245,12 @@ backend_output(struct workspace *wk)
 	}
 
 	if (ok) {
-		ok = with_open(wk->muon_private, output_path.tests, wk, NULL, write_tests)
-		     && with_open(wk->muon_private, output_path.install, wk, NULL, write_install)
+		ok = with_open(wk->muon_private, output_path.paths[output_path_tests].path, wk, NULL, write_tests)
+		     && with_open(wk->muon_private, output_path.paths[output_path_install].path, wk, NULL, write_install)
 		     && with_open(
-			     wk->muon_private, output_path.compiler_check_cache, wk, NULL, write_compiler_check_cache)
-		     && with_open(wk->muon_private, output_path.summary, wk, NULL, write_summary_file)
-		     && with_open(wk->muon_private, output_path.option_info, wk, NULL, write_option_info)
+			     wk->muon_private, output_path.paths[output_path_compiler_check_cache].path, wk, NULL, write_compiler_check_cache)
+		     && with_open(wk->muon_private, output_path.paths[output_path_summary].path, wk, NULL, write_summary_file)
+		     && with_open(wk->muon_private, output_path.paths[output_path_option_info].path, wk, NULL, write_option_info)
 		     && introspect_write_all(wk);
 	}
 

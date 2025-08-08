@@ -7,6 +7,7 @@
 
 #include <string.h>
 
+#include "backend/output.h"
 #include "buf_size.h"
 #include "lang/string.h"
 #include "log.h"
@@ -44,7 +45,7 @@ vsenv_set_vars(const char *vars, uint32_t len)
 	}
 }
 
-bool
+static bool
 vsenv_setup(const char *cache_path, enum requirement_type req)
 {
 	if (os_get_env("VSINSTALLDIR")) {
@@ -227,4 +228,28 @@ ret:
 		fs_remove(tmp_path);
 	}
 	return res;
+}
+
+void
+setup_platform_env(const char *build_dir, enum requirement_type req)
+{
+	if (req == requirement_skip) {
+		return;
+	}
+
+	if (host_machine.sys == machine_system_windows) {
+		TSTR_manual(cache);
+		const char *cache_path = 0;
+		if (build_dir) {
+			path_copy(0, &cache, build_dir);
+			path_push(0, &cache, output_path.private_dir);
+			fs_mkdir_p(cache.buf);
+			if (fs_dir_exists(cache.buf)) {
+				path_push(0, &cache, output_path.paths[output_path_vsenv_cache].path);
+				cache_path = cache.buf;
+			}
+		}
+
+		vsenv_setup(cache_path, req);
+	}
 }

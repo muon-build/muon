@@ -1466,7 +1466,7 @@ list_options(const struct list_options_opts *list_opts)
 		load_from_build_dir = false;
 	} else {
 		TSTR(option_info);
-		path_join(&wk, &option_info, output_path.private_dir, output_path.option_info);
+		path_join(&wk, &option_info, output_path.private_dir, output_path.paths[output_path_option_info].path);
 		if (!fs_file_exists(option_info.buf)) {
 			LOG_I("this command must be run from a build directory or the project root");
 			goto ret;
@@ -1522,7 +1522,7 @@ list_options(const struct list_options_opts *list_opts)
 		}
 	} else {
 		obj arr;
-		if (!serial_load_from_private_dir(&wk, &arr, output_path.option_info)) {
+		if (!serial_load_from_private_dir(&wk, &arr, output_path.paths[output_path_option_info].path)) {
 			goto ret;
 		}
 

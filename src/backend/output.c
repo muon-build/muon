@@ -14,14 +14,17 @@
 
 const struct output_path output_path = {
 	.private_dir = ".muon",
-	.meson_private_dir = "meson-private",
-	.summary = "summary.txt",
-	.tests = "tests.dat",
-	.install = "install.dat",
-	.compiler_check_cache = "compiler_check_cache.dat",
-	.option_info = "option_info.dat",
 	.introspect_dir = "meson-info",
-	.debug_log = "setup.log",
+	.meson_private_dir = "meson-private",
+	.paths = {
+		[output_path_summary] = { "summary.txt" },
+		[output_path_tests] = { "tests.dat" },
+		[output_path_install] = { "install.dat" },
+		[output_path_compiler_check_cache] = { "compiler_check_cache.dat", .is_cache = true },
+		[output_path_option_info] = { "option_info.dat" },
+		[output_path_debug_log] = { "setup.log" },
+		[output_path_vsenv_cache] = { "vsenv.txt", .is_cache = true },
+	},
 	.introspect_file = {
 		.projectinfo = "intro-projectinfo.json",
 		.targets = "intro-targets.json",
@@ -77,4 +80,26 @@ ret:
 
 	TracyCZoneEnd(tctx_func);
 	return ret;
+}
+
+bool
+output_clear_caches(struct workspace *wk)
+{
+	bool ok = true;
+	uint32_t i;
+	for (i = 0; i < output_path_name_count; ++i) {
+		if (!output_path.paths[i].is_cache) {
+			continue;
+		}
+
+		TSTR(path);
+		path_join(wk, &path, wk->muon_private, output_path.paths[i].path);
+		if (fs_file_exists(path.buf)) {
+			if (!fs_remove(path.buf)) {
+				ok = false;
+			}
+		}
+	}
+
+	return ok;
 }

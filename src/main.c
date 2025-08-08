@@ -76,30 +76,6 @@ ret:
 	return ret;
 }
 
-static void
-setup_platform_env(const char *build_dir, enum requirement_type req)
-{
-	if (req == requirement_skip) {
-		return;
-	}
-
-	if (host_machine.sys == machine_system_windows) {
-		TSTR_manual(cache);
-		const char *cache_path = 0;
-		if (build_dir) {
-			path_copy(0, &cache, build_dir);
-			path_push(0, &cache, output_path.private_dir);
-			fs_mkdir_p(cache.buf);
-			if (fs_dir_exists(cache.buf)) {
-				path_push(0, &cache, "vsenv.txt");
-				cache_path = cache.buf;
-			}
-		}
-
-		vsenv_setup(cache_path, req);
-	}
-}
-
 static bool
 cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
@@ -520,7 +496,7 @@ cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	TSTR_manual(path);
-	path_join(0, &path, output_path.private_dir, output_path.summary);
+	path_join(0, &path, output_path.private_dir, output_path.paths[output_path_summary].path);
 
 	bool ret = false;
 	struct source src = { 0 };
@@ -1084,13 +1060,14 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	TracyCZoneAutoS;
 	bool res = false;
+	enum workspace_do_setup_flag flags = 0;
 	struct workspace wk;
 	workspace_init_bare(&wk);
 	workspace_init_runtime(&wk);
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:b:#") {
+	OPTSTART("D:b:#w") {
 	case '#': log_progress_enable(); break;
 	case 'D':
 		if (!parse_and_set_cmdline_option(&wk, optarg)) {
@@ -1101,11 +1078,16 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		vm_dbg_push_breakpoint_str(&wk, optarg);
 		break;
 	}
+	case 'w': {
+		flags |= workspace_do_setup_flag_clear_cache;
+		break;
+	}
 	}
 	OPTEND_CUSTOM(argv[argi],
 		" <build dir|source dir>",
 		"  -D <option>=<value> - set options\n"
-		"  -# - enable setup progress bar\n",
+		"  -# - enable setup progress bar\n"
+		"  -w - clear all caches before setup\n",
 		NULL,
 		1,
 		cmd_setup_help())
@@ -1168,9 +1150,13 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 	}
 
+	if (!workspace_do_setup_prepare(&wk, build, argv[0], argc - original_argi, &argv[original_argi], flags)) {
+		goto ret;
+	}
+
 	setup_platform_env(build, opts.vsenv_req);
 
-	if (!workspace_do_setup(&wk, build, argv[0], argc - original_argi, &argv[original_argi])) {
+	if (!workspace_do_setup(&wk)) {
 		goto ret;
 	}
 

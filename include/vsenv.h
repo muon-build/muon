@@ -7,5 +7,5 @@
 #define MUON_VSENV_H
 #include <stdbool.h>
 #include "lang/types.h"
-bool vsenv_setup(const char *cache_path, enum requirement_type req);
+void setup_platform_env(const char *build_dir, enum requirement_type req);
 #endif

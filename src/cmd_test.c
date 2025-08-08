@@ -1169,7 +1169,7 @@ tests_run(struct test_options *opts, const char *argv0)
 
 	{ // load global opts
 		obj option_info;
-		if (!serial_load_from_private_dir(&wk, &option_info, output_path.option_info)) {
+		if (!serial_load_from_private_dir(&wk, &option_info, output_path.paths[output_path_option_info].path)) {
 			goto ret;
 		}
 		wk.global_opts = obj_array_index(&wk, option_info, 0);
@@ -1208,7 +1208,7 @@ tests_run(struct test_options *opts, const char *argv0)
 	}
 
 	obj tests_dict;
-	if (!serial_load_from_private_dir(&wk, &tests_dict, output_path.tests)) {
+	if (!serial_load_from_private_dir(&wk, &tests_dict, output_path.paths[output_path_tests].path)) {
 		goto ret;
 	}
 
