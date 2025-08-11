@@ -3376,6 +3376,7 @@ void
 vm_destroy(struct workspace *wk)
 {
 	vm_destroy_objects(wk);
+	bucket_arr_destroy(&wk->vm.reflected_types.fields);
 
 	bucket_arr_destroy(&wk->vm.stack.ba);
 	arr_destroy(&wk->vm.call_stack);
