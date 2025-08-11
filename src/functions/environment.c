@@ -19,11 +19,17 @@
 #include "platform/path.h"
 
 obj
-make_obj_environment(struct workspace *wk)
+make_obj_environment(struct workspace *wk, enum make_obj_environment_flag flags)
 {
 	obj res = make_obj(wk, obj_environment);
 	struct obj_environment *d = get_obj_environment(wk, res);
 	d->actions = make_obj(wk, obj_array);
+
+	if (!(flags & make_obj_environment_flag_no_default_vars)) {
+		bool set_subdir = flags & make_obj_environment_flag_set_subdir;
+		set_default_environment_vars(wk, res, set_subdir);
+	}
+
 	return res;
 }
 

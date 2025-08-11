@@ -13,7 +13,12 @@ enum environment_set_mode {
 	environment_set_mode_prepend,
 };
 
-obj make_obj_environment(struct workspace *wk);
+enum make_obj_environment_flag {
+	make_obj_environment_flag_no_default_vars = 1 << 0,
+	make_obj_environment_flag_set_subdir = 1 << 1,
+};
+
+obj make_obj_environment(struct workspace *wk, enum make_obj_environment_flag flags);
 void environment_extend(struct workspace *wk, obj env, obj other);
 bool environment_set(struct workspace *wk, obj env, enum environment_set_mode mode, obj key, obj vals, obj sep);
 bool environment_to_dict(struct workspace *wk, obj env, obj *res);

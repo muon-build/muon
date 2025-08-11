@@ -21,6 +21,8 @@
 bool
 coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res)
 {
+	enum make_obj_environment_flag flags = set_subdir ? make_obj_environment_flag_set_subdir : 0;
+
 	if (kw->set) {
 		if (get_obj_type(wk, kw->val) == obj_environment) {
 			*res = kw->val;
@@ -30,7 +32,7 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 				return false;
 			}
 
-			*res = make_obj_environment(wk);
+			*res = make_obj_environment(wk, flags);
 
 			obj key, val;
 			obj_dict_for(wk, dict, key, val) {
@@ -40,10 +42,9 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 			}
 		}
 	} else {
-		*res = make_obj_environment(wk);
+		*res = make_obj_environment(wk, flags);
 	}
 
-	set_default_environment_vars(wk, *res, set_subdir);
 	return true;
 }
 

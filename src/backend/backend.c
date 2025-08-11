@@ -81,7 +81,7 @@ backend_abort_handler(void *_ctx)
 static obj
 test_environment(struct workspace *wk)
 {
-	obj res = make_obj_environment(wk);
+	obj res = make_obj_environment(wk, make_obj_environment_flag_no_default_vars);
 
 	if (host_machine.is_windows) {
 		// On windows dlls need to be in PATH for the program to find them.
