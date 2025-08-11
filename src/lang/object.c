@@ -2056,6 +2056,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		tstr_pushf(wk, sb, "<environment ");
 		obj_to_s_opts(wk, get_obj_environment(wk, o)->actions, sb, opts);
 		tstr_pushs(wk, sb, ">");
+		break;
 	}
 	default: tstr_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
