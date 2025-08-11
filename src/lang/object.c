@@ -1666,221 +1666,114 @@ obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dic
 
 /* */
 
-struct obj_clone_ctx {
-	struct workspace *wk_dest;
-	obj container;
-};
-
-static enum iteration_result
-obj_clone_array_iter(struct workspace *wk_src, void *_ctx, obj val)
+static bool
+obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
-	struct obj_clone_ctx *ctx = _ctx;
+	*ret = 0;
 
-	obj dest_val;
-
-	if (!obj_clone(wk_src, ctx->wk_dest, val, &dest_val)) {
-		return ir_err;
-	}
-
-	obj_array_push(ctx->wk_dest, ctx->container, dest_val);
-	return ir_cont;
-}
-
-static enum iteration_result
-obj_clone_dict_iter(struct workspace *wk_src, void *_ctx, obj key, obj val)
-{
-	struct obj_clone_ctx *ctx = _ctx;
-
-	obj dest_key, dest_val;
-
-	if (!obj_clone(wk_src, ctx->wk_dest, key, &dest_key)) {
-		return ir_err;
-	} else if (!obj_clone(wk_src, ctx->wk_dest, val, &dest_val)) {
-		return ir_err;
-	}
-
-	obj_dict_set(ctx->wk_dest, ctx->container, dest_key, dest_val);
-	return ir_cont;
-}
-
-bool
-obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
-{
 	if (val >= wk_src->vm.objects.objs.len) {
 		LOG_E("invalid object");
 		return false;
 	}
 
+	{
+		uint64_t *hv;
+		if ((hv = hash_get(&wk_src->vm.objects.obj_hash, &val))) {
+			*ret = *hv;
+			return true;
+		}
+	}
+
 	enum obj_type t = get_obj_type(wk_src, val);
-	/* L("cloning %s", obj_type_to_s(t)); */
+	// L("cloning %s", obj_type_to_s(t));
 
 	switch (t) {
-	case obj_null: *ret = 0; return true;
-	case obj_number:
+	case obj_null:
+	case obj_disabler:
+	case obj_bool: {
+		*ret = val;
+		break;
+	}
+	case obj_number: {
 		*ret = make_obj(wk_dest, t);
 		set_obj_number(wk_dest, *ret, get_obj_number(wk_src, val));
-		return true;
-	case obj_disabler: *ret = val; return true;
-	case obj_bool: *ret = val; return true;
+		break;
+	}
 	case obj_string: {
 		*ret = str_clone(wk_src, wk_dest, val);
-		return true;
+		break;
 	}
-	case obj_file:
+	case obj_array: {
 		*ret = make_obj(wk_dest, t);
-		*get_obj_file(wk_dest, *ret) = str_clone(wk_src, wk_dest, *get_obj_file(wk_src, val));
-		return true;
-	case obj_array:
-		*ret = make_obj(wk_dest, t);
-		return obj_array_foreach(wk_src,
-			val,
-			&(struct obj_clone_ctx){ .container = *ret, .wk_dest = wk_dest },
-			obj_clone_array_iter);
-	case obj_dict:
+		obj v;
+		obj_array_for(wk_src, val, v) {
+			obj cloned;
+			if (!obj_clone_impl(wk_src, wk_dest, v, &cloned)) {
+				return false;
+			}
+
+			obj_array_push(wk_dest, *ret, cloned);
+		}
+		break;
+	}
+	case obj_dict: {
 		*ret = make_obj(wk_dest, t);
 		struct obj_dict *d = get_obj_dict(wk_dest, *ret);
 		d->flags |= obj_dict_flag_dont_expand;
-		bool status = obj_dict_foreach(wk_src,
-			val,
-			&(struct obj_clone_ctx){ .container = *ret, .wk_dest = wk_dest },
-			obj_clone_dict_iter);
+		obj k, v;
+		obj_dict_for(wk_src, val, k, v) {
+			obj dest_key, dest_val;
+			if (!obj_clone_impl(wk_src, wk_dest, k, &dest_key)) {
+				return false;
+			} else if (!obj_clone_impl(wk_src, wk_dest, v, &dest_val)) {
+				return false;
+			}
+
+			obj_dict_set(wk_dest, *ret, dest_key, dest_val);
+		}
 		d->flags &= ~obj_dict_flag_dont_expand;
-		return status;
-	case obj_test: {
+		break;
+	}
+	default: {
+		obj fields = vm_reflected_obj_fields(wk_src, t);
+		if (!fields) {
+			LOG_E("unable to clone '%s'", obj_type_to_s(t));
+			return false;
+		}
+
 		*ret = make_obj(wk_dest, t);
-		struct obj_test *test = get_obj_test(wk_src, val), *o = get_obj_test(wk_dest, *ret);
-		*o = *test;
+		char *src = get_obj_internal(wk_src, val, t);
+		char *dest = get_obj_internal(wk_dest, *ret, t);
 
-		o->name = str_clone(wk_src, wk_dest, test->name);
-		o->exe = str_clone(wk_src, wk_dest, test->exe);
-		if (test->workdir) {
-			o->workdir = str_clone(wk_src, wk_dest, test->workdir);
-		}
+		obj fi;
+		const struct vm_reflected_field *f;
+		obj_array_for(wk_src, fields, fi) {
+			f = vm_reflected_obj_field(wk_src, fi);
+			void *src_field = src + f->off;
+			void *dest_field = dest + f->off;
 
-		if (!obj_clone(wk_src, wk_dest, test->args, &o->args)) {
-			return false;
+			if (strcmp(f->type, "obj") == 0) {
+				if (!obj_clone_impl(wk_src, wk_dest, *(obj *)src_field, (obj *)dest_field)) {
+					return false;
+				}
+			} else {
+				memcpy(dest_field, src_field, f->size);
+			}
 		}
-
-		if (!obj_clone(wk_src, wk_dest, test->env, &o->env)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, test->suites, &o->suites)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, test->depends, &o->depends)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, test->timeout, &o->timeout)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, test->priority, &o->priority)) {
-			return false;
-		}
-		return true;
+		break;
 	}
-	case obj_install_target: {
-		*ret = make_obj(wk_dest, t);
-		struct obj_install_target *in = get_obj_install_target(wk_src, val),
-					  *o = get_obj_install_target(wk_dest, *ret);
-
-		o->src = str_clone(wk_src, wk_dest, in->src);
-		o->dest = str_clone(wk_src, wk_dest, in->dest);
-		o->build_target = in->build_target;
-		o->type = in->type;
-
-		o->has_perm = in->has_perm;
-		o->perm = in->perm;
-
-		if (!obj_clone(wk_src, wk_dest, in->exclude_directories, &o->exclude_directories)) {
-			return false;
-		}
-		if (!obj_clone(wk_src, wk_dest, in->exclude_files, &o->exclude_files)) {
-			return false;
-		}
-		return true;
 	}
-	case obj_environment: {
-		*ret = make_obj(wk_dest, obj_environment);
-		struct obj_environment *env = get_obj_environment(wk_src, val), *o = get_obj_environment(wk_dest, *ret);
 
-		if (!obj_clone(wk_src, wk_dest, env->actions, &o->actions)) {
-			return false;
-		}
-		return true;
-	}
-	case obj_option: {
-		*ret = make_obj(wk_dest, t);
-		struct obj_option *opt = get_obj_option(wk_src, val), *o = get_obj_option(wk_dest, *ret);
+	hash_set(&wk_src->vm.objects.obj_hash, &val, *ret);
+	return true;
+}
 
-		o->source = opt->source;
-		o->type = opt->type;
-		o->builtin = opt->builtin;
-		o->yield = opt->yield;
-
-		if (!obj_clone(wk_src, wk_dest, opt->name, &o->name)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, opt->val, &o->val)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, opt->choices, &o->choices)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, opt->max, &o->max)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, opt->min, &o->min)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, opt->deprecated, &o->deprecated)) {
-			return false;
-		}
-
-		if (!obj_clone(wk_src, wk_dest, opt->description, &o->description)) {
-			return false;
-		}
-		return true;
-	}
-	case obj_feature_opt: {
-		*ret = make_obj(wk_dest, t);
-
-		set_obj_feature_opt(wk_dest, *ret, get_obj_feature_opt(wk_src, val));
-		return true;
-	}
-	case obj_configuration_data: {
-		*ret = make_obj(wk_dest, t);
-		struct obj_configuration_data *conf = get_obj_configuration_data(wk_src, val),
-					      *o = get_obj_configuration_data(wk_dest, *ret);
-
-		if (!obj_clone(wk_src, wk_dest, conf->dict, &o->dict)) {
-			return false;
-		}
-		return true;
-	}
-	case obj_run_result: {
-		*ret = make_obj(wk_dest, t);
-		struct obj_run_result *rr = get_obj_run_result(wk_src, val), *o = get_obj_run_result(wk_dest, *ret);
-
-		*o = *rr;
-
-		if (!obj_clone(wk_src, wk_dest, rr->out, &o->out)) {
-			return false;
-		} else if (!obj_clone(wk_src, wk_dest, rr->err, &o->err)) {
-			return false;
-		}
-		return true;
-	}
-	default: LOG_E("unable to clone '%s'", obj_type_to_s(t)); return false;
-	}
+bool
+obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
+{
+	hash_clear(&wk_src->vm.objects.obj_hash);
+	bool ok = obj_clone_impl(wk_src, wk_dest, val, ret);
+	return ok;
 }
 
 struct obj_to_s_opts {
@@ -2073,8 +1966,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		bool int_keys = get_obj_dict(wk, o)->flags & obj_dict_flag_int_key;
 
 		obj key, val;
-		obj_dict_for(wk, o, key, val)
-		{
+		obj_dict_for(wk, o, key, val) {
 			if (int_keys) {
 				tstr_pushf(wk, ctx.sb, "%d", key);
 			} else {
@@ -2159,6 +2051,11 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		tstr_pushs(wk, sb, typechecking_type_to_s(wk, ti->type));
 		tstr_pushs(wk, sb, ">");
 		break;
+	}
+	case obj_environment: {
+		tstr_pushf(wk, sb, "<environment ");
+		obj_to_s_opts(wk, get_obj_environment(wk, o)->actions, sb, opts);
+		tstr_pushs(wk, sb, ">");
 	}
 	default: tstr_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
@@ -2584,8 +2481,7 @@ obj_to_json(struct workspace *wk, obj o, struct tstr *sb)
 		tstr_pushs(wk, sb, "null");
 		break;
 	}
-	default: vm_error(wk, "unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o)));
-			 return false;
+	default: vm_error(wk, "unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o))); return false;
 	}
 
 	return true;

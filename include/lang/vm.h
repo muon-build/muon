@@ -187,6 +187,18 @@ struct vm_type_registry {
 	obj top_level_docs;
 };
 
+struct vm_reflected_field {
+	const char *name;
+	const char *type;
+	uint32_t off;
+	uint32_t size;
+};
+
+struct vm_reflection_registry {
+	struct bucket_arr fields;
+	obj objs[obj_type_count];
+};
+
 struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
@@ -200,6 +212,7 @@ struct vm {
 	struct vm_compiler_state compiler_state;
 	struct vm_dbg_state dbg_state;
 	struct vm_type_registry types;
+	struct vm_reflection_registry reflected_types;
 
 	enum language_mode lang_mode;
 
@@ -235,8 +248,16 @@ void vm_dis(struct workspace *wk);
 const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);
+void vm_reflect_objects(struct workspace *wk);
 void vm_destroy(struct workspace *wk);
 void vm_destroy_objects(struct workspace *wk);
+
+struct vm_mem_stats {
+	uint32_t count[obj_type_count];
+	uint32_t bytes[obj_type_count];
+};
+void vm_mem_stat(struct workspace *wk, struct vm_mem_stats *stats);
+void vm_mem_stat_print(struct workspace *wk, struct vm_mem_stats *stats);
 
 bool pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
 bool vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[]);
@@ -252,6 +273,10 @@ MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char 
 void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col);
 bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
 void vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col);
+
+
+obj vm_reflected_obj_fields(struct workspace *wk, enum obj_type t);
+const struct vm_reflected_field *vm_reflected_obj_field(struct workspace *wk, obj val);
 
 /* The below functions may be used to facilitate converting meson dicts to
  * native c structs.  First a struct must be registered with vm_struct, and all

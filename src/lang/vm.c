@@ -3035,6 +3035,132 @@ vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
 }
 
 /******************************************************************************
+ * object reflection
+ ******************************************************************************/
+
+obj
+vm_reflected_obj_fields(struct workspace *wk, enum obj_type t)
+{
+	return wk->vm.reflected_types.objs[t];
+}
+
+const struct vm_reflected_field *
+vm_reflected_obj_field(struct workspace *wk, obj val)
+{
+	return bucket_arr_get(&wk->vm.reflected_types.fields, get_obj_number(wk, val));
+}
+
+static void
+vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_reflected_field *f)
+{
+	if (!wk->vm.reflected_types.objs[t]) {
+		wk->vm.reflected_types.objs[t] = make_obj(wk, obj_array);
+	}
+
+	int64_t i = wk->vm.reflected_types.fields.len;
+	bucket_arr_push(&wk->vm.reflected_types.fields, f);
+	obj n = make_obj(wk, obj_number);
+	set_obj_number(wk, n, i);
+	obj_array_push(wk, wk->vm.reflected_types.objs[t], n);
+}
+
+#define vm_reflect_obj_singleton(__type)
+
+#define vm_reflect_obj_field(__type, __field_type, __name) \
+	vm_reflect_obj_field_(wk, __type,                      \
+		&(struct vm_reflected_field){ .name = #__name, .type = #__field_type, .off = offsetof(struct __type, __name), .size = sizeof(__field_type) })
+
+#define vm_reflect_obj_field_simple(__type, __field_type) \
+	vm_reflect_obj_field_(wk, __type,                      \
+		&(struct vm_reflected_field){ .name = 0, .type = #__field_type, .off = offsetof(struct obj_internal, val), .size = sizeof(__field_type) })
+
+#define vm_reflect_obj_field_for_each_toolchain_component(__type, __field_type, __name)   \
+	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_compiler]); \
+	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_linker]);   \
+	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_static_linker])
+
+void
+vm_reflect_objects(struct workspace *wk)
+{
+	wk->vm.reflected_types = (struct vm_reflection_registry){ 0 };
+	bucket_arr_init(&wk->vm.reflected_types.fields, 128, sizeof(struct vm_reflected_field));
+
+	// singleton objects
+	vm_reflect_obj_singleton(obj_null);
+	vm_reflect_obj_singleton(obj_disabler);
+	vm_reflect_obj_singleton(obj_meson);
+	vm_reflect_obj_singleton(obj_bool);
+
+	// simple objects
+	vm_reflect_obj_field_simple(obj_file, obj);
+	vm_reflect_obj_field_simple(obj_feature_opt, enum feature_opt_state);
+	vm_reflect_obj_field_simple(obj_machine, enum machine_kind);
+
+	// obj_run_result
+	vm_reflect_obj_field(obj_run_result, obj, out);
+	vm_reflect_obj_field(obj_run_result, obj, err);
+	vm_reflect_obj_field(obj_run_result, int32_t, status);
+	vm_reflect_obj_field(obj_run_result, enum run_result_flags, flags);
+
+	// obj_configuration_data
+	vm_reflect_obj_field(obj_configuration_data, obj, dict);
+
+	// obj_option
+	vm_reflect_obj_field(obj_option, obj, name);
+	vm_reflect_obj_field(obj_option, obj, val);
+	vm_reflect_obj_field(obj_option, obj, choices);
+	vm_reflect_obj_field(obj_option, obj, max);
+	vm_reflect_obj_field(obj_option, obj, min);
+	vm_reflect_obj_field(obj_option, obj, deprecated);
+	vm_reflect_obj_field(obj_option, obj, description);
+	vm_reflect_obj_field(obj_option, uint32_t, ip);
+	vm_reflect_obj_field(obj_option, enum option_value_source, source);
+	vm_reflect_obj_field(obj_option, enum build_option_type, type);
+	vm_reflect_obj_field(obj_option, enum build_option_kind, kind);
+	vm_reflect_obj_field(obj_option, bool, yield);
+	vm_reflect_obj_field(obj_option, bool, builtin);
+
+	// obj_environment
+	vm_reflect_obj_field(obj_environment, obj, actions);
+
+	// obj_install_target
+	vm_reflect_obj_field(obj_install_target, obj, src);
+	vm_reflect_obj_field(obj_install_target, obj, dest);
+	vm_reflect_obj_field(obj_install_target, bool, has_perm);
+	vm_reflect_obj_field(obj_install_target, uint32_t, perm);
+	vm_reflect_obj_field(obj_install_target, obj, exclude_directories);
+	vm_reflect_obj_field(obj_install_target, obj, exclude_files);
+	vm_reflect_obj_field(obj_install_target, enum install_target_type, type);
+	vm_reflect_obj_field(obj_install_target, bool, build_target);
+
+	// obj_test
+	vm_reflect_obj_field(obj_test, obj, name);
+	vm_reflect_obj_field(obj_test, obj, exe);
+	vm_reflect_obj_field(obj_test, obj, args);
+	vm_reflect_obj_field(obj_test, obj, env);
+	vm_reflect_obj_field(obj_test, obj, suites);
+	vm_reflect_obj_field(obj_test, obj, workdir);
+	vm_reflect_obj_field(obj_test, obj, depends);
+	vm_reflect_obj_field(obj_test, obj, timeout);
+	vm_reflect_obj_field(obj_test, obj, priority);
+	vm_reflect_obj_field(obj_test, bool, should_fail);
+	vm_reflect_obj_field(obj_test, bool, is_parallel);
+	vm_reflect_obj_field(obj_test, bool, verbose);
+	vm_reflect_obj_field(obj_test, enum test_category, category);
+	vm_reflect_obj_field(obj_test, enum test_protocol, protocol);
+
+	// obj_compiler
+	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, cmd_arr);
+	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, overrides);
+	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, uint32_t, type);
+	vm_reflect_obj_field(obj_compiler, obj, ver);
+	vm_reflect_obj_field(obj_compiler, obj, libdirs);
+	vm_reflect_obj_field(obj_compiler, obj, fwdirs);
+	vm_reflect_obj_field(obj_compiler, enum compiler_language, lang);
+	vm_reflect_obj_field(obj_compiler, enum machine_kind, machine);
+}
+
+/******************************************************************************
  * init / destroy
  ******************************************************************************/
 
@@ -3174,6 +3300,7 @@ vm_init(struct workspace *wk)
 
 	/* objects */
 	vm_init_objects(wk);
+	vm_reflect_objects(wk);
 
 	/* func impl tables */
 	build_func_impl_tables();
@@ -3266,4 +3393,29 @@ vm_destroy(struct workspace *wk)
 	arr_destroy(&wk->vm.compiler_state.if_jmp_stack);
 	arr_destroy(&wk->vm.compiler_state.loop_jmp_stack);
 	bucket_arr_destroy(&wk->vm.compiler_state.nodes);
+}
+
+void
+vm_mem_stat(struct workspace *wk, struct vm_mem_stats *stats)
+{
+	*stats = (struct vm_mem_stats){ 0 };
+	uint32_t i;
+	for (i = 0; i < wk->vm.objects.objs.len; ++i) {
+		const struct obj_internal *o = bucket_arr_get(&wk->vm.objects.objs, i);
+		++stats->count[o->t];
+		stats->bytes[o->t] += sizeof(struct obj_internal);
+	}
+
+	for (uint32_t i = _obj_aos_start; i < obj_type_count; ++i) {
+	}
+}
+
+void
+vm_mem_stat_print(struct workspace *wk, struct vm_mem_stats *stats)
+{
+	printf("vm memory usage:\n");
+	uint32_t i;
+	for (i = 0; i < obj_type_count; ++i) {
+		printf("%s - %d\n", obj_type_to_s(i), stats->count[i]);
+	}
 }

@@ -116,6 +116,8 @@ done:
 		return corrupted_dump();
 	}
 
+	ba->tail_bucket = i - 1;
+
 	return true;
 }
 
@@ -450,6 +452,7 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 	}
 
 	/* obj_lprintf(&wk_src, "loaded %o\n", obj_src); */
+	vm_reflect_objects(&wk_src);
 
 	if (!obj_clone(&wk_src, wk, obj_src, res)) {
 		corrupted_dump();
