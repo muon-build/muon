@@ -3041,27 +3041,27 @@ vm_obj_to_struct_(struct workspace *wk, const char *name, obj o, void *s)
 obj
 vm_reflected_obj_fields(struct workspace *wk, enum obj_type t)
 {
-	return wk->vm.reflected_types.objs[t];
+	return wk->vm.objects.reflected.objs[t];
 }
 
 const struct vm_reflected_field *
 vm_reflected_obj_field(struct workspace *wk, obj val)
 {
-	return bucket_arr_get(&wk->vm.reflected_types.fields, get_obj_number(wk, val));
+	return bucket_arr_get(&wk->vm.objects.reflected.fields, get_obj_number(wk, val));
 }
 
 static void
 vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_reflected_field *f)
 {
-	if (!wk->vm.reflected_types.objs[t]) {
-		wk->vm.reflected_types.objs[t] = make_obj(wk, obj_array);
+	if (!wk->vm.objects.reflected.objs[t]) {
+		wk->vm.objects.reflected.objs[t] = make_obj(wk, obj_array);
 	}
 
-	int64_t i = wk->vm.reflected_types.fields.len;
-	bucket_arr_push(&wk->vm.reflected_types.fields, f);
+	int64_t i = wk->vm.objects.reflected.fields.len;
+	bucket_arr_push(&wk->vm.objects.reflected.fields, f);
 	obj n = make_obj(wk, obj_number);
 	set_obj_number(wk, n, i);
-	obj_array_push(wk, wk->vm.reflected_types.objs[t], n);
+	obj_array_push(wk, wk->vm.objects.reflected.objs[t], n);
 }
 
 #define vm_reflect_obj_singleton(__type)
@@ -3082,9 +3082,6 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 void
 vm_reflect_objects(struct workspace *wk)
 {
-	wk->vm.reflected_types = (struct vm_reflection_registry){ 0 };
-	bucket_arr_init(&wk->vm.reflected_types.fields, 128, sizeof(struct vm_reflected_field));
-
 	// singleton objects
 	vm_reflect_obj_singleton(obj_null);
 	vm_reflect_obj_singleton(obj_disabler);
@@ -3172,6 +3169,7 @@ vm_init_objects(struct workspace *wk)
 	bucket_arr_init(&wk->vm.objects.dict_elems, 1024, sizeof(struct obj_dict_elem));
 	bucket_arr_init(&wk->vm.objects.dict_hashes, 16, sizeof(struct hash));
 	bucket_arr_init(&wk->vm.objects.array_elems, 1024, sizeof(struct obj_array_elem));
+	bucket_arr_init(&wk->vm.objects.reflected.fields, 128, sizeof(struct vm_reflected_field));
 
 	const struct {
 		uint32_t item_size;
@@ -3366,6 +3364,7 @@ vm_destroy_objects(struct workspace *wk)
 	bucket_arr_destroy(&wk->vm.objects.dict_elems);
 	bucket_arr_destroy(&wk->vm.objects.dict_hashes);
 	bucket_arr_destroy(&wk->vm.objects.array_elems);
+	bucket_arr_destroy(&wk->vm.objects.reflected.fields);
 
 	hash_destroy(&wk->vm.objects.obj_hash);
 	hash_destroy(&wk->vm.objects.str_hash);
@@ -3376,7 +3375,6 @@ void
 vm_destroy(struct workspace *wk)
 {
 	vm_destroy_objects(wk);
-	bucket_arr_destroy(&wk->vm.reflected_types.fields);
 
 	bucket_arr_destroy(&wk->vm.stack.ba);
 	arr_destroy(&wk->vm.call_stack);

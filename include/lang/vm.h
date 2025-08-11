@@ -161,11 +161,24 @@ struct vm_behavior {
 	void((*execute_loop)(struct workspace *wk));
 };
 
+struct vm_reflected_field {
+	const char *name;
+	const char *type;
+	uint32_t off;
+	uint32_t size;
+};
+
+struct vm_reflection_registry {
+	struct bucket_arr fields;
+	obj objs[obj_type_count];
+};
+
 struct vm_objects {
 	struct bucket_arr chrs;
 	struct bucket_arr objs;
 	struct bucket_arr dict_elems, dict_hashes, array_elems;
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
+	struct vm_reflection_registry reflected;
 	struct hash obj_hash, str_hash, dedup_str_hash;
 	struct {
 		obj values;
@@ -187,18 +200,6 @@ struct vm_type_registry {
 	obj top_level_docs;
 };
 
-struct vm_reflected_field {
-	const char *name;
-	const char *type;
-	uint32_t off;
-	uint32_t size;
-};
-
-struct vm_reflection_registry {
-	struct bucket_arr fields;
-	obj objs[obj_type_count];
-};
-
 struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
@@ -212,7 +213,6 @@ struct vm {
 	struct vm_compiler_state compiler_state;
 	struct vm_dbg_state dbg_state;
 	struct vm_type_registry types;
-	struct vm_reflection_registry reflected_types;
 
 	enum language_mode lang_mode;
 
