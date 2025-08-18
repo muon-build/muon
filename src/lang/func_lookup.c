@@ -47,7 +47,7 @@
  ******************************************************************************/
 
 // clang-format off
-struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
+static struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[0]                        = { { impl_tbl_kernel },               { impl_tbl_kernel_internal },
 				       { impl_tbl_kernel_opts }                                            },
 	[obj_meson]                = { { impl_tbl_meson },                { impl_tbl_meson_internal }      },
@@ -65,7 +65,6 @@ struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 	[obj_configuration_data]   = { { impl_tbl_configuration_data },   { impl_tbl_configuration_data }  },
 	[obj_custom_target]        = { { impl_tbl_custom_target },        { 0 }                            },
 	[obj_file]                 = { { impl_tbl_file },                 { impl_tbl_file }                },
-	[obj_bool]                 = { { impl_tbl_boolean },              { impl_tbl_boolean }             },
 	[obj_array]                = { { impl_tbl_array },                { impl_tbl_array_internal }      },
 	[obj_build_target]         = { { impl_tbl_build_target },         { 0 }                            },
 	[obj_environment]          = { { impl_tbl_environment },          { impl_tbl_environment }         },
@@ -80,9 +79,26 @@ struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
 
 struct func_impl native_funcs[512];
 
+typedef void ((*func_impl_register_proto)(struct func_impl *, uint32_t, uint32_t *));
+
 static void
-copy_func_impl_group(struct func_impl_group *group, uint32_t *off)
+copy_func_impl_group(struct func_impl_group *group, uint32_t *off, func_impl_register_proto reg)
 {
+	if (reg) {
+		uint32_t len = 0;
+		reg(native_funcs + *off, ARRAY_LEN(native_funcs) - *off, &len);
+
+		*group = (struct func_impl_group) {
+			.impls = &native_funcs[*off],
+			.off = *off,
+			.len = len,
+		};
+		*off += len;
+		return;
+	}
+
+	// else
+
 	if (!group->impls) {
 		return;
 	}
@@ -107,18 +123,24 @@ build_func_impl_tables(void)
 	python_build_impl_tbl();
 
 	for (t = 0; t < obj_type_count; ++t) {
-		for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
-			copy_func_impl_group(&func_impl_groups[t][lang_mode], &off);
+		if (t == obj_bool) {
+			for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
+				copy_func_impl_group(&func_impl_groups[t][lang_mode], &off, func_impl_register_boolean);
+			}
+		} else {
+			for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
+				copy_func_impl_group(&func_impl_groups[t][lang_mode], &off, 0);
+			}
 		}
 	}
 
 	for (m = 0; m < module_count; ++m) {
 		for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
-			copy_func_impl_group(&module_func_impl_groups[m][lang_mode], &off);
+			copy_func_impl_group(&module_func_impl_groups[m][lang_mode], &off, 0);
 		}
 	}
 
-	copy_func_impl_group(&az_func_impl_group, &off);
+	copy_func_impl_group(&az_func_impl_group, &off, 0);
 }
 
 /******************************************************************************
@@ -141,6 +163,12 @@ func_lookup_for_mode(const struct func_impl_group *impl_group, const char *name,
 	}
 
 	return false;
+}
+
+const struct func_impl_group *
+func_lookup_group(enum obj_type t)
+{
+	return func_impl_groups[t];
 }
 
 bool
@@ -476,7 +504,7 @@ dump_function_signatures_prepare(struct workspace *wk)
 				continue;
 			}
 
-			for (i = 0; g->impls[i].name; ++i) {
+			for (i = 0; i < g->len; ++i) {
 				sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
 				sig->impl = &g->impls[i];
 				sig->is_method = t != 0;
@@ -499,7 +527,7 @@ dump_function_signatures_prepare(struct workspace *wk)
 		}
 
 		uint32_t j;
-		for (j = 0; g->impls[j].name; ++j) {
+		for (j = 0; j < g->len; ++j) {
 			sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
 			sig->impl = &g->impls[j];
 			sig->is_method = true;
@@ -779,6 +807,11 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 	}
 	obj_dict_set(wk, res, make_str(wk, "type"), typechecking_type_to_str(wk, opts->impl->return_type));
 
+	if (opts->impl->file) {
+		obj_dict_set(wk, res, make_str(wk, "source_file"), make_str(wk, opts->impl->file));
+		obj_dict_set(wk, res, make_str(wk, "source_line"), make_number(wk, opts->impl->line));
+	}
+
 	const char *desc = 0;
 	if (opts->impl->desc) {
 		desc = opts->impl->desc;
@@ -883,7 +916,7 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 				continue;
 			}
 
-			for (i = 0; g->impls[i].name; ++i) {
+			for (i = 0; i < g->len; ++i) {
 				obj_array_push(wk, doc, dump_function_native(wk, t, &g->impls[i]));
 			}
 		}
@@ -896,7 +929,7 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 		}
 
 		uint32_t j;
-		for (j = 0; g->impls[j].name; ++j) {
+		for (j = 0; j < g->len; ++j) {
 			obj_array_push(wk, doc, dump_module_function_native(wk, i, &g->impls[j]));
 		}
 	}

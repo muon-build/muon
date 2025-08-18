@@ -655,12 +655,12 @@ static void
 az_srv_get_func_completions(struct az_srv *srv,
 	struct workspace *wk,
 	uint32_t type_or_module,
-	const struct func_impl_group impl_group[],
+	const struct func_impl_group *impl_group,
 	const struct str *prefix,
 	enum az_srv_get_func_completions_flag flags)
 {
 	const bool is_module_func = flags & az_srv_get_func_completions_flag_module;
-	enum LspCompletionItemKind kind = (impl_group == func_impl_groups[0] || is_module_func) ?
+	enum LspCompletionItemKind kind = (type_or_module == obj_null || is_module_func) ?
 						  LspCompletionItemKindFunction :
 						  LspCompletionItemKindMethod;
 
@@ -763,7 +763,7 @@ az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_b
 			az_srv_get_dict_completions(srv, wk, base, prefix, LspCompletionItemKindVariable);
 		}
 
-		az_srv_get_func_completions(srv, wk, 0, func_impl_groups[0], prefix, 0);
+		az_srv_get_func_completions(srv, wk, 0, func_lookup_group(0), prefix, 0);
 		break;
 	}
 	case az_srv_break_type_member: {
@@ -781,10 +781,10 @@ az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_b
 					continue;
 				}
 
-				az_srv_get_func_completions(srv, wk, i, func_impl_groups[i], prefix, 0);
+				az_srv_get_func_completions(srv, wk, i, func_lookup_group(i), prefix, 0);
 			}
 		} else if (t == obj_module) {
-			az_srv_get_func_completions(srv, wk, t, func_impl_groups[t], prefix, 0);
+			az_srv_get_func_completions(srv, wk, t, func_lookup_group(t), prefix, 0);
 			struct obj_module *m = get_obj_module(wk, self);
 			if (!m->found) {
 				return;
@@ -814,7 +814,7 @@ az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_b
 			   && t == obj_dict) {
 			az_srv_get_dict_completions(srv, wk, self, prefix, LspCompletionItemKindProperty);
 		} else {
-			az_srv_get_func_completions(srv, wk, t, func_impl_groups[t], prefix, 0);
+			az_srv_get_func_completions(srv, wk, t, func_lookup_group(t), prefix, 0);
 		}
 		break;
 	}

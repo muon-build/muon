@@ -947,7 +947,7 @@ az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, 
 
 		// TODO: add a warning if not all candidates match, e.g.
 		// calling to_string on something that is potentially a string?
-		if (func_lookup_for_group(func_impl_groups[i], wk->vm.lang_mode, name, &lookup_res.idx)) {
+		if (func_lookup_for_group(func_lookup_group(i), wk->vm.lang_mode, name, &lookup_res.idx)) {
 			++lookup_res.matches;
 
 			res_t.type |= native_funcs[lookup_res.idx].return_type;

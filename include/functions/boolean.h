@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_BOOLEAN_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_boolean[];
+FUNC_REGISTER(boolean);
 #endif

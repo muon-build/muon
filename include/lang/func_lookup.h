@@ -7,6 +7,7 @@
 #define MUON_LANG_FUNC_LOOKUP_H
 
 #include "lang/workspace.h"
+#include "platform/assert.h"
 
 typedef bool (*func_native_impl)(struct workspace *wk, obj self, obj *res);
 typedef obj (*func_impl_self_transform)(struct workspace *wk, obj self);
@@ -15,6 +16,7 @@ enum func_impl_flag {
 	func_impl_flag_sandbox_disable = 1 << 0,
 	func_impl_flag_extension = 1 << 1,
 	func_impl_flag_throws_error = 1 << 2,
+	func_impl_flag_pure = 1 << 3,
 };
 
 struct func_impl {
@@ -25,14 +27,29 @@ struct func_impl {
 	enum func_impl_flag flags;
 	func_impl_self_transform self_transform;
 	const char *desc;
+	const char *file;
+	uint32_t line;
 };
+
+#define FUNC_IMPL_(__type, ___, __name, ...)  \
+static bool func_ ## __type ## ___ ## __name(struct workspace *wk, obj self, obj *res); \
+static struct func_impl func_impl_ ## __type ## ___ ## __name = { #__name, func_ ## __type ## ___ ## __name, __VA_ARGS__, .file = __FILE__, .line = __LINE__ }; \
+static bool func_ ## __type ## ___ ## __name(struct workspace *wk, obj self, obj *res)
+
+#define FUNC_IMPL(__type, __name, ...) FUNC_IMPL_(__type, _, __name, __VA_ARGS__)
+
+#define FUNC_IMPL_REGISTER_(__type, ___, __name)  \
+assert(*added < cap), dest[*added] = func_impl_ ## __type ## ___ ## __name, ++*added
+#define FUNC_IMPL_REGISTER(__type, __name) FUNC_IMPL_REGISTER_(__type, _, __name)
+
+#define FUNC_REGISTER(__type) \
+void func_impl_register_ ## __type(struct func_impl *dest, uint32_t cap, uint32_t* added)
 
 struct func_impl_group {
 	const struct func_impl *impls;
 	uint32_t off, len;
 };
 
-extern struct func_impl_group func_impl_groups[obj_type_count][language_mode_count];
 extern struct func_impl native_funcs[];
 
 void build_func_impl_tables(void);
@@ -42,6 +59,7 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 	enum language_mode mode,
 	const char *name,
 	uint32_t *idx);
+const struct func_impl_group *func_lookup_group(enum obj_type t);
 
 void func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr *kwargs_arr);
 void kwargs_arr_destroy(struct workspace *wk, struct arr *arr);

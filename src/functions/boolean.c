@@ -8,11 +8,9 @@
 #include <string.h>
 
 #include "functions/boolean.h"
-#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 
-static bool
-func_boolean_to_string(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(boolean, to_string, tc_string, func_impl_flag_pure)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -28,8 +26,7 @@ func_boolean_to_string(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_boolean_to_int(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(boolean, to_int, tc_number, func_impl_flag_pure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -41,8 +38,8 @@ func_boolean_to_int(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_boolean[] = {
-	{ "to_int", func_boolean_to_int, tc_number },
-	{ "to_string", func_boolean_to_string, tc_string },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(boolean)
+{
+	FUNC_IMPL_REGISTER(boolean, to_int);
+	FUNC_IMPL_REGISTER(boolean, to_string);
+}
