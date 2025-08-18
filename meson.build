@@ -119,6 +119,9 @@ else
                 '-Wvla',
                 '-fstrict-aliasing',
                 '-std=c99',
+                '-fmacro-prefix-map=@0@/='.format(
+                    fs.relative_to(meson.current_source_dir(), meson.current_build_dir()),
+                ),
             ],
         ),
         language: 'c',
