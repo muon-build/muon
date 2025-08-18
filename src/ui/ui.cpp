@@ -1192,7 +1192,8 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 		}
 	}
 
-	workspace_do_setup(wk, "build-tmp", "muon", 0, 0);
+	workspace_do_setup_prepare(wk, "build-tmp", "muon", 0, 0, workspace_do_setup_flag(0));
+	workspace_do_setup(wk);
 
 	// Clear callstack again after setup
 	ctx->callstack = 0;
