@@ -161,13 +161,29 @@ SPDX-License-Identifier: GPL-3.0-only
         opacity: 1.0;
       }
 
+      .func-source {
+        display: flex;
+        flex-direction: row;
+        font-size: 0.8em;
+      }
+
+      .func-source div {
+        padding-bottom: 10px;
+        color: #6272A4;
+      }
+
+      .forgeSelected {
+        background-color: #50FA7B;
+        color: #282A36;
+      }
+
       dd {
         padding-bottom: 20px;
       }
     </style>
   </head>
   <body>
-    <div class="wrapper">
+    <div class="wrapper" id="wrapper" style="display:none">
       <div id="sectNav">
         <ul id="listNav"></ul>
         <span id="navVer" class="nav-version"></span>
@@ -187,6 +203,10 @@ SPDX-License-Identifier: GPL-3.0-only
       <div id="sectFunction">
         <h2>Function</h1>
         <pre><code id="funcProto"></code></pre>
+        <div class="func-source">
+          <div id="funcSource"></div>
+        </div>
+
         <div id="funcDesc" class="markdown"></div>
 
         <div id="sectFunctionParams">
@@ -197,12 +217,16 @@ SPDX-License-Identifier: GPL-3.0-only
       <div id="sectHelp">
         <h2>Help</h2>
 
+        <h4>Forge links</h4>
+        <a onclick="forgeSet('gh')" id='forgeSet_gh'>github</a>
+        <a onclick="forgeSet('srht')" id='forgeSet_srht'>sourcehut</a>
+
         <h4>Tags</h4>
         <ul>
           <li>
             <span class="syn-tag">s</span>
             - indicates the tagged element is only available in
-            <a href="https://github.com/muon-build/muon/blob/master/doc/script_modules.md">scripting mode</a>
+            <a href="" id="scriptModulesRef">scripting mode</a>
           </li>
           <li>
             <span class="syn-tag">e</span>
@@ -241,6 +265,7 @@ SPDX-License-Identifier: GPL-3.0-only
       let dataExternal = JSON.parse(document.getElementById("data_external").innerHTML);
       let dataInternal = JSON.parse(document.getElementById("data_internal").innerHTML);
       let version = JSON.parse(document.getElementById("version").innerHTML);
+      let forge = '';
 
       const funcKey = (f) => `${f.rcvr}${f.module}${f.name}`;
       let map = {};
@@ -260,6 +285,39 @@ SPDX-License-Identifier: GPL-3.0-only
         }
       }
 
+      function forgeSet(newForge, skipRender) {
+        if (forge !== '') {
+          document.getElementById(`forgeSet_${forge}`).classList.remove('forgeSelected');
+        }
+        document.getElementById(`forgeSet_${newForge}`).classList.add('forgeSelected');
+        forge = newForge;
+        if (!skipRender) {
+          render();
+        }
+      }
+      forgeSet('srht', true);
+
+      function forgeUrlCommit() {
+        if (forge === 'srht') {
+          return `https://git.sr.ht/~lattis/muon/commit/${version.vcs_tag}`
+        } else if (forge === 'gh') {
+          return `https://github.com/muon-build/muon/commit/${version.vcs_tag}`
+        }
+      }
+
+      function forgeUrlFile(path, line) {
+        let lineSuffix = '';
+        if (line) {
+          lineSuffix = `#L${line}`;
+        }
+
+        if (forge === 'srht') {
+          return `https://git.sr.ht/~lattis/muon/tree/${version.vcs_tag}/item/${path}${lineSuffix}`
+        } else if (forge === 'gh') {
+          return `https://github.com/muon-build/muon/blob/${version.vcs_tag}/${path}${lineSuffix}`
+        }
+      }
+
       function render() {
         document.title = `muon - docs`;
 
@@ -273,6 +331,7 @@ SPDX-License-Identifier: GPL-3.0-only
         let domListFunctions = document.getElementById("listFunctions");
         let domSectFunction = document.getElementById("sectFunction");
         let domFuncProto = document.getElementById("funcProto");
+        let domFuncSource = document.getElementById("funcSource");
         let domFuncDesc = document.getElementById("funcDesc");
         let domSectFunctionParams = document.getElementById("sectFunctionParams");
         let domListFunctionParams = document.getElementById("listFunctionParams");
@@ -285,6 +344,7 @@ SPDX-License-Identifier: GPL-3.0-only
         domSectFunctions.style.display = 'none';
         domSectFunction.style.display = 'none';
         domSectHelp.style.display = 'none';
+        document.getElementById('wrapper').style.display = 'block';
 
         let nav = decodeURIComponent(window.location.hash).split('.');
         let navRoot = nav.shift();
@@ -391,7 +451,7 @@ SPDX-License-Identifier: GPL-3.0-only
 
           verVer = document.createElement("a");
           verVer.innerHTML = `${version.vcs_tag}`;
-          verVer.setAttribute("href", `https://git.sr.ht/~lattis/muon/commit/${version.vcs_tag}`);
+          verVer.setAttribute("href", forgeUrlCommit());
           verText.appendChild(verVer);
           domNavVer.appendChild(verText);
 
@@ -407,6 +467,7 @@ SPDX-License-Identifier: GPL-3.0-only
 
         if (filter.help) {
           domSectHelp.style.display = 'block';
+          document.getElementById('scriptModulesRef').setAttribute('href', forgeUrlFile('doc/script_modules.md'));
           return;
         }
 
@@ -575,7 +636,17 @@ SPDX-License-Identifier: GPL-3.0-only
               return;
             }
 
+            domFuncSource.replaceChildren();
+            if (func.source_file) {
+              let a = document.createElement('a');
+              let url = forgeUrlFile(func.source_file, func.source_line);
+              a.setAttribute("href", url);
+              a.innerHTML = `${func.source_file}:${func.source_line}`;
+              domFuncSource.appendChild(a);
+            }
+
             funcProto(domFuncProto, func);
+
             if (func.desc) {
               domFuncDesc.innerHTML = marked.parse(func.desc);
             } else {
