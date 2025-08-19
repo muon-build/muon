@@ -7,5 +7,5 @@
 #define FUNCTIONS_SOURCE_CONFIGURATION_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_source_configuration[];
+FUNC_REGISTER(source_configuration);
 #endif

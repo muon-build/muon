@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_FEATURE_OPT_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_feature_opt[];
+FUNC_REGISTER(feature_opt);
 #endif

@@ -33,8 +33,7 @@ keyval_parse_cb(void *_ctx,
 	return true;
 }
 
-static bool
-func_module_keyval_load(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_keyval, load, tc_dict, func_impl_flag_impure)
 {
 	bool ret = false;
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
@@ -71,11 +70,7 @@ ret:
 	return ret;
 }
 
-const struct func_impl impl_tbl_module_keyval[] = {
-	{
-		"load",
-		func_module_keyval_load,
-		tc_dict,
-	},
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_keyval)
+{
+	FUNC_IMPL_REGISTER(module_keyval, load);
+}

@@ -20,26 +20,22 @@ feature_opt_common(struct workspace *wk, obj self, obj *res, enum feature_opt_st
 	return true;
 }
 
-static bool
-func_feature_opt_auto(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, auto, tc_bool)
 {
 	return feature_opt_common(wk, self, res, feature_opt_auto);
 }
 
-static bool
-func_feature_opt_disabled(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, disabled, tc_bool)
 {
 	return feature_opt_common(wk, self, res, feature_opt_disabled);
 }
 
-static bool
-func_feature_opt_enabled(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, enabled, tc_bool)
 {
 	return feature_opt_common(wk, self, res, feature_opt_enabled);
 }
 
-static bool
-func_feature_opt_allowed(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, allowed, tc_bool)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -51,8 +47,7 @@ func_feature_opt_allowed(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_feature_opt_disable_auto_if(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, disable_auto_if, tc_feature_opt)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -74,8 +69,7 @@ func_feature_opt_disable_auto_if(struct workspace *wk, obj self, obj *res)
 	}
 }
 
-static bool
-func_feature_opt_enable_auto_if(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, enable_auto_if, tc_feature_opt)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -97,8 +91,7 @@ func_feature_opt_enable_auto_if(struct workspace *wk, obj self, obj *res)
 	}
 }
 
-static bool
-func_feature_opt_enable_if(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, enable_if, tc_feature_opt)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -129,8 +122,7 @@ func_feature_opt_enable_if(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_feature_opt_disable_if(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, disable_if, tc_feature_opt)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -161,8 +153,7 @@ func_feature_opt_disable_if(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_feature_opt_require(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(feature_opt, require, tc_feature_opt)
 {
 	struct args_norm an[] = { { tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -194,15 +185,15 @@ func_feature_opt_require(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_feature_opt[] = {
-	{ "allowed", func_feature_opt_allowed, tc_bool, true },
-	{ "auto", func_feature_opt_auto, tc_bool, true },
-	{ "disable_auto_if", func_feature_opt_disable_auto_if, tc_feature_opt, true },
-	{ "disable_if", func_feature_opt_disable_if, tc_feature_opt, true },
-	{ "disabled", func_feature_opt_disabled, tc_bool, true },
-	{ "enable_auto_if", func_feature_opt_enable_auto_if, tc_feature_opt, true },
-	{ "enable_if", func_feature_opt_enable_if, tc_feature_opt, true },
-	{ "enabled", func_feature_opt_enabled, tc_bool, true },
-	{ "require", func_feature_opt_require, tc_feature_opt, true },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(feature_opt)
+{
+	FUNC_IMPL_REGISTER(feature_opt, allowed);
+	FUNC_IMPL_REGISTER(feature_opt, auto);
+	FUNC_IMPL_REGISTER(feature_opt, disable_auto_if);
+	FUNC_IMPL_REGISTER(feature_opt, disable_if);
+	FUNC_IMPL_REGISTER(feature_opt, disabled);
+	FUNC_IMPL_REGISTER(feature_opt, enable_auto_if);
+	FUNC_IMPL_REGISTER(feature_opt, enable_if);
+	FUNC_IMPL_REGISTER(feature_opt, enabled);
+	FUNC_IMPL_REGISTER(feature_opt, require);
+}

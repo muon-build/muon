@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_MODULES_SOURCESET_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_module_sourceset[];
+FUNC_REGISTER(module_source_set);
 #endif

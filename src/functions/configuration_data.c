@@ -11,8 +11,7 @@
 #include "functions/configuration_data.h"
 #include "lang/typecheck.h"
 
-static bool
-func_configuration_data_set_quoted(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, set_quoted, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -46,8 +45,7 @@ func_configuration_data_set_quoted(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_configuration_data_set(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, set, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { tc_string | tc_number | tc_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -68,8 +66,7 @@ func_configuration_data_set(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_configuration_data_set10(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, set10, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_bool }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -111,8 +108,7 @@ configuration_data_get(struct workspace *wk, uint32_t err_node, obj conf, obj ke
 	return true;
 }
 
-static bool
-func_configuration_data_get(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, get, tc_any, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
@@ -123,8 +119,7 @@ func_configuration_data_get(struct workspace *wk, obj self, obj *res)
 	return configuration_data_get(wk, an[0].node, self, an[0].val, an[1].val, res);
 }
 
-static bool
-func_configuration_data_get_unquoted(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, get_unquoted, tc_any, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
@@ -159,8 +154,7 @@ obj_dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj _v)
 	return ir_cont;
 }
 
-static bool
-func_configuration_data_keys(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, keys, tc_array, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -173,8 +167,7 @@ func_configuration_data_keys(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_configuration_data_has(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, has, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -187,8 +180,7 @@ func_configuration_data_has(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_configuration_data_merge_from(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(configuration_data, merge_from, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_configuration_data }, ARG_TYPE_NULL };
 
@@ -201,14 +193,14 @@ func_configuration_data_merge_from(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_configuration_data[] = {
-	{ "get", func_configuration_data_get, tc_any },
-	{ "get_unquoted", func_configuration_data_get_unquoted, tc_any },
-	{ "has", func_configuration_data_has, tc_bool },
-	{ "keys", func_configuration_data_keys, tc_array },
-	{ "merge_from", func_configuration_data_merge_from },
-	{ "set", func_configuration_data_set },
-	{ "set10", func_configuration_data_set10 },
-	{ "set_quoted", func_configuration_data_set_quoted },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(configuration_data)
+{
+	FUNC_IMPL_REGISTER(configuration_data, get);
+	FUNC_IMPL_REGISTER(configuration_data, get_unquoted);
+	FUNC_IMPL_REGISTER(configuration_data, has);
+	FUNC_IMPL_REGISTER(configuration_data, keys);
+	FUNC_IMPL_REGISTER(configuration_data, merge_from);
+	FUNC_IMPL_REGISTER(configuration_data, set);
+	FUNC_IMPL_REGISTER(configuration_data, set10);
+	FUNC_IMPL_REGISTER(configuration_data, set_quoted);
+}

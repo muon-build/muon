@@ -10,8 +10,7 @@
 #include "lang/typecheck.h"
 #include "util.h"
 
-static bool
-func_array_length(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, length, tc_number)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -22,8 +21,7 @@ func_array_length(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_array_get(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, get, tc_any)
 {
 	struct args_norm an[] = { { obj_number }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -71,8 +69,7 @@ array_contains_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
-func_array_contains(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, contains, tc_bool)
 {
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -86,8 +83,7 @@ func_array_contains(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_array_delete(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, delete, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -103,8 +99,7 @@ func_array_delete(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_array_slice(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, slice, tc_array)
 {
 	struct args_norm an[] = { { obj_number, .optional = true }, { obj_number, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -131,8 +126,7 @@ func_array_slice(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_array_clear(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, clear, 0, func_impl_flag_impure)
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -142,8 +136,7 @@ func_array_clear(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_array_dedup(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(array, dedup, tc_array)
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -153,20 +146,16 @@ func_array_dedup(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_array[] = {
-	{ "length", func_array_length, tc_number, true },
-	{ "get", func_array_get, tc_any, true },
-	{ "contains", func_array_contains, tc_bool, true },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(array)
+{
+	FUNC_IMPL_REGISTER(array, length);
+	FUNC_IMPL_REGISTER(array, get);
+	FUNC_IMPL_REGISTER(array, contains);
 
-const struct func_impl impl_tbl_array_internal[] = {
-	{ "length", func_array_length, tc_number, true },
-	{ "get", func_array_get, tc_any, true },
-	{ "contains", func_array_contains, tc_bool, true },
-	{ "delete", func_array_delete },
-	{ "slice", func_array_slice, tc_array, true },
-	{ "clear", func_array_clear },
-	{ "dedup", func_array_dedup, tc_array, true },
-	{ NULL, NULL },
-};
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(array, delete);
+		FUNC_IMPL_REGISTER(array, slice);
+		FUNC_IMPL_REGISTER(array, clear);
+		FUNC_IMPL_REGISTER(array, dedup);
+	}
+}

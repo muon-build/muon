@@ -407,8 +407,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	return cnt_failed == 0;
 }
 
-static bool
-func_subprojects_update(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_subprojects, update, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Update subprojects with .wrap files" )
 {
 	struct args_norm an[] = {
 		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
@@ -454,8 +453,7 @@ subprojects_array_sort_func(struct workspace *wk, void *_ctx, obj a, obj b)
 	return strcmp(a_name->s, b_name->s);
 }
 
-static bool
-func_subprojects_list(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_subprojects, list, tc_array, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "List subprojects with .wrap files and their status." )
 {
 	struct args_norm an[] = {
 		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
@@ -551,8 +549,7 @@ cont:
 	return ir_cont;
 }
 
-static bool
-func_subprojects_clean(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_subprojects, clean, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Clean subprojects with .wrap files" )
 {
 	struct args_norm an[] = {
 		{ TYPE_TAG_LISTIFY | tc_string, .optional = true, .desc = "A list of subprojects to operate on." },
@@ -580,8 +577,7 @@ func_subprojects_clean(struct workspace *wk, obj self, obj *res)
 	return subprojects_foreach(wk, an[0].val, &ctx, subprojects_clean_iter);
 }
 
-static bool
-func_subprojects_fetch(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_subprojects, fetch, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Fetch a project using a .wrap file" )
 {
 	struct args_norm an[] = {
 		{ tc_string, .desc = "The wrap file to fetch." },
@@ -611,8 +607,7 @@ func_subprojects_fetch(struct workspace *wk, obj self, obj *res)
 		});
 }
 
-static bool
-func_subprojects_load_wrap(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_subprojects, load_wrap, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Load a wrap file into a dict" )
 {
 	struct args_norm an[] = {
 		{ tc_string, .desc = "The wrap file to load." },
@@ -633,27 +628,13 @@ func_subprojects_load_wrap(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_subprojects[] = {
-	{ "update",
-		func_subprojects_update,
-		.flags = func_impl_flag_sandbox_disable,
-		.desc = "Update subprojects with .wrap files" },
-	{ "list",
-		func_subprojects_list,
-		tc_array,
-		.flags = func_impl_flag_sandbox_disable,
-		.desc = "List subprojects with .wrap files and their status." },
-	{ "clean",
-		func_subprojects_clean,
-		.flags = func_impl_flag_sandbox_disable,
-		.desc = "Clean subprojects with .wrap files" },
-	{ "fetch",
-		func_subprojects_fetch,
-		.flags = func_impl_flag_sandbox_disable,
-		.desc = "Fetch a project using a .wrap file" },
-	{ "load_wrap",
-		func_subprojects_load_wrap,
-		.flags = func_impl_flag_sandbox_disable,
-		.desc = "Load a wrap file into a dict" },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_subprojects)
+{
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_subprojects, update);
+		FUNC_IMPL_REGISTER(module_subprojects, list);
+		FUNC_IMPL_REGISTER(module_subprojects, clean);
+		FUNC_IMPL_REGISTER(module_subprojects, fetch);
+		FUNC_IMPL_REGISTER(module_subprojects, load_wrap);
+	}
+}

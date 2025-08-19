@@ -140,8 +140,7 @@ tgt_src_to_object_path(struct workspace *wk,
 	return tgt_src_to_compiled_path(wk, tgt, &opts, src_file, res);
 }
 
-static bool
-func_build_target_name(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(build_target, name, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -151,8 +150,7 @@ func_build_target_name(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_build_target_full_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(build_target, full_path, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -258,8 +256,7 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	return ir_cont;
 }
 
-static bool
-func_build_target_extract_objects(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(build_target, extract_objects, tc_array, func_impl_flag_impure)
 {
 	struct args_norm an[]
 		= { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
@@ -366,8 +363,7 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, ob
 	return build_target_extract_all_objects_impl(wk, self, res, recursive);
 }
 
-static bool
-func_build_target_extract_all_objects(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(build_target, extract_all_objects, tc_array, func_impl_flag_impure)
 {
 	enum kwargs {
 		kw_recursive,
@@ -382,8 +378,7 @@ func_build_target_extract_all_objects(struct workspace *wk, obj self, obj *res)
 	return build_target_extract_all_objects(wk, 0, self, res, recursive);
 }
 
-static bool
-func_build_target_private_dir_include(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(build_target, private_dir_include, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -396,8 +391,7 @@ func_build_target_private_dir_include(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_build_target_found(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(build_target, found, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -407,13 +401,13 @@ func_build_target_found(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_build_target[] = {
-	{ "extract_all_objects", func_build_target_extract_all_objects, tc_array },
-	{ "extract_objects", func_build_target_extract_objects, tc_array },
-	{ "found", func_build_target_found, tc_bool },
-	{ "full_path", func_build_target_full_path, tc_string },
-	{ "name", func_build_target_name, tc_string },
-	{ "path", func_build_target_full_path, tc_string },
-	{ "private_dir_include", func_build_target_private_dir_include, tc_string },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(build_target)
+{
+	FUNC_IMPL_REGISTER(build_target, extract_all_objects);
+	FUNC_IMPL_REGISTER(build_target, extract_objects);
+	FUNC_IMPL_REGISTER(build_target, found);
+	FUNC_IMPL_REGISTER(build_target, full_path);
+	FUNC_IMPL_REGISTER_ALIAS(build_target, full_path, path);
+	FUNC_IMPL_REGISTER(build_target, name);
+	FUNC_IMPL_REGISTER(build_target, private_dir_include);
+}

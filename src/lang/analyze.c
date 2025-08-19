@@ -883,8 +883,7 @@ struct az_pop_args_ctx {
 	bool allow_impure_args_except_first; // set to true for set_variable and subdir
 } pop_args_ctx;
 
-static bool
-az_injected_native_func(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(analyzer, injected_native_func, tc_any)
 {
 	pop_args_ctx.encountered_error = false;
 
@@ -895,14 +894,12 @@ az_injected_native_func(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static const struct func_impl az_func_impls[] = {
-	{ "az_injected_native_func", az_injected_native_func },
-	{ 0 },
-};
+FUNC_REGISTER(analyzer)
+{
+	FUNC_IMPL_REGISTER(analyzer, injected_native_func);
+}
 
-struct func_impl_group az_func_impl_group = {
-	.impls = az_func_impls,
-};
+struct func_impl_group az_func_impl_group = { 0 };
 
 static bool
 az_func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func)
@@ -1048,7 +1045,7 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	stack_push(&wk->stack, pop_args_ctx, _ctx);
 
 	*res = 0;
-	bool pure = native_funcs[func_idx].pure;
+	bool pure = !(native_funcs[func_idx].flags & func_impl_flag_impure);
 
 	if (self
 		&& obj_tainted_by_typeinfo(

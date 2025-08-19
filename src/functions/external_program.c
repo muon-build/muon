@@ -35,8 +35,7 @@ find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argu
 	run_cmd_ctx_destroy(&cmd_ctx);
 }
 
-static bool
-func_external_program_found(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(external_program, found, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -46,8 +45,7 @@ func_external_program_found(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_external_program_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(external_program, full_path, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -65,8 +63,7 @@ func_external_program_path(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_external_program_version(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(external_program, version, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -82,10 +79,10 @@ func_external_program_version(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_external_program[] = {
-	{ "found", func_external_program_found, tc_bool },
-	{ "path", func_external_program_path, tc_string },
-	{ "full_path", func_external_program_path, tc_string },
-	{ "version", func_external_program_version, tc_string },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(external_program)
+{
+	FUNC_IMPL_REGISTER(external_program, found);
+	FUNC_IMPL_REGISTER(external_program, full_path);
+	FUNC_IMPL_REGISTER_ALIAS(external_program, full_path, path);
+	FUNC_IMPL_REGISTER(external_program, version);
+}

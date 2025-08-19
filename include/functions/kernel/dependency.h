@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
 #define MUON_FUNCTIONS_KERNEL_DEPENDENCY_H
-#include "lang/workspace.h"
+#include "lang/func_lookup.h"
 
 enum build_dep_merge_flag {
 	build_dep_merge_flag_merge_all = 1 << 0,
@@ -52,4 +52,6 @@ deps_check_machine_matches(struct workspace *wk,
 
 obj dependency_dup(struct workspace *wk, obj dep, enum build_dep_flag flags);
 bool dependency_create(struct workspace *wk, const struct build_dep_raw *raw, struct build_dep *dep, enum build_dep_flag flags);
+
+FUNC_REGISTER(kernel_dependency);
 #endif

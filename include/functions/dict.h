@@ -7,6 +7,5 @@
 #define MUON_FUNCTIONS_DICT_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_dict[];
-extern const struct func_impl impl_tbl_dict_internal[];
+FUNC_REGISTER(dict);
 #endif

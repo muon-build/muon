@@ -7,6 +7,5 @@
 #define MUON_FUNCTIONS_MESON_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_meson[];
-extern const struct func_impl impl_tbl_meson_internal[];
+FUNC_REGISTER(meson);
 #endif

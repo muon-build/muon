@@ -168,8 +168,7 @@ generated_list_process_for_target(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_generator_process(struct workspace *wk, obj gen, obj *res)
+FUNC_IMPL(generator, process, tc_generated_list, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_files | tc_generated_list }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -190,7 +189,7 @@ func_generator_process(struct workspace *wk, obj gen, obj *res)
 
 	*res = make_obj(wk, obj_generated_list);
 	struct obj_generated_list *gl = get_obj_generated_list(wk, *res);
-	gl->generator = gen;
+	gl->generator = self;
 	gl->extra_arguments = akw[kw_extra_args].val;
 	gl->preserve_path_from = akw[kw_preserve_path_from].val;
 
@@ -239,7 +238,7 @@ func_generator_process(struct workspace *wk, obj gen, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_generator[] = {
-	{ "process", func_generator_process, tc_generated_list },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(generator)
+{
+	FUNC_IMPL_REGISTER(generator, process);
+}

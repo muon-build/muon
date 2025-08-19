@@ -8,10 +8,8 @@
 #include "formats/json.h"
 #include "functions/modules/json.h"
 #include "lang/typecheck.h"
-#include "log.h"
 
-static bool
-func_module_json_parse(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_json, parse, tc_array | tc_dict, .desc = "Parse a json string into an object")
 {
 	struct args_norm an[] = {
 		{ tc_string, .desc = "the json to parse" },
@@ -48,8 +46,7 @@ func_module_json_parse(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_json_stringify(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_json, stringify, tc_any, .desc = "Convert an object into a json string")
 {
 	struct args_norm an[] = {
 		{ tc_array | tc_dict, .desc = "the object to stringify" },
@@ -68,8 +65,10 @@ func_module_json_stringify(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_json[] = {
-	{ "parse", func_module_json_parse, tc_array | tc_dict, .desc = "Parse a json string into an object" },
-	{ "stringify", func_module_json_stringify, tc_any, .desc = "Convert an object into a json string" },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_json)
+{
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_json, parse);
+		FUNC_IMPL_REGISTER(module_json, stringify);
+	}
+}

@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_DISABLER_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_disabler[];
+FUNC_REGISTER(disabler);
 #endif

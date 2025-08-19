@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_MODULES_PKGCONFIG_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_module_pkgconfig[];
+FUNC_REGISTER(module_pkgconfig);
 #endif

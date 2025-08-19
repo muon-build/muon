@@ -7,7 +7,6 @@
 
 #include "error.h"
 #include "functions/source_set.h"
-#include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 #include "platform/assert.h"
 
@@ -71,8 +70,7 @@ source_set_check_not_frozen(struct workspace *wk, obj self)
 	return true;
 }
 
-static bool
-func_source_set_add(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_set, add, 0, func_impl_flag_impure)
 {
 	const type_tag tc_ss_sources = tc_string | tc_file | tc_custom_target | tc_generated_list;
 
@@ -100,8 +98,7 @@ func_source_set_add(struct workspace *wk, obj self, obj *res)
 	return source_set_add_rule(wk, self, &an[0], &akw[kw_when], &akw[kw_if_true], &akw[kw_if_false]);
 }
 
-static bool
-func_source_set_add_all(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_set, add_all, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_source_set }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -288,8 +285,7 @@ source_set_collect(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_source_set_all_sources(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_set, all_sources, tc_array)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -298,8 +294,7 @@ func_source_set_all_sources(struct workspace *wk, obj self, obj *res)
 	return source_set_collect(wk, 0, self, 0, source_set_collect_sources, true, res);
 }
 
-static bool
-func_source_set_all_dependencies(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_set, all_dependencies, tc_array)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -308,8 +303,7 @@ func_source_set_all_dependencies(struct workspace *wk, obj self, obj *res)
 	return source_set_collect(wk, 0, self, 0, source_set_collect_dependencies, true, res);
 }
 
-static bool
-func_source_set_apply(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_set, apply, tc_source_configuration)
 {
 	struct args_norm an[] = { { tc_configuration_data | tc_dict }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -349,11 +343,11 @@ func_source_set_apply(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_source_set[] = {
-	{ "add", func_source_set_add, 0, true },
-	{ "add_all", func_source_set_add_all, 0, true },
-	{ "all_sources", func_source_set_all_sources, tc_array, true },
-	{ "all_dependencies", func_source_set_all_dependencies, tc_array, true },
-	{ "apply", func_source_set_apply, tc_source_configuration, true },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(source_set)
+{
+	FUNC_IMPL_REGISTER(source_set, add);
+	FUNC_IMPL_REGISTER(source_set, add_all);
+	FUNC_IMPL_REGISTER(source_set, all_sources);
+	FUNC_IMPL_REGISTER(source_set, all_dependencies);
+	FUNC_IMPL_REGISTER(source_set, apply);
+}

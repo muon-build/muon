@@ -21,5 +21,5 @@ bool tgt_src_to_pch_path(struct workspace *wk,
 
 bool build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, obj *res, bool recursive);
 
-extern const struct func_impl impl_tbl_build_target[8];
+FUNC_REGISTER(build_target);
 #endif

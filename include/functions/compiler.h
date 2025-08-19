@@ -60,6 +60,5 @@ struct compiler_check_opts {
 bool
 compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const char *src, uint32_t err_node, bool *res);
 
-extern const struct func_impl impl_tbl_compiler[];
-extern const struct func_impl impl_tbl_compiler_internal[];
+FUNC_REGISTER(compiler);
 #endif

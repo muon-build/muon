@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_CONFIGURE_FILE_H
 #define MUON_FUNCTIONS_KERNEL_CONFIGURE_FILE_H
-#include "lang/workspace.h"
+#include "lang/func_lookup.h"
 
-bool func_configure_file(struct workspace *wk, obj _, obj *res);
+FUNC_REGISTER(kernel_configure_file);
 #endif

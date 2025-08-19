@@ -48,8 +48,7 @@ file_is_linkable(struct workspace *wk, obj file)
 	return  file_is_static_lib(wk, file) || file_is_dynamic_lib(wk, file);
 }
 
-static bool
-func_file_full_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(file, full_path, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -59,7 +58,7 @@ func_file_full_path(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_file[] = {
-	{ "full_path", func_file_full_path, tc_string },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(file)
+{
+	FUNC_IMPL_REGISTER(file, full_path);
+}

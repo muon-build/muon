@@ -16,14 +16,13 @@ enum func_impl_flag {
 	func_impl_flag_sandbox_disable = 1 << 0,
 	func_impl_flag_extension = 1 << 1,
 	func_impl_flag_throws_error = 1 << 2,
-	func_impl_flag_pure = 1 << 3,
+	func_impl_flag_impure = 1 << 3,
 };
 
 struct func_impl {
 	const char *name;
 	func_native_impl func;
 	type_tag return_type;
-	bool pure;
 	enum func_impl_flag flags;
 	func_impl_self_transform self_transform;
 	const char *desc;
@@ -38,12 +37,28 @@ static bool func_ ## __type ## ___ ## __name(struct workspace *wk, obj self, obj
 
 #define FUNC_IMPL(__type, __name, ...) FUNC_IMPL_(__type, _, __name, __VA_ARGS__)
 
+#define FUNC_IMPL_REGISTER_ARGS enum language_mode lang_mode, struct func_impl *dest, uint32_t cap, uint32_t *added
+#define FUNC_IMPL_REGISTER_ARGS_FWD lang_mode, dest, cap, added
+
+void func_impl_register(FUNC_IMPL_REGISTER_ARGS, const struct func_impl *src, const char *alias);
+
+// These functions also define integer variables so that we get errors on
+// duplicate registration
+
 #define FUNC_IMPL_REGISTER_(__type, ___, __name)  \
-assert(*added < cap), dest[*added] = func_impl_ ## __type ## ___ ## __name, ++*added
+int dup_func_impl_ ## __type ## ___ ## __name; (void)dup_func_impl_ ## __type ## ___ ## __name; \
+func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## ___ ## __name, 0)
 #define FUNC_IMPL_REGISTER(__type, __name) FUNC_IMPL_REGISTER_(__type, _, __name)
 
-#define FUNC_REGISTER(__type) \
-void func_impl_register_ ## __type(struct func_impl *dest, uint32_t cap, uint32_t* added)
+#define FUNC_IMPL_REGISTER_ALIAS_(__type, ___, __name, __alias)  \
+int dup_func_impl_ ## __type ## ___ ## __alias; (void)dup_func_impl_ ## __type ## ___ ## __alias; \
+func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## ___ ## __name, #__alias)
+#define FUNC_IMPL_REGISTER_ALIAS(__type, __name, __alias) FUNC_IMPL_REGISTER_ALIAS_(__type, _, __name, __alias)
+
+#define FUNC_REGISTER(__type) void func_impl_register_ ## __type(FUNC_IMPL_REGISTER_ARGS)
+typedef void ((*func_impl_register_proto)(FUNC_IMPL_REGISTER_ARGS));
+void func_impl_register_inherit(func_impl_register_proto reg, func_impl_self_transform self_transform, FUNC_IMPL_REGISTER_ARGS);
+#define FUNC_REGISTER_INHERIT(__type, __self_transform) func_impl_register_inherit(func_impl_register_ ## __type, __self_transform, FUNC_IMPL_REGISTER_ARGS_FWD)
 
 struct func_impl_group {
 	const struct func_impl *impls;

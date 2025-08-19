@@ -40,8 +40,7 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id, obj fa
 	return ok;
 }
 
-static bool
-func_subproject_get_variable(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(subproject, get_variable, tc_any)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
@@ -56,8 +55,7 @@ func_subproject_get_variable(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_subproject_found(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(subproject, found, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -67,8 +65,8 @@ func_subproject_found(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_subproject[] = {
-	{ "found", func_subproject_found, tc_bool },
-	{ "get_variable", func_subproject_get_variable, tc_any, true },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(subproject)
+{
+	FUNC_IMPL_REGISTER(subproject, found);
+	FUNC_IMPL_REGISTER(subproject, get_variable);
+}

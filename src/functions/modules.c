@@ -27,8 +27,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
-#define MODULE_INFO(mod, _path, _implemented) \
-	{ .name = #mod, .path = _path, .implemented = _implemented },
+#define MODULE_INFO(mod, _path, _implemented) { .name = #mod, .path = _path, .implemented = _implemented },
 const struct module_info module_info[module_count] = { FOREACH_BUILTIN_MODULE(MODULE_INFO) };
 #undef MODULE_INFO
 
@@ -188,9 +187,8 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 					path.len -= (schema_str.len + 1);
 				} else {
 missing_schema:
-					vm_error(wk,
-						"missing or invalid schema in module path: %.*s",
-						path.len, path.s);
+					vm_error(
+						wk, "missing or invalid schema in module path: %.*s", path.len, path.s);
 					return false;
 				}
 			}
@@ -274,8 +272,29 @@ missing_schema:
 	return false;
 }
 
-static bool
-func_module_found(struct workspace *wk, obj self, obj *res)
+struct func_impl_group module_func_impl_groups[module_count][language_mode_count] = { 0 };
+
+func_impl_register_proto func_impl_register_module_funcs[module_count] = {
+	[module_fs] = func_impl_register_module_fs,
+	[module_keyval] = func_impl_register_module_keyval,
+	[module_pkgconfig] = func_impl_register_module_pkgconfig,
+	[module_python3] = func_impl_register_module_python3,
+	[module_python] = func_impl_register_module_python,
+	[module_sourceset] = func_impl_register_module_source_set,
+	[module_toolchain] = func_impl_register_module_toolchain,
+	[module_subprojects] = func_impl_register_module_subprojects,
+	[module_getopt] = func_impl_register_module_getopt,
+	[module_curl] = func_impl_register_module_curl,
+	[module_json] = func_impl_register_module_json,
+};
+
+bool
+module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx)
+{
+	return func_lookup_for_group(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx);
+}
+
+FUNC_IMPL(module, found, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -285,29 +304,7 @@ func_module_found(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-// clang-format off
-struct func_impl_group module_func_impl_groups[module_count][language_mode_count] = {
-	[module_fs]          = { { impl_tbl_module_fs },        { impl_tbl_module_fs_internal }        },
-	[module_keyval]      = { { impl_tbl_module_keyval },    { 0 }                                  },
-	[module_pkgconfig]   = { { impl_tbl_module_pkgconfig }, { 0 }                                  },
-	[module_python3]     = { { impl_tbl_module_python3 },   { 0 }                                  },
-	[module_python]      = { { impl_tbl_module_python },    { 0 }                                  },
-	[module_sourceset]   = { { impl_tbl_module_sourceset }, { 0 }                                  },
-	[module_toolchain]   = { { 0 },                         { impl_tbl_module_toolchain }          },
-	[module_subprojects] = { { 0 },                         { impl_tbl_module_subprojects }        },
-	[module_getopt]      = { { 0 },                         { impl_tbl_module_getopt }             },
-	[module_curl]        = { { 0 },                         { impl_tbl_module_curl }             },
-	[module_json]        = { { 0 },                         { impl_tbl_module_json }             },
-};
-
-const struct func_impl impl_tbl_module[] = {
-	{ "found", func_module_found, tc_bool, },
-	{ 0 },
-};
-// clang-format on
-
-bool
-module_func_lookup(struct workspace *wk, const char *name, enum module mod, uint32_t *idx)
+FUNC_REGISTER(module)
 {
-	return func_lookup_for_group(module_func_impl_groups[mod], wk->vm.lang_mode, name, idx);
+	FUNC_IMPL_REGISTER(module, found);
 }

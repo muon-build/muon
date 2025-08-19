@@ -11,5 +11,5 @@ bool file_is_dynamic_lib(struct workspace *wk, obj file);
 bool file_is_static_lib(struct workspace *wk, obj file);
 bool file_is_linkable(struct workspace *wk, obj file);
 
-extern const struct func_impl impl_tbl_file[];
+FUNC_REGISTER(file);
 #endif

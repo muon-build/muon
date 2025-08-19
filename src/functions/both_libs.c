@@ -38,8 +38,7 @@ decay_both_libs(struct workspace *wk, obj both_libs)
 	UNREACHABLE_RETURN;
 }
 
-static bool
-func_both_libs_get_shared_lib(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(both_libs, get_shared_lib, tc_build_target, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -49,8 +48,7 @@ func_both_libs_get_shared_lib(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_both_libs_get_static_lib(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(both_libs, get_static_lib, tc_build_target, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -60,25 +58,10 @@ func_both_libs_get_static_lib(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static obj
-both_libs_self_transform(struct workspace *wk, obj self)
+FUNC_REGISTER(both_libs)
 {
-	return decay_both_libs(wk, self);
-}
+	FUNC_REGISTER_INHERIT(build_target, decay_both_libs);
 
-void
-both_libs_build_impl_tbl(void)
-{
-	uint32_t i;
-	for (i = 0; impl_tbl_build_target[i].name; ++i) {
-		struct func_impl tmp = impl_tbl_build_target[i];
-		tmp.self_transform = both_libs_self_transform;
-		impl_tbl_both_libs[i] = tmp;
-	}
+	FUNC_IMPL_REGISTER(both_libs, get_shared_lib);
+	FUNC_IMPL_REGISTER(both_libs, get_static_lib);
 }
-
-struct func_impl impl_tbl_both_libs[] = {
-	[ARRAY_LEN(impl_tbl_build_target) - 1] = { "get_shared_lib", func_both_libs_get_shared_lib, tc_build_target },
-	{ "get_static_lib", func_both_libs_get_static_lib, tc_build_target },
-	{ NULL, NULL },
-};

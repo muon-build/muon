@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_MODULES_JSON_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_module_json[];
+FUNC_REGISTER(module_json);
 #endif

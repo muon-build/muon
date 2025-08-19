@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "coerce.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
@@ -221,8 +222,7 @@ not_found:
 	return req != requirement_required;
 }
 
-bool
-func_subproject(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, subproject, tc_subproject)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -257,4 +257,9 @@ func_subproject(struct workspace *wk, obj _, obj *res)
 	}
 
 	return true;
+}
+
+FUNC_REGISTER(kernel_subproject)
+{
+	FUNC_IMPL_REGISTER(kernel, subproject);
 }

@@ -6,8 +6,7 @@
 #ifndef MUON_FUNCTIONS_KERNEL_SUBPROJECT_H
 #define MUON_FUNCTIONS_KERNEL_SUBPROJECT_H
 
-#include "coerce.h"
-#include "lang/workspace.h"
+#include "lang/func_lookup.h"
 
 bool subproject(struct workspace *wk,
 	obj name,
@@ -15,5 +14,6 @@ bool subproject(struct workspace *wk,
 	struct args_kw *default_options,
 	struct args_kw *versions,
 	obj *res);
-bool func_subproject(struct workspace *wk, obj _, obj *res);
+
+FUNC_REGISTER(kernel_subproject);
 #endif

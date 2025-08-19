@@ -167,7 +167,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	if (opts->mode == compiler_check_mode_preprocess) {
 		push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp));
-	} else if ( opts->mode == compiler_check_mode_compile) {
+	} else if (opts->mode == compiler_check_mode_compile) {
 		push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp));
 	}
 
@@ -456,8 +456,7 @@ compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
 		return false;                                     \
 	}
 
-static bool
-func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, sizeof, tc_number, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -511,8 +510,7 @@ func_compiler_sizeof(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_alignment(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, alignment, tc_number, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -556,8 +554,7 @@ func_compiler_alignment(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_compute_int(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, compute_int, tc_number, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -735,8 +732,7 @@ compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_
 	return true;
 }
 
-static bool
-func_compiler_has_function_attribute(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_function_attribute, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs { kw_required };
@@ -780,8 +776,7 @@ func_compiler_get_supported_function_attributes_iter(struct workspace *wk, void 
 	return ir_cont;
 }
 
-static bool
-func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_supported_function_attributes, tc_array, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -801,8 +796,7 @@ func_compiler_get_supported_function_attributes(struct workspace *wk, obj self, 
 		func_compiler_get_supported_function_attributes_iter);
 }
 
-static bool
-func_compiler_has_function(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_function, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -990,8 +984,7 @@ compiler_has_header_symbol_cpp(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_compiler_has_header_symbol(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_header_symbol, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1194,8 +1187,7 @@ failed:
 	return false;
 }
 
-static bool
-func_compiler_get_define(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_define, tc_string, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1219,8 +1211,7 @@ func_compiler_get_define(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_has_define(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_define, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1252,8 +1243,7 @@ func_compiler_has_define(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_symbols_have_underscore_prefix(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, symbols_have_underscore_prefix, tc_bool, func_impl_flag_impure)
 {
 	struct compiler_check_opts opts = { .comp_id = self };
 
@@ -1328,14 +1318,12 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 	return true;
 }
 
-static bool
-func_compiler_compiles(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, compiles, tc_bool, func_impl_flag_impure)
 {
 	return func_compiler_check_common(wk, self, res, compiler_check_mode_compile);
 }
 
-static bool
-func_compiler_links(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, links, tc_bool, func_impl_flag_impure)
 {
 	return func_compiler_check_common(wk, self, res, compiler_check_mode_link);
 }
@@ -1403,20 +1391,17 @@ compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum comp
 		wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), required, res);
 }
 
-static bool
-func_compiler_has_header(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_header, tc_bool, func_impl_flag_impure)
 {
 	return compiler_check_header_common(wk, self, res, compiler_check_mode_preprocess);
 }
 
-static bool
-func_compiler_check_header(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, check_header, tc_bool, func_impl_flag_impure)
 {
 	return compiler_check_header_common(wk, self, res, compiler_check_mode_compile);
 }
 
-static bool
-func_compiler_has_type(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_type, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1490,8 +1475,7 @@ compiler_has_member(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_compiler_has_member(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_member, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1549,8 +1533,7 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
-func_compiler_has_members(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_members, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1590,8 +1573,7 @@ func_compiler_has_members(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_run(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, run, tc_run_result, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	struct args_kw *akw;
@@ -1778,26 +1760,22 @@ compiler_has_argument_common(struct workspace *wk, obj self, type_tag glob, obj 
 	return true;
 }
 
-static bool
-func_compiler_has_argument(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_argument, tc_bool, func_impl_flag_impure)
 {
 	return compiler_has_argument_common(wk, self, 0, res, compiler_check_mode_compile);
 }
 
-static bool
-func_compiler_has_link_argument(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_link_argument, tc_bool, func_impl_flag_impure)
 {
 	return compiler_has_argument_common(wk, self, 0, res, compiler_check_mode_link);
 }
 
-static bool
-func_compiler_has_multi_arguments(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_multi_arguments, tc_bool, func_impl_flag_impure)
 {
 	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compiler_check_mode_compile);
 }
 
-static bool
-func_compiler_has_multi_link_arguments(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, has_multi_link_arguments, tc_bool, func_impl_flag_impure)
 {
 	return compiler_has_argument_common(wk, self, TYPE_TAG_GLOB, res, compiler_check_mode_link);
 }
@@ -1824,14 +1802,12 @@ compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res, enum 
 		func_compiler_get_supported_arguments_iter);
 }
 
-static bool
-func_compiler_get_supported_arguments(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_supported_arguments, tc_array, func_impl_flag_impure)
 {
 	return compiler_get_supported_arguments(wk, self, res, compiler_check_mode_compile);
 }
 
-static bool
-func_compiler_get_supported_link_arguments(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_supported_link_arguments, tc_array, func_impl_flag_impure)
 {
 	return compiler_get_supported_arguments(wk, self, res, compiler_check_mode_link);
 }
@@ -1877,20 +1853,17 @@ compiler_first_supported_argument(struct workspace *wk, obj self, obj *res, enum
 		func_compiler_first_supported_argument_iter);
 }
 
-static bool
-func_compiler_first_supported_argument(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, first_supported_argument, tc_array, func_impl_flag_impure)
 {
 	return compiler_first_supported_argument(wk, self, res, compiler_check_mode_compile);
 }
 
-static bool
-func_compiler_first_supported_link_argument(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, first_supported_link_argument, tc_array, func_impl_flag_impure)
 {
 	return compiler_first_supported_argument(wk, self, res, compiler_check_mode_link);
 }
 
-static bool
-func_compiler_get_id(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_id, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1900,8 +1873,7 @@ func_compiler_get_id(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_get_linker_id(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_linker_id, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1911,8 +1883,7 @@ func_compiler_get_linker_id(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_get_argument_syntax(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_argument_syntax, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2084,8 +2055,7 @@ compiler_find_library_check_headers_iter(struct workspace *wk, void *_ctx, obj h
 	return ir_cont;
 }
 
-static bool
-func_compiler_find_library(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, find_library, tc_dependency, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -2212,8 +2182,7 @@ func_compiler_find_library(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 {
 	struct args_norm an[]
 		= { { TYPE_TAG_GLOB | tc_string | tc_file | tc_custom_target | tc_generated_list }, ARG_TYPE_NULL };
@@ -2347,8 +2316,7 @@ func_compiler_preprocess(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_cmd_array(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, cmd_array, tc_array, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2358,8 +2326,7 @@ func_compiler_cmd_array(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_version(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, version, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2368,43 +2335,6 @@ func_compiler_version(struct workspace *wk, obj self, obj *res)
 	*res = get_obj_compiler(wk, self)->ver;
 	return true;
 }
-
-const struct func_impl impl_tbl_compiler[] = {
-	{ "alignment", func_compiler_alignment, tc_number },
-	{ "check_header", func_compiler_check_header, tc_bool },
-	{ "cmd_array", func_compiler_cmd_array, tc_array },
-	{ "compiles", func_compiler_compiles, tc_bool },
-	{ "compute_int", func_compiler_compute_int, tc_number },
-	{ "find_library", func_compiler_find_library, tc_dependency },
-	{ "first_supported_argument", func_compiler_first_supported_argument, tc_array },
-	{ "first_supported_link_argument", func_compiler_first_supported_link_argument, tc_array },
-	{ "get_argument_syntax", func_compiler_get_argument_syntax, tc_string },
-	{ "get_define", func_compiler_get_define, tc_string },
-	{ "get_id", func_compiler_get_id, tc_string },
-	{ "get_linker_id", func_compiler_get_linker_id, tc_string },
-	{ "get_supported_arguments", func_compiler_get_supported_arguments, tc_array },
-	{ "get_supported_function_attributes", func_compiler_get_supported_function_attributes, tc_array },
-	{ "get_supported_link_arguments", func_compiler_get_supported_link_arguments, tc_array },
-	{ "has_argument", func_compiler_has_argument, tc_bool },
-	{ "has_define", func_compiler_has_define, tc_bool },
-	{ "has_function", func_compiler_has_function, tc_bool },
-	{ "has_function_attribute", func_compiler_has_function_attribute, tc_bool },
-	{ "has_header", func_compiler_has_header, tc_bool },
-	{ "has_header_symbol", func_compiler_has_header_symbol, tc_bool },
-	{ "has_link_argument", func_compiler_has_link_argument, tc_bool },
-	{ "has_member", func_compiler_has_member, tc_bool },
-	{ "has_members", func_compiler_has_members, tc_bool },
-	{ "has_multi_arguments", func_compiler_has_multi_arguments, tc_bool },
-	{ "has_multi_link_arguments", func_compiler_has_multi_link_arguments, tc_bool },
-	{ "has_type", func_compiler_has_type, tc_bool },
-	{ "links", func_compiler_links, tc_bool },
-	{ "preprocess", func_compiler_preprocess, tc_array },
-	{ "run", func_compiler_run, tc_run_result },
-	{ "sizeof", func_compiler_sizeof, tc_number },
-	{ "symbols_have_underscore_prefix", func_compiler_symbols_have_underscore_prefix, tc_bool },
-	{ "version", func_compiler_version, tc_string },
-	{ NULL, NULL },
-};
 
 static bool
 validate_toolchain_handlers(struct workspace *wk, obj handlers, enum toolchain_component component)
@@ -2476,8 +2406,7 @@ validate_toolchain_handlers(struct workspace *wk, obj handlers, enum toolchain_c
 	return true;
 }
 
-static bool
-func_compiler_configure(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 {
 	type_tag override_type = make_complex_type(wk,
 		complex_type_nested,
@@ -2559,8 +2488,7 @@ func_compiler_configure(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_get_internal_id(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_internal_id, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2570,8 +2498,7 @@ func_compiler_get_internal_id(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_get_internal_linker_id(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_internal_linker_id, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2581,8 +2508,7 @@ func_compiler_get_internal_linker_id(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_compiler_get_internal_static_linker_id(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(compiler, get_internal_static_linker_id, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2593,10 +2519,46 @@ func_compiler_get_internal_static_linker_id(struct workspace *wk, obj self, obj 
 	return true;
 }
 
-const struct func_impl impl_tbl_compiler_internal[] = {
-	{ "configure", func_compiler_configure },
-	{ "get_internal_id", func_compiler_get_internal_id },
-	{ "get_internal_linker_id", func_compiler_get_internal_linker_id },
-	{ "get_internal_static_linker_id", func_compiler_get_internal_static_linker_id },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(compiler)
+{
+	FUNC_IMPL_REGISTER(compiler, alignment);
+	FUNC_IMPL_REGISTER(compiler, check_header);
+	FUNC_IMPL_REGISTER(compiler, cmd_array);
+	FUNC_IMPL_REGISTER(compiler, compiles);
+	FUNC_IMPL_REGISTER(compiler, compute_int);
+	FUNC_IMPL_REGISTER(compiler, find_library);
+	FUNC_IMPL_REGISTER(compiler, first_supported_argument);
+	FUNC_IMPL_REGISTER(compiler, first_supported_link_argument);
+	FUNC_IMPL_REGISTER(compiler, get_argument_syntax);
+	FUNC_IMPL_REGISTER(compiler, get_define);
+	FUNC_IMPL_REGISTER(compiler, get_id);
+	FUNC_IMPL_REGISTER(compiler, get_linker_id);
+	FUNC_IMPL_REGISTER(compiler, get_supported_arguments);
+	FUNC_IMPL_REGISTER(compiler, get_supported_function_attributes);
+	FUNC_IMPL_REGISTER(compiler, get_supported_link_arguments);
+	FUNC_IMPL_REGISTER(compiler, has_argument);
+	FUNC_IMPL_REGISTER(compiler, has_define);
+	FUNC_IMPL_REGISTER(compiler, has_function);
+	FUNC_IMPL_REGISTER(compiler, has_function_attribute);
+	FUNC_IMPL_REGISTER(compiler, has_header);
+	FUNC_IMPL_REGISTER(compiler, has_header_symbol);
+	FUNC_IMPL_REGISTER(compiler, has_link_argument);
+	FUNC_IMPL_REGISTER(compiler, has_member);
+	FUNC_IMPL_REGISTER(compiler, has_members);
+	FUNC_IMPL_REGISTER(compiler, has_multi_arguments);
+	FUNC_IMPL_REGISTER(compiler, has_multi_link_arguments);
+	FUNC_IMPL_REGISTER(compiler, has_type);
+	FUNC_IMPL_REGISTER(compiler, links);
+	FUNC_IMPL_REGISTER(compiler, preprocess);
+	FUNC_IMPL_REGISTER(compiler, run);
+	FUNC_IMPL_REGISTER(compiler, sizeof);
+	FUNC_IMPL_REGISTER(compiler, symbols_have_underscore_prefix);
+	FUNC_IMPL_REGISTER(compiler, version);
+
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(compiler, configure);
+		FUNC_IMPL_REGISTER(compiler, get_internal_id);
+		FUNC_IMPL_REGISTER(compiler, get_internal_linker_id);
+		FUNC_IMPL_REGISTER(compiler, get_internal_static_linker_id);
+	}
+}

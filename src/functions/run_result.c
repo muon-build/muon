@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include "lang/func_lookup.h"
 #include "functions/run_result.h"
 #include "lang/typecheck.h"
 
@@ -22,8 +21,7 @@ ensure_valid_run_result(struct workspace *wk, obj self)
 	return true;
 }
 
-static bool
-func_run_result_returncode(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(run_result, returncode, tc_number, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -38,8 +36,7 @@ func_run_result_returncode(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_run_result_stdout(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(run_result, stdout_, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -53,8 +50,7 @@ func_run_result_stdout(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_run_result_stderr(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(run_result, stderr_, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -68,8 +64,7 @@ func_run_result_stderr(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_run_result_compiled(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(run_result, compiled, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -86,10 +81,12 @@ func_run_result_compiled(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_run_result[] = {
-	{ "compiled", func_run_result_compiled, tc_bool },
-	{ "returncode", func_run_result_returncode, tc_number },
-	{ "stderr", func_run_result_stderr, tc_string },
-	{ "stdout", func_run_result_stdout, tc_string },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(run_result)
+{
+	FUNC_IMPL_REGISTER(run_result, compiled);
+	FUNC_IMPL_REGISTER(run_result, returncode);
+
+	// stderr and stdout are standard macros
+	func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_run_result_stderr_, "stderr");
+	func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_run_result_stdout_, "stdout");
+}

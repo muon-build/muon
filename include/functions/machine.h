@@ -7,6 +7,5 @@
 #define MUON_FUNCTIONS_MACHINE_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_machine[];
-extern const struct func_impl impl_tbl_machine_internal[];
+FUNC_REGISTER(machine);
 #endif

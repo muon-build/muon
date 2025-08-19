@@ -1204,45 +1204,49 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 	return true;
 }
 
-bool
-func_executable(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, executable, tc_build_target, func_impl_flag_impure)
 {
 	return tgt_common(wk, res, tgt_executable, tgt_executable, false);
 }
 
-bool
-func_static_library(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, static_library, tc_build_target, func_impl_flag_impure)
 {
 	return tgt_common(wk, res, tgt_static_library, tgt_static_library, false);
 }
 
-bool
-func_shared_library(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, shared_library, tc_build_target, func_impl_flag_impure)
 {
 	return tgt_common(wk, res, tgt_dynamic_library, tgt_dynamic_library, false);
 }
 
-bool
-func_both_libraries(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, both_libraries, tc_both_libs, func_impl_flag_impure)
 {
 	return tgt_common(
 		wk, res, tgt_static_library | tgt_dynamic_library, tgt_static_library | tgt_dynamic_library, false);
 }
 
-bool
-func_library(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, library, tc_build_target | tc_both_libs, func_impl_flag_impure)
 {
 	return tgt_common(wk, res, get_option_default_library(wk), tgt_static_library | tgt_dynamic_library, false);
 }
 
-bool
-func_shared_module(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, shared_module, tc_build_target, func_impl_flag_impure)
 {
 	return tgt_common(wk, res, tgt_shared_module, tgt_shared_module, false);
 }
 
-bool
-func_build_target(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, build_target, tc_build_target | tc_both_libs, func_impl_flag_impure)
 {
 	return tgt_common(wk, res, 0, tgt_executable | tgt_static_library | tgt_dynamic_library, true);
+}
+
+FUNC_REGISTER(kernel_build_target)
+{
+	FUNC_IMPL_REGISTER(kernel, both_libraries);
+	FUNC_IMPL_REGISTER(kernel, build_target);
+	FUNC_IMPL_REGISTER(kernel, executable);
+	FUNC_IMPL_REGISTER(kernel, library);
+	FUNC_IMPL_REGISTER(kernel, shared_library);
+	FUNC_IMPL_REGISTER(kernel, shared_module);
+	FUNC_IMPL_REGISTER(kernel, static_library);
 }

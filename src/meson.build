@@ -24,7 +24,7 @@ src = files(
     'formats/tap.c',
     'formats/xml.c',
     'functions/array.c',
-    'functions/boolean.c',
+    'functions/bool.c',
     'functions/both_libs.c',
     'functions/build_target.c',
     'functions/compiler.c',

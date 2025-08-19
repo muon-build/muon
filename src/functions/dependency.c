@@ -15,14 +15,12 @@
 #include "external/pkgconfig.h"
 #include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
-#include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "platform/assert.h"
 #include "platform/path.h"
 
-static bool
-func_dependency_found(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, found, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -47,8 +45,7 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 	return true;
 }
 
-static bool
-func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, get_pkgconfig_variable, tc_string, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -71,8 +68,7 @@ func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dependency_get_configtool_variable(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, get_configtool_variable, tc_string, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, 0)) {
@@ -125,8 +121,7 @@ dependency_type_to_public_type(struct obj_dependency *d)
 	}
 }
 
-static bool
-func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, get_variable, tc_string, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -213,8 +208,7 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 	}
 }
 
-static bool
-func_dependency_version(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, version, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -231,8 +225,7 @@ func_dependency_version(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dependency_type_name(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, type_name, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -259,8 +252,7 @@ func_dependency_type_name(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dependency_name(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, name, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -277,8 +269,7 @@ func_dependency_name(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, partial_dependency, tc_dependency, func_impl_flag_impure)
 {
 	enum kwargs {
 		kw_compile_args,
@@ -326,8 +317,7 @@ func_dependency_partial_dependency(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dependency_as_system(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, as_system, tc_dependency, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -358,8 +348,7 @@ func_dependency_as_system(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dependency_as_link_whole(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, as_link_whole, tc_dependency, func_impl_flag_impure)
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -397,20 +386,17 @@ func_dependency_both_libs_common(struct workspace *wk, obj self, obj *res, enum 
 	return true;
 }
 
-static bool
-func_dependency_as_shared(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, as_shared, tc_dependency, func_impl_flag_impure)
 {
 	return func_dependency_both_libs_common(wk, self, res, build_dep_flag_both_libs_shared);
 }
 
-static bool
-func_dependency_as_static(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, as_static, tc_dependency, func_impl_flag_impure)
 {
 	return func_dependency_both_libs_common(wk, self, res, build_dep_flag_both_libs_static);
 }
 
-static bool
-func_dependency_include_type(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dependency, include_type, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -428,19 +414,19 @@ func_dependency_include_type(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_dependency[] = {
-	{ "as_link_whole", func_dependency_as_link_whole, tc_dependency },
-	{ "as_shared", func_dependency_as_shared, tc_dependency },
-	{ "as_static", func_dependency_as_static, tc_dependency },
-	{ "as_system", func_dependency_as_system, tc_dependency },
-	{ "found", func_dependency_found, tc_bool },
-	{ "get_configtool_variable", func_dependency_get_configtool_variable, tc_string },
-	{ "get_pkgconfig_variable", func_dependency_get_pkgconfig_variable, tc_string },
-	{ "get_variable", func_dependency_get_variable, tc_string },
-	{ "include_type", func_dependency_include_type, tc_string },
-	{ "name", func_dependency_name, tc_string },
-	{ "partial_dependency", func_dependency_partial_dependency, tc_dependency },
-	{ "type_name", func_dependency_type_name, tc_string },
-	{ "version", func_dependency_version, tc_string },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(dependency)
+{
+	FUNC_IMPL_REGISTER(dependency, as_link_whole);
+	FUNC_IMPL_REGISTER(dependency, as_shared);
+	FUNC_IMPL_REGISTER(dependency, as_static);
+	FUNC_IMPL_REGISTER(dependency, as_system);
+	FUNC_IMPL_REGISTER(dependency, found);
+	FUNC_IMPL_REGISTER(dependency, get_configtool_variable);
+	FUNC_IMPL_REGISTER(dependency, get_pkgconfig_variable);
+	FUNC_IMPL_REGISTER(dependency, get_variable);
+	FUNC_IMPL_REGISTER(dependency, include_type);
+	FUNC_IMPL_REGISTER(dependency, name);
+	FUNC_IMPL_REGISTER(dependency, partial_dependency);
+	FUNC_IMPL_REGISTER(dependency, type_name);
+	FUNC_IMPL_REGISTER(dependency, version);
+}

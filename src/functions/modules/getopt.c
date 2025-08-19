@@ -64,8 +64,7 @@ func_module_getopt_usage(struct workspace *wk, const char *argv0, obj handlers, 
 	exit(exitcode);
 }
 
-static bool
-func_module_getopt_getopt(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments using getopt.  Returns the array of trailing positional args." )
 {
 	struct args_norm an[] = {
 		{ TYPE_TAG_LISTIFY | tc_string, .desc = "the array of arguments to parse" },
@@ -219,10 +218,9 @@ ret:
 	return ret;
 }
 
-const struct func_impl impl_tbl_module_getopt[] = {
-	{ "getopt",
-		func_module_getopt_getopt,
-		tc_array,
-		.desc = "Parse command line arguments using getopt.  Returns the array of trailing positional args." },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_getopt)
+{
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_getopt, getopt);
+	}
+}

@@ -140,32 +140,27 @@ func_module_fs_lookup_common(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_module_fs_exists(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, exists, tc_bool, func_impl_flag_impure, .desc = "Check if a file or directory exists" )
 {
 	return func_module_fs_lookup_common(wk, res, fs_exists, 0, false);
 }
 
-static bool
-func_module_fs_is_file(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_file, tc_bool, func_impl_flag_impure, .desc = "Check if a file exists" )
 {
 	return func_module_fs_lookup_common(wk, res, fs_file_exists, 0, false);
 }
 
-static bool
-func_module_fs_is_dir(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_dir, tc_bool, func_impl_flag_impure, .desc = "Check if a directory exists" )
 {
 	return func_module_fs_lookup_common(wk, res, fs_dir_exists, 0, false);
 }
 
-static bool
-func_module_fs_is_symlink(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_symlink, tc_bool, func_impl_flag_impure, .desc = "Check if a symlink exists" )
 {
 	return func_module_fs_lookup_common(wk, res, fs_symlink_exists, 0, true);
 }
 
-static bool
-func_module_fs_parent(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, parent, tc_string, .desc = "Get the dirname of a path" )
 {
 	struct args_norm an[] = { { tc_coercible_files }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -183,8 +178,7 @@ func_module_fs_parent(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_read(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, read, tc_string, func_impl_flag_impure, .desc = "Read a file from disk" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	enum {
@@ -220,8 +214,7 @@ func_module_fs_read(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_is_absolute(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_absolute, tc_bool, .desc = "Check if a path is absolute" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -233,8 +226,7 @@ func_module_fs_is_absolute(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_expanduser(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, expanduser, tc_string, func_impl_flag_impure, .desc = "Expand a path that starts with a ~ into an absolute path"  )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -250,8 +242,7 @@ func_module_fs_expanduser(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_name(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, name, tc_string, .desc = "Get the basename of a path" )
 {
 	struct args_norm an[] = { { tc_coercible_files }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -269,8 +260,7 @@ func_module_fs_name(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_stem(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, stem, tc_string, .desc = "Get the basename of a path with its extension removed" )
 {
 	struct args_norm an[] = { { tc_coercible_files }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -295,8 +285,7 @@ func_module_fs_stem(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_as_posix(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, as_posix, tc_string, .desc = "Convert backslashes to `/`" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -321,8 +310,7 @@ func_module_fs_as_posix(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_replace_suffix(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, replace_suffix, tc_string, .desc = "Replace a path's suffix" )
 {
 	struct args_norm an[] = { { tc_coercible_files }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -346,8 +334,7 @@ func_module_fs_replace_suffix(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_hash(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, hash, tc_string, func_impl_flag_impure, .desc = "Calculate the content hash of a file" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -381,8 +368,7 @@ func_module_fs_hash(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_size(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, size, tc_number, func_impl_flag_impure, .desc = "Get a file's size in bytes" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -410,8 +396,7 @@ func_module_fs_size(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_is_samepath(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_samepath, tc_bool, func_impl_flag_impure, .desc = "Check if two paths point to the same object" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -434,8 +419,7 @@ func_module_fs_is_samepath(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, copyfile, tc_custom_target, func_impl_flag_impure, .desc = "Creates a custom target that copies a file at build time" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_string, .optional = true }, ARG_TYPE_NULL };
 	enum {
@@ -510,8 +494,7 @@ func_module_fs_copyfile(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, relative_to, tc_string, .desc = "Get a path relative to another path" )
 {
 	struct args_norm an[] = { { tc_coercible_files }, { tc_coercible_files }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -547,29 +530,7 @@ func_module_fs_relative_to(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_fs[] = {
-	{ "as_posix", func_module_fs_as_posix, tc_string, true, .desc = "Convert backslashes to `/`" },
-	{ "copyfile", func_module_fs_copyfile, tc_custom_target, .desc = "Creates a custom target that copies a file at build time" },
-	{ "exists", func_module_fs_exists, tc_bool, .desc = "Check if a file or directory exists" },
-	{ "expanduser", func_module_fs_expanduser, tc_string, .desc = "Expand a path that starts with a ~ into an absolute path"  },
-	{ "hash", func_module_fs_hash, tc_string, .desc = "Calculate the content hash of a file" },
-	{ "is_absolute", func_module_fs_is_absolute, tc_bool, true, .desc = "Check if a path is absolute" },
-	{ "is_dir", func_module_fs_is_dir, tc_bool, .desc = "Check if a directory exists" },
-	{ "is_file", func_module_fs_is_file, tc_bool, .desc = "Check if a file exists" },
-	{ "is_samepath", func_module_fs_is_samepath, tc_bool, .desc = "Check if two paths point to the same object" },
-	{ "is_symlink", func_module_fs_is_symlink, tc_bool, .desc = "Check if a symlink exists" },
-	{ "name", func_module_fs_name, tc_string, true, .desc = "Get the basename of a path" },
-	{ "parent", func_module_fs_parent, tc_string, true, .desc = "Get the dirname of a path" },
-	{ "read", func_module_fs_read, tc_string, .desc = "Read a file from disk" },
-	{ "relative_to", func_module_fs_relative_to, tc_string, true, .desc = "Get a path relative to another path" },
-	{ "replace_suffix", func_module_fs_replace_suffix, tc_string, true, .desc = "Replace a path's suffix" },
-	{ "size", func_module_fs_size, tc_number, .desc = "Get a file's size in bytes" },
-	{ "stem", func_module_fs_stem, tc_string, true, .desc = "Get the basename of a path with its extension removed" },
-	{ NULL, NULL },
-};
-
-static bool
-func_module_fs_write(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, write, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Write a file" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -588,8 +549,7 @@ func_module_fs_write(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_copy(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, copy, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Copy a file to a destination at configure time" )
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -617,8 +577,7 @@ func_module_fs_copy(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_cwd(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, cwd, tc_string, func_impl_flag_impure, .desc = "Return the muon's current working directory" )
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -630,8 +589,7 @@ func_module_fs_cwd(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_make_absolute(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, make_absolute, tc_string, func_impl_flag_impure, .desc = "Make a path absolute by prepending the current working directory" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -644,8 +602,7 @@ func_module_fs_make_absolute(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_mkdir(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, mkdir, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Create a directory" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	enum kwargs { kw_make_parents };
@@ -664,8 +621,7 @@ func_module_fs_mkdir(struct workspace *wk, obj self, obj *res)
 	}
 }
 
-static bool
-func_module_fs_rmdir(struct workspace *wk, obj rcvr, obj *res)
+FUNC_IMPL(module_fs, rmdir, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Remove a directory" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -692,8 +648,7 @@ func_module_fs_rmdir(struct workspace *wk, obj rcvr, obj *res)
 	}
 }
 
-static bool
-func_module_fs_is_basename(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_basename, tc_bool, .desc = "Check if a path is a basename" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -704,8 +659,7 @@ func_module_fs_is_basename(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_without_ext(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, without_ext, tc_string, .desc = "Get a path with its extension removed" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -718,8 +672,7 @@ func_module_fs_without_ext(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_is_subpath(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, is_subpath, tc_bool, .desc = "Check if a path is a subpath of another path" )
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -730,8 +683,7 @@ func_module_fs_is_subpath(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_add_suffix(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, add_suffix, tc_string, .desc = "Append a suffix to a path" )
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -745,8 +697,7 @@ func_module_fs_add_suffix(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_module_fs_executable(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, executable, tc_string, .desc = "Prepend ./ to a path if it is a basename" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -839,8 +790,7 @@ recurse_all_mode: {
 }
 }
 
-static bool
-func_module_fs_glob(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, glob, tc_array, func_impl_flag_impure, .desc = "Gather a list of files matching a glob expression" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -957,8 +907,7 @@ ret:
 	return ir_res;
 }
 
-static bool
-func_module_fs_delete_with_suffix(struct workspace *wk, obj rcrv, obj *res)
+FUNC_IMPL(module_fs, delete_with_suffix, func_impl_flag_impure | func_impl_flag_sandbox_disable, .desc = "Recursively delete all files with a matching suffix" )
 {
 	struct args_norm an[] = { { tc_string }, { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -974,8 +923,7 @@ func_module_fs_delete_with_suffix(struct workspace *wk, obj rcrv, obj *res)
 	return fs_dir_foreach(base_dir, &ctx, delete_suffix_recursive);
 }
 
-static bool
-func_module_fs_canonicalize(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_fs, canonicalize, tc_string, .desc = "Make a path absolute and replace .."  )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -991,37 +939,41 @@ func_module_fs_canonicalize(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_fs_internal[] = {
-	{ "as_posix", func_module_fs_as_posix, tc_string, true },
-	{ "exists", func_module_fs_exists, tc_bool },
-	{ "expanduser", func_module_fs_expanduser, tc_string },
-	{ "hash", func_module_fs_hash, tc_string },
-	{ "is_absolute", func_module_fs_is_absolute, tc_bool, true },
-	{ "is_dir", func_module_fs_is_dir, tc_bool },
-	{ "is_file", func_module_fs_is_file, tc_bool },
-	{ "is_samepath", func_module_fs_is_samepath, tc_bool },
-	{ "is_symlink", func_module_fs_is_symlink, tc_bool },
-	{ "name", func_module_fs_name, tc_string, true },
-	{ "parent", func_module_fs_parent, tc_string, true },
-	{ "read", func_module_fs_read, tc_string },
-	{ "relative_to", func_module_fs_relative_to, tc_string, true },
-	{ "replace_suffix", func_module_fs_replace_suffix, tc_string, true },
-	{ "size", func_module_fs_size, tc_number },
-	{ "stem", func_module_fs_stem, tc_string, true },
+FUNC_REGISTER(module_fs)
+{
+	FUNC_IMPL_REGISTER(module_fs, as_posix);
+	FUNC_IMPL_REGISTER(module_fs, copyfile);
+	FUNC_IMPL_REGISTER(module_fs, exists);
+	FUNC_IMPL_REGISTER(module_fs, expanduser);
+	FUNC_IMPL_REGISTER(module_fs, hash);
+	FUNC_IMPL_REGISTER(module_fs, is_absolute);
+	FUNC_IMPL_REGISTER(module_fs, is_dir);
+	FUNC_IMPL_REGISTER(module_fs, is_file);
+	FUNC_IMPL_REGISTER(module_fs, is_samepath);
+	FUNC_IMPL_REGISTER(module_fs, is_symlink);
+	FUNC_IMPL_REGISTER(module_fs, name);
+	FUNC_IMPL_REGISTER(module_fs, parent);
+	FUNC_IMPL_REGISTER(module_fs, read);
+	FUNC_IMPL_REGISTER(module_fs, relative_to);
+	FUNC_IMPL_REGISTER(module_fs, replace_suffix);
+	FUNC_IMPL_REGISTER(module_fs, size);
+	FUNC_IMPL_REGISTER(module_fs, stem);
+
 	// non-standard muon extensions
-	{ "add_suffix", func_module_fs_add_suffix, tc_string, true, .desc = "Append a suffix to a path" },
-	{ "copy", func_module_fs_copy, .flags = func_impl_flag_sandbox_disable, .desc = "Copy a file to a destination at configure time" },
-	{ "cwd", func_module_fs_cwd, tc_string, .desc = "Return the muon's current working directory" },
-	{ "executable", func_module_fs_executable, tc_string, true, .desc = "Prepend ./ to a path if it is a basename" },
-	{ "glob", func_module_fs_glob, tc_array, .desc = "Gather a list of files matching a glob expression" },
-	{ "is_basename", func_module_fs_is_basename, tc_bool, true, .desc = "Check if a path is a basename" },
-	{ "is_subpath", func_module_fs_is_subpath, tc_bool, true, .desc = "Check if a path is a subpath of another path" },
-	{ "make_absolute", func_module_fs_make_absolute, tc_string, .desc = "Make a path absolute by prepending the current working directory" },
-	{ "mkdir", func_module_fs_mkdir, .flags = func_impl_flag_sandbox_disable, .desc = "Create a directory" },
-	{ "rmdir", func_module_fs_rmdir, .flags = func_impl_flag_sandbox_disable, .desc = "Remove a directory" },
-	{ "without_ext", func_module_fs_without_ext, tc_string, true, .desc = "Get a path with its extension removed" },
-	{ "write", func_module_fs_write, .flags = func_impl_flag_sandbox_disable, .desc = "Write a file" },
-	{ "delete_with_suffix", func_module_fs_delete_with_suffix, .desc = "Recursively delete all files with a matching suffix" },
-	{ "canonicalize", func_module_fs_canonicalize, tc_string, true, .desc = "Make a path absolute and replace .."  },
-	{ NULL, NULL },
-};
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_fs, add_suffix);
+		FUNC_IMPL_REGISTER(module_fs, copy);
+		FUNC_IMPL_REGISTER(module_fs, cwd);
+		FUNC_IMPL_REGISTER(module_fs, executable);
+		FUNC_IMPL_REGISTER(module_fs, glob);
+		FUNC_IMPL_REGISTER(module_fs, is_basename);
+		FUNC_IMPL_REGISTER(module_fs, is_subpath);
+		FUNC_IMPL_REGISTER(module_fs, make_absolute);
+		FUNC_IMPL_REGISTER(module_fs, mkdir);
+		FUNC_IMPL_REGISTER(module_fs, rmdir);
+		FUNC_IMPL_REGISTER(module_fs, without_ext);
+		FUNC_IMPL_REGISTER(module_fs, write);
+		FUNC_IMPL_REGISTER(module_fs, delete_with_suffix);
+		FUNC_IMPL_REGISTER(module_fs, canonicalize);
+	}
+}

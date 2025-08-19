@@ -8,8 +8,7 @@
 #include "functions/modules/sourceset.h"
 #include "lang/typecheck.h"
 
-static bool
-func_module_sourceset_source_set(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_source_set, source_set, tc_source_set, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -21,11 +20,7 @@ func_module_sourceset_source_set(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_sourceset[] = {
-	{
-		"source_set",
-		func_module_sourceset_source_set,
-		tc_source_set,
-	},
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_source_set)
+{
+	FUNC_IMPL_REGISTER(module_source_set, source_set);
+}

@@ -908,8 +908,7 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	return handle_special_dependency_result_stop;
 }
 
-bool
-func_dependency(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(kernel, dependency, tc_dependency)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1436,8 +1435,7 @@ deps_check_machine_matches(struct workspace *wk,
 	       && deps_check_machine_matches_list(wk, tgt_name, tgt_machine, deps);
 }
 
-bool
-func_declare_dependency(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, declare_dependency, tc_dependency, func_impl_flag_impure)
 {
 	enum kwargs {
 		kw_sources,
@@ -2156,3 +2154,9 @@ dependency_create(struct workspace *wk,
 }
 
 #undef IS_INCLUDED
+
+FUNC_REGISTER(kernel_dependency)
+{
+	FUNC_IMPL_REGISTER(kernel, declare_dependency);
+	FUNC_IMPL_REGISTER(kernel, dependency);
+}

@@ -7,10 +7,10 @@
 
 #include <string.h>
 
-#include "functions/boolean.h"
+#include "functions/bool.h"
 #include "lang/typecheck.h"
 
-FUNC_IMPL(boolean, to_string, tc_string, func_impl_flag_pure)
+FUNC_IMPL(bool, to_string, tc_string)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -26,7 +26,7 @@ FUNC_IMPL(boolean, to_string, tc_string, func_impl_flag_pure)
 	return true;
 }
 
-FUNC_IMPL(boolean, to_int, tc_number, func_impl_flag_pure)
+FUNC_IMPL(bool, to_int, tc_number)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -38,8 +38,8 @@ FUNC_IMPL(boolean, to_int, tc_number, func_impl_flag_pure)
 	return true;
 }
 
-FUNC_REGISTER(boolean)
+FUNC_REGISTER(bool)
 {
-	FUNC_IMPL_REGISTER(boolean, to_int);
-	FUNC_IMPL_REGISTER(boolean, to_string);
+	FUNC_IMPL_REGISTER(bool, to_int);
+	FUNC_IMPL_REGISTER(bool, to_string);
 }

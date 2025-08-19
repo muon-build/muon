@@ -9,8 +9,7 @@
 #include "functions/source_configuration.h"
 #include "lang/typecheck.h"
 
-static bool
-func_source_configuration_sources(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_configuration, sources, tc_array)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -20,8 +19,7 @@ func_source_configuration_sources(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_source_configuration_dependencies(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(source_configuration, dependencies, tc_array)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -31,8 +29,8 @@ func_source_configuration_dependencies(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_source_configuration[] = {
-	{ "sources", func_source_configuration_sources, tc_array, true },
-	{ "dependencies", func_source_configuration_dependencies, tc_array, true },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(source_configuration)
+{
+	FUNC_IMPL_REGISTER(source_configuration, sources);
+	FUNC_IMPL_REGISTER(source_configuration, dependencies);
+}

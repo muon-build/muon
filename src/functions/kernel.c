@@ -153,8 +153,7 @@ project_add_language(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_project(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, project, 0)
 {
 	struct args_norm an[] = { { obj_string }, { TYPE_TAG_GLOB | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -375,14 +374,12 @@ add_arguments_common(struct workspace *wk, obj args_dict[machine_kind_count], ob
 	return obj_array_foreach(wk, akw[kw_language].val, &ctx, add_arguments_iter);
 }
 
-static bool
-func_add_project_arguments(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, add_project_arguments, 0, func_impl_flag_impure)
 {
 	return add_arguments_common(wk, current_project(wk)->args, res);
 }
 
-static bool
-func_add_global_arguments(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, add_global_arguments, 0, func_impl_flag_impure)
 {
 	if (wk->cur_project != 0) {
 		vm_error(wk, "add_global_arguments cannot be called from a subproject");
@@ -392,14 +389,12 @@ func_add_global_arguments(struct workspace *wk, obj _, obj *res)
 	return add_arguments_common(wk, wk->global_args, res);
 }
 
-static bool
-func_add_project_link_arguments(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, add_project_link_arguments, 0, func_impl_flag_impure)
 {
 	return add_arguments_common(wk, current_project(wk)->link_args, res);
 }
 
-static bool
-func_add_global_link_arguments(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, add_global_link_arguments, 0, func_impl_flag_impure)
 {
 	if (wk->cur_project != 0) {
 		vm_error(wk, "add_global_link_arguments cannot be called from a subproject");
@@ -409,8 +404,7 @@ func_add_global_link_arguments(struct workspace *wk, obj _, obj *res)
 	return add_arguments_common(wk, wk->global_link_args, res);
 }
 
-static bool
-func_add_project_dependencies(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, add_project_dependencies, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_dependency }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -488,8 +482,7 @@ add_languages(struct workspace *wk,
 	return true;
 }
 
-static bool
-func_add_languages(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, add_languages, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -540,8 +533,7 @@ func_add_languages(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_files(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, files, tc_array, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -885,8 +877,7 @@ found: {
 }
 }
 
-static bool
-func_find_program(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, find_program, tc_external_program, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string | tc_file }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -967,8 +958,7 @@ func_find_program(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_include_directories(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, include_directories, tc_array, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_inc }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -988,8 +978,7 @@ func_include_directories(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_generator(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, generator, tc_generator, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1048,8 +1037,7 @@ print_assert_or_error_prefix(struct workspace *wk)
 	log_plain(log_error, "%s:%d:%d: ", src->label, dloc.line, dloc.col);
 }
 
-static bool
-func_assert(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, assert, 0, func_impl_flag_impure | func_impl_flag_throws_error)
 {
 	struct args_norm an[] = { { obj_bool }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 
@@ -1096,33 +1084,28 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 	return true;
 }
 
-static bool
-func_debug(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, debug, 0, func_impl_flag_impure)
 {
 	return func_log_common(wk, log_debug);
 }
 
-static bool
-func_message(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, message, 0, func_impl_flag_impure)
 {
 	return func_log_common(wk, log_note);
 }
 
-static bool
-func_error(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, error, 0, func_impl_flag_impure | func_impl_flag_throws_error)
 {
 	func_log_common(wk, log_error);
 	return false;
 }
 
-static bool
-func_warning(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, warning, 0, func_impl_flag_impure)
 {
 	return func_log_common(wk, log_warn);
 }
 
-static bool
-func_print(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, print, tc_any)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 
@@ -1138,8 +1121,7 @@ func_print(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_run_command(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_flag_sandbox_disable)
 {
 	type_tag tc_allowed_an = tc_string | tc_file | tc_external_program | tc_compiler | tc_python_installation;
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_allowed_an }, ARG_TYPE_NULL };
@@ -1153,7 +1135,8 @@ func_run_command(struct workspace *wk, obj _, obj *res)
 		[kw_check] = { "check", obj_bool },
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
-		[kw_feed] = { "feed", tc_coercible_files,
+		[kw_feed] = { "feed",
+			tc_coercible_files,
 			.desc = "Specify a directory to search for .meson files in when import()-ing modules",
 			.extension = true },
 		0,
@@ -1273,8 +1256,7 @@ ret:
 	return ret;
 }
 
-static bool
-func_run_target(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, run_target, tc_custom_target, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1336,8 +1318,7 @@ subdir_if_found_iter(struct workspace *wk, void *_ctx, obj v)
 	return ir_cont;
 }
 
-static bool
-func_subdir(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, subdir, 0)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1394,8 +1375,7 @@ ret:
 	return ret;
 }
 
-static bool
-func_configuration_data(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, configuration_data, tc_configuration_data, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_dict, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -1415,8 +1395,7 @@ func_configuration_data(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_add_test_setup(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, add_test_setup, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1657,14 +1636,12 @@ add_test_common(struct workspace *wk, enum test_category cat)
 	return true;
 }
 
-static bool
-func_test(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, test, 0, func_impl_flag_impure)
 {
 	return add_test_common(wk, test_category_test);
 }
 
-static bool
-func_benchmark(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, benchmark, 0, func_impl_flag_impure)
 {
 	return add_test_common(wk, test_category_benchmark);
 }
@@ -1686,8 +1663,7 @@ join_paths_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
-func_join_paths(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, join_paths, tc_string)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -1708,8 +1684,7 @@ func_join_paths(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_environment(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, environment, tc_environment, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { make_complex_type(wk,
 					    complex_type_or,
@@ -1775,8 +1750,7 @@ func_environment(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_import(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, import, tc_module)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -1831,41 +1805,7 @@ func_import(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_is_disabler(struct workspace *wk, obj _, obj *res)
-{
-	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
-
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	UNREACHABLE_RETURN;
-}
-
-static bool
-func_disabler(struct workspace *wk, obj _, obj *res)
-{
-	if (!pop_args(wk, NULL, NULL)) {
-		return false;
-	}
-
-	UNREACHABLE_RETURN;
-}
-
-static bool
-func_set_variable(struct workspace *wk, obj _, obj *res)
-{
-	struct args_norm an[] = { { obj_string }, { tc_any }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	UNREACHABLE_RETURN;
-}
-
-static bool
-func_unset_variable(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, unset_variable, 0)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -1885,19 +1825,7 @@ func_unset_variable(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_get_variable(struct workspace *wk, obj _, obj *res)
-{
-	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	UNREACHABLE_RETURN;
-}
-
-static bool
-func_is_variable(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, is_variable, tc_bool)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -1910,8 +1838,50 @@ func_is_variable(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_subdir_done(struct workspace *wk, obj _, obj *res)
+// The below functions are implemented in bytecode.  We still need func_impl
+// stubs here for docs / lsp purposes.
+
+FUNC_IMPL(kernel, is_disabler, tc_bool)
+{
+	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
+
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+FUNC_IMPL(kernel, disabler, tc_disabler)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+FUNC_IMPL(kernel, set_variable, 0)
+{
+	struct args_norm an[] = { { obj_string }, { tc_any }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+FUNC_IMPL(kernel, get_variable, tc_any)
+{
+	struct args_norm an[] = { { tc_any }, { tc_any, .optional = true }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+FUNC_IMPL(kernel, subdir_done, 0, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -1929,8 +1899,7 @@ summary_push_kv(struct workspace *wk, obj dest, obj k, obj v, obj attr)
 	obj_dict_set(wk, dest, k, wrapped_v);
 }
 
-static bool
-func_summary(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, summary, 0, func_impl_flag_impure)
 {
 	type_tag value_base_type = tc_number | tc_bool | tc_string | tc_external_program | tc_dependency
 				   | tc_feature_opt;
@@ -2040,8 +2009,7 @@ push_alias_target_deps_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
-func_alias_target(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, alias_target, tc_alias_target, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string },
 		{ TYPE_TAG_GLOB | tc_build_target | tc_custom_target | tc_alias_target | tc_both_libs },
@@ -2069,8 +2037,7 @@ func_alias_target(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_range(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, range, tc_array)
 {
 	struct range_params params;
 	struct args_norm an[]
@@ -2119,8 +2086,7 @@ func_range(struct workspace *wk, obj _, obj *res)
  * muon extension funcitons
  */
 
-static bool
-func_p(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, p, tc_any, func_impl_flag_extension)
 {
 	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_NULL }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -2147,8 +2113,7 @@ func_p(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_serial_load(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, serial_load, tc_any)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -2179,8 +2144,7 @@ ret:
 	return ret;
 }
 
-static bool
-func_serial_dump(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, serial_dump, .flags = func_impl_flag_sandbox_disable)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -2209,8 +2173,7 @@ ret:
 	return ret;
 }
 
-static bool
-func_is_null(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, is_null, tc_bool, true)
 {
 	struct args_norm an[] = { { TYPE_TAG_ALLOW_NULL | tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -2226,8 +2189,7 @@ func_is_null(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_typeof(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, typeof, tc_string, true)
 {
 	struct args_norm an[] = { { TYPE_TAG_ALLOW_NULL | tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -2239,8 +2201,7 @@ func_typeof(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_exit(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, exit, 0)
 {
 	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -2252,8 +2213,12 @@ func_exit(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_create_enum(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel,
+	create_enum,
+	tc_string,
+	true,
+	.desc
+	= "Create a string enum.  The resulting string will warn if it is compared against a value that it can never contain.")
 {
 	struct args_norm an[] = {
 		{ tc_string, .desc = "The value for this enum" },
@@ -2277,104 +2242,88 @@ func_create_enum(struct workspace *wk, obj _, obj *res)
 }
 
 // clang-format off
-const struct func_impl impl_tbl_kernel[] =
+FUNC_REGISTER(kernel)
 {
-	{ "add_global_arguments", func_add_global_arguments },
-	{ "add_global_link_arguments", func_add_global_link_arguments },
-	{ "add_languages", func_add_languages, tc_bool },
-	{ "add_project_arguments", func_add_project_arguments },
-	{ "add_project_dependencies", func_add_project_dependencies },
-	{ "add_project_link_arguments", func_add_project_link_arguments },
-	{ "add_test_setup", func_add_test_setup },
-	{ "alias_target", func_alias_target, tc_alias_target },
-	{ "assert", func_assert, .flags = func_impl_flag_throws_error },
-	{ "benchmark", func_benchmark },
-	{ "both_libraries", func_both_libraries, tc_both_libs },
-	{ "build_target", func_build_target, tc_build_target | tc_both_libs },
-	{ "configuration_data", func_configuration_data, tc_configuration_data },
-	{ "configure_file", func_configure_file, tc_file },
-	{ "custom_target", func_custom_target, tc_custom_target },
-	{ "debug", func_debug },
-	{ "declare_dependency", func_declare_dependency, tc_dependency },
-	{ "dependency", func_dependency, tc_dependency, true },
-	{ "disabler", func_disabler, tc_disabler },
-	{ "environment", func_environment, tc_environment },
-	{ "error", func_error, .flags = func_impl_flag_throws_error },
-	{ "executable", func_executable, tc_build_target },
-	{ "files", func_files, tc_array },
-	{ "find_program", func_find_program, tc_external_program },
-	{ "generator", func_generator, tc_generator },
-	{ "get_option", func_get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array, true, },
-	{ "get_variable", func_get_variable, tc_any, true },
-	{ "import", func_import, tc_module, true },
-	{ "include_directories", func_include_directories, tc_array },
-	{ "install_data", func_install_data },
-	{ "install_emptydir", func_install_emptydir },
-	{ "install_headers", func_install_headers },
-	{ "install_man", func_install_man },
-	{ "install_subdir", func_install_subdir },
-	{ "install_symlink", func_install_symlink },
-	{ "is_disabler", func_is_disabler, tc_bool, true },
-	{ "is_variable", func_is_variable, tc_bool, true },
-	{ "join_paths", func_join_paths, tc_string, true },
-	{ "library", func_library, tc_build_target | tc_both_libs },
-	{ "message", func_message },
-	{ "project", func_project, 0, true }, // Not really pure but partially runs
-	{ "range", func_range, tc_array, true },
-	{ "run_command", func_run_command, tc_run_result },
-	{ "run_target", func_run_target, tc_custom_target },
-	{ "set_variable", func_set_variable, 0, true },
-	{ "shared_library", func_shared_library, tc_build_target },
-	{ "shared_module", func_shared_module, tc_build_target },
-	{ "static_library", func_static_library, tc_build_target },
-	{ "subdir", func_subdir, 0, true },
-	{ "subdir_done", func_subdir_done },
-	{ "subproject", func_subproject, tc_subproject, true }, // Not really pure but partially runs
-	{ "summary", func_summary },
-	{ "test", func_test },
-	{ "unset_variable", func_unset_variable, 0, true },
-	{ "vcs_tag", func_vcs_tag, tc_custom_target },
-	{ "warning", func_warning },
-	// non-standard muon extensions
-	{ "p", func_p, tc_any, true, .flags = func_impl_flag_extension },
-	{ NULL, NULL },
-};
+	if (lang_mode == language_external) {
+		FUNC_REGISTER_INHERIT(kernel_build_target, 0);
+		FUNC_REGISTER_INHERIT(kernel_configure_file, 0);
+		FUNC_REGISTER_INHERIT(kernel_custom_target, 0);
+		FUNC_REGISTER_INHERIT(kernel_dependency, 0);
+		FUNC_REGISTER_INHERIT(kernel_install, 0);
+		FUNC_REGISTER_INHERIT(kernel_options, 0);
+		FUNC_REGISTER_INHERIT(kernel_subproject, 0);
 
-const struct func_impl impl_tbl_kernel_internal[] = {
-	{ "assert", func_assert, .flags = func_impl_flag_throws_error },
-	{ "configure_file", func_configure_file, tc_file },
-	{ "configuration_data", func_configuration_data, tc_configuration_data },
-	{ "disabler", func_disabler, tc_disabler },
-	{ "environment", func_environment, tc_environment },
-	{ "error", func_error, .flags = func_impl_flag_throws_error },
-	{ "files", func_files, tc_array },
-	{ "find_program", func_find_program, tc_external_program },
-	{ "get_variable", func_get_variable, tc_any, true },
-	{ "import", func_import, tc_module, true },
-	{ "is_disabler", func_is_disabler, tc_bool, true },
-	{ "is_variable", func_is_variable, tc_bool, true },
-	{ "join_paths", func_join_paths, tc_string, true },
-	{ "message", func_message },
-	{ "range", func_range, tc_array, true },
-	{ "run_command", func_run_command, tc_run_result, .flags = func_impl_flag_sandbox_disable },
-	{ "set_variable", func_set_variable, 0, true },
-	{ "unset_variable", func_unset_variable, 0, true },
-	{ "warning", func_warning },
-	// non-standard muon extensions
-	{ "p", func_p, tc_any, true },
-	{ "print", func_print, tc_any },
-	{ "serial_load", func_serial_load, tc_any },
-	{ "serial_dump", func_serial_dump, .flags = func_impl_flag_sandbox_disable },
-	{ "is_null", func_is_null, tc_bool, true },
-	{ "typeof", func_typeof, tc_string, true },
-	{ "exit", func_exit },
-	{ "create_enum", func_create_enum, tc_string, true, .desc = "Create a string enum.  The resulting string will warn if it is compared against a value that it can never contain." },
-	{ NULL, NULL },
-};
+		FUNC_IMPL_REGISTER(kernel, add_global_arguments);
+		FUNC_IMPL_REGISTER(kernel, add_global_link_arguments);
+		FUNC_IMPL_REGISTER(kernel, add_languages);
+		FUNC_IMPL_REGISTER(kernel, add_project_arguments);
+		FUNC_IMPL_REGISTER(kernel, add_project_dependencies);
+		FUNC_IMPL_REGISTER(kernel, add_project_link_arguments);
+		FUNC_IMPL_REGISTER(kernel, add_test_setup);
+		FUNC_IMPL_REGISTER(kernel, alias_target);
+		FUNC_IMPL_REGISTER(kernel, assert);
+		FUNC_IMPL_REGISTER(kernel, benchmark);
+		FUNC_IMPL_REGISTER(kernel, configuration_data);
+		FUNC_IMPL_REGISTER(kernel, debug);
+		FUNC_IMPL_REGISTER(kernel, disabler);
+		FUNC_IMPL_REGISTER(kernel, environment);
+		FUNC_IMPL_REGISTER(kernel, error);
+		FUNC_IMPL_REGISTER(kernel, files);
+		FUNC_IMPL_REGISTER(kernel, find_program);
+		FUNC_IMPL_REGISTER(kernel, generator);
+		FUNC_IMPL_REGISTER(kernel, get_variable);
+		FUNC_IMPL_REGISTER(kernel, import);
+		FUNC_IMPL_REGISTER(kernel, include_directories);
+		FUNC_IMPL_REGISTER(kernel, is_disabler);
+		FUNC_IMPL_REGISTER(kernel, is_variable);
+		FUNC_IMPL_REGISTER(kernel, join_paths);
+		FUNC_IMPL_REGISTER(kernel, message);
+		FUNC_IMPL_REGISTER(kernel, project);
+		FUNC_IMPL_REGISTER(kernel, range);
+		FUNC_IMPL_REGISTER(kernel, run_command);
+		FUNC_IMPL_REGISTER(kernel, run_target);
+		FUNC_IMPL_REGISTER(kernel, set_variable);
+		FUNC_IMPL_REGISTER(kernel, subdir);
+		FUNC_IMPL_REGISTER(kernel, subdir_done);
+		FUNC_IMPL_REGISTER(kernel, summary);
+		FUNC_IMPL_REGISTER(kernel, test);
+		FUNC_IMPL_REGISTER(kernel, unset_variable);
+		FUNC_IMPL_REGISTER(kernel, warning);
+		// non-standard muon extensions
+		FUNC_IMPL_REGISTER(kernel, p);
+	} else if (lang_mode == language_internal) {
+		FUNC_REGISTER_INHERIT(kernel_configure_file, 0);
 
-const struct func_impl impl_tbl_kernel_opts[] = {
-	{ "option", func_option, 0, true },
-	// non-standard muon extensions
-	{ "p", func_p, tc_any },
-	{ NULL, NULL },
-};
+		FUNC_IMPL_REGISTER(kernel, assert);
+		FUNC_IMPL_REGISTER(kernel, configuration_data);
+		FUNC_IMPL_REGISTER(kernel, disabler);
+		FUNC_IMPL_REGISTER(kernel, environment);
+		FUNC_IMPL_REGISTER(kernel, error);
+		FUNC_IMPL_REGISTER(kernel, files);
+		FUNC_IMPL_REGISTER(kernel, find_program);
+		FUNC_IMPL_REGISTER(kernel, get_variable);
+		FUNC_IMPL_REGISTER(kernel, import);
+		FUNC_IMPL_REGISTER(kernel, is_disabler);
+		FUNC_IMPL_REGISTER(kernel, is_variable);
+		FUNC_IMPL_REGISTER(kernel, join_paths);
+		FUNC_IMPL_REGISTER(kernel, message);
+		FUNC_IMPL_REGISTER(kernel, range);
+		FUNC_IMPL_REGISTER(kernel, run_command);
+		FUNC_IMPL_REGISTER(kernel, set_variable);
+		FUNC_IMPL_REGISTER(kernel, unset_variable);
+		FUNC_IMPL_REGISTER(kernel, warning);
+
+		FUNC_IMPL_REGISTER(kernel, p);
+		FUNC_IMPL_REGISTER(kernel, print);
+		FUNC_IMPL_REGISTER(kernel, serial_load);
+		FUNC_IMPL_REGISTER(kernel, serial_dump);
+		FUNC_IMPL_REGISTER(kernel, is_null);
+		FUNC_IMPL_REGISTER(kernel, typeof);
+		FUNC_IMPL_REGISTER(kernel, exit);
+		FUNC_IMPL_REGISTER(kernel, create_enum);
+	} else if (lang_mode == language_opts) {
+		FUNC_REGISTER_INHERIT(kernel_options, 0);
+
+		FUNC_IMPL_REGISTER(kernel, p);
+	}
+}

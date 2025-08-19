@@ -5,7 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
 #define MUON_FUNCTIONS_KERNEL_CUSTOM_TARGET_H
-#include "lang/workspace.h"
+#include "lang/func_lookup.h"
 
 struct make_custom_target_opts {
 	obj name;
@@ -51,7 +51,5 @@ bool process_custom_target_commandline(struct workspace *wk,
 	obj arr,
 	obj *res);
 
-bool func_custom_target(struct workspace *wk, obj _, obj *res);
-
-bool func_vcs_tag(struct workspace *wk, obj _, obj *res);
+FUNC_REGISTER(kernel_custom_target);
 #endif

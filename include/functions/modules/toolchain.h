@@ -7,5 +7,5 @@
 #define MUON_FUNCTIONS_MODULES_TOOLCHAIN_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_module_toolchain[];
+FUNC_REGISTER(module_toolchain);
 #endif

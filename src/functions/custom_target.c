@@ -24,8 +24,7 @@ custom_target_is_linkable(struct workspace *wk, obj ct)
 	return false;
 }
 
-static bool
-func_custom_target_to_list(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(custom_target, to_list, tc_array, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -35,8 +34,7 @@ func_custom_target_to_list(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_custom_target_full_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(custom_target, full_path, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -52,8 +50,8 @@ func_custom_target_full_path(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_custom_target[] = {
-	{ "full_path", func_custom_target_full_path, tc_string },
-	{ "to_list", func_custom_target_to_list, tc_array },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(custom_target)
+{
+	FUNC_IMPL_REGISTER(custom_target, full_path);
+	FUNC_IMPL_REGISTER(custom_target, to_list);
+}

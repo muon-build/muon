@@ -11,8 +11,7 @@
 #include "log.h"
 #include "platform/mem.h"
 
-static bool
-func_module_curl_fetch(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_curl, fetch, tc_string, func_impl_flag_impure, .desc = "Begin fetching a url using libcurl.  Only available if libcurl support is enabeld." )
 {
 	struct args_norm an[] = {
 		{ tc_string, .desc = "the url to fetch" },
@@ -56,10 +55,10 @@ done:
 	mc_deinit();
 	return ok;
 }
-const struct func_impl impl_tbl_module_curl[] = {
-	{ "fetch",
-		func_module_curl_fetch,
-		tc_string,
-		.desc = "Begin fetching a url using libcurl.  Only available if libcurl support is enabeld." },
-	{ NULL, NULL },
-};
+
+FUNC_REGISTER(module_curl)
+{
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_curl, fetch);
+	}
+}

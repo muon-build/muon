@@ -42,7 +42,7 @@
 #include "formats/tap.c"
 #include "formats/xml.c"
 #include "functions/array.c"
-#include "functions/boolean.c"
+#include "functions/bool.c"
 #include "functions/both_libs.c"
 #include "functions/build_target.c"
 #include "functions/compiler.c"

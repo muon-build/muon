@@ -29,8 +29,7 @@ get_machine_for_self(struct workspace *wk, obj self)
 	UNREACHABLE_RETURN;
 }
 
-static bool
-func_machine_system(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, system, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_system), func_impl_flag_impure )
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -42,8 +41,7 @@ func_machine_system(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_machine_subsystem(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, subsystem, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_subsystem), func_impl_flag_impure )
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -61,8 +59,7 @@ func_machine_subsystem(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_machine_endian(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian), func_impl_flag_impure )
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -81,8 +78,7 @@ func_machine_endian(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_machine_cpu_family(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, cpu_family, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -94,8 +90,7 @@ func_machine_cpu_family(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_machine_cpu(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, cpu, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -107,8 +102,7 @@ func_machine_cpu(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_machine_kernel(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, kernel, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -120,16 +114,6 @@ func_machine_kernel(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_machine[] = {
-	{ "cpu", func_machine_cpu, tc_string },
-	{ "cpu_family", func_machine_cpu_family, tc_string },
-	{ "endian", func_machine_endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian) },
-	{ "system", func_machine_system, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_system) },
-	{ "kernel", func_machine_kernel, tc_string },
-	{ "subsystem", func_machine_subsystem, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_subsystem) },
-	{ NULL, NULL },
-};
-
 struct machine_props {
 	enum machine_system system;
 	enum machine_subsystem subsystem;
@@ -138,8 +122,7 @@ struct machine_props {
 	const struct str *cpu_family;
 };
 
-static bool
-func_machine_set_props(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
 {
 	if (vm_enum(wk, endianness)) {
 		vm_enum_value(wk, endianness, big_endian);
@@ -202,13 +185,16 @@ func_machine_set_props(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_machine_internal[] = {
-	{ "cpu", func_machine_cpu, tc_string },
-	{ "cpu_family", func_machine_cpu_family, tc_string },
-	{ "endian", func_machine_endian, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_endian) },
-	{ "system", func_machine_system, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_system) },
-	{ "kernel", func_machine_kernel, tc_string },
-	{ "subsystem", func_machine_subsystem, COMPLEX_TYPE_PRESET(tc_cx_enum_machine_subsystem) },
-	{ "set_props", func_machine_set_props },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(machine)
+{
+	FUNC_IMPL_REGISTER(machine, cpu);
+	FUNC_IMPL_REGISTER(machine, cpu_family);
+	FUNC_IMPL_REGISTER(machine, endian);
+	FUNC_IMPL_REGISTER(machine, system);
+	FUNC_IMPL_REGISTER(machine, kernel);
+	FUNC_IMPL_REGISTER(machine, subsystem);
+
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(machine, set_props);
+	}
+}

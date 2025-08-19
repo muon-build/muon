@@ -23,8 +23,7 @@
 #include "rpmvercmp.h"
 #include "util.h"
 
-static bool
-func_strip(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, strip, tc_string)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -35,8 +34,7 @@ func_strip(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_to_upper(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, to_upper, tc_string)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -55,8 +53,7 @@ func_to_upper(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_to_lower(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, to_lower, tc_string)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -171,8 +168,7 @@ func_format_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct str
 	return format_cb_found;
 }
 
-static bool
-func_format(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, format, tc_string)
 {
 	struct args_norm an[] = { { tc_message }, ARG_TYPE_NULL };
 
@@ -193,8 +189,7 @@ func_format(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_underscorify(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, underscorify, tc_string)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -215,8 +210,7 @@ func_underscorify(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_split(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, split, tc_array)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 
@@ -230,8 +224,7 @@ func_split(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_splitlines(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, splitlines, tc_array)
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -241,8 +234,7 @@ func_splitlines(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_join(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, join, tc_string)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 
@@ -317,8 +309,7 @@ version_compare_list(struct workspace *wk, const struct str *ver, obj cmp_arr)
 	return true;
 }
 
-static bool
-func_version_compare(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, version_compare, tc_bool)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -332,8 +323,7 @@ func_version_compare(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_to_int(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, to_int, tc_number)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -352,8 +342,7 @@ func_string_to_int(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_startswith(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, startswith, tc_bool)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -364,8 +353,7 @@ func_string_startswith(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_endswith(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, endswith, tc_bool)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -376,8 +364,7 @@ func_string_endswith(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_substring(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, substring, tc_string)
 {
 	struct args_norm an[] = { { obj_number, .optional = true }, { obj_number, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -418,8 +405,7 @@ func_string_substring(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_replace(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, replace, tc_string)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -461,8 +447,7 @@ func_string_replace(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_contains(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, contains, tc_bool)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -491,27 +476,7 @@ func_string_contains(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_string[] = {
-	{ "contains", func_string_contains, tc_bool, true },
-	{ "endswith", func_string_endswith, tc_bool, true },
-	{ "format", func_format, tc_string, true },
-	{ "join", func_join, tc_string, true },
-	{ "replace", func_string_replace, tc_string, true },
-	{ "split", func_split, tc_array, true },
-	{ "splitlines", func_splitlines, tc_array, true },
-	{ "startswith", func_string_startswith, tc_bool, true },
-	{ "strip", func_strip, tc_string, true },
-	{ "substring", func_string_substring, tc_string, true },
-	{ "to_int", func_string_to_int, tc_number, true },
-	{ "to_lower", func_to_lower, tc_string, true },
-	{ "to_upper", func_to_upper, tc_string, true },
-	{ "underscorify", func_underscorify, tc_string, true },
-	{ "version_compare", func_version_compare, tc_bool, true },
-	{ NULL, NULL },
-};
-
-static bool
-func_string_length(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, length, tc_number)
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -543,8 +508,7 @@ string_shell_common(struct workspace *wk, enum shell_type *shell)
 	return true;
 }
 
-static bool
-func_string_shell_split(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, shell_split, tc_array)
 {
 	enum shell_type shell;
 	if (!string_shell_common(wk, &shell)) {
@@ -555,8 +519,7 @@ func_string_shell_split(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_string_shell_quote(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(string, shell_quote, tc_string)
 {
 	enum shell_type shell;
 	if (!string_shell_common(wk, &shell)) {
@@ -576,24 +539,27 @@ func_string_shell_quote(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_string_internal[] = {
-	{ "contains", func_string_contains, tc_bool, true },
-	{ "endswith", func_string_endswith, tc_bool, true },
-	{ "format", func_format, tc_string, true },
-	{ "join", func_join, tc_string, true },
-	{ "replace", func_string_replace, tc_string, true },
-	{ "split", func_split, tc_array, true },
-	{ "splitlines", func_splitlines, tc_array, true },
-	{ "startswith", func_string_startswith, tc_bool, true },
-	{ "strip", func_strip, tc_string, true },
-	{ "substring", func_string_substring, tc_string, true },
-	{ "to_int", func_string_to_int, tc_number, true },
-	{ "to_lower", func_to_lower, tc_string, true },
-	{ "to_upper", func_to_upper, tc_string, true },
-	{ "underscorify", func_underscorify, tc_string, true },
-	{ "version_compare", func_version_compare, tc_bool, true },
-	{ "length", func_string_length, tc_number, true },
-	{ "shell_split", func_string_shell_split, tc_array, true },
-	{ "shell_quote", func_string_shell_quote, tc_string, true },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(string)
+{
+	FUNC_IMPL_REGISTER(string, contains);
+	FUNC_IMPL_REGISTER(string, endswith);
+	FUNC_IMPL_REGISTER(string, format);
+	FUNC_IMPL_REGISTER(string, join);
+	FUNC_IMPL_REGISTER(string, replace);
+	FUNC_IMPL_REGISTER(string, split);
+	FUNC_IMPL_REGISTER(string, splitlines);
+	FUNC_IMPL_REGISTER(string, startswith);
+	FUNC_IMPL_REGISTER(string, strip);
+	FUNC_IMPL_REGISTER(string, substring);
+	FUNC_IMPL_REGISTER(string, to_int);
+	FUNC_IMPL_REGISTER(string, to_lower);
+	FUNC_IMPL_REGISTER(string, to_upper);
+	FUNC_IMPL_REGISTER(string, underscorify);
+	FUNC_IMPL_REGISTER(string, version_compare);
+
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(string, length);
+		FUNC_IMPL_REGISTER(string, shell_split);
+		FUNC_IMPL_REGISTER(string, shell_quote);
+	}
+}

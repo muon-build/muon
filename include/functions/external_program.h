@@ -9,5 +9,5 @@
 
 void find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argument, obj *ver);
 
-extern const struct func_impl impl_tbl_external_program[5];
+FUNC_REGISTER(external_program);
 #endif

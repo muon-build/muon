@@ -8,10 +8,6 @@
 #include "lang/func_lookup.h"
 #include "coerce.h"
 
-extern const struct func_impl impl_tbl_kernel[];
-extern const struct func_impl impl_tbl_kernel_internal[];
-extern const struct func_impl impl_tbl_kernel_opts[];
-
 struct find_program_ctx {
 	struct args_kw *default_options;
 	obj *res;
@@ -25,4 +21,6 @@ struct find_program_ctx {
 
 bool find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog);
 bool find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, obj prog);
+
+FUNC_REGISTER(kernel);
 #endif

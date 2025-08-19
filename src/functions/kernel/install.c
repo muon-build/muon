@@ -21,8 +21,7 @@
 		LOG_W("follow_symlinks: false is not supported");                            \
 	}
 
-bool
-func_install_subdir(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, install_subdir, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -141,8 +140,7 @@ install_man_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-bool
-func_install_man(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, install_man, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_coercible_files }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -190,8 +188,7 @@ func_install_man(struct workspace *wk, obj _, obj *ret)
 	return obj_array_foreach(wk, manpages, &ctx, install_man_iter);
 }
 
-bool
-func_install_symlink(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, install_symlink, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -239,8 +236,7 @@ install_emptydir_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-bool
-func_install_emptydir(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, install_emptydir, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -290,8 +286,7 @@ install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-bool
-func_install_data(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, install_data, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -374,8 +369,7 @@ func_install_data(struct workspace *wk, obj _, obj *res)
 	}
 }
 
-bool
-func_install_headers(struct workspace *wk, obj _, obj *ret)
+FUNC_IMPL(kernel, install_headers, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -423,4 +417,14 @@ func_install_headers(struct workspace *wk, obj _, obj *ret)
 	bool preserve_path = akw[kw_preserve_path].set && get_obj_bool(wk, akw[kw_preserve_path].val);
 
 	return push_install_targets(wk, an[0].node, an[0].val, install_dir, akw[kw_install_mode].val, preserve_path);
+}
+
+FUNC_REGISTER(kernel_install)
+{
+	FUNC_IMPL_REGISTER(kernel, install_data);
+	FUNC_IMPL_REGISTER(kernel, install_emptydir);
+	FUNC_IMPL_REGISTER(kernel, install_headers);
+	FUNC_IMPL_REGISTER(kernel, install_man);
+	FUNC_IMPL_REGISTER(kernel, install_subdir);
+	FUNC_IMPL_REGISTER(kernel, install_symlink);
 }

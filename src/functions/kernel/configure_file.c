@@ -724,8 +724,7 @@ exclusive_or(bool *vals, uint32_t len)
 	return found;
 }
 
-bool
-func_configure_file(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 {
 	obj input_arr = 0, output_str;
 	enum kwargs {
@@ -956,4 +955,9 @@ copy_err:
 	}
 
 	return true;
+}
+
+FUNC_REGISTER(kernel_configure_file)
+{
+	FUNC_IMPL_REGISTER(kernel, configure_file);
 }

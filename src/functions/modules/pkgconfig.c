@@ -723,8 +723,7 @@ module_pkgconf_write(struct workspace *wk, const char *path, struct pkgconf_file
 	return true;
 }
 
-static bool
-func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 {
 	uint32_t i;
 	struct args_norm an[] = { { tc_both_libs | tc_build_target, .optional = true }, ARG_TYPE_NULL };
@@ -981,7 +980,7 @@ func_module_pkgconfig_generate(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_pkgconfig[] = {
-	{ "generate", func_module_pkgconfig_generate, tc_file },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_pkgconfig)
+{
+	FUNC_IMPL_REGISTER(module_pkgconfig, generate);
+}

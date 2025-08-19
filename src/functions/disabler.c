@@ -5,22 +5,20 @@
 
 #include "compat.h"
 
-#include "lang/func_lookup.h"
 #include "functions/disabler.h"
 #include "lang/typecheck.h"
 
-static bool
-func_disabler_found(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(disabler, found, tc_bool)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = make_obj_bool(wk, false);
+	*res = obj_bool_false;
 	return true;
 }
 
-const struct func_impl impl_tbl_disabler[] = {
-	{ "found", func_disabler_found, tc_bool },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(disabler)
+{
+	FUNC_IMPL_REGISTER(disabler, found);
+}

@@ -11,8 +11,7 @@
 #include "lang/func_lookup.h"
 #include "lang/typecheck.h"
 
-static bool
-func_number_is_odd(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(number, is_odd, tc_bool)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -22,8 +21,7 @@ func_number_is_odd(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_number_is_even(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(number, is_even, tc_bool)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -33,8 +31,7 @@ func_number_is_even(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_number_to_string(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(number, to_string, tc_string)
 {
 	enum kwargs { kw_fill };
 	struct args_kw akw[] = { [kw_fill] = { "fill", tc_number }, 0 };
@@ -54,9 +51,9 @@ func_number_to_string(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_number[] = {
-	{ "to_string", func_number_to_string, tc_string },
-	{ "is_even", func_number_is_even, tc_bool },
-	{ "is_odd", func_number_is_odd, tc_bool },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(number)
+{
+	FUNC_IMPL_REGISTER(number, to_string);
+	FUNC_IMPL_REGISTER(number, is_even);
+	FUNC_IMPL_REGISTER(number, is_odd);
+}

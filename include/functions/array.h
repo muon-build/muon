@@ -7,6 +7,5 @@
 #define MUON_FUNCTIONS_ARRAY_H
 #include "lang/func_lookup.h"
 
-extern const struct func_impl impl_tbl_array[];
-extern const struct func_impl impl_tbl_array_internal[];
+FUNC_REGISTER(array);
 #endif

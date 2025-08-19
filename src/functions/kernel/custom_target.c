@@ -644,8 +644,7 @@ install_custom_target(struct workspace *wk,
 	return push_install_targets(wk, 0, tgt->output, install_dir, install_mode, false);
 }
 
-bool
-func_custom_target(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -784,8 +783,7 @@ func_custom_target(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-bool
-func_vcs_tag(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(kernel, vcs_tag, tc_custom_target, func_impl_flag_impure)
 {
 	enum kwargs {
 		kw_input,
@@ -888,4 +886,10 @@ func_vcs_tag(struct workspace *wk, obj _, obj *res)
 
 	obj_array_push(wk, current_project(wk)->targets, *res);
 	return true;
+}
+
+FUNC_REGISTER(kernel_custom_target)
+{
+	FUNC_IMPL_REGISTER(kernel, custom_target);
+	FUNC_IMPL_REGISTER(kernel, vcs_tag);
 }

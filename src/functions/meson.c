@@ -25,8 +25,7 @@
 #include "platform/path.h"
 #include "version.h"
 
-static bool
-func_meson_get_compiler(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, get_compiler, tc_compiler, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -52,8 +51,7 @@ func_meson_get_compiler(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_project_name(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project_name, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -63,8 +61,7 @@ func_meson_project_name(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_project_license(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project_license, tc_array, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -77,8 +74,7 @@ func_meson_project_license(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_project_license_files(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project_license_files, tc_array, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -91,8 +87,7 @@ func_meson_project_license_files(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_project_version(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project_version, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -102,8 +97,7 @@ func_meson_project_version(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_version(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, version, tc_string)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -113,8 +107,7 @@ func_meson_version(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_current_source_dir(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, current_source_dir, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -124,8 +117,7 @@ func_meson_current_source_dir(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_current_build_dir(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, current_build_dir, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -135,8 +127,7 @@ func_meson_current_build_dir(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_project_source_root(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project_source_root, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -146,8 +137,7 @@ func_meson_project_source_root(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_project_build_root(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project_build_root, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -157,8 +147,7 @@ func_meson_project_build_root(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_global_source_root(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, global_source_root, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -168,8 +157,7 @@ func_meson_global_source_root(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_global_build_root(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, global_build_root, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -179,8 +167,7 @@ func_meson_global_build_root(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_build_options(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, build_options, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -195,8 +182,7 @@ func_meson_build_options(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_is_subproject(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, is_subproject, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -206,8 +192,7 @@ func_meson_is_subproject(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_backend(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, backend, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -227,8 +212,7 @@ is_cross_build(void)
 	return !machine_definitions_eql(&build_machine, &host_machine);
 }
 
-static bool
-func_meson_is_cross_build(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, is_cross_build, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -238,8 +222,7 @@ func_meson_is_cross_build(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_is_unity(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, is_unity, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -249,8 +232,7 @@ func_meson_is_unity(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, override_dependency, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_dependency }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -296,8 +278,7 @@ func_meson_override_dependency(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_override_find_program(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, override_find_program, 0, func_impl_flag_impure)
 {
 	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target | tc_custom_target
 			      | tc_python_installation;
@@ -418,8 +399,7 @@ type_error:
 	return true;
 }
 
-static bool
-func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, add_install_script, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_exe }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -470,8 +450,7 @@ func_meson_add_install_script(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_add_postconf_script(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, add_postconf_script, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_exe }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -495,8 +474,7 @@ func_meson_add_postconf_script(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_add_dist_script(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, add_dist_script, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_exe }, ARG_TYPE_NULL };
 
@@ -535,12 +513,11 @@ meson_get_property(struct workspace *wk, obj dict, obj key, obj fallback, obj *r
 		return true;
 	}
 
-	vm_error(wk,"unknown property %o", key);
+	vm_error(wk, "unknown property %o", key);
 	return false;
 }
 
-static bool
-func_meson_get_cross_property(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, get_cross_property, tc_any, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 
@@ -551,8 +528,7 @@ func_meson_get_cross_property(struct workspace *wk, obj _, obj *res)
 	return meson_get_property(wk, wk->machine_properties[machine_kind_host], an[0].val, an[1].val, res);
 }
 
-static bool
-func_meson_get_external_property(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, get_external_property, tc_any, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -571,8 +547,7 @@ func_meson_get_external_property(struct workspace *wk, obj _, obj *res)
 		wk, wk->machine_properties[coerce_machine_kind(wk, &akw[kw_native])], an[0].val, an[1].val, res);
 }
 
-static bool
-func_meson_can_run_host_binaries(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, can_run_host_binaries, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -584,8 +559,7 @@ func_meson_can_run_host_binaries(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_add_devenv(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, add_devenv, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -594,39 +568,6 @@ func_meson_add_devenv(struct workspace *wk, obj _, obj *res)
 
 	return true;
 }
-
-const struct func_impl impl_tbl_meson[] = {
-	{ "add_devenv", func_meson_add_devenv },
-	{ "add_dist_script", func_meson_add_dist_script },
-	{ "add_install_script", func_meson_add_install_script },
-	{ "add_postconf_script", func_meson_add_postconf_script },
-	{ "backend", func_meson_backend, tc_string },
-	{ "build_options", func_meson_build_options, tc_string },
-	{ "build_root", func_meson_global_build_root, tc_string },
-	{ "can_run_host_binaries", func_meson_can_run_host_binaries, tc_bool },
-	{ "current_build_dir", func_meson_current_build_dir, tc_string },
-	{ "current_source_dir", func_meson_current_source_dir, tc_string },
-	{ "get_compiler", func_meson_get_compiler, tc_compiler },
-	{ "get_cross_property", func_meson_get_cross_property, tc_any },
-	{ "get_external_property", func_meson_get_external_property, tc_any },
-	{ "global_build_root", func_meson_global_build_root, tc_string },
-	{ "global_source_root", func_meson_global_source_root, tc_string },
-	{ "has_exe_wrapper", func_meson_can_run_host_binaries, tc_bool },
-	{ "is_cross_build", func_meson_is_cross_build, tc_bool },
-	{ "is_subproject", func_meson_is_subproject, tc_bool },
-	{ "is_unity", func_meson_is_unity, tc_bool },
-	{ "override_dependency", func_meson_override_dependency },
-	{ "override_find_program", func_meson_override_find_program },
-	{ "project_build_root", func_meson_project_build_root, tc_string },
-	{ "project_license", func_meson_project_license, tc_string },
-	{ "project_license_files", func_meson_project_license_files, tc_string },
-	{ "project_name", func_meson_project_name, tc_string },
-	{ "project_source_root", func_meson_project_source_root, tc_string },
-	{ "project_version", func_meson_project_version, tc_string },
-	{ "source_root", func_meson_global_source_root, tc_string },
-	{ "version", func_meson_version, tc_string, true },
-	{ NULL, NULL },
-};
 
 static obj
 compiler_dict_to_str_dict(struct workspace *wk, obj d[machine_kind_count])
@@ -649,8 +590,7 @@ compiler_dict_to_str_dict(struct workspace *wk, obj d[machine_kind_count])
 	return res;
 }
 
-static bool
-func_meson_project(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson, project, tc_dict, func_impl_flag_impure, .desc = "return a dict containing read-only properties of the current project")
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -671,8 +611,11 @@ func_meson_project(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson,
+	register_dependency_handler,
+	0,
+	func_impl_flag_impure,
+	.desc = "register custom callbacks to run when a specific dependency lookup is invoked")
 {
 	struct args_norm an[] = {
 		{ tc_string },
@@ -759,8 +702,11 @@ func_meson_register_dependency_handler(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_argv0(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson,
+	argv0,
+	tc_string,
+	func_impl_flag_impure,
+	.desc = "returns the argv[0] that was used to invoke muon itself")
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -770,8 +716,11 @@ func_meson_argv0(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_private_dir(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson,
+	private_dir,
+	tc_string,
+	func_impl_flag_impure,
+	.desc = "returns the path to muon's private directory in the build folder")
 {
 	if (!pop_args(wk, 0, 0)) {
 		return false;
@@ -781,8 +730,11 @@ func_meson_private_dir(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-static bool
-func_meson_has_compiler(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson,
+	has_compiler,
+	tc_bool,
+	func_impl_flag_impure,
+	.desc = "returns whether or not a compiler for the given language has been configured")
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -803,14 +755,18 @@ func_meson_has_compiler(struct workspace *wk, obj _, obj *res)
 		return false;
 	}
 
+	obj _;
 	*res = make_obj_bool(wk,
 		obj_dict_geti(wk, current_project(wk)->toolchains[coerce_machine_kind(wk, &akw[kw_native])], l, &_));
 
 	return true;
 }
 
-static bool
-func_meson_set_external_properties(struct workspace *wk, obj _, obj *res)
+FUNC_IMPL(meson,
+	set_external_properties,
+	0,
+	func_impl_flag_impure,
+	.desc = "set properties to be accessed by meson.get_cross_property() and meson.get_external_property()")
 {
 	struct args_norm an[] = { { COMPLEX_TYPE_PRESET(tc_cx_dict_of_str) }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -834,12 +790,44 @@ func_meson_set_external_properties(struct workspace *wk, obj _, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_meson_internal[] = {
-	{ "project", func_meson_project, tc_dict, .desc = "return a dict containing read-only properties of the current project"  },
-	{ "register_dependency_handler", func_meson_register_dependency_handler, .desc = "register custom callbacks to run when a specific dependency lookup is invoked" },
-	{ "argv0", func_meson_argv0, tc_string, .desc = "returns the argv[0] that was used to invoke muon itself" },
-	{ "private_dir", func_meson_private_dir, tc_string, .desc = "returns the path to muon's private directory in the build folder" },
-	{ "has_compiler", func_meson_has_compiler, tc_bool, .desc = "returns whether or not a compiler for the given language has been configured"  },
-	{ "set_external_properties", func_meson_set_external_properties, .desc = "set properties to be accessed by meson.get_cross_property() and meson.get_external_property()"  },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(meson)
+{
+	FUNC_IMPL_REGISTER(meson, add_devenv);
+	FUNC_IMPL_REGISTER(meson, add_dist_script);
+	FUNC_IMPL_REGISTER(meson, add_install_script);
+	FUNC_IMPL_REGISTER(meson, add_postconf_script);
+	FUNC_IMPL_REGISTER(meson, backend);
+	FUNC_IMPL_REGISTER(meson, build_options);
+	FUNC_IMPL_REGISTER(meson, can_run_host_binaries);
+	FUNC_IMPL_REGISTER_ALIAS(meson, can_run_host_binaries, has_exe_wrapper);
+	FUNC_IMPL_REGISTER(meson, current_build_dir);
+	FUNC_IMPL_REGISTER(meson, current_source_dir);
+	FUNC_IMPL_REGISTER(meson, get_compiler);
+	FUNC_IMPL_REGISTER(meson, get_cross_property);
+	FUNC_IMPL_REGISTER(meson, get_external_property);
+	FUNC_IMPL_REGISTER(meson, global_build_root);
+	FUNC_IMPL_REGISTER_ALIAS(meson, global_build_root, build_root);
+	FUNC_IMPL_REGISTER(meson, global_source_root);
+	FUNC_IMPL_REGISTER_ALIAS(meson, global_source_root, source_root);
+	FUNC_IMPL_REGISTER(meson, is_cross_build);
+	FUNC_IMPL_REGISTER(meson, is_subproject);
+	FUNC_IMPL_REGISTER(meson, is_unity);
+	FUNC_IMPL_REGISTER(meson, override_dependency);
+	FUNC_IMPL_REGISTER(meson, override_find_program);
+	FUNC_IMPL_REGISTER(meson, project_build_root);
+	FUNC_IMPL_REGISTER(meson, project_license);
+	FUNC_IMPL_REGISTER(meson, project_license_files);
+	FUNC_IMPL_REGISTER(meson, project_name);
+	FUNC_IMPL_REGISTER(meson, project_source_root);
+	FUNC_IMPL_REGISTER(meson, project_version);
+	FUNC_IMPL_REGISTER(meson, version);
+
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(meson, project);
+		FUNC_IMPL_REGISTER(meson, register_dependency_handler);
+		FUNC_IMPL_REGISTER(meson, argv0);
+		FUNC_IMPL_REGISTER(meson, private_dir);
+		FUNC_IMPL_REGISTER(meson, has_compiler);
+		FUNC_IMPL_REGISTER(meson, set_external_properties);
+	}
+}

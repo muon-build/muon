@@ -5,13 +5,7 @@
 
 #ifndef MUON_FUNCTIONS_KERNEL_BUILD_TARGET_H
 #define MUON_FUNCTIONS_KERNEL_BUILD_TARGET_H
-#include "lang/workspace.h"
+#include "lang/func_lookup.h"
 
-bool func_both_libraries(struct workspace *wk, obj _, obj *res);
-bool func_build_target(struct workspace *wk, obj _, obj *res);
-bool func_executable(struct workspace *wk, obj _, obj *res);
-bool func_library(struct workspace *wk, obj _, obj *res);
-bool func_shared_library(struct workspace *wk, obj _, obj *res);
-bool func_static_library(struct workspace *wk, obj _, obj *res);
-bool func_shared_module(struct workspace *wk, obj _, obj *res);
+FUNC_REGISTER(kernel_build_target);
 #endif

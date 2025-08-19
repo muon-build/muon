@@ -7,9 +7,8 @@
 #define MUON_FUNCTIONS_MODULES_PYTHON_H
 #include "lang/func_lookup.h"
 
-void python_build_impl_tbl(void);
-extern const struct func_impl impl_tbl_module_python[];
-extern const struct func_impl impl_tbl_module_python3[];
+FUNC_REGISTER(module_python);
+FUNC_REGISTER(module_python3);
 
-extern struct func_impl impl_tbl_python_installation[];
+FUNC_REGISTER(python_installation);
 #endif

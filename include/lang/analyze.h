@@ -7,6 +7,7 @@
 #define MUON_LANG_ANALYZE_H
 
 #include "error.h"
+#include "lang/func_lookup.h"
 #include "workspace.h"
 
 struct ast;
@@ -73,6 +74,7 @@ struct az_assignment {
 struct az_assignment *az_assign_lookup(struct workspace *wk, const char *name);
 uint32_t az_dict_member_location_lookup_str(struct workspace *wk, obj dict, const char *key);
 
+FUNC_REGISTER(analyzer);
 extern struct func_impl_group az_func_impl_group;
 
 void analyze_opts_init(struct workspace *wk, struct az_opts *opts);

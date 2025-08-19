@@ -132,8 +132,7 @@ build_python_installation(struct workspace *wk, obj self, obj *res, struct tstr 
 	return true;
 }
 
-static bool
-func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_python, find_installation, tc_python_installation, func_impl_flag_impure )
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -213,8 +212,7 @@ func_module_python_find_installation(struct workspace *wk, obj self, obj *res)
 	return build_python_installation(wk, self, res, cmd_path, found, pure);
 }
 
-static bool
-func_python_installation_language_version(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, language_version, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -224,8 +222,7 @@ func_python_installation_language_version(struct workspace *wk, obj self, obj *r
 	return true;
 }
 
-static bool
-func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_python3, find_python, tc_external_program, func_impl_flag_impure )
 {
 	struct args_norm an[] = { { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -252,8 +249,7 @@ func_module_python3_find_python(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_python_installation_get_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, get_path, tc_string, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -275,8 +271,7 @@ func_python_installation_get_path(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_python_installation_get_var(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, get_variable, tc_string, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { obj_string, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -298,8 +293,7 @@ func_python_installation_get_var(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_python_installation_has_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, has_path, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -313,8 +307,7 @@ func_python_installation_has_path(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_python_installation_has_var(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, has_variable, tc_bool, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -371,8 +364,7 @@ get_install_dir(struct workspace *wk, obj self, bool pure, const char *subdir, o
 	return true;
 }
 
-static bool
-func_python_installation_get_install_dir(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, get_install_dir, tc_string, func_impl_flag_impure)
 {
 	enum kwargs {
 		kw_pure,
@@ -432,8 +424,7 @@ py_install_data_rename_iter(struct workspace *wk, void *_ctx, obj val)
 	return ir_cont;
 }
 
-static bool
-func_python_installation_install_sources(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, install_sources, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_file | tc_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -523,8 +514,7 @@ func_python_installation_install_sources(struct workspace *wk, obj self, obj *re
 	return push_install_targets(wk, err_node, sources, install_dir, akw[kw_install_mode].val, preserve_path);
 }
 
-static bool
-func_python_installation_interpreter_path(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, path, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -543,8 +533,7 @@ func_python_installation_interpreter_path(struct workspace *wk, obj self, obj *r
 	return true;
 }
 
-static bool
-func_python_installation_dependency(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, dependency, tc_dependency, func_impl_flag_impure)
 {
 	struct arr kwargs;
 	func_kwargs_lookup(wk, 0, "dependency", &kwargs);
@@ -560,8 +549,7 @@ func_python_installation_dependency(struct workspace *wk, obj self, obj *res)
 	return false;
 }
 
-static bool
-func_python_installation_extension_module(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(python_installation, extension_module, tc_build_target, func_impl_flag_impure)
 {
 	struct args_norm an[] = {
 		{ obj_string },
@@ -586,43 +574,34 @@ func_python_installation_extension_module(struct workspace *wk, obj self, obj *r
 	return false;
 }
 
+FUNC_REGISTER(module_python)
+{
+	FUNC_IMPL_REGISTER(module_python, find_installation);
+}
+
+FUNC_REGISTER(module_python3)
+{
+	FUNC_IMPL_REGISTER(module_python3, find_python);
+}
+
 static obj
-python_self_transform(struct workspace *wk, obj self)
+python_installation_self_transform(struct workspace *wk, obj self)
 {
 	return get_obj_python_installation(wk, self)->prog;
 }
 
-void
-python_build_impl_tbl(void)
+FUNC_REGISTER(python_installation)
 {
-	uint32_t i;
-	for (i = 0; impl_tbl_external_program[i].name; ++i) {
-		struct func_impl tmp = impl_tbl_external_program[i];
-		tmp.self_transform = python_self_transform;
-		impl_tbl_python_installation[i] = tmp;
-	}
+	FUNC_REGISTER_INHERIT(external_program, python_installation_self_transform);
+
+	FUNC_IMPL_REGISTER(python_installation, get_path);
+	FUNC_IMPL_REGISTER(python_installation, get_install_dir);
+	FUNC_IMPL_REGISTER(python_installation, get_variable);
+	FUNC_IMPL_REGISTER(python_installation, has_path);
+	FUNC_IMPL_REGISTER(python_installation, has_variable);
+	FUNC_IMPL_REGISTER(python_installation, install_sources);
+	FUNC_IMPL_REGISTER(python_installation, language_version);
+	FUNC_IMPL_REGISTER(python_installation, path);
+	FUNC_IMPL_REGISTER(python_installation, dependency);
+	FUNC_IMPL_REGISTER(python_installation, extension_module);
 }
-
-const struct func_impl impl_tbl_module_python[] = {
-	{ "find_installation", func_module_python_find_installation, tc_python_installation },
-	{ NULL, NULL },
-};
-
-const struct func_impl impl_tbl_module_python3[] = {
-	{ "find_python", func_module_python3_find_python, tc_external_program },
-	{ NULL, NULL },
-};
-
-struct func_impl impl_tbl_python_installation[] = {
-	[ARRAY_LEN(impl_tbl_external_program) - 1] = { "get_path", func_python_installation_get_path, tc_string },
-	{ "get_install_dir", func_python_installation_get_install_dir, tc_string },
-	{ "get_variable", func_python_installation_get_var, tc_string },
-	{ "has_path", func_python_installation_has_path, tc_bool },
-	{ "has_variable", func_python_installation_has_var, tc_bool },
-	{ "install_sources", func_python_installation_install_sources },
-	{ "language_version", func_python_installation_language_version, tc_string },
-	{ "path", func_python_installation_interpreter_path, tc_string },
-	{ "dependency", func_python_installation_dependency, tc_dependency },
-	{ "extension_module", func_python_installation_extension_module, tc_build_target },
-	{ NULL, NULL },
-};

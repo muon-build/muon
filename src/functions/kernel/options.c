@@ -61,8 +61,7 @@ validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 	return true;
 }
 
-bool
-func_option(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(kernel, option, 0, true)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
@@ -216,8 +215,7 @@ func_option(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-bool
-func_get_option(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(kernel, get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -236,8 +234,8 @@ func_get_option(struct workspace *wk, obj self, obj *res)
 	if (wk->vm.in_analyzer) {
 		type_tag t = 0;
 		switch (o->type) {
-		case op_string: t =  tc_string; break;
-		case op_boolean: t =  tc_bool; break;
+		case op_string: t = tc_string; break;
+		case op_boolean: t = tc_bool; break;
 		case op_combo: t = COMPLEX_TYPE(o->choices, complex_type_enum); break;
 		case op_integer: t = tc_number; break;
 		case op_shell_array: t = tc_array; break;
@@ -251,4 +249,13 @@ func_get_option(struct workspace *wk, obj self, obj *res)
 		*res = o->val;
 	}
 	return true;
+}
+
+FUNC_REGISTER(kernel_options)
+{
+	if (lang_mode == language_external || lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(kernel, get_option);
+	} else if (lang_mode == language_opts) {
+		FUNC_IMPL_REGISTER(kernel, option);
+	}
 }

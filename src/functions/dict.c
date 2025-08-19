@@ -5,7 +5,6 @@
 
 #include "compat.h"
 
-#include "lang/func_lookup.h"
 #include "functions/dict.h"
 #include "lang/typecheck.h"
 
@@ -19,8 +18,7 @@ dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)
 	return ir_cont;
 }
 
-static bool
-func_dict_keys(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dict, keys, tc_array)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -32,8 +30,7 @@ func_dict_keys(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dict_has_key(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dict, has_key, tc_bool)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 
@@ -45,8 +42,7 @@ func_dict_has_key(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dict_get(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dict, get, tc_any)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -64,15 +60,7 @@ func_dict_get(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_dict[] = {
-	{ "keys", func_dict_keys, tc_array, true },
-	{ "has_key", func_dict_has_key, tc_bool, true },
-	{ "get", func_dict_get, tc_any, true },
-	{ NULL, NULL },
-};
-
-static bool
-func_dict_delete(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dict, delete, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -83,8 +71,7 @@ func_dict_delete(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-static bool
-func_dict_set(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(dict, set, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_string }, { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -95,11 +82,14 @@ func_dict_set(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_dict_internal[] = {
-	{ "keys", func_dict_keys, tc_array, true },
-	{ "has_key", func_dict_has_key, tc_bool, true },
-	{ "get", func_dict_get, tc_any, true },
-	{ "delete", func_dict_delete },
-	{ "set", func_dict_set },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(dict)
+{
+	FUNC_IMPL_REGISTER(dict, keys);
+	FUNC_IMPL_REGISTER(dict, has_key);
+	FUNC_IMPL_REGISTER(dict, get);
+
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(dict, delete);
+		FUNC_IMPL_REGISTER(dict, set);
+	}
+}

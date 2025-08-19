@@ -9,8 +9,11 @@
 #include "functions/modules/toolchain.h"
 #include "lang/typecheck.h"
 
-static bool
-func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(module_toolchain,
+	create,
+	tc_compiler,
+	.desc
+	= "Creates a new compiler object that can be passed in to the `toolchain` keyword on `add_languages` or inherited from when coreating a new toolchain.  The toolchain object is reffered to as a `compiler` for historical reasons, although it also contains other information required to compile programs such as linker metadata.")
 {
 	enum kwargs {
 		kw_inherit,
@@ -99,11 +102,9 @@ func_module_toolchain_create(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_module_toolchain[] = {
-	{ "create",
-		func_module_toolchain_create,
-		tc_compiler,
-		.desc
-		= "Creates a new compiler object that can be passed in to the `toolchain` keyword on `add_languages` or inherited from when coreating a new toolchain.  The toolchain object is reffered to as a `compiler` for historical reasons, although it also contains other information required to compile programs such as linker metadata." },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(module_toolchain)
+{
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_toolchain, create);
+	}
+}

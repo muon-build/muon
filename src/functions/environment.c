@@ -188,26 +188,22 @@ func_environment_set_common(struct workspace *wk, obj self, enum environment_set
 	return environment_set(wk, self, mode, an[0].val, an[1].val, akw[kw_separator].val);
 }
 
-static bool
-func_environment_set(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(environment, set, 0, func_impl_flag_impure)
 {
 	return func_environment_set_common(wk, self, environment_set_mode_set);
 }
 
-static bool
-func_environment_append(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(environment, append, 0, func_impl_flag_impure)
 {
 	return func_environment_set_common(wk, self, environment_set_mode_append);
 }
 
-static bool
-func_environment_prepend(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(environment, prepend, 0, func_impl_flag_impure)
 {
 	return func_environment_set_common(wk, self, environment_set_mode_prepend);
 }
 
-static bool
-func_environment_unset(struct workspace *wk, obj self, obj *res)
+FUNC_IMPL(environment, unset, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = {
 		{ obj_string, .desc = "The name to unset" },
@@ -236,10 +232,10 @@ func_environment_unset(struct workspace *wk, obj self, obj *res)
 	return true;
 }
 
-const struct func_impl impl_tbl_environment[] = {
-	{ "set", func_environment_set },
-	{ "append", func_environment_append },
-	{ "prepend", func_environment_prepend },
-	{ "unset", func_environment_unset },
-	{ NULL, NULL },
-};
+FUNC_REGISTER(environment)
+{
+	FUNC_IMPL_REGISTER(environment, set);
+	FUNC_IMPL_REGISTER(environment, append);
+	FUNC_IMPL_REGISTER(environment, prepend);
+	FUNC_IMPL_REGISTER(environment, unset);
+}

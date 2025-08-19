@@ -10,7 +10,7 @@
 #include "buf_size.h"
 #include "embedded.h"
 #include "functions/array.h"
-#include "functions/boolean.h"
+#include "functions/bool.h"
 #include "functions/both_libs.h"
 #include "functions/build_target.h"
 #include "functions/compiler.h"
@@ -46,69 +46,87 @@
  * function tables
  ******************************************************************************/
 
-// clang-format off
-static struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = {
-	[0]                        = { { impl_tbl_kernel },               { impl_tbl_kernel_internal },
-				       { impl_tbl_kernel_opts }                                            },
-	[obj_meson]                = { { impl_tbl_meson },                { impl_tbl_meson_internal }      },
-	[obj_subproject]           = { { impl_tbl_subproject },           { 0 }                            },
-	[obj_number]               = { { impl_tbl_number },               { impl_tbl_number, }             },
-	[obj_dependency]           = { { impl_tbl_dependency },           { 0 }                            },
-	[obj_machine]              = { { impl_tbl_machine },              { impl_tbl_machine_internal }    },
-	[obj_compiler]             = { { impl_tbl_compiler },             { impl_tbl_compiler_internal }   },
-	[obj_feature_opt]          = { { impl_tbl_feature_opt },          { 0 }                            },
-	[obj_run_result]           = { { impl_tbl_run_result },           { impl_tbl_run_result }          },
-	[obj_string]               = { { impl_tbl_string },               { impl_tbl_string_internal }     },
-	[obj_dict]                 = { { impl_tbl_dict },                 { impl_tbl_dict_internal }       },
-	[obj_external_program]     = { { impl_tbl_external_program },     { impl_tbl_external_program }    },
-	[obj_python_installation]  = { { impl_tbl_python_installation },  { impl_tbl_python_installation } },
-	[obj_configuration_data]   = { { impl_tbl_configuration_data },   { impl_tbl_configuration_data }  },
-	[obj_custom_target]        = { { impl_tbl_custom_target },        { 0 }                            },
-	[obj_file]                 = { { impl_tbl_file },                 { impl_tbl_file }                },
-	[obj_array]                = { { impl_tbl_array },                { impl_tbl_array_internal }      },
-	[obj_build_target]         = { { impl_tbl_build_target },         { 0 }                            },
-	[obj_environment]          = { { impl_tbl_environment },          { impl_tbl_environment }         },
-	[obj_disabler]             = { { impl_tbl_disabler },             { impl_tbl_disabler }            },
-	[obj_generator]            = { { impl_tbl_generator },            { 0 }                            },
-	[obj_both_libs]            = { { impl_tbl_both_libs },            { 0 }                            },
-	[obj_source_set]           = { { impl_tbl_source_set },           { 0 }                            },
-	[obj_source_configuration] = { { impl_tbl_source_configuration }, { 0 }                            },
-	[obj_module]               = { { impl_tbl_module },               { impl_tbl_module  }             },
+// Every native function gets copied into this array so the vm can refer to
+// functions by index.
+//
+// TODO: There is currently a lot of duplication, maybe that could be cleaned
+// up?
+struct func_impl native_funcs[768];
+
+static struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = { 0 };
+
+static func_impl_register_proto func_impl_register_funcs[obj_type_count] = {
+	[obj_null] = func_impl_register_kernel,
+	[obj_disabler] = func_impl_register_disabler,
+	[obj_meson] = func_impl_register_meson,
+	[obj_module] = func_impl_register_module,
+	[obj_bool] = func_impl_register_bool,
+	[obj_file] = func_impl_register_file,
+	[obj_feature_opt] = func_impl_register_feature_opt,
+	[obj_machine] = func_impl_register_machine,
+	[obj_number] = func_impl_register_number,
+	[obj_string] = func_impl_register_string,
+	[obj_array] = func_impl_register_array,
+	[obj_dict] = func_impl_register_dict,
+	[obj_compiler] = func_impl_register_compiler,
+	[obj_build_target] = func_impl_register_build_target,
+	[obj_custom_target] = func_impl_register_custom_target,
+	[obj_subproject] = func_impl_register_subproject,
+	[obj_dependency] = func_impl_register_dependency,
+	[obj_external_program] = func_impl_register_external_program,
+	[obj_python_installation] = func_impl_register_python_installation,
+	[obj_run_result] = func_impl_register_run_result,
+	[obj_configuration_data] = func_impl_register_configuration_data,
+	[obj_environment] = func_impl_register_environment,
+	[obj_generator] = func_impl_register_generator,
+	[obj_both_libs] = func_impl_register_both_libs,
+	[obj_source_set] = func_impl_register_source_set,
+	[obj_source_configuration] = func_impl_register_source_configuration,
 };
-// clang-format on
 
-struct func_impl native_funcs[512];
+void
+func_impl_register(FUNC_IMPL_REGISTER_ARGS, const struct func_impl *src, const char *alias)
+{
+	assert(*added < cap);
+	dest[*added] = *src;
 
-typedef void ((*func_impl_register_proto)(struct func_impl *, uint32_t, uint32_t *));
+	if (alias) {
+		dest[*added].name = alias;
+	}
+
+	++*added;
+}
+
+void
+func_impl_register_inherit(func_impl_register_proto reg,
+	func_impl_self_transform self_transform,
+	FUNC_IMPL_REGISTER_ARGS)
+{
+	uint32_t i, len, base = *added;
+
+	reg(FUNC_IMPL_REGISTER_ARGS_FWD);
+
+	len = *added - base;
+	for (i = 0; i < len; ++i) {
+		dest[base + i].self_transform = self_transform;
+	}
+}
 
 static void
-copy_func_impl_group(struct func_impl_group *group, uint32_t *off, func_impl_register_proto reg)
+copy_func_impl_group(struct func_impl_group *group,
+	uint32_t *off,
+	enum language_mode lang_mode,
+	func_impl_register_proto reg)
 {
-	if (reg) {
-		uint32_t len = 0;
-		reg(native_funcs + *off, ARRAY_LEN(native_funcs) - *off, &len);
+	uint32_t len = 0;
+	reg(lang_mode, native_funcs + *off, ARRAY_LEN(native_funcs) - *off, &len);
 
-		*group = (struct func_impl_group) {
-			.impls = &native_funcs[*off],
-			.off = *off,
-			.len = len,
-		};
-		*off += len;
-		return;
-	}
-
-	// else
-
-	if (!group->impls) {
-		return;
-	}
-
-	group->off = *off;
-	for (group->len = 0; group->impls[group->len].name; ++group->len) {
-		assert(group->off + group->len < ARRAY_LEN(native_funcs) && "bump native_funcs size");
-		native_funcs[group->off + group->len] = group->impls[group->len];
-	}
-	*off += group->len;
+	*group = (struct func_impl_group){
+		.impls = &native_funcs[*off],
+		.off = *off,
+		.len = len,
+	};
+	*off += len;
 }
 
 void
@@ -119,28 +137,30 @@ build_func_impl_tables(void)
 	enum obj_type t;
 	enum language_mode lang_mode;
 
-	both_libs_build_impl_tbl();
-	python_build_impl_tbl();
+	// Only kernel registers functions
+	copy_func_impl_group(&func_impl_groups[0][language_opts], &off, language_opts, func_impl_register_funcs[0]);
 
 	for (t = 0; t < obj_type_count; ++t) {
-		if (t == obj_bool) {
-			for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
-				copy_func_impl_group(&func_impl_groups[t][lang_mode], &off, func_impl_register_boolean);
-			}
-		} else {
-			for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
-				copy_func_impl_group(&func_impl_groups[t][lang_mode], &off, 0);
+		if (func_impl_register_funcs[t]) {
+			for (lang_mode = 0; lang_mode <= language_internal; ++lang_mode) {
+				copy_func_impl_group(
+					&func_impl_groups[t][lang_mode], &off, lang_mode, func_impl_register_funcs[t]);
 			}
 		}
 	}
 
 	for (m = 0; m < module_count; ++m) {
-		for (lang_mode = 0; lang_mode < language_mode_count; ++lang_mode) {
-			copy_func_impl_group(&module_func_impl_groups[m][lang_mode], &off, 0);
+		if (func_impl_register_module_funcs[m]) {
+			for (lang_mode = 0; lang_mode <= language_internal; ++lang_mode) {
+				copy_func_impl_group(
+					&module_func_impl_groups[m][lang_mode], &off, lang_mode, func_impl_register_module_funcs[m]);
+			}
 		}
 	}
 
-	copy_func_impl_group(&az_func_impl_group, &off, 0);
+	copy_func_impl_group(&az_func_impl_group, &off, language_external, func_impl_register_analyzer);
+
+	L("off: %d", off);
 }
 
 /******************************************************************************
@@ -155,7 +175,7 @@ func_lookup_for_mode(const struct func_impl_group *impl_group, const char *name,
 	}
 
 	uint32_t i;
-	for (i = 0; impl_group->impls[i].name; ++i) {
+	for (i = 0; i < impl_group->len; ++i) {
 		if (strcmp(impl_group->impls[i].name, name) == 0) {
 			*idx = impl_group->off + i;
 			return true;
@@ -273,7 +293,7 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 static void
 kwargs_arr_push_sentinel(struct workspace *wk, struct arr *arr)
 {
-	arr_push(arr, &(struct args_kw) { 0 });
+	arr_push(arr, &(struct args_kw){ 0 });
 }
 
 static void
@@ -326,7 +346,7 @@ kwargs_arr_get(struct workspace *wk, struct arr *arr, const char *name)
 
 static struct func_kwargs_lookup_ctx {
 	struct arr *kwargs;
-} func_kwargs_lookup_ctx  = { 0 };
+} func_kwargs_lookup_ctx = { 0 };
 
 static bool
 func_kwargs_lookup_cb(struct workspace *wk, struct args_norm posargs[], struct args_kw kwargs[])
@@ -555,6 +575,18 @@ dump_function_signatures(struct workspace *wk)
 
 		if (sig->impl->flags & func_impl_flag_extension) {
 			printf("extension:");
+		}
+
+		if (sig->impl->flags & func_impl_flag_impure) {
+			printf("impure:");
+		}
+
+		if (sig->impl->flags & func_impl_flag_sandbox_disable) {
+			printf("sandbox_disable:");
+		}
+
+		if (sig->impl->flags & func_impl_flag_throws_error) {
+			printf("throws_error:");
 		}
 
 		printf("%s\n", sig->name);

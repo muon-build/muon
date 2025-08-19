@@ -22,5 +22,5 @@ typedef enum iteration_result (
 
 bool subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ctx *usr_ctx, subprojects_foreach_cb cb);
 
-extern const struct func_impl impl_tbl_module_subprojects[];
+FUNC_REGISTER(module_subprojects);
 #endif
