@@ -804,11 +804,20 @@ find_program_step_4:
 
 		if (program_specific_envvar) {
 			get_option_value(wk, NULL, program_specific_envvar, &cmd_array);
+			if (get_obj_array(wk, cmd_array)->len < 1) {
+				LOG_E("program option %s is an empty array", program_specific_envvar);
+				return false;
+			}
+			str = get_cstr(wk, obj_array_index(wk, cmd_array, 0));
 		}
 	}
 
 	if (fs_find_cmd(wk, &buf, str)) {
 		path = buf.buf;
+
+		if (cmd_array) {
+			obj_array_set(wk, cmd_array, 0, tstr_into_str(wk, &buf));
+		}
 		goto found;
 	}
 
