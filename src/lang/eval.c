@@ -71,7 +71,7 @@ eval_project(struct workspace *wk,
 	ret = true;
 cleanup:
 	wk->vm.dbg_state.eval_trace = parent_eval_trace;
-	if (wk->cur_project > 0) {
+	if (wk->cur_project > 0 && !wk->vm.in_analyzer) {
 		L("leaving subproject '%s'", subproject_name);
 		log_set_prefix(-2);
 	}
