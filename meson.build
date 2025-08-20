@@ -69,64 +69,60 @@ endif
 cc = meson.get_compiler('c')
 
 if cc.get_argument_syntax() == 'msvc'
-    add_project_arguments(
-        cc.get_supported_arguments(
-            [
-                '/we4027', # -Wstrict-prototypes
-                '/we4056', # -Woverflow
-                '/we4013', # function undefined; assuming extern returning int
+    project_arguments = cc.get_supported_arguments(
+        [
+            '/we4027', # -Wstrict-prototypes
+            '/we4056', # -Woverflow
+            '/we4013', # function undefined; assuming extern returning int
 
-                '/wd4100', # -Wno-unused-parameter
-                '/wd4706', # assignment within conditional expression
-                '/wd4267', # conversion from x to y, possible loss of data
-                '/wd4244', # conversion from x to y, possible loss of data
-                '/wd4456', # declaration of identifier hides previous local declaration
-                '/wd4457', # declaration of 'identifier' hides function parameter
+            '/wd4100', # -Wno-unused-parameter
+            '/wd4706', # assignment within conditional expression
+            '/wd4267', # conversion from x to y, possible loss of data
+            '/wd4244', # conversion from x to y, possible loss of data
+            '/wd4456', # declaration of identifier hides previous local declaration
+            '/wd4457', # declaration of 'identifier' hides function parameter
 
-                # Lots of false positivies due to not understanding UNREACHABLE
-                '/wd4701', # potentially uninitialized local variable name used
-                '/wd4703', # potentially uninitialized local variable name used
-                '/wd4702', # unreachable code
+            # Lots of false positivies due to not understanding UNREACHABLE
+            '/wd4701', # potentially uninitialized local variable name used
+            '/wd4703', # potentially uninitialized local variable name used
+            '/wd4702', # unreachable code
 
-                # msvc complaining about flexible array member
-                '/wd4200', # nonstandard extension used: zero-sized array in struct/union
+            # msvc complaining about flexible array member
+            '/wd4200', # nonstandard extension used: zero-sized array in struct/union
 
-                '/std:c11',
-                # Occurs spuriously due to /std:c11 enabling a
-                # standards-conformant preprocessor
-                '/wd5105', # macro expansion producing 'defined' has undefined behavior
-            ],
-        ),
-        language: 'c',
+            '/std:c11',
+            # Occurs spuriously due to /std:c11 enabling a
+            # standards-conformant preprocessor
+            '/wd5105', # macro expansion producing 'defined' has undefined behavior
+        ],
     )
 else
-    add_project_arguments(
-        cc.get_supported_arguments(
-            [
-                '-Wendif-labels',
-                '-Wimplicit-fallthrough=2',
-                '-Winit-self',
-                '-Wlogical-op',
-                '-Wmissing-include-dirs',
-                '-Wno-missing-braces',
-                '-Wno-missing-field-initializers',
-                '-Wno-unused-parameter',
-                '-Wold-style-definition',
-                '-Woverflow',
-                '-Wstrict-aliasing=2',
-                '-Wstrict-prototypes',
-                '-Wundef',
-                '-Wvla',
-                '-fstrict-aliasing',
-                '-std=c99',
-                '-fmacro-prefix-map=@0@/='.format(
-                    fs.relative_to(meson.current_source_dir(), meson.current_build_dir()),
-                ),
-            ],
-        ),
-        language: 'c',
+    project_arguments = cc.get_supported_arguments(
+        [
+            '-Wendif-labels',
+            '-Wimplicit-fallthrough=2',
+            '-Winit-self',
+            '-Wlogical-op',
+            '-Wmissing-include-dirs',
+            '-Wno-missing-braces',
+            '-Wno-missing-field-initializers',
+            '-Wno-unused-parameter',
+            '-Wold-style-definition',
+            '-Woverflow',
+            '-Wstrict-aliasing=2',
+            '-Wstrict-prototypes',
+            '-Wundef',
+            '-Wvla',
+            '-fstrict-aliasing',
+            '-std=c99',
+            '-fmacro-prefix-map=@0@/='.format(
+                fs.relative_to(meson.current_source_dir(), meson.current_build_dir()),
+            ),
+        ],
     )
 endif
+
+add_project_arguments(project_arguments, language: ['c'])
 
 if platform == 'windows'
     add_project_arguments(

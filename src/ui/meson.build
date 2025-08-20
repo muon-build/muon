@@ -3,6 +3,11 @@
 
 add_languages('cpp')
 
+add_project_arguments(
+    meson.get_compiler('cpp').get_supported_arguments(project_arguments + ['-Wno-c99-extensions']),
+    language: ['cpp'],
+)
+
 deps += [
     dependency('glad'),
     dependency('glfw3'),
