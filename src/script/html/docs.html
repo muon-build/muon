@@ -571,7 +571,7 @@ SPDX-License-Identifier: GPL-3.0-only
           e.appendChild(synPunc('('));
           pushBreak();
 
-          if (f.posargs) {
+          if (f.posargs && f.posargs.length > 0) {
             for (let [i, p] of f.posargs.entries()) {
               pushIndent();
               let a = document.createElement('a');
