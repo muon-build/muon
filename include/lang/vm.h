@@ -242,6 +242,14 @@ bool vm_eval_capture(struct workspace *wk, obj capture, const struct args_norm a
 void vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
+struct vm_inst_location
+{
+	const char *file;
+	uint32_t line;
+	uint32_t col;
+	bool embedded;
+};
+void vm_inst_location(struct workspace *wk, uint32_t ip, struct vm_inst_location *res);
 obj vm_inst_location_str(struct workspace *wk, uint32_t ip);
 obj vm_callstack(struct workspace *wk);
 void vm_dis(struct workspace *wk);

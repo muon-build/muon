@@ -40,6 +40,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "platform/assert.h"
+#include "platform/path.h"
 #include "version.h"
 
 /******************************************************************************
@@ -916,10 +917,21 @@ dump_module_function_capture(struct workspace *wk, const char *module, obj name,
 {
 	struct obj_capture *capture = get_obj_capture(wk, o);
 
+	struct vm_inst_location loc;
+	vm_inst_location(wk, capture->func->def, &loc);
+
+	TSTR(file);
+	if (loc.embedded) {
+		path_push(wk, &file, "src/script");
+	}
+	path_push(wk, &file, loc.file);
+
 	struct func_impl impl = {
 		.name = get_cstr(wk, name),
 		.desc = capture->func->desc,
 		.return_type = capture->func->return_type,
+		.file = file.buf,
+		.line = loc.line,
 	};
 
 	return dump_function(wk,

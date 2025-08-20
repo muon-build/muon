@@ -193,8 +193,8 @@ vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc,
 	}
 }
 
-static obj
-vm_inst_location_obj(struct workspace *wk, uint32_t ip)
+void
+vm_inst_location(struct workspace *wk, uint32_t ip, struct vm_inst_location *res)
 {
 	struct source_location loc;
 	struct source *src;
@@ -202,30 +202,33 @@ vm_inst_location_obj(struct workspace *wk, uint32_t ip)
 	struct detailed_source_location dloc;
 	get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
 
-	obj res;
-	res = make_obj(wk, obj_array);
-	obj_array_push(
-		wk, res, make_strf(wk, "%s%s", src->type == source_type_embedded ? "[embedded] " : "", src->label));
-	obj_array_push(wk, res, make_number(wk, dloc.line));
-	obj_array_push(wk, res, make_number(wk, dloc.col));
-	return res;
+	res->file = src->label;
+	res->line = dloc.line;
+	res->col = dloc.col;
+	res->embedded = src->type == source_type_embedded;
 }
 
 obj
 vm_inst_location_str(struct workspace *wk, uint32_t ip)
 {
-	obj a, src, line, col;
+	struct vm_inst_location loc;
+	vm_inst_location(wk, ip, &loc);
 
-	a = vm_inst_location_obj(wk, ip);
-	src = obj_array_index(wk, a, 0);
-	line = obj_array_index(wk, a, 1);
-	col = obj_array_index(wk, a, 2);
+	return make_strf(wk, "%s%s:%d:%d", loc.embedded ? "[embedded] " : "", loc.file, loc.line, loc.col);
+}
 
-	return make_strf(wk,
-		"%s:%d:%d",
-		get_str(wk, src)->s,
-		(uint32_t)get_obj_number(wk, line),
-		(uint32_t)get_obj_number(wk, col));
+static obj
+vm_inst_location_obj(struct workspace *wk, uint32_t ip)
+{
+	struct vm_inst_location loc;
+	vm_inst_location(wk, ip, &loc);
+
+	obj res;
+	res = make_obj(wk, obj_array);
+	obj_array_push(wk, res, make_strf(wk, "%s%s", loc.embedded ? "[embedded] " : "", loc.file));
+	obj_array_push(wk, res, make_number(wk, loc.line));
+	obj_array_push(wk, res, make_number(wk, loc.col));
+	return res;
 }
 
 obj

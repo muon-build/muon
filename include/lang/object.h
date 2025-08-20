@@ -78,7 +78,7 @@ struct obj_func {
 	uint32_t nargs, nkwargs;
 	type_tag return_type;
 
-	uint32_t entry;
+	uint32_t def, entry;
 	struct args_norm an[32];
 	struct args_kw akw[64];
 };

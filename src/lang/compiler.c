@@ -734,6 +734,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		struct node *doc = n->l->l->r;
 		push_location(wk, id ? id : n->l);
 
+		func->def = wk->vm.code.len;
+
 		push_code(wk, op_constant_func);
 		push_constant(wk, f);
 
