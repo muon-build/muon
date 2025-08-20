@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "coerce.h"
+#include "formats/ansi.h"
 #include "functions/modules/subprojects.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"

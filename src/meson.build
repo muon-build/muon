@@ -17,6 +17,7 @@ src = files(
     'datastructures/bucket_arr.c',
     'datastructures/hash.c',
     'datastructures/stack.c',
+    'formats/ansi.c',
     'formats/editorconfig.c',
     'formats/ini.c',
     'formats/json.c',

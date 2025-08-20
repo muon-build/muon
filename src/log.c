@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "formats/ansi.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -315,7 +316,7 @@ log_print_prefix(enum log_level lvl, char *buf, uint32_t size)
 static void
 print_buffer(FILE *out, const char *s, uint32_t len, bool tty, bool progress)
 {
-	print_colorized(out, s, !tty);
+	print_colorized(out, s, len, !tty);
 
 	if (progress && s[len - 1] == '\n') {
 		log_progress_print_bar(log_cfg.progress.prev_name);
@@ -341,7 +342,6 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 
 	if (log_cfg.tstr) {
 		tstr_pushn(0, log_cfg.tstr, buf, len);
-		tstr_push(0, log_cfg.tstr, '\n');
 	} else if (log_cfg.file) {
 		print_buffer(log_cfg.file,
 			buf,
@@ -368,8 +368,10 @@ log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 
 	va_list ap;
 	va_start(ap, fmt);
-	len += vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
+	vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
 	va_end(ap);
+
+	len = strlen(buf);
 
 	if (nl && len < BUF_SIZE_4k) {
 		buf[len] = '\n';

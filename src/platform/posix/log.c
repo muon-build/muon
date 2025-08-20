@@ -10,38 +10,22 @@
 #include <string.h>
 
 #include "platform/log.h"
+#include "formats/ansi.h"
+
+static void
+print_colorized_flush_cb(void *_ctx, const struct str *s, uint32_t start, uint32_t len)
+{
+	FILE *out = _ctx;
+	fwrite(&s->s[start], 1, len, out);
+}
 
 void
-print_colorized(FILE *out, const char *s, bool strip)
+print_colorized(FILE *out, const char *s, uint32_t len, bool strip)
 {
 	if (!strip) {
-		fwrite(s, 1, strlen(s), out);
+		fwrite(s, 1, len, out);
 		return;
 	}
 
-	bool parsing_esc = false;
-	const char *start = s;
-	uint32_t len = 0;
-
-	for (; *s; ++s) {
-		if (*s == '\033') {
-			if (len) {
-				fwrite(start, 1, len, out);
-				len = 0;
-			}
-
-			parsing_esc = true;
-		} else if (parsing_esc) {
-			if (*s == 'm') {
-				parsing_esc = false;
-				start = s + 1;
-			}
-		} else {
-			++len;
-		}
-	}
-
-	if (len) {
-		fwrite(start, 1, len, out);
-	}
+	parse_ansi(&(struct str) { s, len }, out, print_colorized_flush_cb, 0);
 }

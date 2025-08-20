@@ -13,6 +13,7 @@
 #include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "functions/modules/subprojects.h"
 #include "lang/analyze.h"
 #include "lang/object_iterators.h"

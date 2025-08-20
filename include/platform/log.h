@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 
-void print_colorized(FILE *out, const char *s, bool strip);
+void print_colorized(FILE *out, const char *s, uint32_t len, bool strip);
 #endif

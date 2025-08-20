@@ -12,6 +12,7 @@
 #include "buf_size.h"
 #include "embedded.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/workspace.h"

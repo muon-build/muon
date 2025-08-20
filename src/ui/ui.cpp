@@ -24,6 +24,7 @@ extern "C" {
 #include "backend/common_args.h"
 #include "buf_size.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "functions/both_libs.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
@@ -625,6 +626,96 @@ render_expressions(inspector_window *window)
 	ImGui::End();
 }
 
+struct render_ansi_text_ctx {
+	bool bold, underline, have_clr, new_line;
+	ImU32 clr;
+};
+
+static void
+render_ansi_text_flush_cb(void *_ctx, const struct str *s, uint32_t start_idx, uint32_t len)
+{
+	render_ansi_text_ctx& ctx = *(render_ansi_text_ctx*)_ctx;
+
+	uint32_t pushed = 0;
+
+	if (ctx.have_clr) {
+		ImGui::PushStyleColor( ImGuiCol_Text, ctx.clr );
+		++pushed;
+	}
+
+	// ImGui's text rendering functions trim trailing and leading newlines so
+	// we have to handle them manually.
+
+	const char *start = &s->s[start_idx], *end = &s->s[start_idx + len];
+	const char *newline;
+
+	while (start < end)
+	{
+		if ((newline = (const char*)memchr(start, '\n', end - start))) {
+			ImGui::TextUnformatted(start, newline);
+			// ImGui::NewLine(); <- this is implicit
+			start = newline + 1;
+		} else {
+			ImGui::TextUnformatted(start, end);
+			ImGui::SameLine();
+			start = end;
+		}
+	}
+
+	ImGui::PopStyleColor( pushed );
+}
+
+static void
+render_ansi_text_attr_cb(void *_ctx, enum ansi_attr attr)
+{
+	static const ImU32 ansi_colors[8] = {
+		0xffcccccc,
+		0xff7a77f2,
+		0xff99cc99,
+		0xff66ccff,
+		0xffcc9966,
+		0xffcc99cc,
+		0xffcccc66,
+		0xff2d2d2d,
+	};
+	render_ansi_text_ctx& ctx = *(render_ansi_text_ctx*)_ctx;
+
+	switch (attr) {
+	case c_none:
+		ctx = {};
+		break;
+	case c_bold:
+		ctx.bold = true;
+		break;
+	case c_underline:
+		ctx.underline = true;
+		break;
+	case c_black:
+	case c_red:
+	case c_green:
+	case c_yellow:
+	case c_blue:
+	case c_magenta:
+	case c_cyan:
+	case c_white:
+		ctx.have_clr = true;
+		ctx.clr = ansi_colors[attr - c_black];
+		break;
+	}
+}
+
+static void
+render_ansi_text(const struct str *s)
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+
+	render_ansi_text_ctx ctx = {};
+
+	parse_ansi(s, &ctx, render_ansi_text_flush_cb, render_ansi_text_attr_cb);
+
+	ImGui::PopStyleVar();
+}
+
 static void
 render_log(inspector_window *window)
 {
@@ -636,7 +727,8 @@ render_log(inspector_window *window)
 	struct inspector_context *ctx = get_inspector_context();
 	/* struct workspace *wk = &ctx->wk; */
 
-	ImGui::TextUnformatted(ctx->log.buf, ctx->log.buf + ctx->log.len);
+	const struct str log_str = TSTR_STR(&ctx->log);
+	render_ansi_text(&log_str);
 
 	ImGui::End();
 }

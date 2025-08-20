@@ -35,6 +35,7 @@
 #include "external/libarchive_null.c"
 #include "external/libcurl_null.c"
 #include "external/readline_builtin.c"
+#include "formats/ansi.c"
 #include "formats/editorconfig.c"
 #include "formats/ini.c"
 #include "formats/json.c"

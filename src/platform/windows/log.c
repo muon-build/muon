@@ -16,77 +16,75 @@
 #include <windows.h>
 
 #include "buf_size.h"
+#include "formats/ansi.h"
 #include "platform/assert.h"
 #include "platform/log.h"
 #include "platform/windows/log.h"
 
-static const WORD color_map[] = { [1] = FOREGROUND_INTENSITY,
+static const WORD color_map[] = {
+	[1] = FOREGROUND_INTENSITY,
 	[31] = FOREGROUND_RED,
 	[32] = FOREGROUND_GREEN,
 	[33] = FOREGROUND_GREEN | FOREGROUND_RED,
 	[34] = FOREGROUND_BLUE,
 	[35] = FOREGROUND_BLUE | FOREGROUND_RED,
 	[36] = FOREGROUND_BLUE | FOREGROUND_GREEN,
-	[37] = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED };
+	[37] = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED,
+};
+
+struct print_colorized_ctx {
+	FILE *out;
+	HANDLE console;
+	WORD old_attr;
+};
+
+static void
+print_colorized_flush_cb(void *_ctx, const struct str *s, uint32_t start, uint32_t len, bool newline)
+{
+	struct print_colorized_ctx *ctx = _ctx;
+
+	if (newline) {
+		fputc('\n', ctx->out);
+	}
+	fwrite(&s->s[start], 1, len, ctx->out);
+}
+
+static void
+print_colorized_attr_cb(void *_ctx, enum ansi_attr attr)
+{
+	struct print_colorized_ctx *ctx = _ctx;
+
+	WORD attr_to_set;
+	if (attr < ARRAY_LEN(color_map)) {
+		attr_to_set = color_map[attr];
+	}
+
+	if (!attr_to_set) {
+		attr_to_set = ctx->old_attr;
+	}
+
+	SetConsoleTextAttribute(ctx->console, attr_to_set);
+}
 
 void
-print_colorized(FILE *out, const char *s, bool strip)
+print_colorized(FILE *out, const char *s, uint32_t len, bool strip)
 {
 	if (tty_is_pty) {
-		fwrite(s, 1, strlen(s), out);
-	} else {
-		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-		CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
-		WORD saved_attributes;
-
-		/* Save current attributes */
-		GetConsoleScreenBufferInfo(hConsole, &consoleInfo);
-		saved_attributes = consoleInfo.wAttributes;
-
-		bool parsing_esc = false;
-		const char *start = s;
-		uint32_t len = 0;
-
-		uint32_t esc_num = 0;
-		for (; *s; ++s) {
-			WORD attr = 0;
-			if (*s == '\033') {
-				attr = 0;
-				if (len) {
-					fwrite(start, 1, len, out);
-					len = 0;
-				}
-
-				parsing_esc = true;
-				esc_num = 0;
-			} else if (parsing_esc) {
-				if (*s == 'm' || *s == ';') {
-					if (*s == 'm') {
-						parsing_esc = false;
-						start = s + 1;
-					}
-
-					if (!strip) {
-						assert(esc_num < ARRAY_LEN(color_map) && "esc_num out of range");
-						attr = esc_num ? attr | color_map[esc_num] : saved_attributes;
-						SetConsoleTextAttribute(hConsole, attr);
-					}
-					esc_num = 0;
-				} else if ('0' <= *s && *s <= '9') {
-					esc_num *= 10;
-					esc_num += (*s - '0');
-				} else if (*s == '[') {
-					// nothing
-				} else {
-					assert(false && "invalid character");
-				}
-			} else {
-				++len;
-			}
-		}
-
-		if (len) {
-			fwrite(start, 1, len, out);
-		}
+		fwrite(s, 1, len, out);
+		return;
 	}
+
+	struct print_colorized_ctx ctx = {
+		.out = out,
+		.console = GetStdHandle(STD_OUTPUT_HANDLE),
+	};
+
+	{
+		/* Save current attributes */
+		CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+		GetConsoleScreenBufferInfo(ctx.console, &consoleInfo);
+		ctx.old_attr = consoleInfo.wAttributes;
+	}
+
+	parse_ansi(&(struct str) { s, len }, out, print_colorized_flush_cb, print_colorized_attr_cb);
 }

@@ -14,6 +14,7 @@
 #include "cmd_test.h"
 #include "embedded.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "formats/tap.h"
 #include "functions/environment.h"
 #include "lang/serial.h"

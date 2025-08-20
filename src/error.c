@@ -12,6 +12,7 @@
 #include "buf_size.h"
 #include "datastructures/arr.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"

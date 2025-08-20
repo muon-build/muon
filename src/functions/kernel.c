@@ -14,6 +14,7 @@
 #include "coerce.h"
 #include "error.h"
 #include "external/samurai.h"
+#include "formats/ansi.h"
 #include "functions/environment.h"
 #include "functions/external_program.h"
 #include "functions/kernel.h"

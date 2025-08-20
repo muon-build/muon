@@ -13,6 +13,7 @@
 #include "backend/output.h"
 #include "buf_size.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "lang/object_iterators.h"
 #include "lang/string.h"
 #include "lang/workspace.h"

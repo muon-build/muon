@@ -20,6 +20,7 @@
 #include "coerce.h"
 #include "compilers.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "functions/compiler.h"
 #include "functions/kernel/custom_target.h"
 #include "functions/kernel/dependency.h"
