@@ -501,6 +501,12 @@ SPDX-License-Identifier: GPL-3.0-only
         function synNode(syn, txt) {
           let e = document.createElement("span");
           e.classList.add(`syn-${syn}`);
+
+          if (syn === 'type') {
+            txt = txt.split('|');
+            txt = txt.join(' | ');
+          }
+
           e.innerHTML = txt;
           return e;
         }
