@@ -160,8 +160,6 @@ build_func_impl_tables(void)
 	}
 
 	copy_func_impl_group(&az_func_impl_group, &off, language_external, func_impl_register_analyzer);
-
-	L("off: %d", off);
 }
 
 /******************************************************************************
