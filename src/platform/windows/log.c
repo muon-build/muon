@@ -39,14 +39,10 @@ struct print_colorized_ctx {
 };
 
 static void
-print_colorized_flush_cb(void *_ctx, const struct str *s, uint32_t start, uint32_t len, bool newline)
+print_colorized_flush_cb(void *_ctx, const struct str *s, uint32_t start, uint32_t len)
 {
-	struct print_colorized_ctx *ctx = _ctx;
-
-	if (newline) {
-		fputc('\n', ctx->out);
-	}
-	fwrite(&s->s[start], 1, len, ctx->out);
+	FILE *out = _ctx;
+	fwrite(&s->s[start], 1, len, out);
 }
 
 static void
