@@ -36,7 +36,6 @@ endif
 test_dir = meson.current_build_dir()
 
 foreach t : tests
-    # The exit code to use when a test is skipped
     name = t[0]
     props = t.get(1, {})
 
