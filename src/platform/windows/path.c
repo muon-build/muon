@@ -11,6 +11,7 @@
 
 #include "lang/string.h"
 #include "log.h"
+#include "platform/path.h"
 
 /*
  * reference:
@@ -19,8 +20,6 @@
 bool
 path_is_absolute(const char *path)
 {
-	size_t length;
-
 	if (!path || !*path) {
 		return false;
 	}
@@ -35,14 +34,7 @@ path_is_absolute(const char *path)
 		return true;
 	}
 
-	length = strlen(path);
-	if (length < 3) {
-		return false;
-	}
-
-	/* c:/ or c:\ case insensitive*/
-	return (((path[0] >= 'a') && (path[0] <= 'z')) || ((path[0] >= 'A') && (path[0] <= 'Z'))) && (path[1] == ':')
-	       && ((path[2] == '/') || (path[2] == '\\'));
+	return path_begins_with_win32_drive(path);
 }
 
 bool

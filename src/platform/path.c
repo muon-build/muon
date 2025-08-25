@@ -464,3 +464,16 @@ path_executable(struct workspace *wk, struct tstr *buf, const char *path)
 		path_copy(wk, buf, path);
 	}
 }
+
+bool
+path_begins_with_win32_drive(const char *path)
+{
+	if (!path[0] || !path[1] || !path[2]) {
+		return false;
+	}
+
+	/* c:/ or c:\ case insensitive */
+	return (((path[0] >= 'a') && (path[0] <= 'z')) || ((path[0] >= 'A') && (path[0] <= 'Z'))) && (path[1] == ':')
+	       && ((path[2] == '/') || (path[2] == '\\'));
+}
+
