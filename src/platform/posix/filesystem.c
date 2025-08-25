@@ -527,7 +527,7 @@ fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
 }
 
 bool
-fs_wait_for_input(int fd)
+fs_wait_for_input(int fd, uint32_t *bytes_available)
 {
 	while (true) {
 		struct pollfd fds = {

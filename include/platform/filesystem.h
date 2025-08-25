@@ -63,7 +63,7 @@ bool fs_remove(const char *path);
 bool fs_has_extension(const char *path, const char *ext);
 FILE *fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len);
 bool fs_make_writeable_if_exists(const char *path);
-bool fs_wait_for_input(int fd);
+bool fs_wait_for_input(int fd, uint32_t *bytes_available);
 
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);

@@ -100,15 +100,21 @@ az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 {
 	struct tstr *buf = srv->transport.in_buf;
 
-	if (!fs_wait_for_input(srv->transport.in)) {
-		return false;
-	}
-
 	if (buf->cap - buf->len < 16) {
 		tstr_grow(wk, buf, 1024);
 	}
 
-	int32_t n = fs_read(srv->transport.in, buf->buf + buf->len, buf->cap - buf->len);
+	const uint32_t space_available = buf->cap - buf->len;
+	uint32_t bytes_available = space_available;
+	if (!fs_wait_for_input(srv->transport.in, &bytes_available)) {
+		return false;
+	}
+
+	if (bytes_available > space_available) {
+		bytes_available = space_available;
+	}
+
+	int32_t n = fs_read(srv->transport.in, buf->buf + buf->len, bytes_available);
 	if (n <= 0) {
 		// EOF, error
 		return false;

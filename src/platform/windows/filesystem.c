@@ -548,8 +548,7 @@ fs_remove(const char *path)
 {
 	bool ok = DeleteFileA(path);
 	if (!ok) {
-		if (GetLastError() == ERROR_ACCESS_DENIED)
-		{
+		if (GetLastError() == ERROR_ACCESS_DENIED) {
 			if (!fs_chmod(path, _S_IWRITE)) {
 				return false;
 			}
@@ -584,7 +583,7 @@ fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
 }
 
 bool
-fs_wait_for_input(int fd)
+fs_wait_for_input(int fd, uint32_t *bytes_available)
 {
 	intptr_t _h = _get_osfhandle(fd);
 	if (_h == -2 || (HANDLE)_h == INVALID_HANDLE_VALUE) {
@@ -593,9 +592,22 @@ fs_wait_for_input(int fd)
 	}
 	HANDLE h = (HANDLE)_h;
 
-	if (WaitForSingleObject(h, INFINITE) != WAIT_OBJECT_0) {
-		LOG_E("failed WaitForSingleObject(0x%p): %s", h, win32_error());
-		return false;
+	while (true) {
+		DWORD dwBytesAvailable;
+		if (!PeekNamedPipe(h, NULL, 0, NULL, &dwBytesAvailable, NULL)) {
+			LOG_E("PeekNamedPipe: %s", win32_error());
+			return false;
+		}
+
+		if (dwBytesAvailable) {
+			*bytes_available = dwBytesAvailable;
+			break;
+		}
+
+		if (WaitForSingleObject(h, INFINITE) != WAIT_OBJECT_0) {
+			LOG_E("failed WaitForSingleObject(0x%p): %s", h, win32_error());
+			return false;
+		}
 	}
 
 	return true;
