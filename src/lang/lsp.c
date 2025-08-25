@@ -312,24 +312,29 @@ az_srv_range(struct workspace *wk, const struct source *src, struct source_locat
 }
 
 static const char *
-az_srv_uri_to_path(struct workspace *wk, const struct str *uri_s)
+az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
 {
-	const struct str file_prefix = STR("file://");
-	if (!str_startswith(uri_s, &file_prefix)) {
-		return 0;
+	struct str uri_s = *_uri_s;
+	{
+		const struct str file_prefix = STR("file://");
+		if (!str_startswith(&uri_s, &file_prefix)) {
+			return 0;
+		}
+
+		uri_s.s += file_prefix.len;
+		uri_s.len -= file_prefix.len;
 	}
 
 	TSTR(res);
 
-	uint32_t i;
-	for (i = file_prefix.len; i < uri_s->len; ++i) {
-		if (uri_s->s[i] == '%') {
+	for (uint32_t i = 0; i < uri_s.len; ++i) {
+		if (uri_s.s[i] == '%') {
 			++i;
-			if (i + 2 >= uri_s->len) {
+			if (i + 2 >= uri_s.len) {
 				return 0;
 			}
 
-			const struct str num = { &uri_s->s[i], 2 };
+			const struct str num = { &uri_s.s[i], 2, 0 };
 			++i;
 
 			int64_t n;
@@ -340,9 +345,17 @@ az_srv_uri_to_path(struct workspace *wk, const struct str *uri_s)
 
 			tstr_push(wk, &res, n);
 		} else {
-			tstr_push(wk, &res, uri_s->s[i]);
+			tstr_push(wk, &res, uri_s.s[i]);
 		}
 	}
+
+	// Trim leading / from path on windows
+	if (host_machine.is_windows && res.len >= 4 && path_begins_with_win32_drive(res.buf + 1)) {
+		++res.buf;
+		--res.len;
+		res.buf[res.len] = 0;
+	}
+
 
 	return get_str(wk, tstr_into_str(wk, &res))->s;
 }
@@ -355,6 +368,10 @@ az_srv_path_to_uri(struct workspace *wk, const struct str *path)
 	TSTR(res);
 
 	tstr_pushs(wk, &res, "file://");
+
+	if (host_machine.is_windows && path_begins_with_win32_drive(path->s)) {
+		tstr_push(wk, &res, '/');
+	}
 
 	uint32_t i;
 	for (i = 0; i < path->len; ++i) {
