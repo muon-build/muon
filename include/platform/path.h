@@ -53,4 +53,5 @@ void path_executable(struct workspace *wk, struct tstr *buf, const char *path);
 void _path_normalize(struct workspace *wk, struct tstr *buf, bool optimize);
 void path_to_posix(char *path);
 bool path_begins_with_win32_drive(const char *path);
+bool path_wide_begins_with_win32_drive(const wchar_t *path);
 #endif

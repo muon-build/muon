@@ -465,15 +465,22 @@ path_executable(struct workspace *wk, struct tstr *buf, const char *path)
 	}
 }
 
+#define path_begins_with_win32_drive_impl(path, p) \
+	if (!path[0] || !path[1] || !path[2]) { \
+		return false; \
+	} \
+	\
+	/* c:/ or c:\ case insensitive */ \
+	return (((path[0] >= p## 'a') && (path[0] <= p## 'z')) || ((path[0] >= p## 'A') && (path[0] <= p## 'Z'))) && (path[1] == p## ':') \
+	       && ((path[2] == p## '/') || (path[2] == p## '\\'));
+
 bool
 path_begins_with_win32_drive(const char *path)
 {
-	if (!path[0] || !path[1] || !path[2]) {
-		return false;
-	}
-
-	/* c:/ or c:\ case insensitive */
-	return (((path[0] >= 'a') && (path[0] <= 'z')) || ((path[0] >= 'A') && (path[0] <= 'Z'))) && (path[1] == ':')
-	       && ((path[2] == '/') || (path[2] == '\\'));
+	path_begins_with_win32_drive_impl(path, );
 }
 
+bool path_wide_begins_with_win32_drive(const wchar_t *path)
+{
+	path_begins_with_win32_drive_impl(path, L);
+}
