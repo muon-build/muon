@@ -13,6 +13,7 @@
 #include <io.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <winioctl.h>
 
 #include "lang/string.h"
 #include "log.h"
@@ -74,6 +75,117 @@ fs_file_exists(const char *path)
 	return (fi.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE;
 }
 
+// https://github.com/winsiderss/systeminformer/blob/f0c0366050633d89a1fae805c7a5f344c410fbf0/phnt/include/ntioapi.h#L2881
+typedef struct _REPARSE_DATA_BUFFER {
+	DWORD ReparseTag;
+	USHORT ReparseDataLength;
+	USHORT Reserved;
+	union {
+		struct {
+			USHORT SubstituteNameOffset;
+			USHORT SubstituteNameLength;
+			USHORT PrintNameOffset;
+			USHORT PrintNameLength;
+			ULONG Flags;
+			WCHAR PathBuffer[1];
+		} SymbolicLinkReparseBuffer;
+		struct {
+			USHORT SubstituteNameOffset;
+			USHORT SubstituteNameLength;
+			USHORT PrintNameOffset;
+			USHORT PrintNameLength;
+			WCHAR PathBuffer[1];
+		} MountPointReparseBuffer;
+		struct {
+			ULONG StringCount;
+			WCHAR StringList[1];
+		} AppExecLinkReparseBuffer;
+	} u;
+} REPARSE_DATA_BUFFER;
+
+static char *
+fs_resolve_reparse_point(const char *path)
+{
+	HANDLE h = INVALID_HANDLE_VALUE;
+	REPARSE_DATA_BUFFER *buf = 0;
+	DWORD size;
+	const wchar_t *str = 0;
+	const wchar_t *wide_path = 0;
+	char *resolved;
+	DWORD resolved_size;
+	DWORD wide_ret;
+
+	h = CreateFile(path,
+		FILE_READ_ATTRIBUTES,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		0,
+		OPEN_EXISTING,
+		FILE_FLAG_OPEN_REPARSE_POINT,
+		0);
+	if (h == INVALID_HANDLE_VALUE) {
+		return 0;
+	}
+
+	resolved = 0;
+
+	size = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
+	buf = z_malloc(size);
+
+	if (!DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, 0, 0, buf, size, &size, 0)) {
+		LOG_E("DeviceIoControl failed to get reparse point: %s", win32_error());
+		goto done;
+	}
+
+	if (!IsReparseTagMicrosoft(buf->ReparseTag)) {
+		goto done;
+	}
+
+	switch (buf->ReparseTag) {
+	case IO_REPARSE_TAG_APPEXECLINK: {
+		str = &buf->u.AppExecLinkReparseBuffer.StringList[0];
+		for (ULONG i = 0; i < buf->u.AppExecLinkReparseBuffer.StringCount; i++) {
+			size = wcslen(str);
+			if (path_wide_begins_with_win32_drive(str)) {
+				wide_path = str;
+				break;
+			}
+			str += size + 1;
+		}
+		break;
+	}
+	}
+
+	if (wide_path) {
+		resolved_size = size + 1;
+		resolved = z_malloc(resolved_size);
+
+convert:
+		if (!resolved) {
+			goto done;
+		}
+
+		if (!(wide_ret = WideCharToMultiByte(CP_UTF8, 0, wide_path, size, resolved, resolved_size, 0, 0))) {
+			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+				resolved_size *= 2;
+				resolved = z_realloc(resolved, resolved_size);
+				goto convert;
+			}
+			goto done;
+		}
+
+		resolved[wide_ret] = 0;
+	}
+
+done:
+	if (buf) {
+		z_free(buf);
+	}
+	if (h != INVALID_HANDLE_VALUE) {
+		CloseHandle(h);
+	}
+	return resolved;
+}
+
 bool
 fs_exe_exists(const char *path)
 {
@@ -86,15 +198,27 @@ fs_exe_exists(const char *path)
 	DWORD size_low;
 	DWORD offset;
 	bool ret = false;
+	bool is_reparse = false;
 
+open_file:
 	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (h == INVALID_HANDLE_VALUE) {
+		if (is_reparse) {
+			z_free((void *)path);
+		} else if (GetLastError() == ERROR_CANT_ACCESS_FILE) {
+			path = fs_resolve_reparse_point(path);
+
+			if (path) {
+				is_reparse = true;
+				goto open_file;
+			}
+		}
+
 		return ret;
 	}
 
 	size_low = GetFileSize(h, &size_high);
 	if ((size_low == INVALID_FILE_SIZE) && (GetLastError() != NO_ERROR)) {
-		/* LOG_I("can not get the size of file %s", path); */
 		goto close_file;
 	}
 
@@ -158,6 +282,10 @@ close_fm:
 	CloseHandle(fm);
 close_file:
 	CloseHandle(h);
+
+	if (is_reparse) {
+		free((void *)path);
+	}
 
 	return ret;
 }
