@@ -111,11 +111,11 @@ obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typei
 }
 
 static void
-copy_az_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
+copy_az_entrypoint_stack(struct workspace *wk, uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
 {
 	if (az_entrypoint_stack.len) {
 		*ep_stacks_i = az_entrypoint_stacks.len;
-		arr_grow_by(&az_entrypoint_stacks, az_entrypoint_stack.len);
+		arr_grow_by(&wk->a, &az_entrypoint_stacks, az_entrypoint_stack.len);
 		*ep_stack_len = az_entrypoint_stack.len;
 
 		memcpy(arr_get(&az_entrypoint_stacks, *ep_stacks_i),
@@ -368,7 +368,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// initialize source location to 0 since some variables don't have
 	// anything to put there, like builtin variables
 	uint32_t src_idx, ep_stack_len = 0, ep_stacks_i = 0;
-	copy_az_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
+	copy_az_entrypoint_stack(wk, &ep_stacks_i, &ep_stack_len);
 
 	struct source_location loc;
 	vm_lookup_inst_location_src_idx(&wk->vm, ip, &loc, &src_idx);
@@ -376,7 +376,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// Add the new assignment to the current scope and return its index as
 	// an obj (for storage in the scope dict)
 	obj v = assignments.len;
-	bucket_arr_push(&assignments,
+	bucket_arr_push(&wk->a, &assignments,
 		&(struct az_assignment){
 			.name = name,
 			.o = o,
@@ -679,7 +679,7 @@ az_jmp_if_cond_matches(struct workspace *wk, bool cond)
 	{
 		uint32_t ip = wk->vm.ip - 1;
 		if (!(map = (union branch_map *)hash_get(&analyzer.branch_map, &ip))) {
-			hash_set(&analyzer.branch_map, &ip, 0);
+			hash_set(&wk->a, &analyzer.branch_map, &ip, 0);
 			map = (union branch_map *)hash_get(&analyzer.branch_map, &ip);
 		}
 	}
@@ -856,7 +856,7 @@ az_eval_project_file(struct workspace *wk,
 static void
 az_execute_loop(struct workspace *wk)
 {
-	arr_grow_to(&analyzer.visited_ops, wk->vm.code.len);
+	arr_grow_to(&wk->a, &analyzer.visited_ops, wk->vm.code.len);
 
 	uint32_t cip;
 	while (wk->vm.run) {
@@ -1199,7 +1199,7 @@ az_op_constant_dict(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_constant_dict](wk);
 
 	obj dict = object_stack_peek(&wk->vm.stack, 1);
-	hash_set(&analyzer.dict_locations, &dict, b);
+	hash_set(&wk->a, &analyzer.dict_locations, &dict, b);
 }
 
 static void
@@ -1215,7 +1215,7 @@ az_dict_locations_merge(struct workspace *wk, obj a, obj b, obj tgt)
 	obj merged;
 	obj_dict_merge(wk, *la, *lb, &merged);
 
-	hash_set(&analyzer.dict_locations, &tgt, merged);
+	hash_set(&wk->a, &analyzer.dict_locations, &tgt, merged);
 }
 
 static void
@@ -1253,7 +1253,7 @@ az_op_store(struct workspace *wk)
 
 			uint64_t *hv;
 			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-				hash_set(&analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
+				hash_set(&wk->a, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
 				hv = hash_get(&analyzer.dict_locations, &tgt);
 			}
 
@@ -1282,7 +1282,7 @@ az_op_store(struct workspace *wk)
 
 	if (dup) {
 		obj tgt = object_stack_peek(&wk->vm.stack, 1);
-		hash_set(&analyzer.dict_locations, &tgt, dup);
+		hash_set(&wk->a, &analyzer.dict_locations, &tgt, dup);
 	}
 }
 
@@ -1441,7 +1441,7 @@ analyze_opts_init(struct workspace *wk, struct az_opts *opts)
 {
 	*opts = (struct az_opts){ 0 };
 	opts->file_override = make_obj(wk, obj_dict);
-	arr_init(&opts->file_override_src, 8, sizeof(struct source));
+	arr_init(&wk->a, &opts->file_override_src, 8, struct source);
 }
 
 void
@@ -1453,8 +1453,6 @@ analyze_opts_destroy(struct workspace *wk, struct az_opts *opts)
 		struct source *src = arr_get(&opts->file_override_src, i);
 		fs_source_destroy(src);
 	}
-
-	arr_destroy(&opts->file_override_src);
 	TracyCZoneAutoE;
 }
 
@@ -1486,7 +1484,7 @@ analyze_opts_push_override(struct workspace *wk,
 
 	if (!src) {
 		idx = opts->file_override_src.len;
-		arr_push(&opts->file_override_src, &(struct source){ 0 });
+		arr_push(&wk->a, &opts->file_override_src, &(struct source){ 0 });
 		src = arr_peek(&opts->file_override_src, 1);
 		obj_dict_set(wk, opts->file_override, path, idx);
 	}
@@ -1527,10 +1525,10 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	bool res = false;
 	analyzer.opts = opts;
 
-	bucket_arr_init(&assignments, 512, sizeof(struct az_assignment));
-	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
-	hash_init(&analyzer.dict_locations, 1024, sizeof(obj));
-	arr_init_flags(&analyzer.visited_ops, 1024, 1, arr_flag_zero_memory);
+	bucket_arr_init(&wk->a, &assignments, 512, struct az_assignment);
+	hash_init(&wk->a, &analyzer.branch_map, 1024, uint32_t);
+	hash_init(&wk->a, &analyzer.dict_locations, 1024, obj);
+	arr_init(&wk->a, &analyzer.visited_ops, 1024, char);
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
@@ -1581,8 +1579,8 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	error_diagnostic_store_init(wk);
 
-	arr_init(&az_entrypoint_stack, 32, sizeof(struct az_file_entrypoint));
-	arr_init(&az_entrypoint_stacks, 32, sizeof(struct az_file_entrypoint));
+	arr_init(&wk->a, &az_entrypoint_stack, 32, struct az_file_entrypoint);
+	arr_init(&wk->a, &az_entrypoint_stacks, 32, struct az_file_entrypoint);
 
 	if (analyzer.opts->eval_trace) {
 		wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
@@ -1746,12 +1744,6 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		}
 	}
 
-	bucket_arr_destroy(&assignments);
-	arr_destroy(&az_entrypoint_stack);
-	arr_destroy(&az_entrypoint_stacks);
-	arr_destroy(&analyzer.visited_ops);
-	hash_destroy(&analyzer.branch_map);
-	hash_destroy(&analyzer.dict_locations);
 	TracyCZoneAutoE;
 	return res;
 }

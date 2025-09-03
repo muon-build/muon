@@ -19,7 +19,6 @@
 #include "log.h"
 #include "memmem.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 void
 str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_printable)
@@ -109,9 +108,9 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 
 	if (new_len > wk->vm.objects.chrs.bucket_size) {
 		f |= str_flag_big;
-		p = z_calloc(new_len, 1);
+		p = ar_alloc(&wk->a, 1, new_len, 1);
 	} else {
-		p = bucket_arr_pushn(&wk->vm.objects.chrs, NULL, 0, new_len);
+		p = bucket_arr_pushn(&wk->a, &wk->vm.objects.chrs, NULL, 0, new_len);
 	}
 
 	*s = make_obj(wk, obj_string);
@@ -149,15 +148,15 @@ grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 	}
 
 	if (ss->flags & str_flag_big) {
-		ss->s = z_realloc((void *)ss->s, new_len);
+		ss->s = ar_realloc(&wk->a, (void *)ss->s, ss->len, new_len, 1);
 		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
 	} else if (new_len >= wk->vm.objects.chrs.bucket_size) {
 		ss->flags |= str_flag_big;
-		char *np = z_calloc(new_len, 1);
+		char *np = ar_alloc(&wk->a, 1, new_len, 1);
 		memcpy(np, ss->s, ss->len);
 		ss->s = np;
 	} else {
-		char *np = bucket_arr_pushn(&wk->vm.objects.chrs, ss->s, ss->len, new_len);
+		char *np = bucket_arr_pushn(&wk->a, &wk->vm.objects.chrs, ss->s, ss->len, new_len);
 		ss->s = np;
 	}
 
@@ -186,7 +185,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 	str->flags |= flags;
 
 	if (hash && !wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
-		hash_set_strn(&wk->vm.objects.str_hash, str->s, str->len, s);
+		hash_set_strn(&wk->a, &wk->vm.objects.str_hash, str->s, str->len, s);
 	}
 	return s;
 }
@@ -869,17 +868,6 @@ tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, en
 }
 
 void
-tstr_destroy(struct tstr *sb)
-{
-	if ((sb->flags & tstr_flag_overflown) && (sb->flags & tstr_flag_overflow_alloc)) {
-		if (sb->buf) {
-			z_free(sb->buf);
-			sb->buf = 0;
-		}
-	}
-}
-
-void
 tstr_clear(struct tstr *sb)
 {
 	if ((sb->flags & tstr_flag_write)) {
@@ -910,38 +898,20 @@ tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 	} while (newcap < newlen);
 
 	if (sb->flags & tstr_flag_overflown) {
-		if (sb->flags & tstr_flag_overflow_alloc) {
-			sb->buf = z_realloc(sb->buf, newcap);
-			memset((void *)&sb->buf[sb->len], 0, newcap - sb->cap);
-		} else {
-			grow_str(wk, &sb->s, newcap - sb->cap, false);
-			struct str *ss = (struct str *)get_str(wk, sb->s);
-			sb->buf = (char *)ss->s;
-			ss->len = newcap;
-		}
+		grow_str(wk, &sb->s, newcap - sb->cap, false);
+		struct str *ss = (struct str *)get_str(wk, sb->s);
+		sb->buf = (char *)ss->s;
+		ss->len = newcap;
 	} else {
-		if (sb->flags & tstr_flag_overflow_error) {
-			error_unrecoverable("unhandled tstr overflow: "
-					    "capacity: %d, length: %d, "
-					    "trying to push %d bytes",
-				sb->cap,
-				sb->len,
-				inc);
-		}
-
 		sb->flags |= tstr_flag_overflown;
 
 		char *obuf = sb->buf;
 
-		if (sb->flags & tstr_flag_overflow_alloc) {
-			sb->buf = z_calloc(newcap, 1);
-		} else {
-			reserve_str(wk, &sb->s, newcap);
-			struct str *ss = (struct str *)get_str(wk, sb->s);
-			ss->flags |= str_flag_mutable;
-			sb->buf = (char *)ss->s;
-			assert(ss->len == newcap);
-		}
+		reserve_str(wk, &sb->s, newcap);
+		struct str *ss = (struct str *)get_str(wk, sb->s);
+		ss->flags |= str_flag_mutable;
+		sb->buf = (char *)ss->s;
+		assert(ss->len == newcap);
 
 		if (obuf) {
 			memcpy(sb->buf, obuf, sb->len);
@@ -1087,9 +1057,9 @@ obj
 tstr_into_str(struct workspace *wk, struct tstr *sb)
 {
 	assert(!(sb->flags & tstr_flag_string_exposed));
+	sb->flags |= tstr_flag_string_exposed;
 
-	if (!(sb->flags & tstr_flag_overflow_alloc) && sb->flags & tstr_flag_overflown) {
-		sb->flags |= tstr_flag_string_exposed;
+	if (sb->flags & tstr_flag_overflown) {
 		struct str *ss = (struct str *)get_str(wk, sb->s);
 		assert(strlen(sb->buf) == sb->len);
 		ss->len = sb->len;

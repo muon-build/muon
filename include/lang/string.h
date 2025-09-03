@@ -35,13 +35,7 @@ struct workspace;
  * tstr struct as well as allocating a buffer for it on the stack.
  *
  * The tstr_ family of functions will use this temporary buffer until if
- * overflows.  If it overflows it will become an obj_str unless it has the flag
- * tstr_flag_overflow_alloc (e.g. from TSTR_manual) which will cause it to
- * overflow by allocating directly with malloc.
- *
- * A TSTR must be freed if and only if it has the flag
- * tstr_flag_overflow_alloc, if it overflows without this flag then the
- * workspace manages its memory.
+ * overflows.  If it overflows it will become an obj_str
  *
  * Conversion of a TSTR to a string should be done with tstr_into_str which
  * reuses the underlying string object if it has already been created.
@@ -49,11 +43,8 @@ struct workspace;
 
 enum tstr_flags {
 	tstr_flag_overflown = 1 << 0,
-	tstr_flag_overflow_obj_str = 0 << 1, // the default
-	tstr_flag_overflow_alloc = 1 << 1,
-	tstr_flag_overflow_error = 1 << 2,
-	tstr_flag_write = 1 << 3,
-	tstr_flag_string_exposed = 1 << 4,
+	tstr_flag_write = 1 << 1,
+	tstr_flag_string_exposed = 1 << 2,
 };
 
 #define TSTR_CUSTOM(name, static_len, flags)     \
@@ -61,7 +52,6 @@ enum tstr_flags {
 	char tstr_static_buf_##name[static_len]; \
 	tstr_init(&name, tstr_static_buf_##name, static_len, (enum tstr_flags)flags);
 #define TSTR(name) TSTR_CUSTOM(name, 1024, 0)
-#define TSTR_manual(name) TSTR_CUSTOM(name, 1024, tstr_flag_overflow_alloc)
 #define TSTR_FILE(__name, __f) struct tstr __name = { .flags = tstr_flag_write, .buf = (void *)__f };
 #define TSTR_STR(__s) (struct str) { .s = (__s)->buf, .len = (__s)->len }
 

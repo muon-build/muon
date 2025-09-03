@@ -635,7 +635,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 
 		if (state != run_cmd_running && res->status == test_result_status_timedout) {
 			print_test_progress(wk, ctx, res, true);
-			arr_push(&ctx->test_results, res);
+			arr_push(&wk->a, &ctx->test_results, res);
 			goto free_slot;
 		}
 
@@ -657,7 +657,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_error:
 			res->status = test_result_status_failed;
 			print_test_progress(wk, ctx, res, true);
-			arr_push(&ctx->test_results, res);
+			arr_push(&wk->a, &ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
 			enum test_result_status status;
@@ -686,7 +686,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			}
 
 			print_test_progress(wk, ctx, res, true);
-			arr_push(&ctx->test_results, res);
+			arr_push(&wk->a, &ctx->test_results, res);
 			break;
 		}
 		}
@@ -780,7 +780,7 @@ found_slot:
 		res->dur = timer_read(&res->t);
 		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res, true);
-		arr_push(&ctx->test_results, res);
+		arr_push(&wk->a, &ctx->test_results, res);
 	}
 }
 
@@ -1145,7 +1145,6 @@ bool
 tests_run(struct test_options *opts, const char *argv0)
 {
 	bool ret = false;
-	TSTR_manual(tests_src);
 
 	struct workspace wk;
 	workspace_init_bare(&wk);
@@ -1161,10 +1160,10 @@ tests_run(struct test_options *opts, const char *argv0)
 		.setup = { .timeout_multiplier = 1.0f, },
 	};
 
-	arr_init(&ctx.test_results, 32, sizeof(struct test_result));
-	arr_init(&ctx.jobs_sorted, ctx.opts->jobs, sizeof(uint32_t));
+	arr_init(&wk.a, &ctx.test_results, 32, struct test_result);
+	arr_init(&wk.a, &ctx.jobs_sorted, ctx.opts->jobs, uint32_t);
 	for (uint32_t i = 0; i < ctx.opts->jobs; ++i) {
-		arr_push(&ctx.jobs_sorted, &i);
+		arr_push(&wk.a, &ctx.jobs_sorted, &i);
 	}
 	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
 
@@ -1262,8 +1261,6 @@ tests_run(struct test_options *opts, const char *argv0)
 
 ret:
 	workspace_destroy_bare(&wk);
-	arr_destroy(&ctx.test_results);
-	arr_destroy(&ctx.jobs_sorted);
 	z_free(ctx.jobs);
 	return ret;
 }

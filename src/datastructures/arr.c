@@ -13,36 +13,20 @@
 #include "datastructures/arr.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "tracy.h"
 
 void
-arr_init_flags(struct arr *arr, uint32_t initial, uint32_t item_size, uint32_t flags)
+arr_init_(struct arena *a, struct arr *arr, uint32_t initial, uint32_t item_size, uint32_t item_align)
 {
 	TracyCZoneAutoS;
 	assert(item_size > 0);
 	*arr = (struct arr){
 		.item_size = item_size,
+		.item_align = item_align,
 		.cap = initial,
-		.flags = flags,
-		.e = (flags & arr_flag_zero_memory) ? z_calloc(initial, item_size) : z_malloc(initial * item_size),
+		.e = ar_alloc(a, initial, item_size, item_align),
 	};
 	TracyCZoneAutoE;
-}
-
-void
-arr_init(struct arr *arr, uint32_t initial, uint32_t item_size)
-{
-	arr_init_flags(arr, initial, item_size, 0);
-}
-
-void
-arr_destroy(struct arr *arr)
-{
-	if (arr->e) {
-		z_free(arr->e);
-		arr->e = NULL;
-	}
 }
 
 void
@@ -58,11 +42,10 @@ arr_point_at(const struct arr *arr, uint32_t i)
 }
 
 static void *
-arr_get_mem(struct arr *arr)
+arr_get_mem(struct arena *a, struct arr *arr)
 {
 	uint32_t i, newcap;
 	++arr->len;
-	/* ensure_mem_size(elem, size, ++(*len), cap); */
 	if (arr->len > arr->cap) {
 		assert(arr->cap);
 		newcap = arr->cap * 2;
@@ -70,11 +53,7 @@ arr_get_mem(struct arr *arr)
 			newcap = arr->len * 2;
 		}
 
-		arr->e = z_realloc(arr->e, newcap * arr->item_size);
-
-		if (arr->flags & arr_flag_zero_memory) {
-			memset(arr->e + (arr->cap * arr->item_size), 0, (newcap - arr->cap) * arr->item_size);
-		}
+		arr->e = ar_realloc(a, arr->e, arr->cap * arr->item_size, newcap * arr->item_size, arr->item_align);
 
 		arr->cap = newcap;
 	} else {
@@ -90,23 +69,23 @@ arr_get_mem(struct arr *arr)
 }
 
 void
-arr_grow_by(struct arr *arr, uint32_t size)
+arr_grow_by(struct arena *a, struct arr *arr, uint32_t size)
 {
 	arr->len += size - 1;
-	arr_get_mem(arr);
+	arr_get_mem(a, arr);
 }
 
 void
-arr_grow_to(struct arr *arr, uint32_t size)
+arr_grow_to(struct arena *a, struct arr *arr, uint32_t size)
 {
 	arr->len = size - 1;
-	arr_get_mem(arr);
+	arr_get_mem(a, arr);
 }
 
 uint32_t
-arr_push(struct arr *arr, const void *item)
+arr_push(struct arena *a, struct arr *arr, const void *item)
 {
-	memcpy(arr_get_mem(arr), item, arr->item_size);
+	memcpy(arr_get_mem(a, arr), item, arr->item_size);
 
 	return arr->len - 1;
 }

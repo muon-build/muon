@@ -48,6 +48,9 @@ struct project {
 };
 
 struct workspace {
+	struct arena a;
+	struct arena a_scratch;
+
 	const char *argv0, *source_root, *build_root, *muon_private;
 
 	struct {
@@ -108,10 +111,12 @@ struct workspace {
 #endif
 };
 
+void workspace_init_arena(struct workspace *wk);
 void workspace_init_bare(struct workspace *wk);
 void workspace_init_runtime(struct workspace *wk);
 void workspace_init_startup_files(struct workspace *wk);
 void workspace_init(struct workspace *wk);
+void workspace_destroy_arena(struct workspace *wk);
 void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);

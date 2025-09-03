@@ -258,7 +258,6 @@ void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);
 void vm_reflect_objects(struct workspace *wk);
 void vm_destroy(struct workspace *wk);
-void vm_destroy_objects(struct workspace *wk);
 
 struct vm_mem_stats {
 	uint32_t count[obj_type_count];

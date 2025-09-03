@@ -294,20 +294,14 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 static void
 kwargs_arr_push_sentinel(struct workspace *wk, struct arr *arr)
 {
-	arr_push(arr, &(struct args_kw){ 0 });
+	arr_push(&wk->a_scratch, arr, &(struct args_kw){ 0 });
 }
 
 static void
 kwargs_arr_init(struct workspace *wk, struct arr *arr)
 {
-	arr_init(arr, 8, sizeof(struct args_kw));
+	arr_init(&wk->a_scratch, arr, 8, struct args_kw);
 	kwargs_arr_push_sentinel(wk, arr);
-}
-
-void
-kwargs_arr_destroy(struct workspace *wk, struct arr *arr)
-{
-	arr_destroy(arr);
 }
 
 void
@@ -472,13 +466,14 @@ dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct
 	}
 
 	if (kwargs) {
+		ar_scratch_begin(&wk->a_scratch);
 		struct arr kwargs_list;
-		arr_init(&kwargs_list, 8, sizeof(char *));
+		arr_init(&wk->a_scratch, &kwargs_list, 8, char *);
 
 		for (i = 0; kwargs[i].key; ++i) {
 			const char *v = get_cstr(
 				wk, make_strf(wk, "    %s: %s\n", kwargs[i].key, dump_type(wk, kwargs[i].type)));
-			arr_push(&kwargs_list, &v);
+			arr_push(&wk->a_scratch, &kwargs_list, &v);
 		}
 
 		arr_sort(&kwargs_list, NULL, arr_sort_by_string);
@@ -488,8 +483,7 @@ dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct
 			str_app(wk, &s, *(const char **)arr_get(&kwargs_list, i));
 		}
 		sig->kwargs = get_cstr(wk, s);
-
-		arr_destroy(&kwargs_list);
+		ar_scratch_end(&wk->a_scratch);
 	}
 
 	return false;
@@ -512,7 +506,7 @@ function_sig_sort(const void *a, const void *b, void *_ctx)
 static void
 dump_function_signatures_prepare(struct workspace *wk)
 {
-	arr_init(&function_sig_dump.sigs, 64, sizeof(struct function_signature));
+	arr_init(&wk->a, &function_sig_dump.sigs, 64, struct function_signature);
 	struct function_signature *sig, empty = { 0 };
 	struct func_impl_group *g;
 
@@ -526,7 +520,7 @@ dump_function_signatures_prepare(struct workspace *wk)
 			}
 
 			for (i = 0; i < g->len; ++i) {
-				sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
+				sig = arr_get(&function_sig_dump.sigs, arr_push(&wk->a, &function_sig_dump.sigs, &empty));
 				sig->impl = &g->impls[i];
 				sig->is_method = t != 0;
 				sig->name = get_cstr(wk,
@@ -549,7 +543,7 @@ dump_function_signatures_prepare(struct workspace *wk)
 
 		uint32_t j;
 		for (j = 0; j < g->len; ++j) {
-			sig = arr_get(&function_sig_dump.sigs, arr_push(&function_sig_dump.sigs, &empty));
+			sig = arr_get(&function_sig_dump.sigs, arr_push(&wk->a, &function_sig_dump.sigs, &empty));
 			sig->impl = &g->impls[j];
 			sig->is_method = true;
 			sig->name
@@ -605,8 +599,6 @@ dump_function_signatures(struct workspace *wk)
 		}
 		printf("  returns:\n    %s\n", sig->returns);
 	}
-
-	arr_destroy(&function_sig_dump.sigs);
 }
 
 /******************************************************************************
@@ -754,10 +746,10 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 			const char *key;
 			uint32_t i;
 		};
-		arr_init(&kwargs_list, 8, sizeof(struct kwargs_list_elem));
+		arr_init(&wk->a_scratch, &kwargs_list, 8, struct kwargs_list_elem);
 
 		for (i = 0; kwargs[i].key; ++i) {
-			arr_push(&kwargs_list,
+			arr_push(&wk->a, &kwargs_list,
 				&(struct kwargs_list_elem){
 					.key = kwargs[i].key,
 					.i = i,
@@ -810,7 +802,6 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 			obj_array_push(wk, arr, dump_function_arg(wk, 0, 0, &kwarg));
 			obj_dict_set(wk, dict, make_str(wk, kwarg.key), obj_bool_true);
 		}
-		arr_destroy(&kwargs_list);
 
 		obj_dict_set(wk, res, make_str(wk, "kwargs"), arr);
 	}
@@ -865,12 +856,14 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 	}
 
 	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args_cb);
+	ar_scratch_begin(&wk->a_scratch);
 	if (opts->impl->func) {
 		opts->impl->func(wk, 0, 0);
 	} else {
 		obj _res;
 		vm_eval_capture(wk, opts->capture, 0, 0, &_res);
 	}
+	ar_scratch_end(&wk->a_scratch);
 	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
 
 	return res;

@@ -263,7 +263,7 @@ check_deprecated_option(struct workspace *wk, struct obj_option *opt, obj sval, 
 				.source = option_value_source_deprecated_rename,
 			};
 
-			arr_push(&wk->option_overrides, &oo);
+			arr_push(&wk->a, &wk->option_overrides, &oo);
 		}
 		break;
 	}
@@ -941,7 +941,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 		return false;
 	}
 
-	arr_push(&wk->option_overrides, &oo);
+	arr_push(&wk->a, &wk->option_overrides, &oo);
 	return true;
 }
 
@@ -997,7 +997,7 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 
 		if ((params->flags & parse_and_set_option_flag_for_subproject) || oo_for_subproject) {
 			oo.source = option_value_source_subproject_default_options;
-			arr_push(&wk->option_overrides, &oo);
+			arr_push(&wk->a, &wk->option_overrides, &oo);
 			return true;
 		}
 	}

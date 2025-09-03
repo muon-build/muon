@@ -10,14 +10,13 @@
 
 #include "datastructures/bucket_arr.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "tracy.h"
 
 void
-init_bucket(struct bucket_arr *ba, struct bucket *b)
+init_bucket(struct arena *a, struct bucket_arr *ba, struct bucket *b)
 {
 	TracyCZoneAutoS;
-	b->mem = z_calloc(ba->item_size, ba->bucket_size);
+	b->mem = ar_alloc(a, ba->bucket_size, ba->item_size, ba->item_align);
 	TracyCZoneAutoE;
 }
 
@@ -28,7 +27,7 @@ bucket_arr_size(struct bucket_arr *ba)
 }
 
 void
-bucket_arr_init(struct bucket_arr *ba, uint32_t bucket_size, uint32_t item_size)
+bucket_arr_init_(struct arena *a, struct bucket_arr *ba, uint32_t bucket_size, uint32_t item_size, uint32_t item_align)
 {
 	TracyCZoneAutoS;
 	assert(item_size > 0);
@@ -38,10 +37,10 @@ bucket_arr_init(struct bucket_arr *ba, uint32_t bucket_size, uint32_t item_size)
 		.bucket_size = bucket_size,
 	};
 
-	arr_init(&ba->buckets, 1, sizeof(struct bucket));
+	arr_init(a, &ba->buckets, 1, struct bucket);
 
-	arr_push(&ba->buckets, &(struct bucket){ 0 });
-	init_bucket(ba, arr_get(&ba->buckets, 0));
+	arr_push(a, &ba->buckets, &(struct bucket){ 0 });
+	init_bucket(a, ba, arr_get(&ba->buckets, 0));
 	TracyCZoneAutoE;
 }
 
@@ -93,7 +92,7 @@ bucket_arr_restore(struct bucket_arr *ba, const struct bucket_arr_save *save)
 }
 
 void *
-bucket_arr_pushn(struct bucket_arr *ba, const void *data, uint32_t data_len, uint32_t reserve)
+bucket_arr_pushn(struct arena *a, struct bucket_arr *ba, const void *data, uint32_t data_len, uint32_t reserve)
 {
 	void *dest;
 	struct bucket *b;
@@ -105,10 +104,10 @@ bucket_arr_pushn(struct bucket_arr *ba, const void *data, uint32_t data_len, uin
 
 	if (b->len + reserve > ba->bucket_size) {
 		if (ba->tail_bucket >= ba->buckets.len - 1) {
-			arr_push(&ba->buckets, &(struct bucket){ 0 });
+			arr_push(a, &ba->buckets, &(struct bucket){ 0 });
 			++ba->tail_bucket;
 			b = arr_get(&ba->buckets, ba->tail_bucket);
-			init_bucket(ba, b);
+			init_bucket(a, ba, b);
 		} else {
 			++ba->tail_bucket;
 			b = arr_get(&ba->buckets, ba->tail_bucket);
@@ -128,9 +127,9 @@ bucket_arr_pushn(struct bucket_arr *ba, const void *data, uint32_t data_len, uin
 }
 
 void *
-bucket_arr_push(struct bucket_arr *ba, const void *item)
+bucket_arr_push(struct arena *a, struct bucket_arr *ba, const void *item)
 {
-	return bucket_arr_pushn(ba, item, 1, 1);
+	return bucket_arr_pushn(a, ba, item, 1, 1);
 }
 
 void *
@@ -143,22 +142,6 @@ bucket_arr_get(const struct bucket_arr *ba, uint32_t i)
 	assert(bucket_i < b->len);
 
 	return b->mem + (bucket_i * ba->item_size);
-}
-
-void
-bucket_arr_destroy(struct bucket_arr *ba)
-{
-	uint32_t i;
-
-	struct bucket *b;
-
-	for (i = 0; i < ba->buckets.len; ++i) {
-		b = arr_get(&ba->buckets, i);
-
-		z_free(b->mem);
-	}
-
-	arr_destroy(&ba->buckets);
 }
 
 bool

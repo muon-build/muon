@@ -26,7 +26,7 @@
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir)
 {
-	*id = arr_push(&wk->projects, &(struct project){ 0 });
+	*id = arr_push(&wk->a, &wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
 	proj->opts = make_obj(wk, obj_dict);
@@ -72,9 +72,17 @@ current_project(struct workspace *wk)
 }
 
 void
-workspace_init_bare(struct workspace *wk)
+workspace_init_arena(struct workspace *wk)
 {
 	*wk = (struct workspace){ 0 };
+	arena_init(&wk->a,);
+	arena_init(&wk->a_scratch,);
+}
+
+void
+workspace_init_bare(struct workspace *wk)
+{
+	workspace_init_arena(wk);
 	vm_init(wk);
 	stack_init(&wk->stack, 4096);
 
@@ -121,8 +129,8 @@ workspace_init_runtime(struct workspace *wk)
 	path_copy_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, tstr_into_str(wk, &source_root));
 
-	arr_init(&wk->projects, 16, sizeof(struct project));
-	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
+	arr_init(&wk->a, &wk->projects, 16, struct project);
+	arr_init(&wk->a, &wk->option_overrides, 32, struct option_override);
 
 	wk->binaries = make_obj(wk, obj_dict);
 	wk->host_machine = make_obj(wk, obj_dict);
@@ -174,18 +182,24 @@ workspace_init(struct workspace *wk)
 }
 
 void
+workspace_destroy_arena(struct workspace *wk)
+{
+	ar_destroy(&wk->a);
+	ar_destroy(&wk->a_scratch);
+}
+
+void
 workspace_destroy_bare(struct workspace *wk)
 {
 	vm_destroy(wk);
 	stack_destroy(&wk->stack);
+	workspace_destroy_arena(wk);
 }
 
 void
 workspace_destroy(struct workspace *wk)
 {
 	TracyCZoneAutoS;
-	arr_destroy(&wk->projects);
-	arr_destroy(&wk->option_overrides);
 	workspace_destroy_bare(wk);
 	TracyCZoneAutoE;
 }

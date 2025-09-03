@@ -266,7 +266,7 @@ cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	struct workspace wk;
 	workspace_init_bare(&wk);
 
-	arr_push(&wk.vm.src, &(struct source){ 0 });
+	arr_push(&wk.a, &wk.vm.src, &(struct source){ 0 });
 	struct source *src = arr_get(&wk.vm.src, 0);
 
 	if (!fs_read_entire_file(opts.filename, src)) {
@@ -495,8 +495,11 @@ cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	TSTR_manual(path);
-	path_join(0, &path, output_path.private_dir, output_path.paths[output_path_summary].path);
+	struct workspace wk;
+	workspace_init_arena(&wk);
+
+	TSTR(path);
+	path_join(&wk, &path, output_path.private_dir, output_path.paths[output_path_summary].path);
 
 	bool ret = false;
 	struct source src = { 0 };
@@ -508,7 +511,7 @@ cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	ret = true;
 ret:
-	tstr_destroy(&path);
+	workspace_destroy_arena(&wk);
 	fs_source_destroy(&src);
 	return ret;
 }
@@ -1002,7 +1005,7 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".", requirement_auto);
+	setup_platform_env(&wk, ".", requirement_auto);
 
 	test_opts.tests = &argv[argi];
 	test_opts.tests_len = argc - argi;
@@ -1154,7 +1157,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		goto ret;
 	}
 
-	setup_platform_env(build, opts.vsenv_req);
+	setup_platform_env(&wk, build, opts.vsenv_req);
 
 	if (!workspace_do_setup(&wk)) {
 		goto ret;

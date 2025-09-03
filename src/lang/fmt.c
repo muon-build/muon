@@ -82,19 +82,19 @@ struct fmt_ctx {
 static struct fmt_frag *
 fmt_frag(struct fmt_ctx *f, enum fmt_frag_type type)
 {
-	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .type = type });
+	return bucket_arr_push(&f->wk->a, &f->frags, &(struct fmt_frag){ .type = type });
 }
 
 static struct fmt_frag *
 fmt_frag_s(struct fmt_ctx *f, const char *s)
 {
-	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = make_str(f->wk, s) });
+	return bucket_arr_push(&f->wk->a, &f->frags, &(struct fmt_frag){ .str = make_str(f->wk, s) });
 }
 
 static struct fmt_frag *
 fmt_frag_o(struct fmt_ctx *f, obj s)
 {
-	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = s });
+	return bucket_arr_push(&f->wk->a, &f->frags, &(struct fmt_frag){ .str = s });
 }
 
 static struct fmt_frag *
@@ -354,7 +354,7 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 static void
 fmt_push_out_block(struct fmt_ctx *f)
 {
-	arr_push(&f->out_blocks,
+	arr_push(&f->wk->a, &f->out_blocks,
 		&(struct fmt_out_block){
 			.str = tstr_into_str(f->wk, f->out_buf),
 		});
@@ -443,7 +443,7 @@ fmt_write_frag_comment(struct fmt_ctx *f, struct fmt_frag *comment)
 
 		obj raw_block;
 		raw_block = obj_array_index(f->wk, f->raw_blocks, f->raw_block_idx);
-		arr_push(&f->out_blocks,
+		arr_push(&f->wk->a, &f->out_blocks,
 			&(struct fmt_out_block){
 				.str = raw_block,
 				.raw = true,
@@ -826,7 +826,7 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 		if (n->l) {
 			prev = child;
 			child = fmt_frag(f, fmt_frag_type_expr);
-			arr_push(&f->list_tmp, &child);
+			arr_push(&f->wk->a, &f->list_tmp, &child);
 
 			if (n->l->type == node_type_kw) {
 				if (f->opts.kwargs_force_multiline) {
@@ -1719,9 +1719,9 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		},
 	};
 
-	bucket_arr_init(&f.frags, 1024, sizeof(struct fmt_frag));
-	arr_init(&f.out_blocks, 64, sizeof(struct fmt_out_block));
-	arr_init(&f.list_tmp, 64, sizeof(struct fmt_frag *));
+	bucket_arr_init(&f.wk->a, &f.frags, 1024, struct fmt_frag);
+	arr_init(&f.wk->a, &f.out_blocks, 64, struct fmt_out_block);
+	arr_init(&f.wk->a, &f.list_tmp, 64, struct fmt_frag *);
 
 	if (editorconfig) {
 		try_parse_editorconfig(src, &f.opts);
@@ -1770,8 +1770,5 @@ ret:
 		z_free(cfg_buf);
 	}
 	fs_source_destroy(&cfg_src);
-	bucket_arr_destroy(&f.frags);
-	arr_destroy(&f.out_blocks);
-	arr_destroy(&f.list_tmp);
 	return ret;
 }

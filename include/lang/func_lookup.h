@@ -73,7 +73,6 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 const struct func_impl_group *func_lookup_group(enum obj_type t);
 
 void func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr *kwargs_arr);
-void kwargs_arr_destroy(struct workspace *wk, struct arr *arr);
 void kwargs_arr_push(struct workspace *wk, struct arr *arr, const struct args_kw *kw);
 void kwargs_arr_del(struct workspace *wk, struct arr *arr, const char *name);
 struct args_kw *kwargs_arr_get(struct workspace *wk, struct arr *arr, const char *name);

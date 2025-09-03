@@ -90,16 +90,16 @@ hash_keycmp_memcmp(const struct hash *h, const void *a, const void *b)
 }
 
 void
-hash_init(struct hash *h, uint32_t cap, uint32_t keysize)
+hash_init_(struct arena *a, struct hash *h, uint32_t cap, uint32_t key_size, uint32_t key_align)
 {
 	TracyCZoneAutoS;
 
 	ASSERT_VALID_CAP(cap);
 
 	*h = (struct hash){ .cap = cap, .capm = cap - 1, .max_load = (uint32_t)((float)cap * LOAD_FACTOR) };
-	arr_init(&h->meta, h->cap, sizeof(uint8_t));
-	arr_init(&h->e, h->cap, sizeof(struct hash_elem));
-	arr_init(&h->keys, h->cap, keysize);
+	arr_init(a, &h->meta, h->cap, uint8_t);
+	arr_init(a, &h->e, h->cap, struct hash_elem);
+	arr_init_(a, &h->keys, h->cap, key_size, key_align);
 
 	prepare_table(h);
 
@@ -117,19 +117,11 @@ hash_keycmp_strcmp(const struct hash *_h, const void *_a, const void *_b)
 }
 
 void
-hash_init_str(struct hash *h, uint32_t cap)
+hash_init_str(struct arena *a, struct hash *h, uint32_t cap)
 {
-	hash_init(h, cap, sizeof(struct strkey));
+	hash_init(a, h, cap, struct strkey);
 	h->keycmp = hash_keycmp_strcmp;
 	h->hash_func = fnv_1a_64_str;
-}
-
-void
-hash_destroy(struct hash *h)
-{
-	arr_destroy(&h->meta);
-	arr_destroy(&h->e);
-	arr_destroy(&h->keys);
 }
 
 void
@@ -166,7 +158,7 @@ probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t 
 }
 
 static void
-resize(struct hash *h, uint32_t newcap)
+hash_resize(struct arena *a, struct hash *h, uint32_t newcap)
 {
 	ASSERT_VALID_CAP(newcap);
 	assert(h->len <= newcap);
@@ -189,8 +181,8 @@ resize(struct hash *h, uint32_t newcap)
 		.keycmp = h->keycmp,
 	};
 
-	arr_init(&newh.meta, newh.cap, sizeof(uint8_t));
-	arr_init(&newh.e, newh.cap, sizeof(struct hash_elem));
+	arr_init(a, &newh.meta, newh.cap, uint8_t);
+	arr_init(a, &newh.e, newh.cap, struct hash_elem);
 
 	prepare_table(&newh);
 
@@ -210,8 +202,8 @@ resize(struct hash *h, uint32_t newcap)
 		*meta = hv & 0x7f;
 	}
 
-	arr_destroy(&h->meta);
-	arr_destroy(&h->e);
+	// arr_destroy(&h->meta);
+	// arr_destroy(&h->e);
 	*h = newh;
 }
 
@@ -259,10 +251,10 @@ hash_unset_strn(struct hash *h, const char *s, uint64_t len)
 }
 
 void
-hash_set(struct hash *h, const void *key, uint64_t val)
+hash_set(struct arena *a, struct hash *h, const void *key, uint64_t val)
 {
 	if (h->load > h->max_load) {
-		resize(h, h->cap << 1);
+		hash_resize(a, h, h->cap << 1);
 	}
 
 	struct hash_elem *he;
@@ -274,7 +266,7 @@ hash_set(struct hash *h, const void *key, uint64_t val)
 	if (k_full(*meta)) {
 		he->val = val;
 	} else {
-		he->keyi = arr_push(&h->keys, key);
+		he->keyi = arr_push(a, &h->keys, key);
 		he->val = val;
 		*meta = hv & 0x7f;
 		++h->len;
@@ -283,8 +275,8 @@ hash_set(struct hash *h, const void *key, uint64_t val)
 }
 
 void
-hash_set_strn(struct hash *h, const char *s, uint64_t len, uint64_t val)
+hash_set_strn(struct arena *a, struct hash *h, const char *s, uint64_t len, uint64_t val)
 {
 	struct strkey key = { .str = s, .len = len };
-	hash_set(h, &key, val);
+	hash_set(a, h, &key, val);
 }
