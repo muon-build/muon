@@ -66,7 +66,7 @@ write_custom_target_dat(struct workspace *wk, struct obj_custom_target *tgt, obj
 
 	FILE *dat;
 
-	if (!fs_mkdir_p(dirpath.buf)) {
+	if (!fs_mkdir_p(wk, dirpath.buf)) {
 		return false;
 	} else if (!(dat = fs_fopen(dat_path.buf, "wb"))) {
 		return false;

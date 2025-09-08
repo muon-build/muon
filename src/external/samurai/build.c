@@ -262,7 +262,7 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 	for (i = 0; i < e->nout; ++i) {
 		n = e->out[i];
 		if (n->mtime == SAMU_MTIME_MISSING) {
-			if (samu_makedirs(n->path, true) < 0)
+			if (samu_makedirs(ctx, n->path, true) < 0)
 				return false;
 		}
 	}
@@ -289,10 +289,10 @@ samu_jobstart(struct samu_ctx *ctx, struct samu_job *j, struct samu_edge *e)
 
 	bool cmd_started = false;
 	if (build_machine.is_windows) {
-		cmd_started = run_cmd_unsplit(&j->cmd_ctx, j->cmd->s, 0, 0);
+		cmd_started = run_cmd_unsplit(ctx->wk, &j->cmd_ctx, j->cmd->s, 0, 0);
 	} else {
 		char *argv[] = { "/bin/sh", "-c", j->cmd->s, NULL };
-		cmd_started = run_cmd_argv(&j->cmd_ctx, argv, 0, 0);
+		cmd_started = run_cmd_argv(ctx->wk, &j->cmd_ctx, argv, 0, 0);
 	}
 
 	if (!cmd_started) {
@@ -488,7 +488,7 @@ samu_build(struct samu_ctx *ctx)
 				continue;
 			}
 
-			enum run_cmd_state state = run_cmd_collect(&jobs[i].cmd_ctx);
+			enum run_cmd_state state = run_cmd_collect(ctx->wk, &jobs[i].cmd_ctx);
 			if (state == run_cmd_running) {
 				continue;
 			}

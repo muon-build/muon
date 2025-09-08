@@ -1279,7 +1279,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 					.source = option_value_source_commandline,
 					.obj_value = true,
 				};
-				arr_push(&wk->option_overrides, &oo);
+				arr_push(&wk->a, &wk->option_overrides, &oo);
 			}
 		}
 	}
@@ -1627,8 +1627,8 @@ ui_update()
 	if (first) {
 		first = false;
 
-		tstr_init(&ctx->log, 0, 0, tstr_flag_overflow_alloc);
-		log_set_buffer(&ctx->log);
+		tstr_init(&ctx->log, 0, 0, (enum tstr_flags)0);
+		log_set_buffer(&ctx->wk, &ctx->log);
 
 		ctx->graph_params.c1 = 0.5;
 		ctx->graph_params.c2 = 9.0;

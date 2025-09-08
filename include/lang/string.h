@@ -63,7 +63,6 @@ struct tstr {
 };
 
 void tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags);
-void tstr_destroy(struct tstr *sb);
 void tstr_clear(struct tstr *sb);
 void tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc);
 void tstr_push(struct workspace *wk, struct tstr *sb, char s);

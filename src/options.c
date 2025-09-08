@@ -413,7 +413,7 @@ prefix_dir_opts_iter(struct workspace *wk, void *_ctx, obj _k, obj v)
 	}
 
 	TSTR(new_path);
-	if (path_is_subpath(ctx->prefix->s, path)) {
+	if (path_is_subpath(wk, ctx->prefix->s, path)) {
 		path_relative_to(wk, &new_path, ctx->prefix->s, path);
 	} else {
 		path_join(wk, &new_path, ctx->prefix->s, path);
@@ -679,7 +679,7 @@ static bool
 init_builtin_options(struct workspace *wk, const char *script)
 {
 	struct source src;
-	if (!embedded_get(script, &src)) {
+	if (!embedded_get(wk, script, &src)) {
 		return false;
 	}
 

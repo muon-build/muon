@@ -39,7 +39,7 @@ struct samu_string *samu_mkstr(struct samu_arena *a, size_t n);
  * folding '/.' and 'foo/..' */
 void samu_canonpath(struct samu_string *);
 /* make a directory (or parent directory of a file) recursively */
-int samu_makedirs(struct samu_string *, _Bool);
+int samu_makedirs(struct samu_ctx *ctx, struct samu_string *, _Bool);
 /* write a new file with the given name and contents */
 int samu_writefile(const char *, struct samu_string *);
 #endif

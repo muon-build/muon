@@ -28,7 +28,7 @@ static struct {
 void
 error_diagnostic_store_init(struct workspace *wk)
 {
-	arr_init(&error_diagnostic_store.messages, 32, sizeof(struct error_diagnostic_message));
+	arr_init(&wk->a, &error_diagnostic_store.messages, 32, struct error_diagnostic_message);
 	error_diagnostic_store.init = true;
 	error_diagnostic_store.wk = wk;
 }
@@ -49,8 +49,6 @@ error_diagnostic_store_destroy(struct workspace *wk)
 		z_free((char *)msg->msg);
 	}
 
-	arr_destroy(&error_diagnostic_store.messages);
-
 	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
 }
 
@@ -61,7 +59,7 @@ error_diagnostic_store_push(uint32_t src_idx, struct source_location location, e
 	char *m = z_calloc(mlen + 1, 1);
 	memcpy(m, msg, mlen);
 
-	arr_push(&error_diagnostic_store.messages,
+	arr_push(&error_diagnostic_store.wk->a, &error_diagnostic_store.messages,
 		&(struct error_diagnostic_message){
 			.location = location,
 			.lvl = lvl,
@@ -122,8 +120,8 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 
 	{
 		struct arr filtered;
-		arr_init(&filtered, 32, sizeof(struct error_diagnostic_message));
-		arr_push(&filtered, arr_get(&error_diagnostic_store.messages, 0));
+		arr_init(&wk->a, &filtered, 32, struct error_diagnostic_message);
+		arr_push(&wk->a, &filtered, arr_get(&error_diagnostic_store.messages, 0));
 		struct error_diagnostic_message *prev_msg, tmp;
 		for (i = 1; i < error_diagnostic_store.messages.len; ++i) {
 			prev_msg = arr_get(&error_diagnostic_store.messages, i - 1);
@@ -135,10 +133,9 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 			}
 
 			tmp = *msg;
-			arr_push(&filtered, &tmp);
+			arr_push(&wk->a, &filtered, &tmp);
 		}
 
-		arr_destroy(&error_diagnostic_store.messages);
 		error_diagnostic_store.messages = filtered;
 	}
 

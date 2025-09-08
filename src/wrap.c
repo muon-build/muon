@@ -355,7 +355,7 @@ wrap_copy_packagefiles_dir(struct workspace *wk, const char *src_base, const cha
 		.force = true,
 	};
 
-	return fs_copy_dir_ctx(&ctx);
+	return fs_copy_dir_ctx(wk, &ctx);
 }
 
 enum wrap_checksum_extract_local_file_result {
@@ -388,7 +388,7 @@ wrap_checksum_extract_local_file(struct workspace *wk,
 		}
 	}
 
-	bool ok = muon_archive_extract(src.src, src.len, dest_dir);
+	bool ok = muon_archive_extract(wk, src.src, src.len, dest_dir);
 	fs_source_destroy(&src);
 	return ok ? wrap_checksum_extract_local_file_result_ok : wrap_checksum_extract_local_file_result_failed;
 }
@@ -669,7 +669,7 @@ wrap_run_cmd_status(struct workspace *wk,
 		}
 	}
 
-	if (!run_cmd_argv(&ctx->cmd_ctx, argv, 0, 0)) {
+	if (!run_cmd_argv(wk, &ctx->cmd_ctx, argv, 0, 0)) {
 		if (!(ctx->run_cmd_opts.allow_failure)) {
 			wrap_log(ctx,
 				log_error,
@@ -728,7 +728,11 @@ wrap_apply_diff_files(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	char *p = (char *)ctx->wrap.fields[wf_diff_files];
 	const char *diff_file = p;
 
-	bool patch_cmd_found = fs_has_cmd("patch");
+	bool patch_cmd_found;
+	{
+		TSTR(_buf)
+		patch_cmd_found = fs_find_cmd(wk, &_buf, "patch");
+	}
 
 	while (true) {
 		if (p[1] == ',' || !p[1]) {
@@ -890,7 +894,7 @@ git_fetch_revision(struct workspace *wk, struct wrap_handle_ctx *ctx, const char
 static bool
 wrap_git_init(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	if (!fs_mkdir_p(ctx->wrap.dest_dir.buf)) {
+	if (!fs_mkdir_p(wk, ctx->wrap.dest_dir.buf)) {
 		return false;
 	} else if (!wrap_run_cmd(wk, ctx, ARGV("git", "init", "-q"), ctx->wrap.dest_dir.buf, 0)) {
 		return false;
@@ -1083,7 +1087,7 @@ wrap_handle_check_dirty_next_state(struct workspace *wk, struct wrap_handle_ctx 
 void
 wrap_handle_async_start(struct workspace *wk)
 {
-	mc_init();
+	mc_init(&wk->a_scratch);
 }
 
 void
@@ -1098,7 +1102,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	if (ctx->sub_state == wrap_handle_sub_state_running_cmd) {
 		bool error = false;
 
-		switch (run_cmd_collect(&ctx->cmd_ctx)) {
+		switch (run_cmd_collect(wk, &ctx->cmd_ctx)) {
 		case run_cmd_running: return true;
 		case run_cmd_error: {
 			error = true;
@@ -1144,7 +1148,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 				TSTR(cache_path);
 				path_join(wk, &cache_path, ctx->opts.subprojects, "packagecache");
-				if (!fs_mkdir_p(cache_path.buf)) {
+				if (!fs_mkdir_p(wk,cache_path.buf)) {
 					return false;
 				}
 				path_push(wk, &cache_path, ctx->fetch_ctx.filename);
@@ -1158,7 +1162,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		}
 		}
 	} else if (ctx->sub_state == wrap_handle_sub_state_extracting) {
-		if (!muon_archive_extract(
+		if (!muon_archive_extract(wk,
 			    (const char *)ctx->fetch_ctx.buf, ctx->fetch_ctx.len, ctx->fetch_ctx.dest_dir)) {
 			return false;
 		}

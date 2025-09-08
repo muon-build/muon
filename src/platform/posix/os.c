@@ -60,15 +60,15 @@ os_ncpus(void)
 }
 
 void
-os_set_env(const struct str *k, const struct str *v)
+os_set_env(struct workspace *wk, const struct str *k, const struct str *v)
 {
-	TSTR_manual(buf_k);
-	TSTR_manual(buf_v);
+	TSTR(buf_k);
+	TSTR(buf_v);
 
-	tstr_pushn(0, &buf_k, k->s, k->len);
-	tstr_push(0, &buf_k, 0);
-	tstr_pushn(0, &buf_v, v->s, v->len);
-	tstr_push(0, &buf_v, 0);
+	tstr_pushn(wk, &buf_k, k->s, k->len);
+	tstr_push(wk, &buf_k, 0);
+	tstr_pushn(wk, &buf_v, v->s, v->len);
+	tstr_push(wk, &buf_v, 0);
 
 	setenv(buf_k.buf, buf_v.buf, true);
 }

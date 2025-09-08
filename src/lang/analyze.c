@@ -1603,7 +1603,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 				path_copy_cwd(wk, &cwd);
 
 				if (strcmp(cwd.buf, root) != 0) {
-					path_chdir(root);
+					path_chdir(wk, root);
 					wk->source_root = root;
 				}
 			}

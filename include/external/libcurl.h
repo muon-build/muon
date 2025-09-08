@@ -26,7 +26,9 @@ struct mc_fetch_stats {
 	int64_t total;
 };
 
-void mc_init(void);
+struct arena;
+
+void mc_init(struct arena *a);
 void mc_deinit(void);
 int32_t mc_fetch_begin(const char *url, uint8_t **buf, uint64_t *len, enum mc_fetch_flag flags);
 enum mc_fetch_collect_result mc_fetch_collect(int32_t i, struct mc_fetch_stats *stats);

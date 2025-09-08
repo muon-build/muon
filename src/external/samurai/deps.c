@@ -546,10 +546,10 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 
 			str_to_lower(&line);
 
-			TSTR_manual(buf);
-			TSTR_manual(path);
-			tstr_pushn(0, &buf, line.s, line.len);
-			path_make_absolute(0, &path, buf.buf);
+			TSTR(buf);
+			TSTR(path);
+			tstr_pushn(ctx->wk, &buf, line.s, line.len);
+			path_make_absolute(ctx->wk, &path, buf.buf);
 
 			// Skip system headers
 			if (str_contains(&line, &STR("program files"))
@@ -563,9 +563,6 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 					path.buf,
 					path.len,
 				});
-
-			tstr_destroy(&buf);
-			tstr_destroy(&path);
 		} else {
 			for (i = 0; (uint32_t)i < line.len; ++i) {
 				samu_bufadd(&ctx->arena, &ctx->deps.buf, line.s[i]);

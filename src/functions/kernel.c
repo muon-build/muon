@@ -1225,7 +1225,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		.stdin_path = feed ? get_file_path(wk, feed) : 0,
 	};
 
-	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error(wk, "%s", cmd_ctx.err_msg);
 		if (cmd_ctx.out.len) {
 			log_plain(log_info, "stdout:\n%s", cmd_ctx.out.buf);
@@ -1362,7 +1362,7 @@ FUNC_IMPL(kernel, subdir, 0)
 
 	bool ret = false;
 	if (!wk->vm.in_analyzer) {
-		if (!fs_mkdir_p(build_dir.buf)) {
+		if (!fs_mkdir_p(wk, build_dir.buf)) {
 			goto ret;
 		}
 	}

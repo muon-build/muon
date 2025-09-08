@@ -15,6 +15,7 @@
 #include "formats/ini.h"
 #include "lang/fmt.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "platform/assert.h"
 #include "platform/mem.h"
 #include "platform/path.h"
@@ -341,24 +342,24 @@ editorconfig_cfg_parse_cb(void *_ctx,
 }
 
 void
-try_parse_editorconfig(struct source *src, struct fmt_opts *opts)
+try_parse_editorconfig(struct workspace *wk, struct source *src, struct fmt_opts *opts)
 {
-	TSTR_manual(path_abs);
-	TSTR_manual(path);
-	TSTR_manual(wd);
-	path_make_absolute(0, &path_abs, src->label);
-	path_copy(0, &path, path_abs.buf);
-	path_dirname(0, &wd, path.buf);
+	TSTR(path_abs);
+	TSTR(path);
+	TSTR(wd);
+	path_make_absolute(wk, &path_abs, src->label);
+	path_copy(wk, &path, path_abs.buf);
+	path_dirname(wk, &wd, path.buf);
 
 	const char *indent_style = 0, *indent_size = 0, *tab_width = 0, *max_line_length = 0, *end_of_line = 0,
 		   *insert_final_newline = 0;
 	struct source cfg_src = { 0 };
 
 	struct arr garbage;
-	arr_init(&garbage, 16, sizeof(void *));
+	arr_init(&wk->a, &garbage, 16, void *);
 
 	while (true) {
-		path_join(0, &path, wd.buf, ".editorconfig");
+		path_join(wk, &path, wd.buf, ".editorconfig");
 		if (fs_file_exists(path.buf)) {
 			struct parse_editorconfig_ctx editorconfig_ctx = {
 				.path = path_abs.buf,
@@ -369,7 +370,7 @@ try_parse_editorconfig(struct source *src, struct fmt_opts *opts)
 				goto ret;
 			}
 
-			arr_push(&garbage, &cfg_buf);
+			arr_push(&wk->a, &garbage, &cfg_buf);
 
 			fs_source_destroy(&cfg_src);
 			cfg_src = (struct source){ 0 };
@@ -409,8 +410,8 @@ try_parse_editorconfig(struct source *src, struct fmt_opts *opts)
 			break;
 		}
 
-		path_copy(0, &path, wd.buf);
-		path_dirname(0, &wd, path.buf);
+		path_copy(wk, &path, wd.buf);
+		path_dirname(wk, &wd, path.buf);
 	}
 
 	if (!indent_style) {
@@ -464,10 +465,6 @@ ret:
 	for (uint32_t i = 0; i < garbage.len; ++i) {
 		z_free(*(void **)arr_get(&garbage, i));
 	}
-	arr_destroy(&garbage);
 
 	fs_source_destroy(&cfg_src);
-	tstr_destroy(&wd);
-	tstr_destroy(&path);
-	tstr_destroy(&path_abs);
 }

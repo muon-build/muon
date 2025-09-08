@@ -392,7 +392,7 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 
 	bool success = true;
 
-	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
+	if (!run_cmd(wk, cmd_ctx, argstr, argc, NULL, 0)) {
 		L("failed to run command %s", argstr);
 		run_cmd_print_error(cmd_ctx, log_debug);
 

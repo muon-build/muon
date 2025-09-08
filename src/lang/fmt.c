@@ -1724,7 +1724,7 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 	arr_init(&f.wk->a, &f.list_tmp, 64, struct fmt_frag *);
 
 	if (editorconfig) {
-		try_parse_editorconfig(src, &f.opts);
+		try_parse_editorconfig(&wk, src, &f.opts);
 	}
 
 	char *cfg_buf = NULL;

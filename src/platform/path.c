@@ -29,12 +29,12 @@ bool os_chdir(const char *path);
 char *os_getcwd(char *buf, size_t size);
 
 static void
-path_getcwd(void)
+path_getcwd(struct workspace *wk)
 {
 	tstr_clear(&path_ctx.cwd);
 	while (!os_getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
 		if (errno == ERANGE) {
-			tstr_grow(NULL, &path_ctx.cwd, path_ctx.cwd.cap);
+			tstr_grow(wk, &path_ctx.cwd, path_ctx.cwd.cap);
 		} else {
 			error_unrecoverable("getcwd failed: %s", strerror(errno));
 		}
@@ -42,20 +42,12 @@ path_getcwd(void)
 }
 
 void
-path_init(void)
+path_init(struct workspace *wk)
 {
-	tstr_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf), tstr_flag_overflow_alloc);
-	tstr_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf), tstr_flag_overflow_alloc);
-	tstr_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf), tstr_flag_overflow_alloc);
-	path_getcwd();
-}
-
-void
-path_deinit(void)
-{
-	tstr_destroy(&path_ctx.cwd);
-	tstr_destroy(&path_ctx.tmp1);
-	tstr_destroy(&path_ctx.tmp2);
+	tstr_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf), 0);
+	tstr_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf), 0);
+	tstr_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf), 0);
+	path_getcwd(wk);
 }
 
 void
@@ -147,14 +139,14 @@ path_copy(struct workspace *wk, struct tstr *sb, const char *path)
 }
 
 bool
-path_chdir(const char *path)
+path_chdir(struct workspace *wk, const char *path)
 {
 	if (!os_chdir(path)) {
 		LOG_E("failed chdir(%s): %s", path, strerror(errno));
 		return false;
 	}
 
-	path_getcwd();
+	path_getcwd(wk);
 	return true;
 }
 
@@ -325,8 +317,8 @@ path_without_ext(struct workspace *wk, struct tstr *buf, const char *path)
 
 	bool have_ext = false;
 
-	TSTR_manual(tmp);
-	path_copy(NULL, &tmp, path);
+	TSTR(tmp);
+	path_copy(wk, &tmp, path);
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == '.') {
@@ -343,7 +335,6 @@ path_without_ext(struct workspace *wk, struct tstr *buf, const char *path)
 		path_copy(wk, buf, path);
 	}
 	_path_normalize(wk, buf, false);
-	tstr_destroy(&tmp);
 }
 
 void
@@ -357,8 +348,8 @@ path_basename(struct workspace *wk, struct tstr *buf, const char *path)
 		return;
 	}
 
-	TSTR_manual(tmp);
-	path_copy(NULL, &tmp, path);
+	TSTR(tmp);
+	path_copy(wk, &tmp, path);
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
@@ -373,7 +364,6 @@ path_basename(struct workspace *wk, struct tstr *buf, const char *path)
 
 	tstr_pushs(wk, buf, &path[i]);
 	_path_normalize(wk, buf, false);
-	tstr_destroy(&tmp);
 }
 
 void
@@ -387,8 +377,8 @@ path_dirname(struct workspace *wk, struct tstr *buf, const char *path)
 		goto return_dot;
 	}
 
-	TSTR_manual(tmp);
-	path_copy(NULL, &tmp, path);
+	TSTR(tmp);
+	path_copy(wk, &tmp, path);
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
@@ -400,28 +390,26 @@ path_dirname(struct workspace *wk, struct tstr *buf, const char *path)
 			}
 
 			_path_normalize(wk, buf, false);
-			tstr_destroy(&tmp);
 			return;
 		}
 	}
-	tstr_destroy(&tmp);
 
 return_dot:
 	tstr_pushs(wk, buf, ".");
 }
 
 bool
-path_is_subpath(const char *base, const char *sub)
+path_is_subpath(struct workspace *wk, const char *base, const char *sub)
 {
 	if (!*base) {
 		return false;
 	}
 
-	TSTR_manual(base_tmp);
-	TSTR_manual(sub_tmp);
-	path_copy(NULL, &base_tmp, base);
+	TSTR(base_tmp);
+	TSTR(sub_tmp);
+	path_copy(wk, &base_tmp, base);
 	base = base_tmp.buf;
-	path_copy(NULL, &sub_tmp, sub);
+	path_copy(wk, &sub_tmp, sub);
 	sub = sub_tmp.buf;
 
 	uint32_t i = 0;
@@ -429,21 +417,15 @@ path_is_subpath(const char *base, const char *sub)
 		if (!base[i]) {
 			assert(i);
 			if (sub[i] == PATH_SEP || sub[i - 1] == PATH_SEP) {
-				tstr_destroy(&sub_tmp);
-				tstr_destroy(&base_tmp);
 				return true;
 			}
 		}
 
 		if (base[i] == sub[i]) {
 			if (!base[i]) {
-				tstr_destroy(&sub_tmp);
-				tstr_destroy(&base_tmp);
 				return true;
 			}
 		} else {
-			tstr_destroy(&sub_tmp);
-			tstr_destroy(&base_tmp);
 			return false;
 		}
 

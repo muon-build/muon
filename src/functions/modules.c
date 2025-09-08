@@ -65,7 +65,7 @@ module_lookup_script(struct workspace *wk,
 	obj res;
 	if (opts->embedded) {
 		struct source src;
-		if (!(embedded_get(path->buf, &src))) {
+		if (!(embedded_get(wk, path->buf, &src))) {
 			goto ret;
 		}
 		src.label = get_cstr(wk, tstr_into_str(wk, path));

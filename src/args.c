@@ -188,12 +188,9 @@ ninja_escape(struct workspace *wk, struct tstr *sb, const char *str)
 static void
 shell_ninja_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	TSTR_manual(tmp);
-
+	TSTR(tmp);
 	shell_escape(wk, &tmp, str);
 	simple_escape(wk, sb, tmp.buf, "$\n", '$');
-
-	tstr_destroy(&tmp);
 }
 
 void

@@ -21,7 +21,7 @@
 static const char *vsenv_list_sep = "---SPLIT---";
 
 static void
-vsenv_set_vars(const char *vars, uint32_t len)
+vsenv_set_vars(struct workspace *wk, const char *vars, uint32_t len)
 {
 	bool sep_seen = false;
 	uint32_t i;
@@ -38,7 +38,7 @@ vsenv_set_vars(const char *vars, uint32_t len)
 				sep_seen = true;
 			}
 		} else if (str_split_in_two(&l, &k, &v, '=')) {
-			os_set_env(&k, &v);
+			os_set_env(wk, &k, &v);
 		}
 
 		i += line_len + 2;
@@ -48,16 +48,18 @@ vsenv_set_vars(const char *vars, uint32_t len)
 static bool
 vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type req)
 {
+	TSTR(_buf);
+
 	if (os_get_env("VSINSTALLDIR")) {
 		return true;
-	} else if (fs_has_cmd("cl.exe")) {
+	} else if (fs_find_cmd(wk, &_buf, "cl.exe")) {
 		return true;
 	}
 
 	if (cache_path && fs_file_exists(cache_path)) {
 		struct source src;
 		if (fs_read_entire_file(cache_path, &src)) {
-			vsenv_set_vars(src.src, src.len);
+			vsenv_set_vars(wk, src.src, src.len);
 			fs_source_destroy(&src);
 			return true;
 		}
@@ -72,7 +74,7 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type 
 		};
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(comps); ++i) {
-			if (fs_has_cmd(comps[i])) {
+			if (fs_find_cmd(wk, &_buf, comps[i])) {
 				return true;
 			}
 		}
@@ -98,7 +100,7 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type 
 		goto ret;
 	}
 
-	if (!run_cmd_argv(&vswhere_cmd_ctx,
+	if (!run_cmd_argv(wk, &vswhere_cmd_ctx,
 		    (char *const[]){
 			    path.buf,
 			    "-latest",
@@ -204,12 +206,12 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type 
 		vsenv_list_sep);
 	fs_fclose(tmp);
 
-	if (!run_cmd_argv(&bat_cmd_ctx, (char *const[]){ tmp_path, 0 }, 0, 0)) {
+	if (!run_cmd_argv(wk, &bat_cmd_ctx, (char *const[]){ tmp_path, 0 }, 0, 0)) {
 		LOG_E("vsenv: failed to execute %s", tmp_path);
 		goto ret;
 	}
 
-	vsenv_set_vars(bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len);
+	vsenv_set_vars(wk, bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len);
 
 	if (cache_path) {
 		L("writing %s", cache_path);
@@ -220,8 +222,6 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type 
 
 	res = true;
 ret:
-	tstr_destroy(&path);
-	tstr_destroy(&ver);
 	run_cmd_ctx_destroy(&vswhere_cmd_ctx);
 	run_cmd_ctx_destroy(&bat_cmd_ctx);
 	if (*tmp_path) {
@@ -243,7 +243,7 @@ setup_platform_env(struct workspace *wk, const char *build_dir, enum requirement
 		if (build_dir) {
 			path_copy(wk, &cache, build_dir);
 			path_push(wk, &cache, output_path.private_dir);
-			fs_mkdir_p(cache.buf);
+			fs_mkdir_p(wk, cache.buf);
 			if (fs_dir_exists(cache.buf)) {
 				path_push(wk, &cache, output_path.paths[output_path_vsenv_cache].path);
 				cache_path = cache.buf;

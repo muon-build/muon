@@ -615,7 +615,7 @@ FUNC_IMPL(module_fs, mkdir, 0, func_impl_flag_impure | func_impl_flag_sandbox_di
 	}
 
 	if (akw[kw_make_parents].set && get_obj_bool(wk, akw[kw_make_parents].val)) {
-		return fs_mkdir_p(get_cstr(wk, an[0].val));
+		return fs_mkdir_p(wk, get_cstr(wk, an[0].val));
 	} else {
 		return fs_mkdir(get_cstr(wk, an[0].val), true);
 	}
@@ -679,7 +679,7 @@ FUNC_IMPL(module_fs, is_subpath, tc_bool, .desc = "Check if a path is a subpath 
 		return false;
 	}
 
-	*res = make_obj_bool(wk, path_is_subpath(get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
+	*res = make_obj_bool(wk, path_is_subpath(wk, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
 	return true;
 }
 
@@ -854,6 +854,7 @@ FUNC_IMPL(module_fs, glob, tc_array, func_impl_flag_impure, .desc = "Gather a li
 }
 
 struct delete_suffixes_ctx {
+	struct workspace *wk;
 	const char *base_dir;
 	const char *suffix;
 };
@@ -867,14 +868,13 @@ delete_suffix_recursive(void *_ctx, const char *path)
 
 	TSTR(name);
 
-	path_join(NULL, &name, ctx->base_dir, path);
+	path_join(ctx->wk, &name, ctx->base_dir, path);
 
 	// Check for existence first, before doing a stat. It's possible that
 	// another process has deleted this file in the time since the iteration
 	// machinery found this file. In this case, the file no longer exists, so
 	// just continue.
 	if (!fs_exists(name.buf)) {
-		tstr_destroy(&name);
 		return ir_cont;
 	}
 
@@ -903,7 +903,6 @@ delete_suffix_recursive(void *_ctx, const char *path)
 	ir_res = ir_cont;
 
 ret:
-	tstr_destroy(&name);
 	return ir_res;
 }
 
@@ -916,6 +915,7 @@ FUNC_IMPL(module_fs, delete_with_suffix, func_impl_flag_impure | func_impl_flag_
 
 	const char *base_dir = get_cstr(wk, an[0].val);
 	struct delete_suffixes_ctx ctx = {
+		.wk = wk,
 		.base_dir = base_dir,
 		.suffix = get_cstr(wk, an[1].val),
 	};

@@ -496,7 +496,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		if (root_uri) {
 			const char *root = az_srv_uri_to_path(wk, get_str(wk, root_uri));
 			if (root) {
-				path_chdir(root);
+				path_chdir(wk, root);
 			}
 		}
 
@@ -1022,7 +1022,7 @@ analyze_server(struct az_opts *cmdline_opts)
 		if (home) {
 			TSTR(path);
 			path_join(&srv_wk, &path, home, ".local/state/muon");
-			if (fs_mkdir_p(path.buf)) {
+			if (fs_mkdir_p(&srv_wk, path.buf)) {
 				char file[256];
 				snprintf(file, sizeof(file), "lsp.%d.log", os_get_pid());
 				path_push(&srv_wk, &path, file);

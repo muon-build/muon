@@ -207,7 +207,7 @@ subproject(struct workspace *wk,
 	}
 
 	if (fs_dir_exists(wk->build_root)) {
-		if (!fs_mkdir_p(build_dir.buf)) {
+		if (!fs_mkdir_p(wk, build_dir.buf)) {
 			return false;
 		}
 	}

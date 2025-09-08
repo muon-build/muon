@@ -140,13 +140,13 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			return ir_err;
 		}
 
-		if (!fs_mkdir_p(dest_dirname.buf)) {
+		if (!fs_mkdir_p(wk, dest_dirname.buf)) {
 			return ir_err;
 		}
 
 		if (in->type == install_target_default) {
 			if (fs_dir_exists(src)) {
-				if (!fs_copy_dir(src, dest, true)) {
+				if (!fs_copy_dir(wk, src, dest, true)) {
 					return ir_err;
 				}
 			} else {
@@ -167,7 +167,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		}
 		break;
 	case install_target_subdir:
-		if (!fs_mkdir_p(dest)) {
+		if (!fs_mkdir_p(wk, dest)) {
 			return ir_err;
 		}
 
@@ -187,7 +187,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		}
 		break;
 	case install_target_emptydir:
-		if (!fs_mkdir_p(dest)) {
+		if (!fs_mkdir_p(wk, dest)) {
 			return ir_err;
 		}
 		break;
@@ -243,7 +243,7 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		LOG_E("failed to run install script: %s", cmd_ctx.err_msg);
 		goto err;
 	}
@@ -265,20 +265,19 @@ err:
 bool
 install_run(struct install_options *opts)
 {
-	bool ret = true;
-	TSTR_manual(install_src);
-	path_join(NULL, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
+	bool ret = false;
+	struct workspace wk;
+	workspace_init_bare(&wk);
+
+	TSTR(install_src);
+	path_join(&wk, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
 
 	FILE *f;
 	f = fs_fopen(install_src.buf, "rb");
-	tstr_destroy(&install_src);
 
 	if (!f) {
-		return false;
+		goto ret;
 	}
-
-	struct workspace wk;
-	workspace_init_bare(&wk);
 
 	obj install;
 	if (!serial_load(&wk, &install, f)) {
@@ -315,8 +314,13 @@ install_run(struct install_options *opts)
 		ctx.full_prefix = ctx.prefix;
 	}
 
-	obj_array_foreach(&wk, install_targets, &ctx, install_iter);
-	obj_array_foreach(&wk, install_scripts, &ctx, install_scripts_iter);
+	if (!obj_array_foreach(&wk, install_targets, &ctx, install_iter)) {
+		goto ret;
+	}
+
+	if (!obj_array_foreach(&wk, install_scripts, &ctx, install_scripts_iter)) {
+		goto ret;
+	}
 
 	ret = true;
 ret:

@@ -28,6 +28,7 @@
 #include "platform/term.h"
 #include "platform/timer.h"
 #include "util.h"
+#include "vsenv.h"
 
 enum test_result_status {
 	test_result_status_running,
@@ -631,7 +632,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 
 		res->dur = timer_read(&res->t);
 
-		enum run_cmd_state state = run_cmd_collect(&res->cmd_ctx);
+		enum run_cmd_state state = run_cmd_collect(wk, &res->cmd_ctx);
 
 		if (state != run_cmd_running && res->status == test_result_status_timedout) {
 			print_test_progress(wk, ctx, res, true);
@@ -773,7 +774,7 @@ found_slot:
 
 	print_test_progress(wk, ctx, res, ctx->serial);
 
-	if (!run_cmd(cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, cmd_ctx, argstr, argc, envstr, envc)) {
 		res->busy = false;
 		--ctx->busy_jobs;
 
@@ -1106,7 +1107,7 @@ tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 	}
 
 	struct source src;
-	if (!embedded_get("html/test_out.html", &src)) {
+	if (!embedded_get(wk, "html/test_out.html", &src)) {
 		UNREACHABLE;
 	}
 
@@ -1150,6 +1151,8 @@ tests_run(struct test_options *opts, const char *argv0)
 	workspace_init_bare(&wk);
 	wk.vm.lang_mode = language_internal;
 	wk.argv0 = argv0;
+
+	setup_platform_env(&wk, ".", requirement_required);
 
 	if (!opts->jobs) {
 		opts->jobs = os_parallel_job_count();

@@ -104,7 +104,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	bool ret;
 	struct source src;
 
-	if (!embedded_get(script, &src)) {
+	if (!embedded_get(wk, script, &src)) {
 		LOG_E("embedded script %s not found", script);
 		return false;
 	}
@@ -229,7 +229,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 static bool
 workspace_create_build_dir(struct workspace *wk)
 {
-	if (!fs_mkdir_p(wk->muon_private)) {
+	if (!fs_mkdir_p(wk, wk->muon_private)) {
 		return false;
 	}
 
@@ -412,7 +412,7 @@ workspace_add_regenerate_dep(struct workspace *wk, obj v)
 
 	if (obj_array_in(wk, wk->exclude_regenerate_deps, v)) {
 		return;
-	} else if (path_is_subpath(wk->build_root, s)) {
+	} else if (path_is_subpath(wk, wk->build_root, s)) {
 		return;
 	} else if (!fs_file_exists(s)) {
 		return;

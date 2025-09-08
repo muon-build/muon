@@ -49,12 +49,11 @@ fs_stat(const char *path, struct stat *sb)
 }
 
 bool
-fs_mkdir_p(const char *path)
+fs_mkdir_p(struct workspace *wk, const char *path)
 {
-	bool res = false;
 	uint32_t i, len = strlen(path);
-	TSTR_manual(buf);
-	path_copy(NULL, &buf, path);
+	TSTR(buf);
+	path_copy(wk, &buf, path);
 
 	assert(len >= 1);
 
@@ -70,20 +69,17 @@ fs_mkdir_p(const char *path)
 		if (buf.buf[i] == PATH_SEP) {
 			buf.buf[i] = 0;
 			if (!fs_mkdir(buf.buf, true)) {
-				goto ret;
+				return false;
 			}
 			buf.buf[i] = PATH_SEP;
 		}
 	}
 
 	if (!fs_mkdir(path, true)) {
-		goto ret;
+		return false;
 	}
 
-	res = true;
-ret:
-	tstr_destroy(&buf);
-	return res;
+	return true;
 }
 
 FILE *
@@ -373,15 +369,6 @@ fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
 }
 
 bool
-fs_has_cmd(const char *cmd)
-{
-	TSTR_manual(buf);
-	bool res = fs_find_cmd(NULL, &buf, cmd);
-	tstr_destroy(&buf);
-	return res;
-}
-
-bool
 fs_fileno(FILE *f, int *ret)
 {
 	int v;
@@ -413,29 +400,28 @@ fs_make_writeable_if_exists(const char *path)
 enum iteration_result
 fs_copy_dir_iter(void *_ctx, const char *path)
 {
-	enum iteration_result res = ir_err;
 	struct fs_copy_dir_ctx *ctx = _ctx;
 	struct stat sb;
-	TSTR_manual(src);
-	TSTR_manual(dest);
+	TSTR(src);
+	TSTR(dest);
 
-	path_join(NULL, &src, ctx->src_base, path);
-	path_join(NULL, &dest, ctx->dest_base, path);
+	path_join(ctx->wk, &src, ctx->src_base, path);
+	path_join(ctx->wk, &dest, ctx->dest_base, path);
 
 	if (!fs_stat(src.buf, &sb)) {
-		goto ret;
+		return ir_err;
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
 		if (!fs_mkdir(dest.buf, ctx->force)) {
-			goto ret;
+			return ir_err;
 		}
 
 		struct fs_copy_dir_ctx sub_ctx = *ctx;
 		sub_ctx.src_base = src.buf;
 		sub_ctx.dest_base = dest.buf;
-		if (!fs_copy_dir_ctx(&sub_ctx)) {
-			goto ret;
+		if (!fs_copy_dir_ctx(ctx->wk, &sub_ctx)) {
+			return ir_err;
 		}
 	} else if (S_ISREG(sb.st_mode)) {
 		if (ctx->file_cb) {
@@ -443,23 +429,21 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 		}
 
 		if (!fs_copy_file(src.buf, dest.buf, ctx->force)) {
-			goto ret;
+			return ir_err;
 		}
 	} else {
 		LOG_E("unhandled file type '%s'", path);
-		goto ret;
+		return ir_err;
 	}
 
-	res = ir_cont;
-ret:
-	tstr_destroy(&src);
-	tstr_destroy(&dest);
-	return res;
+	return ir_cont;
 }
 
 bool
-fs_copy_dir_ctx(struct fs_copy_dir_ctx *ctx)
+fs_copy_dir_ctx(struct workspace *wk, struct fs_copy_dir_ctx *ctx)
 {
+	ctx->wk = wk;
+
 	if (!fs_mkdir(ctx->dest_base, true)) {
 		return ir_err;
 	}
@@ -468,7 +452,7 @@ fs_copy_dir_ctx(struct fs_copy_dir_ctx *ctx)
 }
 
 bool
-fs_copy_dir(const char *src_base, const char *dest_base, bool force)
+fs_copy_dir(struct workspace *wk, const char *src_base, const char *dest_base, bool force)
 {
 	struct fs_copy_dir_ctx ctx = {
 		.src_base = src_base,
@@ -476,10 +460,11 @@ fs_copy_dir(const char *src_base, const char *dest_base, bool force)
 		.force = force,
 	};
 
-	return fs_copy_dir_ctx(&ctx);
+	return fs_copy_dir_ctx(wk, &ctx);
 }
 
 struct fs_rmdir_ctx {
+	struct workspace *wk;
 	const char *base_dir;
 	bool force;
 };
@@ -487,54 +472,47 @@ struct fs_rmdir_ctx {
 static enum iteration_result
 fs_rmdir_iter(void *_ctx, const char *path)
 {
-	enum iteration_result ir_res = ir_err;
 	struct fs_rmdir_ctx *ctx = _ctx;
 	struct stat sb;
 
 	TSTR(name);
 
-	path_join(NULL, &name, ctx->base_dir, path);
+	path_join(ctx->wk, &name, ctx->base_dir, path);
 
 	if (fs_symlink_exists(name.buf)) {
 		if (!fs_remove(name.buf)) {
-			goto ret;
+			return ir_err;
 		}
-
-		ir_res = ir_cont;
-		goto ret;
+		return ir_cont;
 	} else if (stat(name.buf, &sb) != 0) {
 		if (ctx->force) {
-			ir_res = ir_cont;
+			return ir_cont;
 		} else {
 			LOG_E("failed stat(%s): %s", path, strerror(errno));
+			return ir_err;
 		}
-		goto ret;
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
 		if (!fs_rmdir_recursive(name.buf, ctx->force)) {
-			goto ret;
+			return ir_err;
 		}
 
 		if (!fs_rmdir(name.buf, ctx->force)) {
-			goto ret;
+			return ir_err;
 		}
 
 	} else if (S_ISREG(sb.st_mode)) {
 		if (!fs_remove(name.buf)) {
-			goto ret;
+			return ir_err;
 		}
 
 	} else {
 		LOG_E("unhandled file type: %s", name.buf);
-		goto ret;
+		return ir_err;
 	}
 
-	ir_res = ir_cont;
-
-ret:
-	tstr_destroy(&name);
-	return ir_res;
+	return ir_cont;
 }
 
 bool

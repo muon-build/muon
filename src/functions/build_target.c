@@ -45,16 +45,16 @@ tgt_src_to_compiled_path(struct workspace *wk,
 		private_path = private_path_rel.buf;
 	}
 
-	if (path_is_subpath(get_cstr(wk, tgt->private_path), get_cstr(wk, src))) {
+	if (path_is_subpath(wk, get_cstr(wk, tgt->private_path), get_cstr(wk, src))) {
 		// file is a source from a generated list
 		base = get_cstr(wk, tgt->private_path);
-	} else if (path_is_subpath(get_cstr(wk, tgt->build_dir), get_cstr(wk, src))) {
+	} else if (path_is_subpath(wk, get_cstr(wk, tgt->build_dir), get_cstr(wk, src))) {
 		// file is a generated source from custom_target / configure_file
 		base = get_cstr(wk, tgt->build_dir);
-	} else if (path_is_subpath(get_cstr(wk, tgt->cwd), get_cstr(wk, src))) {
+	} else if (path_is_subpath(wk, get_cstr(wk, tgt->cwd), get_cstr(wk, src))) {
 		// file is in target cwd
 		base = get_cstr(wk, tgt->cwd);
-	} else if (path_is_subpath(wk->source_root, get_cstr(wk, src))) {
+	} else if (path_is_subpath(wk, wk->source_root, get_cstr(wk, src))) {
 		// file is in source root
 		base = wk->source_root;
 	} else {

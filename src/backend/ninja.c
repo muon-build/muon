@@ -248,12 +248,12 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 	bool ret = false;
 	char *const *argv = NULL;
 	uint32_t argc;
-	TSTR_manual(cwd);
+	TSTR(cwd);
 
 	if (chdir) {
-		path_copy_cwd(NULL, &cwd);
+		path_copy_cwd(wk, &cwd);
 
-		if (!path_chdir(chdir)) {
+		if (!path_chdir(wk, chdir)) {
 			goto ret;
 		}
 	}
@@ -275,7 +275,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			}
 		}
 
-		ret = samu_main(argc, (char **)argv, &samu_opts);
+		ret = samu_main(wk, argc, (char **)argv, &samu_opts);
 
 		if (capture) {
 			if (!fs_fclose(samu_opts.out)) {
@@ -285,7 +285,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 	} else {
 		struct run_cmd_ctx cmd_ctx = { 0 };
 
-		TSTR_manual(cmd);
+		TSTR(cmd);
 		const char *prepend = NULL;
 
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
@@ -295,7 +295,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		}
 
-		if (!run_cmd_argv(&cmd_ctx, argv, NULL, 0)) {
+		if (!run_cmd_argv(wk, &cmd_ctx, argv, NULL, 0)) {
 			if (!(flags & ninja_run_flag_ignore_errors)) {
 				LOG_E("%s", cmd_ctx.err_msg);
 			}
@@ -310,7 +310,6 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 
 		ret = cmd_ctx.status == 0;
 run_cmd_done:
-		tstr_destroy(&cmd);
 		run_cmd_ctx_destroy(&cmd_ctx);
 	}
 
@@ -320,9 +319,8 @@ ret:
 	}
 
 	if (chdir) {
-		path_chdir(cwd.buf);
+		path_chdir(wk, cwd.buf);
 	}
 
-	tstr_destroy(&cwd);
 	return ret;
 }

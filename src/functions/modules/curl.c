@@ -9,7 +9,6 @@
 #include "functions/modules/curl.h"
 #include "lang/typecheck.h"
 #include "log.h"
-#include "platform/mem.h"
 
 FUNC_IMPL(module_curl, fetch, tc_string, func_impl_flag_impure, .desc = "Begin fetching a url using libcurl.  Only available if libcurl support is enabeld." )
 {
@@ -21,7 +20,7 @@ FUNC_IMPL(module_curl, fetch, tc_string, func_impl_flag_impure, .desc = "Begin f
 		return false;
 	}
 
-	mc_init();
+	mc_init(&wk->a_scratch);
 
 	uint8_t *buf;
 	uint64_t len;
@@ -51,7 +50,6 @@ FUNC_IMPL(module_curl, fetch, tc_string, func_impl_flag_impure, .desc = "Begin f
 	}
 
 done:
-	z_free(buf);
 	mc_deinit();
 	return ok;
 }

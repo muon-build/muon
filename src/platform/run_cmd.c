@@ -168,9 +168,9 @@ run_cmd_print_error(struct run_cmd_ctx *ctx, enum log_level lvl)
 }
 
 bool
-run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
+run_cmd_checked(struct workspace *wk, struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
 {
-	if (!run_cmd(ctx, argstr, argc, envstr, envc) || ctx->status != 0) {
+	if (!run_cmd(wk, ctx, argstr, argc, envstr, envc) || ctx->status != 0) {
 		run_cmd_print_error(ctx, log_error);
 		run_cmd_ctx_destroy(ctx);
 		return false;
@@ -180,9 +180,9 @@ run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, cons
 }
 
 bool
-run_cmd_argv_checked(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
+run_cmd_argv_checked(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
-	if (!run_cmd_argv(ctx, argv, envstr, envc) || ctx->status != 0) {
+	if (!run_cmd_argv(wk, ctx, argv, envstr, envc) || ctx->status != 0) {
 		run_cmd_print_error(ctx, log_error);
 		run_cmd_ctx_destroy(ctx);
 		return false;

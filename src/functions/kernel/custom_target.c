@@ -162,7 +162,7 @@ format_cmd_arg_cb(struct workspace *wk, uint32_t node, void *_ctx, const struct 
 		path_join(wk, &path, get_cstr(wk, current_project(wk)->build_dir), get_cstr(wk, ctx->opts->name));
 		tstr_pushs(wk, &path, ".p");
 
-		if (!fs_mkdir_p(path.buf)) {
+		if (!fs_mkdir_p(wk, path.buf)) {
 			return format_cb_error;
 		}
 

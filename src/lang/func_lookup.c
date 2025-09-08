@@ -1025,7 +1025,7 @@ dump_function_docs(struct workspace *wk)
 	dump_function_docs_json(wk, &docs_internal);
 
 	struct source src;
-	if (!embedded_get("html/docs.html", &src)) {
+	if (!embedded_get(wk, "html/docs.html", &src)) {
 		UNREACHABLE;
 	}
 

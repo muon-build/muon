@@ -34,6 +34,7 @@ bucket_arr_init_(struct arena *a, struct bucket_arr *ba, uint32_t bucket_size, u
 
 	*ba = (struct bucket_arr){
 		.item_size = item_size,
+		.item_align = item_align,
 		.bucket_size = bucket_size,
 	};
 

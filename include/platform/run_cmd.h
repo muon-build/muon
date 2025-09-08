@@ -80,18 +80,18 @@ bool run_cmd_determine_interpreter(struct source *src,
 
 #define ARGV(...) (char *const *)(const char *const []){ __VA_ARGS__, 0 }
 
-bool run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
-bool run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
-enum run_cmd_state run_cmd_collect(struct run_cmd_ctx *ctx);
+bool run_cmd(struct workspace *wk, struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
+bool run_cmd_argv(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
+enum run_cmd_state run_cmd_collect(struct workspace *wk, struct run_cmd_ctx *ctx);
 void run_cmd_ctx_destroy(struct run_cmd_ctx *ctx);
 bool run_cmd_kill(struct run_cmd_ctx *ctx, bool force);
 
 // runs a command by passing a single string containing both the command and
 // arguments.
 // currently only used by samurai on windows
-bool run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc);
+bool run_cmd_unsplit(struct workspace *wk, struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc);
 
-bool run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
-bool run_cmd_argv_checked(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
+bool run_cmd_checked(struct workspace *wk, struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc);
+bool run_cmd_argv_checked(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc);
 void run_cmd_print_error(struct run_cmd_ctx *ctx, enum log_level lvl);
 #endif

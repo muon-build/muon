@@ -25,10 +25,9 @@
 struct workspace;
 struct tstr;
 
-void path_init(void);
-void path_deinit(void);
+void path_init(struct workspace *wk);
 
-bool path_chdir(const char *path);
+bool path_chdir(struct workspace *wk, const char *path);
 
 void path_copy(struct workspace *wk, struct tstr *sb, const char *path);
 
@@ -37,7 +36,7 @@ void path_copy_cwd(struct workspace *wk, struct tstr *sb);
 
 bool path_is_absolute(const char *path);
 bool path_is_basename(const char *path);
-bool path_is_subpath(const char *base, const char *sub);
+bool path_is_subpath(struct workspace *wk, const char *base, const char *sub);
 
 void path_push(struct workspace *wk, struct tstr *sb, const char *b);
 void path_join(struct workspace *wk, struct tstr *sb, const char *a, const char *b);

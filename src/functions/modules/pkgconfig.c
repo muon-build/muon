@@ -242,8 +242,8 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_err;
 		}
 
-		if (path_is_subpath(wk->source_root, get_file_path(wk, val))
-			|| path_is_subpath(wk->build_root, get_file_path(wk, val))) {
+		if (path_is_subpath(wk, wk->source_root, get_file_path(wk, val))
+			|| path_is_subpath(wk, wk->build_root, get_file_path(wk, val))) {
 			ctx->pc->libs_contains_internal[ctx->vis] = true;
 		}
 
@@ -596,7 +596,7 @@ module_pkgconf_prepend_libdir(struct workspace *wk, struct args_kw *install_dir_
 
 		const char *install_dir = get_cstr(wk, install_dir_opt->val), *prefix = get_cstr(wk, pre);
 
-		if (path_is_subpath(prefix, install_dir)) {
+		if (path_is_subpath(wk, prefix, install_dir)) {
 			path_relative_to(wk, &rel, prefix, install_dir);
 			path = rel.buf;
 		} else if (path_is_absolute(install_dir)) {

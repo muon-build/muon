@@ -68,7 +68,7 @@ enum copy_pipe_result {
 };
 
 static bool
-copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr, uint32_t *count_read)
+copy_pipe(struct workspace *wk, struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr, uint32_t *count_read)
 {
 	if (pipe->is_eof) {
 		return true;
@@ -91,7 +91,7 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr
 	if (pipe->is_reading && bytes_read) {
 		TracyCPlot("Pipe read bytes", bytes_read);
 		*count_read += bytes_read;
-		tstr_pushn(0, tstr, pipe->overlapped_buf, bytes_read);
+		tstr_pushn(wk, tstr, pipe->overlapped_buf, bytes_read);
 	}
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
 	pipe->is_reading = true;
@@ -114,7 +114,7 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr
 }
 
 static bool
-copy_pipes(struct run_cmd_ctx *ctx, bool all)
+copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 {
 	DWORD _bytes_read;
 	OVERLAPPED *_overlapped;
@@ -142,7 +142,7 @@ copy_pipes(struct run_cmd_ctx *ctx, bool all)
 		}
 
 		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
-		if (!copy_pipe(ctx, pipe, tstr, &count_read)) {
+		if (!copy_pipe(wk, ctx, pipe, tstr, &count_read)) {
 			return false;
 		}
 
@@ -169,7 +169,7 @@ run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 }
 
 enum run_cmd_state
-run_cmd_collect(struct run_cmd_ctx *ctx)
+run_cmd_collect(struct workspace *wk, struct run_cmd_ctx *ctx)
 {
 	TracyCZoneAutoS;
 	DWORD res;
@@ -177,7 +177,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	bool loop = true;
 	while (loop) {
-		if (!copy_pipes(ctx, false)) {
+		if (!copy_pipes(wk, ctx, false)) {
 			TracyCZoneAutoE;
 			return run_cmd_error;
 		}
@@ -215,7 +215,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	ctx->status = (int)status;
 
-	if (!copy_pipes(ctx, true)) {
+	if (!copy_pipes(wk, ctx, true)) {
 		TracyCZoneAutoE;
 		return run_cmd_error;
 	}
@@ -384,8 +384,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 
 		// Copy newenv into ctx->env
 		tstr_init(&ctx->env, 0, 0, tstr_flag_overflow_alloc);
-		tstr_pushn(0, &ctx->env, newenv, var - newenv);
-		tstr_push(0, &ctx->env, 0);
+		tstr_pushn(wk, &ctx->env, newenv, var - newenv);
+		tstr_push(wk, &ctx->env, 0);
 
 		FreeEnvironmentStrings(newenv);
 
@@ -501,8 +501,8 @@ static void
 run_cmd_push_argv(struct tstr *cmd, struct tstr *arg_buf, const char *arg, bool first)
 {
 	tstr_clear(arg_buf);
-	shell_escape_cmd(0, arg_buf, arg);
-	tstr_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
+	shell_escape_cmd(wk, arg_buf, arg);
+	tstr_pushf(wk, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
 }
 
 static void

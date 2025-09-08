@@ -21,6 +21,7 @@ enum {
 };
 
 extern const bool have_samurai;
+struct workspace;
 
-bool samu_main(int argc, char *argv[], struct samu_opts *opts);
+bool samu_main(struct workspace *wk, int argc, char *argv[], struct samu_opts *opts);
 #endif

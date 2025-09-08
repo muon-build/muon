@@ -282,14 +282,13 @@ samu_canonpath(struct samu_string *path)
 }
 
 int
-samu_makedirs(struct samu_string *path, bool parent)
+samu_makedirs(struct samu_ctx *ctx, struct samu_string *path, bool parent)
 {
 	bool ok = true;
 	if (parent) {
-		TSTR_manual(dirname);
-		path_dirname(0, &dirname, path->s);
-		ok = fs_mkdir_p(dirname.buf);
-		tstr_destroy(&dirname);
+		TSTR(dirname);
+		path_dirname(ctx->wk, &dirname, path->s);
+		ok = fs_mkdir_p(ctx->wk, dirname.buf);
 	} else {
 		ok = fs_mkdir(path->s, true);
 	}

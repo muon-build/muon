@@ -13,11 +13,11 @@
 #include "external/libcurl.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 const bool have_libcurl = true;
 
 static struct mc_ctx {
+	struct arena *a;
 	CURLM *cm;
 	struct bucket_arr transfers;
 	bool init;
@@ -39,11 +39,13 @@ struct mc_transfer_ctx {
 };
 
 void
-mc_init(void)
+mc_init(struct arena *a)
 {
 	struct mc_ctx *mc_ctx = &_mc_ctx;
 
 	assert(!mc_ctx->init);
+
+	mc_ctx->a = a;
 
 	if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK) {
 		return;
@@ -53,7 +55,7 @@ mc_init(void)
 		return;
 	}
 
-	bucket_arr_init(&mc_ctx->transfers, 4, sizeof(struct mc_transfer_ctx));
+	bucket_arr_init(a, &mc_ctx->transfers, 4, struct mc_transfer_ctx);
 
 	mc_ctx->init = true;
 }
@@ -75,8 +77,6 @@ mc_deinit(void)
 		}
 	}
 
-	bucket_arr_destroy(&mc_ctx->transfers);
-
 	CURLMcode err;
 	if ((err = curl_multi_cleanup(mc_ctx->cm)) != CURLM_OK) {
 		LOG_E("curl: failed to cleanup: %s", curl_multi_strerror(err));
@@ -91,10 +91,12 @@ static size_t
 mc_write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 {
 	struct mc_transfer_ctx *ctx = _ctx;
+	struct mc_ctx *mc_ctx = &_mc_ctx;
 	uint64_t want_to_write = size * nmemb;
 	uint64_t newlen = want_to_write + ctx->len;
 
 	if (newlen > ctx->cap) {
+		uint64_t old_cap = ctx->cap;
 		curl_off_t content_length = 0;
 		if (curl_easy_getinfo(ctx->handle, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &content_length) == CURLE_OK
 			&& content_length > 0) {
@@ -107,7 +109,7 @@ mc_write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 			ctx->cap *= 2;
 		}
 
-		ctx->buf = z_realloc(ctx->buf, ctx->cap);
+		ctx->buf = ar_realloc(mc_ctx->a, ctx->buf, old_cap, ctx->cap, 0);
 	}
 
 	memcpy(&ctx->buf[ctx->len], src, want_to_write);
@@ -186,7 +188,7 @@ mc_fetch_begin(const char *url, uint8_t **buf, uint64_t *len, enum mc_fetch_flag
 	}
 
 	if (i == mc_ctx->transfers.len) {
-		bucket_arr_push(&mc_ctx->transfers, &(struct mc_transfer_ctx){ 0 });
+		bucket_arr_push(mc_ctx->a, &mc_ctx->transfers, &(struct mc_transfer_ctx){ 0 });
 	}
 
 	ctx = bucket_arr_get(&mc_ctx->transfers, i);

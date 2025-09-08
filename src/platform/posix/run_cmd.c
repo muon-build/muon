@@ -14,10 +14,10 @@
 #include <time.h>
 
 #include "error.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 
@@ -32,7 +32,7 @@ enum copy_pipe_result {
 };
 
 static enum copy_pipe_result
-copy_pipe(int pipe, struct tstr *tstr, FILE *tee_out)
+copy_pipe(struct workspace *wk, int pipe, struct tstr *tstr, FILE *tee_out)
 {
 	ssize_t b;
 	char buf[4096];
@@ -50,7 +50,7 @@ copy_pipe(int pipe, struct tstr *tstr, FILE *tee_out)
 			return copy_pipe_result_finished;
 		}
 
-		tstr_pushn(0, tstr, buf, b);
+		tstr_pushn(wk, tstr, buf, b);
 
 		if (tee_out) {
 			fwrite(buf, b, 1, tee_out);
@@ -59,17 +59,17 @@ copy_pipe(int pipe, struct tstr *tstr, FILE *tee_out)
 }
 
 static enum copy_pipe_result
-copy_pipes(struct run_cmd_ctx *ctx)
+copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx)
 {
 	enum copy_pipe_result res;
 
 	bool tee = ctx->flags & run_cmd_ctx_flag_tee;
 
-	if ((res = copy_pipe(ctx->pipefd_out[0], &ctx->out, tee ? stdout : 0)) == copy_pipe_result_failed) {
+	if ((res = copy_pipe(wk, ctx->pipefd_out[0], &ctx->out, tee ? stdout : 0)) == copy_pipe_result_failed) {
 		return res;
 	}
 
-	switch (copy_pipe(ctx->pipefd_err[0], &ctx->err, tee ? stderr : 0)) {
+	switch (copy_pipe(wk, ctx->pipefd_err[0], &ctx->err, tee ? stderr : 0)) {
 	case copy_pipe_result_waiting: return copy_pipe_result_waiting;
 	case copy_pipe_result_finished: return res;
 	case copy_pipe_result_failed: return copy_pipe_result_failed;
@@ -107,7 +107,7 @@ run_cmd_ctx_close_fds(struct run_cmd_ctx *ctx)
 }
 
 enum run_cmd_state
-run_cmd_collect(struct run_cmd_ctx *ctx)
+run_cmd_collect(struct workspace *wk, struct run_cmd_ctx *ctx)
 {
 	int status;
 	int r;
@@ -116,7 +116,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	while (true) {
 		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+			if ((pipe_res = copy_pipes(wk, ctx)) == copy_pipe_result_failed) {
 				return run_cmd_error;
 			}
 		}
@@ -143,7 +143,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
 		while (pipe_res != copy_pipe_result_finished) {
-			if ((pipe_res = copy_pipes(ctx)) == copy_pipe_result_failed) {
+			if ((pipe_res = copy_pipes(wk, ctx)) == copy_pipe_result_failed) {
 				return run_cmd_error;
 			}
 		}
@@ -196,12 +196,12 @@ open_run_cmd_pipe(int fds[2], bool fds_open[2])
 }
 
 static bool
-run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
+run_cmd_internal(struct workspace *wk, struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, const char *envstr, uint32_t envc)
 {
 	const char *p;
-	TSTR_manual(cmd);
+	TSTR(cmd);
 
-	if (!fs_find_cmd(NULL, &cmd, _cmd)) {
+	if (!fs_find_cmd(wk, &cmd, _cmd)) {
 		L("failed to run command '%s': not found", _cmd);
 		ctx->err_msg = "command not found";
 		return false;
@@ -252,8 +252,8 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	ctx->input_fd_open = true;
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		tstr_init(&ctx->out, 0, 0, tstr_flag_overflow_alloc);
-		tstr_init(&ctx->err, 0, 0, tstr_flag_overflow_alloc);
+		tstr_init(&ctx->out, 0, 0, 0);
+		tstr_init(&ctx->err, 0, 0, 0);
 
 		if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
 			goto err;
@@ -326,8 +326,6 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 	}
 
 	/* parent */
-	tstr_destroy(&cmd);
-
 	if (ctx->pipefd_err_open[1] && close(ctx->pipefd_err[1]) == -1) {
 		LOG_E("failed to close: %s", strerror(errno));
 	}
@@ -342,13 +340,14 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const char *_cmd, char *const *argv, c
 		return true;
 	}
 
-	return run_cmd_collect(ctx) == run_cmd_finished;
+	return run_cmd_collect(wk, ctx) == run_cmd_finished;
 err:
 	return false;
 }
 
 static bool
-build_argv(struct run_cmd_ctx *ctx,
+build_argv(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
 	struct source *src,
 	const char *argstr,
 	uint32_t argstr_argc,
@@ -374,10 +373,10 @@ build_argv(struct run_cmd_ctx *ctx,
 	assert(*argv0 && "argv0 cannot be empty");
 
 	tstr_clear(cmd);
-	tstr_pushs(NULL, cmd, argv0);
+	tstr_pushs(wk, cmd, argv0);
 
 	if (!path_is_basename(cmd->buf)) {
-		path_make_absolute(NULL, cmd, argv0);
+		path_make_absolute(wk, cmd, argv0);
 
 		if (!fs_exe_exists(cmd->buf)) {
 			if (!run_cmd_determine_interpreter(src, cmd->buf, &ctx->err_msg, &new_argv0, &new_argv1)) {
@@ -386,7 +385,7 @@ build_argv(struct run_cmd_ctx *ctx,
 
 			argc += new_argv1 ? 2 : 1;
 
-			path_copy(NULL, cmd, new_argv0);
+			path_copy(wk, cmd, new_argv0);
 		}
 	}
 
@@ -397,7 +396,7 @@ build_argv(struct run_cmd_ctx *ctx,
 		return true;
 	}
 
-	new_argv = z_calloc(argc + 1, sizeof(const char *));
+	new_argv = ar_maken(&wk->a_scratch, const char *, argc + 1);
 	argi = 0;
 	if (new_argv0) {
 		push_argv_single(new_argv, &argi, argc, new_argv0);
@@ -420,14 +419,14 @@ build_argv(struct run_cmd_ctx *ctx,
 }
 
 bool
-run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
+run_cmd_argv(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
 	bool ret = false;
 	struct source src = { 0 };
 	const char **new_argv = NULL;
 
-	TSTR_manual(cmd);
-	if (!build_argv(ctx, &src, NULL, 0, argv, &cmd, &new_argv)) {
+	TSTR(cmd);
+	if (!build_argv(wk, ctx, &src, NULL, 0, argv, &cmd, &new_argv)) {
 		goto err;
 	}
 
@@ -435,35 +434,32 @@ run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uin
 		argv = (char **)new_argv;
 	}
 
-	ret = run_cmd_internal(ctx, cmd.buf, (char *const *)argv, envstr, envc);
+	ret = run_cmd_internal(wk, ctx, cmd.buf, (char *const *)argv, envstr, envc);
 err:
 	fs_source_destroy(&src);
-	if (new_argv) {
-		z_free((void *)new_argv);
-	}
-	tstr_destroy(&cmd);
 	return ret;
 }
 
 bool
-run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
+run_cmd(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
+	const char *argstr,
+	uint32_t argc,
+	const char *envstr,
+	uint32_t envc)
 {
 	bool ret = false;
 	struct source src = { 0 };
 	const char **argv = NULL;
 
-	TSTR_manual(cmd);
-	if (!build_argv(ctx, &src, argstr, argc, NULL, &cmd, &argv)) {
+	TSTR(cmd);
+	if (!build_argv(wk, ctx, &src, argstr, argc, NULL, &cmd, &argv)) {
 		goto err;
 	}
 
-	ret = run_cmd_internal(ctx, cmd.buf, (char *const *)argv, envstr, envc);
+	ret = run_cmd_internal(wk, ctx, cmd.buf, (char *const *)argv, envstr, envc);
 err:
 	fs_source_destroy(&src);
-	if (argv) {
-		z_free((void *)argv);
-	}
-	tstr_destroy(&cmd);
 	return ret;
 }
 
@@ -471,9 +467,6 @@ void
 run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
 	run_cmd_ctx_close_fds(ctx);
-
-	tstr_destroy(&ctx->out);
-	tstr_destroy(&ctx->err);
 }
 
 bool
@@ -495,7 +488,7 @@ run_cmd_kill(struct run_cmd_ctx *ctx, bool force)
 }
 
 bool
-run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
+run_cmd_unsplit(struct workspace *wk, struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
 {
 	assert(false && "this function should only be called under windows");
 }

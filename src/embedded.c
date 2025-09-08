@@ -22,7 +22,7 @@ static uint32_t embedded_len = 0;
 #endif
 
 bool
-embedded_get(const char *name, struct source *src_out)
+embedded_get(struct workspace *wk, const char *name, struct source *src_out)
 {
 	bool bootstrapped = false;
 #ifdef MUON_BOOTSTRAPPED
@@ -30,10 +30,10 @@ embedded_get(const char *name, struct source *src_out)
 #endif
 
 	if (!bootstrapped) {
-		TSTR_manual(path);
-		path_dirname(0, &path, __FILE__);
-		path_push(0, &path, "script");
-		path_push(0, &path, name);
+		TSTR(path);
+		path_dirname(wk, &path, __FILE__);
+		path_push(wk, &path, "script");
+		path_push(wk, &path, name);
 		struct source src = { 0 };
 		if (!fs_file_exists(path.buf)) {
 			return false;

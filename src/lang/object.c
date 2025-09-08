@@ -351,23 +351,10 @@ obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
 void
 obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 {
-	struct obj_internal *o;
-	struct str *ss;
-	uint32_t i;
-	for (i = mk->obji; i < wk->vm.objects.objs.len; ++i) {
-		o = bucket_arr_get(&wk->vm.objects.objs, i);
-		if (o->t == obj_string) {
-			ss = bucket_arr_get(&wk->vm.objects.obj_aos[obj_string - _obj_aos_start], o->val);
-
-			if (ss->flags & str_flag_big) {
-				z_free((void *)ss->s);
-			}
-		}
-	}
-
 	bucket_arr_restore(&wk->vm.objects.objs, &mk->objs);
 	bucket_arr_restore(&wk->vm.objects.chrs, &mk->chrs);
 
+	uint32_t i;
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 		bucket_arr_restore(&wk->vm.objects.obj_aos[i], &mk->obj_aos[i]);
 	}
@@ -1766,7 +1753,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 	}
 	}
 
-	hash_set(&wk_src->vm.a, &wk_src->vm.objects.obj_hash, &val, *ret);
+	hash_set(&wk_src->a, &wk_src->vm.objects.obj_hash, &val, *ret);
 	return true;
 }
 

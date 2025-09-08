@@ -214,6 +214,7 @@ struct samu_ctx {
 	struct samu_pool consolepool;
 	struct samu_arena arena;
 
+	struct workspace *wk;
 	FILE *out;
 };
 

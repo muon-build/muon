@@ -404,7 +404,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		} else {
 			comp->fwdirs = make_obj(wk, obj_array);
 			struct run_cmd_ctx cmd_ctx = { 0 };
-			if (run_cmd(&cmd_ctx, argstr, argc, 0, 0) && cmd_ctx.status == 0) {
+			if (run_cmd(wk, &cmd_ctx, argstr, argc, 0, 0) && cmd_ctx.status == 0) {
 				char *e, *s = cmd_ctx.err.buf, *eof = s + cmd_ctx.err.len;
 				const struct str fw_suffix = STR("(framework directory)");
 				while (s < eof) {
@@ -1541,7 +1541,7 @@ skip_if_present(struct workspace *wk, obj arr, obj val)
 		return true;
 	}
 
-	hash_set(&wk->vm.objects.obj_hash, &val, true);
+	hash_set(&wk->a, &wk->vm.objects.obj_hash, &val, true);
 
 	return false;
 }

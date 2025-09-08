@@ -65,8 +65,8 @@ ar_block_init(struct ar_block *b, struct ar_block *prev, uint64_t block_size)
 static struct ar_block *
 ar_block_alloc(uint64_t init_block_size, uint64_t count, uint64_t objsize, struct ar_block *prev)
 {
-	uint64_t block_size = init_block_size;
-	while (count > block_size / objsize) {
+	uint64_t block_size = init_block_size, size = count * objsize;
+	while (size > block_size) {
 		block_size *= 2;
 	}
 	if (block_size > init_block_size) {
@@ -98,16 +98,18 @@ ar_init(struct arena *a, const struct ar_params *params)
 void *
 ar_alloc(struct arena *a, uint64_t count, uint64_t objsize, uint64_t align)
 {
-	assert(count);
+	assert(count && align);
 
 	if (!a->tail) {
 		a->head = a->tail = ar_block_alloc(a->params.block_size, count, objsize, 0);
 	}
 
-	int64_t pad, size;
+	int64_t pad, size_unpadded, size;
 retry:
-	pad = (uint64_t)a->tail->end & (align - 1);
-	size = objsize * count + pad;
+	pad = ((uint64_t)a->tail->end & (align - 1));
+	pad = pad ? align - pad : 0;
+	size_unpadded = objsize * count;
+	size = size_unpadded + pad;
 	if (size > ar_block_len_free(a->tail)) {
 		if (a->params.flags & ar_flag_fixed) {
 			assert(false && "fixed arena OOM");
@@ -133,10 +135,11 @@ retry:
 
 	a->pos += size;
 
-	void *mem = a->tail->end;
+	void *mem = a->tail->end + pad;
+
 	a->tail->end += size;
-	asan_unpoison_memory_region(mem, size);
-	memset(mem, 0, size);
+	asan_unpoison_memory_region(mem, size_unpadded);
+	memset(mem, 0, size_unpadded);
 	return mem;
 }
 

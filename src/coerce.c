@@ -642,7 +642,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	obj inc;
 	struct obj_include_directory *d;
 
-	if (path_is_subpath(wk->source_root, p)) {
+	if (path_is_subpath(wk, wk->source_root, p)) {
 		path_relative_to(wk, &buf1, wk->source_root, p);
 		path_join(wk, &buf2, wk->build_root, buf1.buf);
 

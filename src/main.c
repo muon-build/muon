@@ -166,7 +166,7 @@ cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		allocated_argv = true;
 	}
 
-	if (!run_cmd_argv(&ctx, (char *const *)opts.cmd, envstr, envc)) {
+	if (!run_cmd_argv(&wk, &ctx, (char *const *)opts.cmd, envstr, envc)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}
@@ -595,7 +595,7 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		const char *filename = 0;
 		filename = argv[argi];
 		if (embedded) {
-			if (!(embedded_get(filename, &src))) {
+			if (!(embedded_get(&wk, filename, &src))) {
 				LOG_E("failed to find '%s' in embedded sources", filename);
 				goto ret;
 			}
@@ -913,9 +913,12 @@ cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_samu(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	setup_platform_env(".", requirement_auto);
-
-	return samu_main(argc - argi, (char **)&argv[argi], 0);
+	struct workspace wk = { 0 };
+	workspace_init_bare(&wk);
+	setup_platform_env(&wk, ".", requirement_required);
+	bool res = samu_main(&wk, argc - argi, (char **)&argv[argi], 0);
+	workspace_destroy_bare(&wk);
+	return res;
 }
 
 static bool
@@ -1004,8 +1007,6 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	if (!ensure_in_build_dir()) {
 		return false;
 	}
-
-	setup_platform_env(&wk, ".", requirement_auto);
 
 	test_opts.tests = &argv[argi];
 	test_opts.tests_len = argc - argi;
@@ -1114,7 +1115,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 			// wrong after chdir
 			make_argv0_absolute(&wk, &argv0, argv);
 
-			if (!path_chdir(build)) {
+			if (!path_chdir(&wk, build)) {
 				return false;
 			}
 
@@ -1293,18 +1294,17 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	return true;
 }
 
-static bool cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[]);
+static bool cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[]);
 
 static bool
 cmd_meson(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	++argi;
 
-	struct workspace wk;
+	struct workspace* wk = _ctx;
 	char **new_argv;
 	uint32_t new_argc, new_argi;
-	workspace_init_bare(&wk);
-	if (!translate_meson_opts(&wk, argc, argi, (char **)argv, &new_argc, &new_argi, &new_argv)) {
+	if (!translate_meson_opts(wk, argc, argi, (char **)argv, &new_argc, &new_argi, &new_argv)) {
 		return false;
 	}
 
@@ -1312,11 +1312,9 @@ cmd_meson(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	argc = new_argc;
 	argv = new_argv;
 
-	bool res = cmd_main(0, argc, argi, (char **)argv);
+	bool res = cmd_main(wk, argc, argi, (char **)argv);
 
-	workspace_destroy(&wk);
 	z_free(new_argv);
-
 	return res;
 }
 
@@ -1346,23 +1344,27 @@ cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".", requirement_required);
+		struct workspace wk = { 0 };
+		workspace_init_bare(&wk);
+		setup_platform_env(&wk, ".", requirement_required);
 
 	const char *const *cmd = (const char *const *)&argv[argi];
 
 	struct run_cmd_ctx ctx = { 0 };
 	ctx.flags |= run_cmd_ctx_flag_dont_capture;
 
-	if (!run_cmd_argv(&ctx, (char *const *)cmd, 0, 0)) {
+	bool ok = true;
+	if (!run_cmd_argv(&wk, &ctx, (char *const *)cmd, 0, 0)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
-		return false;
+		ok = false;
 	}
 
-	exit(ctx.status);
+	workspace_destroy_bare(&wk);
+	exit(ok ? ctx.status : 1);
 }
 
 static bool
-cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
+cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer" },
@@ -1382,8 +1384,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 		{ 0 },
 	};
 
-	bool res = false;
-	TSTR_manual(argv0);
+	TSTR(argv0);
 
 	OPTSTART("vqC:") {
 	case 'v': log_set_lvl(log_debug); break;
@@ -1391,9 +1392,9 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	case 'C': {
 		// fix argv0 here since if it is a relative path it will be
 		// wrong after chdir
-		make_argv0_absolute(0, &argv0, argv);
+		make_argv0_absolute(wk, &argv0, argv);
 
-		if (!path_chdir(optarg)) {
+		if (!path_chdir(wk, optarg)) {
 			return false;
 		}
 		break;
@@ -1409,14 +1410,11 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 
 	uint32_t cmd_i;
 	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
-		goto ret;
+		return false;
 	}
 
-	res = commands[cmd_i].cmd(0, argc, argi, argv);
-
-ret:
-	tstr_destroy(&argv0);
-	return res;
+	// TODO: pass wk here and use for commands
+	return commands[cmd_i].cmd(0, argc, argi, argv);
 }
 
 int
@@ -1427,7 +1425,10 @@ main(int argc, char *argv[])
 	log_set_file(stdout);
 	log_set_lvl(log_info);
 
-	path_init();
+	struct workspace wk;
+	workspace_init_bare(&wk);
+
+	path_init(&wk);
 
 	compilers_init();
 	machine_init();
@@ -1437,19 +1438,18 @@ main(int argc, char *argv[])
 
 	{
 		TSTR(basename);
-		path_basename(NULL, &basename, argv[0]);
+		path_basename(&wk, &basename, argv[0]);
 		meson_compat = strcmp(basename.buf, "meson") == 0 && (argc < 2 || strcmp(argv[1], "internal") != 0);
-		tstr_destroy(&basename);
 	}
 
 	if (meson_compat) {
-		res = cmd_meson(0, argc, 0, argv);
+		res = cmd_meson(&wk, argc, 0, argv);
 	} else {
-		res = cmd_main(0, argc, 0, argv);
+		res = cmd_main(&wk, argc, 0, argv);
 	}
 
 	int ret = res ? 0 : 1;
 
-	path_deinit();
+	workspace_destroy_bare(&wk);
 	return ret;
 }

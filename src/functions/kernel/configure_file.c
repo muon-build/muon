@@ -446,7 +446,7 @@ generate_config(struct workspace *wk,
 	uint32_t node,
 	obj out_path)
 {
-	TSTR_manual(out_buf);
+	TSTR(out_buf);
 
 	if (macro_name) {
 		tstr_pushf(
@@ -553,7 +553,6 @@ generate_config(struct workspace *wk,
 
 	ret = true;
 ret:
-	tstr_destroy(&out_buf);
 	return ret;
 }
 
@@ -602,7 +601,7 @@ configure_file_with_command(struct workspace *wk,
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
 
-	if (!path_chdir(workspace_build_dir(wk))) {
+	if (!path_chdir(wk, workspace_build_dir(wk))) {
 		return false;
 	}
 
@@ -612,7 +611,7 @@ configure_file_with_command(struct workspace *wk,
 
 	join_args_argstr(wk, &argstr, &argc, args);
 	env_to_envstr(wk, &envstr, &envc, env);
-	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error_at(wk, node, "error running command: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
@@ -632,7 +631,7 @@ configure_file_with_command(struct workspace *wk,
 		ret = true;
 	}
 ret:
-	if (!path_chdir(wk->source_root)) {
+	if (!path_chdir(wk, wk->source_root)) {
 		return false;
 	}
 
@@ -810,12 +809,12 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 
 			TSTR(dir);
 			path_dirname(wk, &dir, out);
-			if (!fs_mkdir_p(dir.buf)) {
+			if (!fs_mkdir_p(wk, dir.buf)) {
 				return false;
 			}
 		}
 
-		if (!fs_mkdir_p(workspace_build_dir(wk))) {
+		if (!fs_mkdir_p(wk, workspace_build_dir(wk))) {
 			return false;
 		}
 

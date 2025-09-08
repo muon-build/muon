@@ -88,7 +88,6 @@ load_bucket_arr(struct arena *a, struct bucket_arr *ba, FILE *f)
 		return false;
 	}
 
-	z_free(((struct bucket *)arr_get(&ba->buckets, 0))->mem);
 	arr_clear(&ba->buckets);
 
 	for (i = 0; i < buckets_len; ++i) {
@@ -112,7 +111,6 @@ load_bucket_arr(struct arena *a, struct bucket_arr *ba, FILE *f)
 		arr_push(a, &ba->buckets, &b);
 		continue;
 done:
-		z_free(b.mem);
 		return corrupted_dump();
 	}
 

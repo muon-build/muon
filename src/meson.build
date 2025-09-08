@@ -82,6 +82,7 @@ src = files(
     'lang/typecheck.c',
     'lang/vm.c',
     'lang/workspace.c',
+    'arena.c',
     'args.c',
     'cmd_install.c',
     'cmd_subprojects.c',

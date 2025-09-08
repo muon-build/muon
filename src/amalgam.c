@@ -9,6 +9,7 @@
 #define __EXTENSIONS__
 #endif
 
+#include "arena.c"
 #include "args.c"
 #include "backend/backend.c"
 #include "backend/common_args.c"

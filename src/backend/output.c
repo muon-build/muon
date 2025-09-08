@@ -42,13 +42,12 @@ const struct output_path output_path = {
 };
 
 FILE *
-output_open(const char *dir, const char *name)
+output_open(struct workspace *wk, const char *dir, const char *name)
 {
-	TSTR_manual(path);
-	path_join(NULL, &path, dir, name);
+	TSTR(path);
+	path_join(wk, &path, dir, name);
 
 	FILE *f = fs_fopen(path.buf, "wb");
-	tstr_destroy(&path);
 	return f;
 }
 
@@ -66,7 +65,7 @@ with_open(const char *dir, const char *name, struct workspace *wk, void *ctx, wi
 
 	bool ret = false;
 	FILE *out;
-	if (!(out = output_open(dir, name))) {
+	if (!(out = output_open(wk, dir, name))) {
 		goto ret;
 	} else if (!cb(wk, ctx, out)) {
 		goto ret;

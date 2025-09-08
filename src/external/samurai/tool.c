@@ -210,8 +210,8 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 	}
 	SAMU_ARGEND
 
-	TSTR_manual(dir);
-	path_copy_cwd(0, &dir);
+	TSTR(dir);
+	path_copy_cwd(ctx->wk, &dir);
 
 	samu_putchar(ctx, '[');
 	for (e = ctx->graph.alledges; e; e = e->allnext) {
@@ -269,7 +269,6 @@ samu_compdb(struct samu_ctx *ctx, int argc, char *argv[])
 	if (fflush(stdout) || ferror(stdout))
 		samu_fatal("write failed");
 
-	tstr_destroy(&dir);
 	return 0;
 }
 

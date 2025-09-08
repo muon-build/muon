@@ -33,7 +33,8 @@ extern const char *log_level_shortname[log_level_count];
 void log_set_file(FILE *log_file);
 void log_set_debug_file(FILE *log_file);
 struct tstr;
-void log_set_buffer(struct tstr *buf);
+struct workspace;
+void log_set_buffer(struct workspace *wk, struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
 void log_set_prefix(int32_t n);
 

@@ -106,7 +106,7 @@ subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx
 		.path = get_str(wk, make_str(wk, path))->s,
 	};
 
-	arr_push(&ctx->handlers, &wrap_ctx);
+	arr_push(&wk->a_scratch, &ctx->handlers, &wrap_ctx);
 
 	return ir_cont;
 }
@@ -276,7 +276,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 {
 	// Init ctx
 	struct subprojects_common_ctx ctx = { .res = opts->res };
-	arr_init(&ctx.handlers, 8, sizeof(struct wrap_handle_ctx));
+	arr_init(&wk->a_scratch, &ctx.handlers, 8, struct wrap_handle_ctx);
 	*ctx.res = make_obj(wk, obj_array);
 
 	// Gather subprojects
@@ -284,7 +284,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		struct wrap_handle_ctx wrap_ctx = {
 			.path = get_str(wk, list)->s,
 		};
-		arr_push(&ctx.handlers, &wrap_ctx);
+		arr_push(&wk->a_scratch, &ctx.handlers, &wrap_ctx);
 	} else {
 		subprojects_foreach(wk, list, &ctx, subprojects_gather_iter);
 	}
@@ -397,8 +397,6 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	}
 
 	wrap_handle_async_end(wk);
-
-	arr_destroy(&ctx.handlers);
 
 	if (opts->progress_bar) {
 		log_progress_disable();
