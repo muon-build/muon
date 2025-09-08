@@ -31,7 +31,7 @@ xml_node_new_styled(struct xml_writer *w, const char *name, enum xml_writer_styl
 	if (style & xml_writer_style_single_line_element && element) {
 		elt = make_str(w->wk, element);
 	}
-	bucket_arr_push(&w->wk->a, &w->nodes, &(struct xml_node){ .name = n, .style = style, .elt = elt });
+	bucket_arr_push(w->wk->a, &w->nodes, &(struct xml_node){ .name = n, .style = style, .elt = elt });
 	return idx;
 }
 
@@ -78,7 +78,7 @@ xml_writer_init(struct workspace *wk, struct xml_writer *w)
 		.wk = wk,
 	};
 
-	bucket_arr_init(&wk->a_scratch, &w->nodes, 1024, struct xml_node);
+	bucket_arr_init(wk->a_scratch, &w->nodes, 1024, struct xml_node);
 }
 
 /*******************************************************************************

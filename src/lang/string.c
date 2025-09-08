@@ -108,9 +108,9 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 
 	if (new_len > wk->vm.objects.chrs.bucket_size) {
 		f |= str_flag_big;
-		p = ar_alloc(&wk->a, 1, new_len, 1);
+		p = ar_alloc(wk->a, 1, new_len, 1);
 	} else {
-		p = bucket_arr_pushn(&wk->a, &wk->vm.objects.chrs, NULL, 0, new_len);
+		p = bucket_arr_pushn(wk->a, &wk->vm.objects.chrs, NULL, 0, new_len);
 	}
 
 	*s = make_obj(wk, obj_string);
@@ -148,15 +148,15 @@ grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 	}
 
 	if (ss->flags & str_flag_big) {
-		ss->s = ar_realloc(&wk->a, (void *)ss->s, ss->len, new_len, 1);
+		ss->s = ar_realloc(wk->a, (void *)ss->s, ss->len, new_len, 1);
 		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
 	} else if (new_len >= wk->vm.objects.chrs.bucket_size) {
 		ss->flags |= str_flag_big;
-		char *np = ar_alloc(&wk->a, 1, new_len, 1);
+		char *np = ar_alloc(wk->a, 1, new_len, 1);
 		memcpy(np, ss->s, ss->len);
 		ss->s = np;
 	} else {
-		char *np = bucket_arr_pushn(&wk->a, &wk->vm.objects.chrs, ss->s, ss->len, new_len);
+		char *np = bucket_arr_pushn(wk->a, &wk->vm.objects.chrs, ss->s, ss->len, new_len);
 		ss->s = np;
 	}
 
@@ -185,7 +185,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 	str->flags |= flags;
 
 	if (hash && !wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
-		hash_set_strn(&wk->a, &wk->vm.objects.str_hash, str->s, str->len, s);
+		hash_set_strn(wk->a, &wk->vm.objects.str_hash, str->s, str->len, s);
 	}
 	return s;
 }

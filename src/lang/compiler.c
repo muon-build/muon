@@ -28,7 +28,7 @@
 static void
 push_location(struct workspace *wk, struct node *n)
 {
-	arr_push(&wk->a, &wk->vm.locations,
+	arr_push(wk->a, &wk->vm.locations,
 		&(struct source_location_mapping){
 			.ip = wk->vm.code.len,
 			.loc = n->location,
@@ -39,7 +39,7 @@ push_location(struct workspace *wk, struct node *n)
 static void
 push_code(struct workspace *wk, uint8_t b)
 {
-	arr_push(&wk->a, &wk->vm.code, &b);
+	arr_push(wk->a, &wk->vm.code, &b);
 }
 
 static void
@@ -414,7 +414,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		}
 
 		uint32_t loop_jmp_stack_base = wk->vm.compiler_state.loop_jmp_stack.len;
-		arr_push(&wk->a, &wk->vm.compiler_state.loop_jmp_stack, &loop_body_start);
+		arr_push(wk->a, &wk->vm.compiler_state.loop_jmp_stack, &loop_body_start);
 
 		++wk->vm.compiler_state.loop_depth;
 		vm_compile_block(wk, n->r, 0);
@@ -458,8 +458,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_jmp);
 
 		uint32_t top = *(uint32_t *)arr_pop(&wk->vm.compiler_state.loop_jmp_stack);
-		arr_push(&wk->a, &wk->vm.compiler_state.loop_jmp_stack, &wk->vm.code.len);
-		arr_push(&wk->a, &wk->vm.compiler_state.loop_jmp_stack, &top);
+		arr_push(wk->a, &wk->vm.compiler_state.loop_jmp_stack, &wk->vm.code.len);
+		arr_push(wk->a, &wk->vm.compiler_state.loop_jmp_stack, &top);
 
 		push_constant(wk, 0);
 		push_constant(wk, *(uint32_t *)arr_peek(&wk->vm.compiler_state.loop_jmp_stack, 1));
@@ -486,7 +486,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_code(wk, op_az_branch);
 			push_constant(wk, az_branch_type_normal);
 
-			arr_push(&wk->a, &wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
+			arr_push(wk->a, &wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
 			++patch_tgts;
 			push_constant(wk, 0);
 
@@ -502,7 +502,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			if (n->l->l) {
 				vm_compile_expr(wk, n->l->l);
 				push_code(wk, op_jmp_if_disabler);
-				arr_push(&wk->a, &wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
+				arr_push(wk->a, &wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
 				++patch_tgts;
 				push_constant(wk, 0);
 
@@ -514,7 +514,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			vm_compile_block(wk, n->l->r, 0);
 
 			push_code(wk, op_jmp);
-			arr_push(&wk->a, &wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
+			arr_push(wk->a, &wk->vm.compiler_state.if_jmp_stack, &wk->vm.code.len);
 			++patch_tgts;
 			push_constant(wk, 0);
 
@@ -783,7 +783,7 @@ vm_visit_nodes(struct workspace *wk,
 				prev = n;
 				n = 0;
 			} else {
-				arr_push(&wk->a, &wk->vm.compiler_state.node_stack, &n);
+				arr_push(wk->a, &wk->vm.compiler_state.node_stack, &n);
 				n = n->l;
 			}
 		} else {
@@ -859,7 +859,7 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 void
 vm_compile_initial_code_segment(struct workspace *wk)
 {
-	arr_push(&wk->a, &wk->vm.locations,
+	arr_push(wk->a, &wk->vm.locations,
 		&(struct source_location_mapping){
 			.ip = 0,
 			.loc = { 0 },

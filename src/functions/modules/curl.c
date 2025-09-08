@@ -20,7 +20,7 @@ FUNC_IMPL(module_curl, fetch, tc_string, func_impl_flag_impure, .desc = "Begin f
 		return false;
 	}
 
-	mc_init(&wk->a_scratch);
+	mc_init(wk->a_scratch);
 
 	uint8_t *buf;
 	uint64_t len;

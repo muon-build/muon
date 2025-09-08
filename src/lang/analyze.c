@@ -115,7 +115,7 @@ copy_az_entrypoint_stack(struct workspace *wk, uint32_t *ep_stacks_i, uint32_t *
 {
 	if (az_entrypoint_stack.len) {
 		*ep_stacks_i = az_entrypoint_stacks.len;
-		arr_grow_by(&wk->a, &az_entrypoint_stacks, az_entrypoint_stack.len);
+		arr_grow_by(wk->a, &az_entrypoint_stacks, az_entrypoint_stack.len);
 		*ep_stack_len = az_entrypoint_stack.len;
 
 		memcpy(arr_get(&az_entrypoint_stacks, *ep_stacks_i),
@@ -376,7 +376,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// Add the new assignment to the current scope and return its index as
 	// an obj (for storage in the scope dict)
 	obj v = assignments.len;
-	bucket_arr_push(&wk->a, &assignments,
+	bucket_arr_push(wk->a, &assignments,
 		&(struct az_assignment){
 			.name = name,
 			.o = o,
@@ -679,7 +679,7 @@ az_jmp_if_cond_matches(struct workspace *wk, bool cond)
 	{
 		uint32_t ip = wk->vm.ip - 1;
 		if (!(map = (union branch_map *)hash_get(&analyzer.branch_map, &ip))) {
-			hash_set(&wk->a, &analyzer.branch_map, &ip, 0);
+			hash_set(wk->a, &analyzer.branch_map, &ip, 0);
 			map = (union branch_map *)hash_get(&analyzer.branch_map, &ip);
 		}
 	}
@@ -856,7 +856,7 @@ az_eval_project_file(struct workspace *wk,
 static void
 az_execute_loop(struct workspace *wk)
 {
-	arr_grow_to(&wk->a, &analyzer.visited_ops, wk->vm.code.len);
+	arr_grow_to(wk->a, &analyzer.visited_ops, wk->vm.code.len);
 
 	uint32_t cip;
 	while (wk->vm.run) {
@@ -1199,7 +1199,7 @@ az_op_constant_dict(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_constant_dict](wk);
 
 	obj dict = object_stack_peek(&wk->vm.stack, 1);
-	hash_set(&wk->a, &analyzer.dict_locations, &dict, b);
+	hash_set(wk->a, &analyzer.dict_locations, &dict, b);
 }
 
 static void
@@ -1215,7 +1215,7 @@ az_dict_locations_merge(struct workspace *wk, obj a, obj b, obj tgt)
 	obj merged;
 	obj_dict_merge(wk, *la, *lb, &merged);
 
-	hash_set(&wk->a, &analyzer.dict_locations, &tgt, merged);
+	hash_set(wk->a, &analyzer.dict_locations, &tgt, merged);
 }
 
 static void
@@ -1253,7 +1253,7 @@ az_op_store(struct workspace *wk)
 
 			uint64_t *hv;
 			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-				hash_set(&wk->a, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
+				hash_set(wk->a, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
 				hv = hash_get(&analyzer.dict_locations, &tgt);
 			}
 
@@ -1282,7 +1282,7 @@ az_op_store(struct workspace *wk)
 
 	if (dup) {
 		obj tgt = object_stack_peek(&wk->vm.stack, 1);
-		hash_set(&wk->a, &analyzer.dict_locations, &tgt, dup);
+		hash_set(wk->a, &analyzer.dict_locations, &tgt, dup);
 	}
 }
 
@@ -1441,7 +1441,7 @@ analyze_opts_init(struct workspace *wk, struct az_opts *opts)
 {
 	*opts = (struct az_opts){ 0 };
 	opts->file_override = make_obj(wk, obj_dict);
-	arr_init(&wk->a, &opts->file_override_src, 8, struct source);
+	arr_init(wk->a, &opts->file_override_src, 8, struct source);
 }
 
 void
@@ -1484,7 +1484,7 @@ analyze_opts_push_override(struct workspace *wk,
 
 	if (!src) {
 		idx = opts->file_override_src.len;
-		arr_push(&wk->a, &opts->file_override_src, &(struct source){ 0 });
+		arr_push(wk->a, &opts->file_override_src, &(struct source){ 0 });
 		src = arr_peek(&opts->file_override_src, 1);
 		obj_dict_set(wk, opts->file_override, path, idx);
 	}
@@ -1525,10 +1525,10 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	bool res = false;
 	analyzer.opts = opts;
 
-	bucket_arr_init(&wk->a, &assignments, 512, struct az_assignment);
-	hash_init(&wk->a, &analyzer.branch_map, 1024, uint32_t);
-	hash_init(&wk->a, &analyzer.dict_locations, 1024, obj);
-	arr_init(&wk->a, &analyzer.visited_ops, 1024, char);
+	bucket_arr_init(wk->a, &assignments, 512, struct az_assignment);
+	hash_init(wk->a, &analyzer.branch_map, 1024, uint32_t);
+	hash_init(wk->a, &analyzer.dict_locations, 1024, obj);
+	arr_init(wk->a, &analyzer.visited_ops, 1024, char);
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
@@ -1579,8 +1579,8 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	error_diagnostic_store_init(wk);
 
-	arr_init(&wk->a, &az_entrypoint_stack, 32, struct az_file_entrypoint);
-	arr_init(&wk->a, &az_entrypoint_stacks, 32, struct az_file_entrypoint);
+	arr_init(wk->a, &az_entrypoint_stack, 32, struct az_file_entrypoint);
+	arr_init(wk->a, &az_entrypoint_stacks, 32, struct az_file_entrypoint);
 
 	if (analyzer.opts->eval_trace) {
 		wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
@@ -1749,14 +1749,14 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 }
 
 bool
-analyze_project_call(struct workspace *wk)
+analyze_project_call(struct workspace *wk, struct arena *a)
 {
 	struct az_opts opts = {
 		.replay_opts = error_diagnostic_store_replay_errors_only,
 		.analyze_project_call_only = true,
 	};
 
-	workspace_init_bare(wk);
+	workspace_init_bare(wk, a, 0);
 
 	return do_analyze(wk, &opts);
 }

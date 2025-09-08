@@ -263,14 +263,11 @@ err:
 }
 
 bool
-install_run(struct install_options *opts)
+install_run(struct workspace *wk, struct install_options *opts)
 {
 	bool ret = false;
-	struct workspace wk;
-	workspace_init_bare(&wk);
-
 	TSTR(install_src);
-	path_join(&wk, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
+	path_join(wk, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
 
 	FILE *f;
 	f = fs_fopen(install_src.buf, "rb");
@@ -280,7 +277,7 @@ install_run(struct install_options *opts)
 	}
 
 	obj install;
-	if (!serial_load(&wk, &install, f)) {
+	if (!serial_load(wk, &install, f)) {
 		LOG_E("failed to load %s", output_path.paths[output_path_install].path);
 		goto ret;
 	} else if (!fs_fclose(f)) {
@@ -292,38 +289,37 @@ install_run(struct install_options *opts)
 	};
 
 	obj install_targets, install_scripts, source_root;
-	install_targets = obj_array_index(&wk, install, 0);
-	install_scripts = obj_array_index(&wk, install, 1);
-	source_root = obj_array_index(&wk, install, 2);
-	ctx.prefix = obj_array_index(&wk, install, 3);
+	install_targets = obj_array_index(wk, install, 0);
+	install_scripts = obj_array_index(wk, install, 1);
+	source_root = obj_array_index(wk, install, 2);
+	ctx.prefix = obj_array_index(wk, install, 3);
 
 	TSTR(build_root);
-	path_copy_cwd(&wk, &build_root);
-	wk.build_root = get_cstr(&wk, tstr_into_str(&wk, &build_root));
-	wk.source_root = get_cstr(&wk, source_root);
+	path_copy_cwd(wk, &build_root);
+	wk->build_root = get_cstr(wk, tstr_into_str(wk, &build_root));
+	wk->source_root = get_cstr(wk, source_root);
 
 	if ((opts->destdir)) {
 		TSTR(full_prefix);
 		TSTR(abs_destdir);
-		path_make_absolute(&wk, &abs_destdir, opts->destdir);
-		path_join_absolute(&wk, &full_prefix, abs_destdir.buf, get_cstr(&wk, ctx.prefix));
+		path_make_absolute(wk, &abs_destdir, opts->destdir);
+		path_join_absolute(wk, &full_prefix, abs_destdir.buf, get_cstr(wk, ctx.prefix));
 
-		ctx.full_prefix = tstr_into_str(&wk, &full_prefix);
-		ctx.destdir = tstr_into_str(&wk, &abs_destdir);
+		ctx.full_prefix = tstr_into_str(wk, &full_prefix);
+		ctx.destdir = tstr_into_str(wk, &abs_destdir);
 	} else {
 		ctx.full_prefix = ctx.prefix;
 	}
 
-	if (!obj_array_foreach(&wk, install_targets, &ctx, install_iter)) {
+	if (!obj_array_foreach(wk, install_targets, &ctx, install_iter)) {
 		goto ret;
 	}
 
-	if (!obj_array_foreach(&wk, install_scripts, &ctx, install_scripts_iter)) {
+	if (!obj_array_foreach(wk, install_scripts, &ctx, install_scripts_iter)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
-	workspace_destroy_bare(&wk);
 	return ret;
 }

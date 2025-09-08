@@ -48,8 +48,8 @@ struct project {
 };
 
 struct workspace {
-	struct arena a;
-	struct arena a_scratch;
+	struct arena *a, *a_scratch;
+	uint64_t a_scratch_pos;
 
 	const char *argv0, *source_root, *build_root, *muon_private;
 
@@ -111,12 +111,11 @@ struct workspace {
 #endif
 };
 
-void workspace_init_arena(struct workspace *wk);
-void workspace_init_bare(struct workspace *wk);
+void workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a_scratch);
+void workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scratch);
 void workspace_init_runtime(struct workspace *wk);
 void workspace_init_startup_files(struct workspace *wk);
-void workspace_init(struct workspace *wk);
-void workspace_destroy_arena(struct workspace *wk);
+void workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch);
 void workspace_destroy_bare(struct workspace *wk);
 void workspace_destroy(struct workspace *wk);
 void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
@@ -126,6 +125,7 @@ void workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr);
 
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir);
+void make_dummy_project(struct workspace *wk, bool setup_options);
 struct project *current_project(struct workspace *wk);
 const char *workspace_build_dir(struct workspace *wk);
 const char *workspace_cwd(struct workspace *wk);
@@ -137,4 +137,6 @@ enum workspace_do_setup_flag {
 };
 bool workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags);
 bool workspace_do_setup(struct workspace *wk);
+void workspace_scratch_begin(struct workspace *wk);
+void workspace_scratch_end(struct workspace *wk);
 #endif

@@ -21,6 +21,9 @@ struct arena {
 	struct ar_params params;
 	struct ar_block *head, *tail;
 	int64_t pos;
+#ifdef TRACY_ENABLE
+	const char *tracy_tag;
+#endif
 };
 
 void ar_init(struct arena *a, const struct ar_params *params);

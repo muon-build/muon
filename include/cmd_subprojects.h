@@ -9,5 +9,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-bool cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]);
+struct workspace;
+bool cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]);
 #endif

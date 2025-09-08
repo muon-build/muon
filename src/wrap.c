@@ -1087,7 +1087,7 @@ wrap_handle_check_dirty_next_state(struct workspace *wk, struct wrap_handle_ctx 
 void
 wrap_handle_async_start(struct workspace *wk)
 {
-	mc_init(&wk->a_scratch);
+	mc_init(wk->a_scratch);
 }
 
 void

@@ -129,7 +129,8 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 	bool ret = false;
 
 	struct workspace wk;
-	workspace_init(&wk);
+	// TODO: broken
+	workspace_init(&wk, 0, 0);
 
 	wk.vm.lang_mode = language_internal;
 

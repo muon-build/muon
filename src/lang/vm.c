@@ -76,7 +76,7 @@ static void
 object_stack_push_ip(struct workspace *wk, obj o, uint32_t ip)
 {
 	if (wk->vm.stack.i >= object_stack_page_size) {
-		object_stack_alloc_page(&wk->a, &wk->vm.stack);
+		object_stack_alloc_page(wk->a, &wk->vm.stack);
 	}
 
 	wk->vm.stack.page[wk->vm.stack.i] = (struct obj_stack_entry){ .o = o, .ip = ip };
@@ -861,7 +861,7 @@ vm_dis(struct workspace *wk)
 void
 vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
 {
-	arr_push(&wk->a, &wk->vm.call_stack, frame);
+	arr_push(wk->a, &wk->vm.call_stack, frame);
 }
 
 struct call_frame *
@@ -3061,7 +3061,7 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 	}
 
 	int64_t i = wk->vm.objects.reflected.fields.len;
-	bucket_arr_push(&wk->a, &wk->vm.objects.reflected.fields, f);
+	bucket_arr_push(wk->a, &wk->vm.objects.reflected.fields, f);
 	obj n = make_obj(wk, obj_number);
 	set_obj_number(wk, n, i);
 	obj_array_push(wk, wk->vm.objects.reflected.objs[t], n);
@@ -3167,12 +3167,12 @@ vm_reflect_objects(struct workspace *wk)
 void
 vm_init_objects(struct workspace *wk)
 {
-	bucket_arr_init(&wk->a, &wk->vm.objects.chrs, 4096, char);
-	bucket_arr_init(&wk->a, &wk->vm.objects.objs, 1024, struct obj_internal);
-	bucket_arr_init(&wk->a, &wk->vm.objects.dict_elems, 1024, struct obj_dict_elem);
-	bucket_arr_init(&wk->a, &wk->vm.objects.dict_hashes, 16, struct hash);
-	bucket_arr_init(&wk->a, &wk->vm.objects.array_elems, 1024, struct obj_array_elem);
-	bucket_arr_init(&wk->a, &wk->vm.objects.reflected.fields, 128, struct vm_reflected_field);
+	bucket_arr_init(wk->a, &wk->vm.objects.chrs, 4096, char);
+	bucket_arr_init(wk->a, &wk->vm.objects.objs, 1024, struct obj_internal);
+	bucket_arr_init(wk->a, &wk->vm.objects.dict_elems, 1024, struct obj_dict_elem);
+	bucket_arr_init(wk->a, &wk->vm.objects.dict_hashes, 16, struct hash);
+	bucket_arr_init(wk->a, &wk->vm.objects.array_elems, 1024, struct obj_array_elem);
+	bucket_arr_init(wk->a, &wk->vm.objects.reflected.fields, 128, struct vm_reflected_field);
 
 #define P(__type) sizeof(__type), ar_alignof(__type)
 	const struct {
@@ -3214,16 +3214,16 @@ vm_init_objects(struct workspace *wk)
 
 	uint32_t i;
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_arr_init_(&wk->a, &wk->vm.objects.obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size, sizes[i].item_align);
+		bucket_arr_init_(wk->a, &wk->vm.objects.obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size, sizes[i].item_align);
 	}
 
 	// reserve dict_elem 0 and array_elem as a null element
-	bucket_arr_pushn(&wk->a, &wk->vm.objects.dict_elems, 0, 0, 1);
-	bucket_arr_pushn(&wk->a, &wk->vm.objects.array_elems, 0, 0, 1);
+	bucket_arr_pushn(wk->a, &wk->vm.objects.dict_elems, 0, 0, 1);
+	bucket_arr_pushn(wk->a, &wk->vm.objects.array_elems, 0, 0, 1);
 
-	hash_init(&wk->a, &wk->vm.objects.obj_hash, 128, obj);
-	hash_init_str(&wk->a, &wk->vm.objects.str_hash, 128);
-	hash_init_str(&wk->a, &wk->vm.objects.dedup_str_hash, 128);
+	hash_init(wk->a, &wk->vm.objects.obj_hash, 128, obj);
+	hash_init_str(wk->a, &wk->vm.objects.str_hash, 128);
+	hash_init_str(wk->a, &wk->vm.objects.dedup_str_hash, 128);
 
 	make_default_objects(wk);
 }
@@ -3234,17 +3234,17 @@ vm_init(struct workspace *wk)
 	wk->vm = (struct vm){ 0 };
 
 	/* core vm runtime */
-	object_stack_init(&wk->a, &wk->vm.stack);
-	arr_init(&wk->a, &wk->vm.call_stack, 64, struct call_frame);
-	arr_init(&wk->a, &wk->vm.code, 4 * 1024, char);
-	arr_init(&wk->a, &wk->vm.src, 64, struct source);
-	arr_init(&wk->a, &wk->vm.locations, 1024, struct source_location_mapping);
+	object_stack_init(wk->a, &wk->vm.stack);
+	arr_init(wk->a, &wk->vm.call_stack, 64, struct call_frame);
+	arr_init(wk->a, &wk->vm.code, 4 * 1024, char);
+	arr_init(wk->a, &wk->vm.src, 64, struct source);
+	arr_init(wk->a, &wk->vm.locations, 1024, struct source_location_mapping);
 
 	/* compiler state */
-	arr_init(&wk->a, &wk->vm.compiler_state.node_stack, 4096, struct node *);
-	arr_init(&wk->a, &wk->vm.compiler_state.if_jmp_stack, 64, uint32_t);
-	arr_init(&wk->a, &wk->vm.compiler_state.loop_jmp_stack, 64, uint32_t);
-	bucket_arr_init(&wk->a, &wk->vm.compiler_state.nodes, 2048, struct node);
+	arr_init(wk->a, &wk->vm.compiler_state.node_stack, 4096, struct node *);
+	arr_init(wk->a, &wk->vm.compiler_state.if_jmp_stack, 64, uint32_t);
+	arr_init(wk->a, &wk->vm.compiler_state.loop_jmp_stack, 64, uint32_t);
+	bucket_arr_init(wk->a, &wk->vm.compiler_state.nodes, 2048, struct node);
 
 	/* behavior pointers */
 	wk->vm.behavior = (struct vm_behavior){

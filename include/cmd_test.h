@@ -40,5 +40,5 @@ struct test_options {
 	enum test_category cat;
 };
 
-bool tests_run(struct test_options *opts, const char *argv0);
+bool tests_run(struct workspace *wk, struct test_options *opts, const char *argv0);
 #endif

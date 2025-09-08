@@ -63,10 +63,8 @@ cmd_subprojects_eval_cmd(struct workspace *wk,
 }
 
 static bool
-cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_update(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct workspace *wk = _ctx;
-
 	bool required = false;
 
 	OPTSTART("f") {
@@ -87,10 +85,8 @@ cmd_subprojects_update(void *_ctx, uint32_t argc, uint32_t argi, char *const arg
 }
 
 static bool
-cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_list(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct workspace *wk = _ctx;
-
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
@@ -102,9 +98,8 @@ cmd_subprojects_list(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[
 }
 
 static bool
-cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_clean(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct workspace *wk = _ctx;
 	bool force = false;
 
 	OPTSTART("f") {
@@ -121,9 +116,8 @@ cmd_subprojects_clean(void *_ctx, uint32_t argc, uint32_t argi, char *const argv
 }
 
 static bool
-cmd_subprojects_fetch(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects_fetch(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct workspace *wk = _ctx;
 	bool force = false;
 	const char *subprojects = 0;
 
@@ -155,7 +149,7 @@ struct cmd_subprojects_ctx {
 };
 
 bool
-cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "update", cmd_subprojects_update, "update subprojects with .wrap files" },
@@ -179,33 +173,32 @@ cmd_subprojects(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	struct workspace wk;
-	workspace_init_bare(&wk);
-	workspace_init_runtime(&wk);
+	workspace_init_runtime(wk);
 
 	TSTR(path);
 
 	if (opts.dir) {
-		tstr_pushs(&wk, &path, opts.dir);
+		tstr_pushs(wk, &path, opts.dir);
 	} else {
 		struct workspace az_wk = { 0 };
-		analyze_project_call(&az_wk);
-		path_make_absolute(&wk, &path, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+		analyze_project_call(&az_wk, wk->a_scratch);
+		path_make_absolute(wk, &path, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
 		workspace_destroy(&az_wk);
 	}
 
 	{
+		// TODO: could be make_dummy_project?
 		uint32_t id;
-		make_project(&wk, &id, 0, wk.source_root, wk.build_root);
-		struct project *proj = arr_get(&wk.projects, 0);
-		proj->subprojects_dir = tstr_into_str(&wk, &path);
+		make_project(wk, &id, 0, wk->source_root, wk->build_root);
+		struct project *proj = arr_get(&wk->projects, 0);
+		proj->subprojects_dir = tstr_into_str(wk, &path);
 	}
 
-	wk.vm.lang_mode = language_extended;
+	wk->vm.lang_mode = language_extended;
 
-	bool res = commands[cmd_i].cmd(&wk, argc, argi, argv);
+	bool res = commands[cmd_i].cmd(wk, argc, argi, argv);
 
-	workspace_destroy(&wk);
+	workspace_destroy(wk);
 
 	return res;
 }

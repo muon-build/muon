@@ -109,7 +109,7 @@ static obj
 xc_pbx_push(struct xc_ctx *ctx, obj pbx, obj key, obj value, obj comment)
 {
 	obj idx = ctx->pbx_item.len;
-	bucket_arr_push(&ctx->wk->a, &ctx->pbx_item,
+	bucket_arr_push(ctx->wk->a, &ctx->pbx_item,
 		&(struct pbx_item){
 			.key = key,
 			.value = value,
@@ -808,7 +808,7 @@ xcode_write_all(struct workspace *wk)
 	path_push(wk, &xcworkspace_path, "contents.xcworkspacedata");
 
 	struct xc_ctx ctx = { .wk = wk };
-	bucket_arr_init(&wk->a, &ctx.pbx_item, 1024, struct pbx_item);
+	bucket_arr_init(wk->a, &ctx.pbx_item, 1024, struct pbx_item);
 	stack_init(&ctx.stack, 4096);
 	xml_writer_init(wk, &ctx.xw);
 

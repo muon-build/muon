@@ -12,5 +12,6 @@ struct install_options {
 	bool dry_run;
 };
 
-bool install_run(struct install_options *opts);
+struct workspace;
+bool install_run(struct workspace *wk, struct install_options *opts);
 #endif

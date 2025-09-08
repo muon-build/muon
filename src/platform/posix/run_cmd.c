@@ -396,7 +396,7 @@ build_argv(struct workspace *wk,
 		return true;
 	}
 
-	new_argv = ar_maken(&wk->a_scratch, const char *, argc + 1);
+	new_argv = ar_maken(wk->a_scratch, const char *, argc + 1);
 	argi = 0;
 	if (new_argv0) {
 		push_argv_single(new_argv, &argi, argc, new_argv0);

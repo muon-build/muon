@@ -44,7 +44,7 @@ struct g_win {
 
 static struct g_win g_win;
 
-static void ui_update();
+static void ui_update(workspace *wk);
 
 static uint32_t
 fnv_1a(uint8_t *v, uint32_t len)
@@ -111,7 +111,7 @@ struct inspector_node {
 		}
 		case obj_file: {
 			const char *path = get_file_path(wk, id);
-			if (path_is_subpath(wk->source_root, path)) {
+			if (path_is_subpath(wk, wk->source_root, path)) {
 				return path + strlen(wk->source_root) + 1;
 			} else {
 				return path;
@@ -119,7 +119,7 @@ struct inspector_node {
 		}
 		case obj_string: {
 			const char *path = get_cstr(wk, id);
-			if (path_is_subpath(wk->source_root, path)) {
+			if (path_is_subpath(wk, wk->source_root, path)) {
 				return path + strlen(wk->source_root) + 1;
 			} else {
 				return path;
@@ -634,12 +634,12 @@ struct render_ansi_text_ctx {
 static void
 render_ansi_text_flush_cb(void *_ctx, const struct str *s, uint32_t start_idx, uint32_t len)
 {
-	render_ansi_text_ctx& ctx = *(render_ansi_text_ctx*)_ctx;
+	render_ansi_text_ctx &ctx = *(render_ansi_text_ctx *)_ctx;
 
 	uint32_t pushed = 0;
 
 	if (ctx.have_clr) {
-		ImGui::PushStyleColor( ImGuiCol_Text, ctx.clr );
+		ImGui::PushStyleColor(ImGuiCol_Text, ctx.clr);
 		++pushed;
 	}
 
@@ -649,9 +649,8 @@ render_ansi_text_flush_cb(void *_ctx, const struct str *s, uint32_t start_idx, u
 	const char *start = &s->s[start_idx], *end = &s->s[start_idx + len];
 	const char *newline;
 
-	while (start < end)
-	{
-		if ((newline = (const char*)memchr(start, '\n', end - start))) {
+	while (start < end) {
+		if ((newline = (const char *)memchr(start, '\n', end - start))) {
 			ImGui::TextUnformatted(start, newline);
 			// ImGui::NewLine(); <- this is implicit
 			start = newline + 1;
@@ -662,7 +661,7 @@ render_ansi_text_flush_cb(void *_ctx, const struct str *s, uint32_t start_idx, u
 		}
 	}
 
-	ImGui::PopStyleColor( pushed );
+	ImGui::PopStyleColor(pushed);
 }
 
 static void
@@ -678,18 +677,12 @@ render_ansi_text_attr_cb(void *_ctx, enum ansi_attr attr)
 		0xffcccc66,
 		0xff2d2d2d,
 	};
-	render_ansi_text_ctx& ctx = *(render_ansi_text_ctx*)_ctx;
+	render_ansi_text_ctx &ctx = *(render_ansi_text_ctx *)_ctx;
 
 	switch (attr) {
-	case c_none:
-		ctx = {};
-		break;
-	case c_bold:
-		ctx.bold = true;
-		break;
-	case c_underline:
-		ctx.underline = true;
-		break;
+	case c_none: ctx = {}; break;
+	case c_bold: ctx.bold = true; break;
+	case c_underline: ctx.underline = true; break;
 	case c_black:
 	case c_red:
 	case c_green:
@@ -1212,15 +1205,15 @@ inspector_break_cb(struct workspace *wk)
 		open_editor(src, line, col);
 		ctx->stopped_at_breakpoint = true;
 		while (ctx->stopped_at_breakpoint) {
-			ui_update();
+			ui_update(wk);
 		}
 	} else {
-		ui_update();
+		ui_update(wk);
 	}
 }
 
 static void
-reinit_inspector_context(struct inspector_context *ctx, bool first = false)
+reinit_inspector_context(workspace *root_wk, struct inspector_context *ctx, bool first = false)
 {
 	struct workspace *wk = &ctx->wk;
 	struct workspace wk_bu;
@@ -1231,7 +1224,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 	if (ctx->init && !first) {
 		obj opts;
 		opts = make_obj(wk, obj_dict);
-		workspace_init_bare(&wk_bu);
+		workspace_init_bare(&wk_bu, wk->a_scratch, 0);
 		uint32_t i;
 		for (i = 0; i < wk->projects.len; ++i) {
 			struct project *proj = (struct project *)arr_get(&wk->projects, i);
@@ -1239,8 +1232,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 		}
 
 		obj_clone(wk, &wk_bu, opts, &opts_bu);
-
-		workspace_destroy(wk);
+		workspace_destroy(&wk_bu);
 	}
 
 	tstr_clear(&ctx->log);
@@ -1250,7 +1242,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 
 	ctx->callstack = 0;
 
-	workspace_init_bare(wk);
+	workspace_init_bare(wk, root_wk->a_scratch, 0);
 	workspace_init_runtime(wk);
 
 	/* wk->vm.dbg_state.break_after = 1024; */
@@ -1279,7 +1271,7 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 					.source = option_value_source_commandline,
 					.obj_value = true,
 				};
-				arr_push(&wk->a, &wk->option_overrides, &oo);
+				arr_push(wk->a, &wk->option_overrides, &oo);
 			}
 		}
 	}
@@ -1290,95 +1282,97 @@ reinit_inspector_context(struct inspector_context *ctx, bool first = false)
 	// Clear callstack again after setup
 	ctx->callstack = 0;
 
-	obj id;
-	uint32_t i;
-	struct project *proj;
-	for (i = 0; i < wk->projects.len; ++i) {
-		proj = (struct project *)arr_get(&wk->projects, i);
-		obj_array_for(wk, proj->targets, id) {
-			ctx->nodes.push_back(inspector_node(id, 0, 0));
+	if (false) {
+		obj id;
+		uint32_t i;
+		struct project *proj;
+		for (i = 0; i < wk->projects.len; ++i) {
+			proj = (struct project *)arr_get(&wk->projects, i);
+			obj_array_for(wk, proj->targets, id) {
+				ctx->nodes.push_back(inspector_node(id, 0, 0));
+			}
 		}
-	}
 
-	for (int32_t i = 0; i < ctx->nodes.size(); ++i) {
-		inspector_node node = ctx->nodes[i];
-		obj id = node.id, d;
-		switch (get_obj_type(wk, node.id)) {
-		case obj_alias_target: {
-			struct obj_alias_target *t = get_obj_alias_target(wk, id);
-			obj_array_for(wk, t->depends, d) {
-				add_dependency_link(ctx, i, d);
-			}
-			break;
-		}
-		case obj_custom_target: {
-			struct obj_custom_target *t = get_obj_custom_target(wk, id);
-			if (t->output) {
-				obj_array_for(wk, t->output, d) {
-					uint32_t d_i = ctx->nodes.size();
-					ctx->nodes.push_back(inspector_node(d, 0, 0));
-					add_dependency_link(ctx, d_i, id);
-				}
-			}
-			if (t->input) {
-				obj_array_for(wk, t->input, d) {
-					add_dependency_link(ctx, i, d);
-				}
-			}
-			if (t->depends) {
+		for (int32_t i = 0; i < ctx->nodes.size(); ++i) {
+			inspector_node node = ctx->nodes[i];
+			obj id = node.id, d;
+			switch (get_obj_type(wk, node.id)) {
+			case obj_alias_target: {
+				struct obj_alias_target *t = get_obj_alias_target(wk, id);
 				obj_array_for(wk, t->depends, d) {
 					add_dependency_link(ctx, i, d);
 				}
+				break;
 			}
-			break;
-		}
-		case obj_both_libs:
-			id = decay_both_libs(wk, id);
-			//fallthrough
-		case obj_build_target: {
-			struct obj_build_target *t = get_obj_build_target(wk, id);
-			if (t->dep_internal.raw.deps) {
-				obj_array_for(wk, t->dep_internal.raw.deps, d) {
-					add_recursive_deps(ctx, i, d);
+			case obj_custom_target: {
+				struct obj_custom_target *t = get_obj_custom_target(wk, id);
+				if (t->output) {
+					obj_array_for(wk, t->output, d) {
+						uint32_t d_i = ctx->nodes.size();
+						ctx->nodes.push_back(inspector_node(d, 0, 0));
+						add_dependency_link(ctx, d_i, id);
+					}
 				}
-			}
-			if (t->dep_internal.raw.link_with) {
-				obj_array_for(wk, t->dep_internal.raw.link_with, d) {
-					add_dependency_link(ctx, i, d);
+				if (t->input) {
+					obj_array_for(wk, t->input, d) {
+						add_dependency_link(ctx, i, d);
+					}
 				}
-			}
-			if (t->dep_internal.raw.link_whole) {
-				obj_array_for(wk, t->dep_internal.raw.link_whole, d) {
-					add_dependency_link(ctx, i, d);
+				if (t->depends) {
+					obj_array_for(wk, t->depends, d) {
+						add_dependency_link(ctx, i, d);
+					}
 				}
+				break;
 			}
-			if (t->dep_internal.raw.order_deps) {
-				obj_array_for(wk, t->dep_internal.raw.order_deps, d) {
-					add_dependency_link(ctx, i, d);
+			case obj_both_libs:
+				id = decay_both_libs(wk, id);
+				//fallthrough
+			case obj_build_target: {
+				struct obj_build_target *t = get_obj_build_target(wk, id);
+				if (t->dep_internal.raw.deps) {
+					obj_array_for(wk, t->dep_internal.raw.deps, d) {
+						add_recursive_deps(ctx, i, d);
+					}
 				}
-			}
-			break;
-		}
-		case obj_dependency: {
-			struct obj_dependency *t = get_obj_dependency(wk, id);
-			if (t->dep.raw.deps) {
-				obj_array_for(wk, t->dep.raw.deps, d) {
-					add_dependency_link(ctx, i, d);
+				if (t->dep_internal.raw.link_with) {
+					obj_array_for(wk, t->dep_internal.raw.link_with, d) {
+						add_dependency_link(ctx, i, d);
+					}
 				}
-			}
-			if (t->dep.raw.link_with) {
-				obj_array_for(wk, t->dep.raw.link_with, d) {
-					add_dependency_link(ctx, i, d);
+				if (t->dep_internal.raw.link_whole) {
+					obj_array_for(wk, t->dep_internal.raw.link_whole, d) {
+						add_dependency_link(ctx, i, d);
+					}
 				}
-			}
-			if (t->dep.raw.link_whole) {
-				obj_array_for(wk, t->dep.raw.link_whole, d) {
-					add_dependency_link(ctx, i, d);
+				if (t->dep_internal.raw.order_deps) {
+					obj_array_for(wk, t->dep_internal.raw.order_deps, d) {
+						add_dependency_link(ctx, i, d);
+					}
 				}
+				break;
 			}
-			break;
-		}
-		default: break;
+			case obj_dependency: {
+				struct obj_dependency *t = get_obj_dependency(wk, id);
+				if (t->dep.raw.deps) {
+					obj_array_for(wk, t->dep.raw.deps, d) {
+						add_dependency_link(ctx, i, d);
+					}
+				}
+				if (t->dep.raw.link_with) {
+					obj_array_for(wk, t->dep.raw.link_with, d) {
+						add_dependency_link(ctx, i, d);
+					}
+				}
+				if (t->dep.raw.link_whole) {
+					obj_array_for(wk, t->dep.raw.link_whole, d) {
+						add_dependency_link(ctx, i, d);
+					}
+				}
+				break;
+			}
+			default: break;
+			}
 		}
 	}
 }
@@ -1619,7 +1613,7 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 }
 
 static void
-ui_update()
+ui_update(workspace *root_wk)
 {
 	inspector_context *ctx = get_inspector_context();
 
@@ -1642,16 +1636,18 @@ ui_update()
 		ctx->windows.push_back({ "Breakpoints", render_breakpoints, true });
 		ctx->windows.push_back({ "Expressions", render_expressions, true });
 		ctx->windows.push_back({ "Callstack", render_callstack, true });
-		ctx->windows.push_back({ "Graph", render_node_graph, true });
+		if (false) {
+			ctx->windows.push_back({ "Graph", render_node_graph, true });
+		}
 		ctx->windows.push_back({ "Options", render_options, true });
 		ctx->windows.push_back({ "Log", render_log, true });
 
 		ctx->init = true;
-		reinit_inspector_context(ctx, true);
+		reinit_inspector_context(root_wk, ctx, true);
 	}
 
 	if (ctx->reinit) {
-		reinit_inspector_context(ctx);
+		reinit_inspector_context(root_wk, ctx);
 	}
 
 	extern struct g_win g_win;
@@ -1704,7 +1700,7 @@ glfw_error_callback(int error, const char *description)
 
 // Main code
 bool
-ui_main()
+ui_main(workspace *wk)
 {
 	glfwSetErrorCallback(glfw_error_callback);
 	if (!glfwInit()) {
@@ -1788,7 +1784,7 @@ ui_main()
 
 	// Main loop
 	while (!glfwWindowShouldClose(g_win.window)) {
-		ui_update();
+		ui_update(wk);
 	}
 
 	// Cleanup

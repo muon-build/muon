@@ -37,5 +37,5 @@ struct fmt_opts {
 	bool use_editor_config; // ignored for now
 };
 
-bool fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig);
+bool fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig);
 #endif

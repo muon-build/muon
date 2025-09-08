@@ -1004,7 +1004,7 @@ az_srv_dbg_break_cb(struct workspace *wk)
 }
 
 bool
-analyze_server(struct az_opts *cmdline_opts)
+analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 {
 	log_set_file(stderr);
 
@@ -1013,19 +1013,16 @@ analyze_server(struct az_opts *cmdline_opts)
 		while (!os_is_debugger_attached()) { }
 	}
 
-	struct workspace srv_wk;
-	workspace_init_bare(&srv_wk);
-
 	FILE *debug_log = 0;
 	if (cmdline_opts->lsp.debug_log) {
 		const char *home = fs_user_home();
 		if (home) {
 			TSTR(path);
-			path_join(&srv_wk, &path, home, ".local/state/muon");
-			if (fs_mkdir_p(&srv_wk, path.buf)) {
+			path_join(srv_wk, &path, home, ".local/state/muon");
+			if (fs_mkdir_p(srv_wk, path.buf)) {
 				char file[256];
 				snprintf(file, sizeof(file), "lsp.%d.log", os_get_pid());
-				path_push(&srv_wk, &path, file);
+				path_push(srv_wk, &path, file);
 
 				if ((debug_log = fs_fopen(path.buf, "wb"))) {
 					log_set_debug_file(debug_log);
@@ -1039,8 +1036,8 @@ analyze_server(struct az_opts *cmdline_opts)
 			.in = 0, // STDIN_FILENO
 			.out = stdout,
 		},
-		.wk = &srv_wk,
-		.diagnostics_to_clear = make_obj(&srv_wk, obj_array),
+		.wk = srv_wk,
+		.diagnostics_to_clear = make_obj(srv_wk, obj_array),
 	};
 
 	analyze_opts_init(srv.wk, &srv.opts);
@@ -1052,7 +1049,7 @@ analyze_server(struct az_opts *cmdline_opts)
 		TracyCFrameMark;
 
 		struct workspace wk = { 0 };
-		workspace_init_bare(&wk);
+		workspace_init_bare(&wk, srv_wk->a_scratch, 0);
 		TSTR(in_buf);
 		srv.transport.in_buf = &in_buf;
 		srv.should_analyze = false;

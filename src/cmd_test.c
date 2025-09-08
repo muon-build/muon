@@ -636,7 +636,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 
 		if (state != run_cmd_running && res->status == test_result_status_timedout) {
 			print_test_progress(wk, ctx, res, true);
-			arr_push(&wk->a, &ctx->test_results, res);
+			arr_push(wk->a, &ctx->test_results, res);
 			goto free_slot;
 		}
 
@@ -658,7 +658,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 		case run_cmd_error:
 			res->status = test_result_status_failed;
 			print_test_progress(wk, ctx, res, true);
-			arr_push(&wk->a, &ctx->test_results, res);
+			arr_push(wk->a, &ctx->test_results, res);
 			break;
 		case run_cmd_finished: {
 			enum test_result_status status;
@@ -687,7 +687,7 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			}
 
 			print_test_progress(wk, ctx, res, true);
-			arr_push(&wk->a, &ctx->test_results, res);
+			arr_push(wk->a, &ctx->test_results, res);
 			break;
 		}
 		}
@@ -781,7 +781,7 @@ found_slot:
 		res->dur = timer_read(&res->t);
 		res->status = test_result_status_failed;
 		print_test_progress(wk, ctx, res, true);
-		arr_push(&wk->a, &ctx->test_results, res);
+		arr_push(wk->a, &ctx->test_results, res);
 	}
 }
 
@@ -1143,16 +1143,14 @@ tests_output_json(struct workspace *wk, struct run_test_ctx *ctx)
 }
 
 bool
-tests_run(struct test_options *opts, const char *argv0)
+tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 {
 	bool ret = false;
 
-	struct workspace wk;
-	workspace_init_bare(&wk);
-	wk.vm.lang_mode = language_internal;
-	wk.argv0 = argv0;
+	wk->vm.lang_mode = language_internal;
+	wk->argv0 = argv0;
 
-	setup_platform_env(&wk, ".", requirement_required);
+	setup_platform_env(wk, ".", requirement_required);
 
 	if (!opts->jobs) {
 		opts->jobs = os_parallel_job_count();
@@ -1163,26 +1161,26 @@ tests_run(struct test_options *opts, const char *argv0)
 		.setup = { .timeout_multiplier = 1.0f, },
 	};
 
-	arr_init(&wk.a, &ctx.test_results, 32, struct test_result);
-	arr_init(&wk.a, &ctx.jobs_sorted, ctx.opts->jobs, uint32_t);
+	arr_init(wk->a, &ctx.test_results, 32, struct test_result);
+	arr_init(wk->a, &ctx.jobs_sorted, ctx.opts->jobs, uint32_t);
 	for (uint32_t i = 0; i < ctx.opts->jobs; ++i) {
-		arr_push(&wk.a, &ctx.jobs_sorted, &i);
+		arr_push(wk->a, &ctx.jobs_sorted, &i);
 	}
 	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
 
 	{ // load global opts
 		obj option_info;
-		if (!serial_load_from_private_dir(&wk, &option_info, output_path.paths[output_path_option_info].path)) {
+		if (!serial_load_from_private_dir(wk, &option_info, output_path.paths[output_path_option_info].path)) {
 			goto ret;
 		}
-		wk.global_opts = obj_array_index(&wk, option_info, 0);
+		wk->global_opts = obj_array_index(wk, option_info, 0);
 	}
 
 	if (!opts->no_rebuild) {
 		obj ninja_cmd;
-		ninja_cmd = make_obj(&wk, obj_array);
-		obj_array_push(&wk, ninja_cmd, make_str(&wk, "build.ninja"));
-		if (!ninja_run(&wk, ninja_cmd, NULL, NULL, 0)) {
+		ninja_cmd = make_obj(wk, obj_array);
+		obj_array_push(wk, ninja_cmd, make_str(wk, "build.ninja"));
+		if (!ninja_run(wk, ninja_cmd, NULL, NULL, 0)) {
 			return false;
 		}
 	}
@@ -1211,15 +1209,15 @@ tests_run(struct test_options *opts, const char *argv0)
 	}
 
 	obj tests_dict;
-	if (!serial_load_from_private_dir(&wk, &tests_dict, output_path.paths[output_path_tests].path)) {
+	if (!serial_load_from_private_dir(wk, &tests_dict, output_path.paths[output_path_tests].path)) {
 		goto ret;
 	}
 
-	if (!load_test_setup(&wk, &ctx, tests_dict)) {
+	if (!load_test_setup(wk, &ctx, tests_dict)) {
 		goto ret;
 	}
 
-	if (!obj_dict_foreach(&wk, tests_dict, &ctx, run_project_tests)) {
+	if (!obj_dict_foreach(wk, tests_dict, &ctx, run_project_tests)) {
 		goto ret;
 	}
 
@@ -1240,9 +1238,9 @@ tests_run(struct test_options *opts, const char *argv0)
 	}
 
 	switch (opts->output) {
-	case test_output_term: ret = tests_output_term(&wk, &ctx); break;
-	case test_output_html: ret = tests_output_html(&wk, &ctx); break;
-	case test_output_json: ret = tests_output_json(&wk, &ctx); break;
+	case test_output_term: ret = tests_output_term(wk, &ctx); break;
+	case test_output_html: ret = tests_output_html(wk, &ctx); break;
+	case test_output_json: ret = tests_output_json(wk, &ctx); break;
 	}
 
 	{
@@ -1263,7 +1261,6 @@ tests_run(struct test_options *opts, const char *argv0)
 	}
 
 ret:
-	workspace_destroy_bare(&wk);
 	z_free(ctx.jobs);
 	return ret;
 }

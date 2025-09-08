@@ -40,7 +40,8 @@
 #define OPTEND(usage_pre, usage_post, usage_opts, commands, operands) \
 	OPTEND_CUSTOM(usage_pre, usage_post, usage_opts, commands, operands, {})
 
-typedef bool (*cmd_func)(void *ctx, uint32_t argc, uint32_t argi, char *const[]);
+struct workspace;
+typedef bool (*cmd_func)(struct workspace *wk, uint32_t argc, uint32_t argi, char *const[]);
 
 struct command {
 	const char *name;

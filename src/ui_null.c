@@ -10,7 +10,7 @@
 bool have_ui = false;
 
 bool
-ui_main(void)
+ui_main(struct workspace *wk)
 {
 	return false;
 }

@@ -24,7 +24,9 @@
 #define TracyCZoneValue(c, x)
 
 #define TracyCAlloc(x, y)
+#define TracyCAllocN(x, y, z)
 #define TracyCFree(x)
+#define TracyCFreeN(x, y)
 #define TracyCSecureAlloc(x, y)
 #define TracyCSecureFree(x)
 

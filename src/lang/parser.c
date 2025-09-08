@@ -436,7 +436,7 @@ parse_expect(struct parser *p, enum token_type type)
 static struct node *
 make_node(struct parser *p, struct node *n)
 {
-	n = bucket_arr_push(&p->wk->a, p->nodes, n);
+	n = bucket_arr_push(p->wk->a, p->nodes, n);
 	if (p->previous.type) {
 		n->location = p->previous.location;
 		n->data = p->previous.data;

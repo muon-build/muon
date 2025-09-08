@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 extern bool have_ui;
-bool ui_main(void);
+struct workspace;
+bool ui_main(struct workspace *wk);
 
 #endif

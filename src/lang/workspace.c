@@ -26,7 +26,7 @@
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir)
 {
-	*id = arr_push(&wk->a, &wk->projects, &(struct project){ 0 });
+	*id = arr_push(wk->a, &wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
 	proj->opts = make_obj(wk, obj_dict);
@@ -65,6 +65,16 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	return proj;
 }
 
+void
+make_dummy_project(struct workspace *wk, bool setup_options)
+{
+	obj id;
+	make_project(wk, &id, "dummy", wk->source_root, wk->build_root);
+	if (setup_options && !setup_project_options(wk, 0)) {
+		UNREACHABLE;
+	}
+}
+
 struct project *
 current_project(struct workspace *wk)
 {
@@ -72,17 +82,18 @@ current_project(struct workspace *wk)
 }
 
 void
-workspace_init_arena(struct workspace *wk)
+workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 {
 	*wk = (struct workspace){ 0 };
-	arena_init(&wk->a,);
-	arena_init(&wk->a_scratch,);
+	assert(a);
+	wk->a = a;
+	wk->a_scratch = a_scratch ? a_scratch : a;
 }
 
 void
-workspace_init_bare(struct workspace *wk)
+workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 {
-	workspace_init_arena(wk);
+	workspace_init_arena(wk, a, a_scratch);
 	vm_init(wk);
 	stack_init(&wk->stack, 4096);
 
@@ -129,8 +140,8 @@ workspace_init_runtime(struct workspace *wk)
 	path_copy_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, tstr_into_str(wk, &source_root));
 
-	arr_init(&wk->a, &wk->projects, 16, struct project);
-	arr_init(&wk->a, &wk->option_overrides, 32, struct option_override);
+	arr_init(wk->a, &wk->projects, 16, struct project);
+	arr_init(wk->a, &wk->option_overrides, 32, struct option_override);
 
 	wk->binaries = make_obj(wk, obj_dict);
 	wk->host_machine = make_obj(wk, obj_dict);
@@ -174,18 +185,11 @@ workspace_init_startup_files(struct workspace *wk)
 }
 
 void
-workspace_init(struct workspace *wk)
+workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 {
-	workspace_init_bare(wk);
+	workspace_init_bare(wk, a, a_scratch);
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
-}
-
-void
-workspace_destroy_arena(struct workspace *wk)
-{
-	ar_destroy(&wk->a);
-	ar_destroy(&wk->a_scratch);
 }
 
 void
@@ -193,7 +197,6 @@ workspace_destroy_bare(struct workspace *wk)
 {
 	vm_destroy(wk);
 	stack_destroy(&wk->stack);
-	workspace_destroy_arena(wk);
 }
 
 void
@@ -482,7 +485,6 @@ workspace_do_setup(struct workspace *wk)
 	bool progress = log_is_progress_bar_enabled();
 	log_progress_disable();
 
-
 	{
 		TSTR(path);
 		path_join(wk, &path, wk->muon_private, output_path.paths[output_path_debug_log].path);
@@ -544,4 +546,16 @@ ret:
 	}
 
 	return res;
+}
+
+void
+workspace_scratch_begin(struct workspace *wk)
+{
+	wk->a_scratch_pos = wk->a_scratch->pos;
+}
+
+void
+workspace_scratch_end(struct workspace *wk)
+{
+	ar_pop_to(wk->a_scratch, wk->a_scratch_pos);
 }

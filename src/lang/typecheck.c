@@ -27,7 +27,7 @@ make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type
 {
 	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
 	uint32_t idx = typeinfo_arr->len;
-	bucket_arr_push(&wk->a, typeinfo_arr, &(struct obj_typeinfo){ .type = type, .subtype = subtype });
+	bucket_arr_push(wk->a, typeinfo_arr, &(struct obj_typeinfo){ .type = type, .subtype = subtype });
 	return COMPLEX_TYPE(idx, t);
 }
 

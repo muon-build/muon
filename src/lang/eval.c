@@ -117,7 +117,7 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 		assert(ok);
 	}
 
-	arr_push(&wk->a, &wk->vm.src, src);
+	arr_push(wk->a, &wk->vm.src, src);
 	src = arr_peek(&wk->vm.src, 1);
 
 	enum vm_compile_mode compile_mode

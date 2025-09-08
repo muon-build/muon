@@ -14,6 +14,10 @@
 #include "platform/mem.h"
 #include "tracy.h"
 
+#ifdef TRACY_ENABLE
+static const char *tracy_system_mem_tag = "system";
+#endif
+
 #if defined(TRACY_ENABLE) && !defined(_WIN32)
 #include <sys/resource.h>
 
@@ -28,6 +32,7 @@
 void *
 z_calloc(size_t nmemb, size_t size)
 {
+	TracyCZoneAutoS;
 	assert(size);
 	void *ret;
 	ret = calloc(nmemb, size);
@@ -36,14 +41,16 @@ z_calloc(size_t nmemb, size_t size)
 		error_unrecoverable("calloc failed: %s", strerror(errno));
 	}
 
-	TracyCAlloc(ret, size * nmemb);
+	TracyCAllocN(ret, size * nmemb, tracy_system_mem_tag);
 	/* PlotRSS; */
+	TracyCZoneAutoE;
 	return ret;
 }
 
 void *
 z_malloc(size_t size)
 {
+	TracyCZoneAutoS;
 	assert(size);
 	void *ret;
 	ret = malloc(size);
@@ -52,35 +59,40 @@ z_malloc(size_t size)
 		error_unrecoverable("malloc failed: %s", strerror(errno));
 	}
 
-	TracyCAlloc(ret, size);
+	TracyCAllocN(ret, size, tracy_system_mem_tag);
 	/* PlotRSS; */
+	TracyCZoneAutoE;
 	return ret;
 }
 
 void *
 z_realloc(void *ptr, size_t size)
 {
+	TracyCZoneAutoS;
 	assert(size);
 	void *ret;
-	TracyCFree(ptr);
+	TracyCFreeN(ptr, tracy_system_mem_tag);
 	ret = realloc(ptr, size);
 
 	if (!ret) {
 		error_unrecoverable("realloc failed: %s", strerror(errno));
 	}
 
-	TracyCAlloc(ret, size);
+	TracyCAllocN(ret, size, tracy_system_mem_tag);
 	/* PlotRSS; */
+	TracyCZoneAutoE;
 	return ret;
 }
 
 void
 z_free(void *ptr)
 {
+	TracyCZoneAutoS;
 	assert(ptr);
-	TracyCFree(ptr);
+	TracyCFreeN(ptr, tracy_system_mem_tag);
 	free(ptr);
 	/* PlotRSS; */
+	TracyCZoneAutoE;
 }
 
 uint32_t

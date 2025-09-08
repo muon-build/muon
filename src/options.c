@@ -263,7 +263,7 @@ check_deprecated_option(struct workspace *wk, struct obj_option *opt, obj sval, 
 				.source = option_value_source_deprecated_rename,
 			};
 
-			arr_push(&wk->a, &wk->option_overrides, &oo);
+			arr_push(wk->a, &wk->option_overrides, &oo);
 		}
 		break;
 	}
@@ -941,7 +941,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 		return false;
 	}
 
-	arr_push(&wk->a, &wk->option_overrides, &oo);
+	arr_push(wk->a, &wk->option_overrides, &oo);
 	return true;
 }
 
@@ -997,7 +997,7 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 
 		if ((params->flags & parse_and_set_option_flag_for_subproject) || oo_for_subproject) {
 			oo.source = option_value_source_subproject_default_options;
-			arr_push(&wk->a, &wk->option_overrides, &oo);
+			arr_push(wk->a, &wk->option_overrides, &oo);
 			return true;
 		}
 	}
@@ -1453,13 +1453,11 @@ cont:
 }
 
 bool
-list_options(const struct list_options_opts *list_opts)
+list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 {
 	bool ret = false;
-	struct workspace wk = { 0 };
-	workspace_init_bare(&wk);
-	workspace_init_runtime(&wk);
-	wk.vm.lang_mode = language_opts;
+	workspace_init_runtime(wk);
+	wk->vm.lang_mode = language_opts;
 
 	bool load_from_build_dir = false;
 
@@ -1467,7 +1465,7 @@ list_options(const struct list_options_opts *list_opts)
 		load_from_build_dir = false;
 	} else {
 		TSTR(option_info);
-		path_join(&wk, &option_info, output_path.private_dir, output_path.paths[output_path_option_info].path);
+		path_join(wk, &option_info, output_path.private_dir, output_path.paths[output_path_option_info].path);
 		if (!fs_file_exists(option_info.buf)) {
 			LOG_I("this command must be run from a build directory or the project root");
 			goto ret;
@@ -1477,68 +1475,68 @@ list_options(const struct list_options_opts *list_opts)
 	}
 
 	if (!load_from_build_dir && list_opts->list_all) {
-		if (!init_global_options(&wk)) {
+		if (!init_global_options(wk)) {
 			UNREACHABLE;
 		}
 	}
 
 	uint32_t idx;
-	make_project(&wk, &idx, "dummy", path_cwd(), "");
+	make_project(wk, &idx, "dummy", path_cwd(), "");
 
 	if (!load_from_build_dir) {
 		TSTR(meson_opts);
-		bool exists = determine_option_file(&wk, ".", &meson_opts);
+		bool exists = determine_option_file(wk, ".", &meson_opts);
 
 		if (exists) {
-			if (!wk.vm.behavior.eval_project_file(&wk, meson_opts.buf, build_language_meson, 0, 0)) {
+			if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
 				goto ret;
 			}
 		} else {
-			current_project(&wk)->opts = make_obj(&wk, obj_dict);
+			current_project(wk)->opts = make_obj(wk, obj_dict);
 		}
 
 		{
 			TSTR(subprojects_dir);
 			struct workspace az_wk = { 0 };
-			analyze_project_call(&az_wk);
+			analyze_project_call(&az_wk, wk->a_scratch);
 			path_make_absolute(
-				&wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+				wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
 
 			obj name = current_project(&az_wk)->cfg.name;
 			if (name) {
-				current_project(&wk)->cfg.name = make_str(&wk, get_cstr(&az_wk, name));
+				current_project(wk)->cfg.name = make_str(wk, get_cstr(&az_wk, name));
 			}
 
-			current_project(&wk)->subprojects_dir = tstr_into_str(&wk, &subprojects_dir);
+			current_project(wk)->subprojects_dir = tstr_into_str(wk, &subprojects_dir);
 
 			workspace_destroy(&az_wk);
 
-			subprojects_foreach(&wk, 0, 0, list_options_for_subproject);
+			subprojects_foreach(wk, 0, 0, list_options_for_subproject);
 		}
 
 		if (list_opts->list_all) {
-			if (!init_per_project_options(&wk)) {
+			if (!init_per_project_options(wk)) {
 				goto ret;
 			}
 		}
 	} else {
 		obj arr;
-		if (!serial_load_from_private_dir(&wk, &arr, output_path.paths[output_path_option_info].path)) {
+		if (!serial_load_from_private_dir(wk, &arr, output_path.paths[output_path_option_info].path)) {
 			goto ret;
 		}
 
 		uint32_t i = 0;
 		obj v;
-		obj_array_for(&wk, arr, v) {
+		obj_array_for(wk, arr, v) {
 			if (i == 0) {
-				wk.global_opts = v;
+				wk->global_opts = v;
 			} else {
 				uint32_t proj_i = (i - 1) / 2;
-				if (proj_i >= wk.projects.len) {
-					make_project(&wk, &proj_i, 0, "", "");
+				if (proj_i >= wk->projects.len) {
+					make_project(wk, &proj_i, 0, "", "");
 				}
 
-				struct project *proj = arr_get(&wk.projects, proj_i);
+				struct project *proj = arr_get(&wk->projects, proj_i);
 				if ((i - 1) & 1) {
 					proj->cfg.name = v;
 				} else {
@@ -1548,8 +1546,8 @@ list_options(const struct list_options_opts *list_opts)
 
 			++i;
 		}
-		wk.global_opts = obj_array_index(&wk, arr, 0);
-		current_project(&wk)->opts = obj_array_index(&wk, arr, 1);
+		wk->global_opts = obj_array_index(wk, arr, 0);
+		current_project(wk)->opts = obj_array_index(wk, arr, 1);
 	}
 
 	struct list_options_ctx ctx = { .list_opts = list_opts };
@@ -1557,18 +1555,18 @@ list_options(const struct list_options_opts *list_opts)
 	bool had_project_options = false;
 
 	uint32_t i;
-	for (i = 0; i < wk.projects.len; ++i) {
-		struct project *proj = arr_get(&wk.projects, i);
+	for (i = 0; i < wk->projects.len; ++i) {
+		struct project *proj = arr_get(&wk->projects, i);
 
 		uint32_t builtin_count = 0, non_builtin_count = 0;
 
 		obj k, v;
-		obj_dict_for(&wk, proj->opts, k, v) {
+		obj_dict_for(wk, proj->opts, k, v) {
 			(void)k;
-			struct obj_option *opt = get_obj_option(&wk, v);
+			struct obj_option *opt = get_obj_option(wk, v);
 
 			if (opt->builtin) {
-				if (is_option_filtered(&wk, opt, true, list_opts->only_modified)) {
+				if (is_option_filtered(wk, opt, true, list_opts->only_modified)) {
 					continue;
 				}
 
@@ -1576,7 +1574,7 @@ list_options(const struct list_options_opts *list_opts)
 					++builtin_count;
 				}
 			} else {
-				if (is_option_filtered(&wk, opt, false, list_opts->only_modified)) {
+				if (is_option_filtered(wk, opt, false, list_opts->only_modified)) {
 					continue;
 				}
 
@@ -1587,7 +1585,7 @@ list_options(const struct list_options_opts *list_opts)
 		if (non_builtin_count || builtin_count) {
 			had_project_options = true;
 
-			const char *name = get_cstr(&wk, proj->cfg.name);
+			const char *name = get_cstr(wk, proj->cfg.name);
 			ctx.subproject_name = i == 0 ? 0 : name;
 
 			if (non_builtin_count || builtin_count) {
@@ -1595,7 +1593,7 @@ list_options(const struct list_options_opts *list_opts)
 			}
 
 			if (non_builtin_count) {
-				obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
+				obj_dict_foreach(wk, proj->opts, &ctx, list_options_iter);
 
 				if (!builtin_count) {
 					log_plain(log_info, "\n");
@@ -1605,7 +1603,7 @@ list_options(const struct list_options_opts *list_opts)
 			if (builtin_count) {
 				ctx.show_builtin = true;
 				log_plain(log_info, "  builtin options:\n");
-				obj_dict_foreach(&wk, proj->opts, &ctx, list_options_iter);
+				obj_dict_foreach(wk, proj->opts, &ctx, list_options_iter);
 				ctx.show_builtin = false;
 
 				log_plain(log_info, "\n");
@@ -1622,11 +1620,10 @@ list_options(const struct list_options_opts *list_opts)
 	if (list_opts->list_all) {
 		ctx.show_builtin = true;
 		log_plain(log_info, "builtin global options:\n");
-		obj_dict_foreach(&wk, wk.global_opts, &ctx, list_options_iter);
+		obj_dict_foreach(wk, wk->global_opts, &ctx, list_options_iter);
 	}
 
 	ret = true;
 ret:
-	workspace_destroy(&wk);
 	return ret;
 }

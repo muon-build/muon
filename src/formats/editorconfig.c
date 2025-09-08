@@ -356,7 +356,7 @@ try_parse_editorconfig(struct workspace *wk, struct source *src, struct fmt_opts
 	struct source cfg_src = { 0 };
 
 	struct arr garbage;
-	arr_init(&wk->a, &garbage, 16, void *);
+	arr_init(wk->a, &garbage, 16, void *);
 
 	while (true) {
 		path_join(wk, &path, wd.buf, ".editorconfig");
@@ -370,7 +370,7 @@ try_parse_editorconfig(struct workspace *wk, struct source *src, struct fmt_opts
 				goto ret;
 			}
 
-			arr_push(&wk->a, &garbage, &cfg_buf);
+			arr_push(wk->a, &garbage, &cfg_buf);
 
 			fs_source_destroy(&cfg_src);
 			cfg_src = (struct source){ 0 };
