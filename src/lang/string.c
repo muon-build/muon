@@ -845,25 +845,13 @@ str_split_strip(struct workspace *wk, const struct str *ss, const struct str *sp
 /* tstr */
 
 void
-tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags)
+tstr_init(struct tstr *sb, enum tstr_flags flags)
 {
-	// If we don't get passed an initial buffer, initial_buffer_cap must be
-	// zero so that the first write to this buf triggers an allocation.  As
-	// a convenience, ensure the buf points to a valid empty string so that
+	// As a convenience, ensure the buf points to a valid empty string so that
 	// callers don't have to always check len before trying to read buf.
-	if (!initial_buffer) {
-		assert(initial_buffer_cap == 0);
-		initial_buffer = "";
-	}
-
-	if (initial_buffer_cap) {
-		initial_buffer[0] = 0;
-	}
-
 	*sb = (struct tstr){
 		.flags = flags,
-		.buf = initial_buffer,
-		.cap = initial_buffer_cap,
+		.buf = "",
 	};
 }
 
@@ -874,13 +862,19 @@ tstr_clear(struct tstr *sb)
 		return;
 	}
 
-	memset(sb->buf, 0, sb->len);
-	sb->len = 0;
+	if (sb->s) {
+		*sb = (struct tstr) { 0 };
+	} else {
+		memset(sb->buf, 0, sb->len);
+		sb->len = 0;
+	}
 }
 
 void
 tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 {
+	assert(!sb->s);
+
 	uint32_t newcap, newlen = sb->len + inc;
 
 	if (newlen < sb->cap) {
@@ -897,27 +891,7 @@ tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 		newcap *= 2;
 	} while (newcap < newlen);
 
-	if (sb->flags & tstr_flag_overflown) {
-		grow_str(wk, &sb->s, newcap - sb->cap, false);
-		struct str *ss = (struct str *)get_str(wk, sb->s);
-		sb->buf = (char *)ss->s;
-		ss->len = newcap;
-	} else {
-		sb->flags |= tstr_flag_overflown;
-
-		char *obuf = sb->buf;
-
-		reserve_str(wk, &sb->s, newcap);
-		struct str *ss = (struct str *)get_str(wk, sb->s);
-		ss->flags |= str_flag_mutable;
-		sb->buf = (char *)ss->s;
-		assert(ss->len == newcap);
-
-		if (obuf) {
-			memcpy(sb->buf, obuf, sb->len);
-		}
-	}
-
+	sb->buf = ar_realloc(wk->a_scratch, sb->buf, sb->cap, newcap, 1);
 	sb->cap = newcap;
 }
 
@@ -1056,19 +1030,20 @@ tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const stru
 obj
 tstr_into_str(struct workspace *wk, struct tstr *sb)
 {
-	assert(!(sb->flags & tstr_flag_string_exposed));
-	sb->flags |= tstr_flag_string_exposed;
+	assert(!(sb->flags & tstr_flag_write));
 
-	if (sb->flags & tstr_flag_overflown) {
-		struct str *ss = (struct str *)get_str(wk, sb->s);
-		assert(strlen(sb->buf) == sb->len);
-		ss->len = sb->len;
-		return sb->s;
-	} else if (!sb->len) {
-		return make_str(wk, "");
-	} else {
-		return make_strn(wk, sb->buf, sb->len);
+	if (!sb->s) {
+		obj s;
+		if (!sb->len) {
+			s = make_str(wk, "");
+		} else {
+			s = make_strn(wk, sb->buf, sb->len);
+		}
+		const struct str *str = get_str(wk, s);
+		*sb = (struct tstr){ .s = s, .buf = (char *)str->s, .len = str->len };
 	}
+
+	return sb->s;
 }
 
 void

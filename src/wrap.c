@@ -570,8 +570,8 @@ wrap_parse(struct workspace *wk, const char *subprojects, const char *wrap_file,
 
 	*wrap = ctx.wrap;
 
-	tstr_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), 0);
-	tstr_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), 0);
+	tstr_init(&wrap->dest_dir, 0);
+	tstr_init(&wrap->name, 0);
 
 	path_basename(wk, &wrap->name, wrap_file);
 
@@ -1180,7 +1180,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(ctx->bufs); ++i) {
-			tstr_init(&ctx->bufs[i], ctx->tstr_buf[i], ARRAY_LEN(ctx->tstr_buf[0]), 0);
+			tstr_init(&ctx->bufs[i], 0);
 		}
 
 		return wrap_handle_default(wk, ctx);

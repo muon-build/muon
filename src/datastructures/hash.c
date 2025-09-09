@@ -97,7 +97,8 @@ hash_init_(struct arena *a, struct hash *h, uint32_t cap, uint32_t key_size, uin
 	ASSERT_VALID_CAP(cap);
 
 	*h = (struct hash){ .cap = cap, .capm = cap - 1, .max_load = (uint32_t)((float)cap * LOAD_FACTOR) };
-	arr_init(a, &h->meta, h->cap, uint8_t);
+	// Align this to 8-bytes since we use it that way in fill_meta_with_empty
+	arr_init_(a, &h->meta, h->cap, 1, 8);
 	arr_init(a, &h->e, h->cap, struct hash_elem);
 	arr_init_(a, &h->keys, h->cap, key_size, key_align);
 
@@ -181,7 +182,7 @@ hash_resize(struct arena *a, struct hash *h, uint32_t newcap)
 		.keycmp = h->keycmp,
 	};
 
-	arr_init(a, &newh.meta, newh.cap, uint8_t);
+	arr_init_(a, &newh.meta, newh.cap, 1, 8);
 	arr_init(a, &newh.e, newh.cap, struct hash_elem);
 
 	prepare_table(&newh);

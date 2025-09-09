@@ -252,8 +252,8 @@ run_cmd_internal(struct workspace *wk, struct run_cmd_ctx *ctx, const char *_cmd
 	ctx->input_fd_open = true;
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-		tstr_init(&ctx->out, 0, 0, 0);
-		tstr_init(&ctx->err, 0, 0, 0);
+		tstr_init(&ctx->out, 0);
+		tstr_init(&ctx->err, 0);
 
 		if (!open_run_cmd_pipe(ctx->pipefd_out, ctx->pipefd_out_open)) {
 			goto err;

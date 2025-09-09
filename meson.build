@@ -142,7 +142,10 @@ subdir('src')
 tracy_dep = dependency('tracy', required: get_option('tracy'))
 if tracy_dep.found()
     add_languages('cpp')
-    c_args += ['-DTRACY_ENABLE']
+    c_args += [
+        '-DTRACY_ENABLE',
+        '-DTRACY_NO_EXIT',
+    ]
     deps += tracy_dep
 
     if platform == 'windows'

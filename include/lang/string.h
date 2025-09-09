@@ -32,26 +32,21 @@ struct workspace;
 /* tstr - Temporary STRing
  *
  * tstrs should almost always be created using the TSTR macro.  This creates a
- * tstr struct as well as allocating a buffer for it on the stack.
+ * tstr struct and calls tstr_init.
  *
- * The tstr_ family of functions will use this temporary buffer until if
- * overflows.  If it overflows it will become an obj_str
- *
- * Conversion of a TSTR to a string should be done with tstr_into_str which
- * reuses the underlying string object if it has already been created.
+ * The tstr_ family of functions will always use the workspace's scratch arena
+ * for allocation.  If the string needs to survive longer, it must be converted
+ * into a struct str using tstr_into_str.
  */
 
 enum tstr_flags {
-	tstr_flag_overflown = 1 << 0,
 	tstr_flag_write = 1 << 1,
-	tstr_flag_string_exposed = 1 << 2,
 };
 
 #define TSTR_CUSTOM(name, static_len, flags)     \
 	struct tstr name;                        \
-	char tstr_static_buf_##name[static_len]; \
-	tstr_init(&name, tstr_static_buf_##name, static_len, (enum tstr_flags)flags);
-#define TSTR(name) TSTR_CUSTOM(name, 1024, 0)
+	tstr_init(&name, (enum tstr_flags)(flags));
+#define TSTR(name) TSTR_CUSTOM(name, 0, 0)
 #define TSTR_FILE(__name, __f) struct tstr __name = { .flags = tstr_flag_write, .buf = (void *)__f };
 #define TSTR_STR(__s) (struct str) { .s = (__s)->buf, .len = (__s)->len }
 
@@ -62,7 +57,7 @@ struct tstr {
 	obj s;
 };
 
-void tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags);
+void tstr_init(struct tstr *sb, enum tstr_flags flags);
 void tstr_clear(struct tstr *sb);
 void tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc);
 void tstr_push(struct workspace *wk, struct tstr *sb, char s);

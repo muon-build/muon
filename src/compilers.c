@@ -375,7 +375,6 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 			.buf = (char *)out_str->s,
 			.len = out_str->len,
 			.cap = out_str->len,
-			.flags = tstr_flag_overflown,
 			.s = out,
 		};
 
@@ -383,7 +382,6 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 			.buf = (char *)err_str->s,
 			.len = err_str->len,
 			.cap = err_str->len,
-			.flags = tstr_flag_overflown,
 			.s = err,
 		};
 

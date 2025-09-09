@@ -345,11 +345,15 @@ obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 		bucket_arr_save(&wk->vm.objects.obj_aos[i], &mk->obj_aos[i]);
 	}
+
+	workspace_scratch_begin(wk);
 }
 
 void
 obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 {
+	workspace_scratch_end(wk);
+
 	bucket_arr_restore(&wk->vm.objects.objs, &mk->objs);
 	bucket_arr_restore(&wk->vm.objects.chrs, &mk->chrs);
 

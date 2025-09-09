@@ -551,11 +551,14 @@ ret:
 void
 workspace_scratch_begin(struct workspace *wk)
 {
-	wk->a_scratch_pos = wk->a_scratch->pos;
+	stack_push(&wk->stack, wk->a_scratch_pos, wk->a_scratch->pos);
+	TracyCPlot(wk->a_scratch->tracy_tag, wk->a_scratch->pos);
 }
 
 void
 workspace_scratch_end(struct workspace *wk)
 {
 	ar_pop_to(wk->a_scratch, wk->a_scratch_pos);
+	stack_pop(&wk->stack, wk->a_scratch_pos);
+	TracyCPlot(wk->a_scratch->tracy_tag, wk->a_scratch->pos);
 }

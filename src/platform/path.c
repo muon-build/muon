@@ -14,11 +14,11 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/os.h"
+#include <sys/param.h>
 #include "platform/path.h"
 
 static struct {
-	char cwd_buf[BUF_SIZE_2k], tmp1_buf[BUF_SIZE_2k], tmp2_buf[BUF_SIZE_2k];
-	struct tstr cwd, tmp1, tmp2;
+	char cwd[4096];
 } path_ctx;
 
 // These functions are defined in platform/<plat>/os.c
@@ -31,22 +31,14 @@ char *os_getcwd(char *buf, size_t size);
 static void
 path_getcwd(struct workspace *wk)
 {
-	tstr_clear(&path_ctx.cwd);
-	while (!os_getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
-		if (errno == ERANGE) {
-			tstr_grow(wk, &path_ctx.cwd, path_ctx.cwd.cap);
-		} else {
-			error_unrecoverable("getcwd failed: %s", strerror(errno));
-		}
+	if (!os_getcwd(path_ctx.cwd, sizeof(path_ctx.cwd))) {
+		error_unrecoverable("getcwd failed: %s", strerror(errno));
 	}
 }
 
 void
 path_init(struct workspace *wk)
 {
-	tstr_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf), 0);
-	tstr_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf), 0);
-	tstr_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf), 0);
 	path_getcwd(wk);
 }
 
@@ -153,13 +145,13 @@ path_chdir(struct workspace *wk, const char *path)
 void
 path_copy_cwd(struct workspace *wk, struct tstr *sb)
 {
-	path_copy(wk, sb, path_ctx.cwd.buf);
+	path_copy(wk, sb, path_ctx.cwd);
 }
 
 const char *
 path_cwd(void)
 {
-	return path_ctx.cwd.buf;
+	return path_ctx.cwd;
 }
 
 void
@@ -212,7 +204,7 @@ path_make_absolute(struct workspace *wk, struct tstr *buf, const char *path)
 	if (path_is_absolute(path)) {
 		path_copy(wk, buf, path);
 	} else {
-		path_join(wk, buf, path_ctx.cwd.buf, path);
+		path_join(wk, buf, path_ctx.cwd, path);
 	}
 }
 
@@ -235,15 +227,15 @@ path_relative_to(struct workspace *wk, struct tstr *buf, const char *base_raw, c
 
 	tstr_clear(buf);
 
-	tstr_clear(&path_ctx.tmp1);
-	tstr_pushs(wk, &path_ctx.tmp1, base_raw);
-	_path_normalize(wk, &path_ctx.tmp1, true);
+	TSTR(tmp1);
+	tstr_pushs(wk, &tmp1, base_raw);
+	_path_normalize(wk, &tmp1, true);
 
-	tstr_clear(&path_ctx.tmp2);
-	tstr_pushs(wk, &path_ctx.tmp2, path_raw);
-	_path_normalize(wk, &path_ctx.tmp2, true);
+	TSTR(tmp2);
+	tstr_pushs(wk, &tmp2, path_raw);
+	_path_normalize(wk, &tmp2, true);
 
-	const char *base = path_ctx.tmp1.buf, *path = path_ctx.tmp2.buf;
+	const char *base = tmp1.buf, *path = tmp2.buf;
 
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);

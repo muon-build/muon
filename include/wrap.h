@@ -62,7 +62,6 @@ struct wrap {
 	bool has_provides;
 	const char *fields[wrap_fields_count];
 	char *buf;
-	char dest_dir_buf[BUF_SIZE_1k], name_buf[BUF_SIZE_1k];
 	struct tstr dest_dir, name;
 	bool dirty, outdated, updated;
 };
@@ -126,7 +125,6 @@ struct wrap_handle_ctx {
 		bool allow_failure;
 	} run_cmd_opts;
 
-	char tstr_buf[2][1024];
 	struct tstr bufs[2];
 
 	bool ok;

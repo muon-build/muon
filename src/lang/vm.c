@@ -2003,11 +2003,13 @@ vm_op_call(struct workspace *wk)
 	}
 
 	struct obj_capture *c = get_obj_capture(wk, f);
+	workspace_scratch_begin(wk);
 	if (c->func) {
 		vm_execute_capture(wk, f);
 	} else {
 		vm_execute_native(wk, c->native_func, c->self);
 	}
+	workspace_scratch_end(wk);
 }
 
 static void
@@ -2017,7 +2019,9 @@ vm_op_call_native(struct workspace *wk)
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	uint32_t idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	workspace_scratch_begin(wk);
 	vm_execute_native(wk, idx, 0);
+	workspace_scratch_end(wk);
 }
 
 static void

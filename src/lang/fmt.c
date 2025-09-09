@@ -360,7 +360,7 @@ fmt_push_out_block(struct fmt_ctx *f)
 		});
 
 	*f->out_buf = (struct tstr){ 0 };
-	tstr_init(f->out_buf, 0, 0, 0);
+	tstr_init(f->out_buf, 0);
 }
 
 static void
@@ -1745,7 +1745,7 @@ fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool c
 		goto ret;
 	}
 
-	tstr_init(&out_buf, 0, 0, 0);
+	tstr_init(&out_buf, 0);
 	fmt_write_block(&f, fmt_block(&f, n));
 	fmt_push_out_block(&f);
 

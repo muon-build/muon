@@ -787,12 +787,14 @@ ca_prepare_all_targets(struct workspace *wk)
 			}
 
 			obj_array_push(wk, wk->backend_output_stack, tgt->name);
+			workspace_scratch_begin(wk);
 			if (!ca_prepare_target_args(wk, proj, tgt)) {
 				return false;
 			}
 			if (!ca_prepare_target_linker_args(wk, 0, proj, tgt, true)) {
 				return false;
 			}
+			workspace_scratch_end(wk);
 			obj_array_pop(wk, wk->backend_output_stack);
 		}
 
