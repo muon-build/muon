@@ -39,6 +39,7 @@ src = files(
     'functions/feature_opt.c',
     'functions/file.c',
     'functions/generator.c',
+    'functions/include_directory.c',
     'functions/kernel.c',
     'functions/kernel/build_target.c',
     'functions/kernel/configure_file.c',

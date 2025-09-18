@@ -57,6 +57,7 @@
 #include "functions/feature_opt.c"
 #include "functions/file.c"
 #include "functions/generator.c"
+#include "functions/include_directory.c"
 #include "functions/kernel.c"
 #include "functions/kernel/build_target.c"
 #include "functions/kernel/configure_file.c"

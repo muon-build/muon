@@ -7,6 +7,7 @@
 
 #include "functions/array.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "util.h"
 
@@ -146,6 +147,20 @@ FUNC_IMPL(array, dedup, tc_array)
 	return true;
 }
 
+FUNC_IMPL(array, flatten, tc_array)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	*res = make_obj(wk, obj_array);
+	obj v;
+	obj_array_flat_for(wk, self, v) {
+		obj_array_push(wk, *res, v);
+	}
+	return true;
+}
+
 FUNC_REGISTER(array)
 {
 	FUNC_IMPL_REGISTER(array, length);
@@ -157,5 +172,6 @@ FUNC_REGISTER(array)
 		FUNC_IMPL_REGISTER(array, slice);
 		FUNC_IMPL_REGISTER(array, clear);
 		FUNC_IMPL_REGISTER(array, dedup);
+		FUNC_IMPL_REGISTER(array, flatten);
 	}
 }

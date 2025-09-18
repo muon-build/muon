@@ -539,6 +539,16 @@ FUNC_IMPL(string, shell_quote, tc_string)
 	return true;
 }
 
+FUNC_IMPL(string, full_path, tc_string)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	*res = self;
+	return true;
+}
+
 FUNC_REGISTER(string)
 {
 	FUNC_IMPL_REGISTER(string, contains);
@@ -561,5 +571,6 @@ FUNC_REGISTER(string)
 		FUNC_IMPL_REGISTER(string, length);
 		FUNC_IMPL_REGISTER(string, shell_split);
 		FUNC_IMPL_REGISTER(string, shell_quote);
+		FUNC_IMPL_REGISTER(string, full_path);
 	}
 }

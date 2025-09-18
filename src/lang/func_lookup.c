@@ -24,6 +24,7 @@
 #include "functions/feature_opt.h"
 #include "functions/file.h"
 #include "functions/generator.h"
+#include "functions/include_directory.h"
 #include "functions/kernel.h"
 #include "functions/machine.h"
 #include "functions/meson.h"
@@ -79,6 +80,7 @@ static func_impl_register_proto func_impl_register_funcs[obj_type_count] = {
 	[obj_run_result] = func_impl_register_run_result,
 	[obj_configuration_data] = func_impl_register_configuration_data,
 	[obj_environment] = func_impl_register_environment,
+	[obj_include_directory] = func_impl_register_include_directory,
 	[obj_generator] = func_impl_register_generator,
 	[obj_both_libs] = func_impl_register_both_libs,
 	[obj_source_set] = func_impl_register_source_set,
