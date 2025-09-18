@@ -679,7 +679,7 @@ az_jmp_if_cond_matches(struct workspace *wk, bool cond)
 	{
 		uint32_t ip = wk->vm.ip - 1;
 		if (!(map = (union branch_map *)hash_get(&analyzer.branch_map, &ip))) {
-			hash_set(wk->a, &analyzer.branch_map, &ip, 0);
+			hash_set(wk->a, wk->a_scratch, &analyzer.branch_map, &ip, 0);
 			map = (union branch_map *)hash_get(&analyzer.branch_map, &ip);
 		}
 	}
@@ -1199,7 +1199,7 @@ az_op_constant_dict(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_constant_dict](wk);
 
 	obj dict = object_stack_peek(&wk->vm.stack, 1);
-	hash_set(wk->a, &analyzer.dict_locations, &dict, b);
+	hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &dict, b);
 }
 
 static void
@@ -1215,7 +1215,7 @@ az_dict_locations_merge(struct workspace *wk, obj a, obj b, obj tgt)
 	obj merged;
 	obj_dict_merge(wk, *la, *lb, &merged);
 
-	hash_set(wk->a, &analyzer.dict_locations, &tgt, merged);
+	hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &tgt, merged);
 }
 
 static void
@@ -1253,7 +1253,7 @@ az_op_store(struct workspace *wk)
 
 			uint64_t *hv;
 			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-				hash_set(wk->a, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
+				hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
 				hv = hash_get(&analyzer.dict_locations, &tgt);
 			}
 
@@ -1282,7 +1282,7 @@ az_op_store(struct workspace *wk)
 
 	if (dup) {
 		obj tgt = object_stack_peek(&wk->vm.stack, 1);
-		hash_set(wk->a, &analyzer.dict_locations, &tgt, dup);
+		hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &tgt, dup);
 	}
 }
 
@@ -1660,7 +1660,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	if (az_diagnostic_enabled(az_diagnostic_dead_code)) {
 		uint32_t i, *ip;
 		for (i = 0; i < analyzer.branch_map.keys.len; ++i) {
-			ip = arr_get(&analyzer.branch_map.keys, i);
+			ip = sl_get_((struct slist *)&analyzer.branch_map.keys, i, analyzer.branch_map.key_size);
 			const union branch_map *map = (union branch_map *)hash_get(&analyzer.branch_map, ip);
 			if (!map->data.impure) {
 				if (!map->data.taken && map->data.not_taken) {

@@ -1006,7 +1006,7 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 			if (hash_get_strn(&wk->vm.objects.dedup_str_hash, s->s, s->len)) {
 				continue;
 			}
-			hash_set_strn(wk->a, &wk->vm.objects.dedup_str_hash, s->s, s->len, true);
+			hash_set_strn(wk->a, wk->a_scratch, &wk->vm.objects.dedup_str_hash, s->s, s->len, true);
 
 			obj_array_push(wk, *res, oval);
 			break;
@@ -1015,7 +1015,7 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 			if (hash_get(&wk->vm.objects.obj_hash, &val)) {
 				continue;
 			}
-			hash_set(wk->a, &wk->vm.objects.obj_hash, &val, true);
+			hash_set(wk->a, wk->a_scratch, &wk->vm.objects.obj_hash, &val, true);
 
 			if (!obj_array_in(wk, *res, val)) {
 				obj_array_push(wk, *res, val);
@@ -1411,10 +1411,10 @@ obj_dict_set_impl(struct workspace *wk,
 			union obj_dict_big_dict_value val = { .val = { .key = e->key, .val = e->val } };
 
 			if (d->flags & obj_dict_flag_int_key) {
-				hash_set(wk->a, h, &e->key, val.u64);
+				hash_set(wk->a, wk->a_scratch, h, &e->key, val.u64);
 			} else {
 				const struct str *ss = get_str(wk, e->key);
-				hash_set_strn(wk->a, h, ss->s, ss->len, val.u64);
+				hash_set_strn(wk->a, wk->a_scratch, h, ss->s, ss->len, val.u64);
 			}
 
 			if (!e->next) {
@@ -1437,10 +1437,10 @@ obj_dict_set_impl(struct workspace *wk,
 		union obj_dict_big_dict_value big_val = { .val = { .key = key, .val = val } };
 
 		if (d->flags & obj_dict_flag_int_key) {
-			hash_set(wk->a, h, &key, big_val.u64);
+			hash_set(wk->a, wk->a_scratch, h, &key, big_val.u64);
 		} else {
 			const struct str *ss = get_str(wk, key);
-			hash_set_strn(wk->a, h, ss->s, ss->len, big_val.u64);
+			hash_set_strn(wk->a, wk->a_scratch, h, ss->s, ss->len, big_val.u64);
 		}
 		d->len = h->len;
 	} else {
@@ -1756,7 +1756,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 	}
 	}
 
-	hash_set(wk_src->a, &wk_src->vm.objects.obj_hash, &val, *ret);
+	hash_set(wk_src->a, wk_src->a_scratch, &wk_src->vm.objects.obj_hash, &val, *ret);
 	return true;
 }
 

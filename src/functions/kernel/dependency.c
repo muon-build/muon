@@ -1541,7 +1541,7 @@ skip_if_present(struct workspace *wk, obj arr, obj val)
 		return true;
 	}
 
-	hash_set(wk->a, &wk->vm.objects.obj_hash, &val, true);
+	hash_set(wk->a, wk->a_scratch, &wk->vm.objects.obj_hash, &val, true);
 
 	return false;
 }

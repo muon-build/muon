@@ -17,4 +17,6 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
+#define IS_POWER_OF_TWO(__i) ((__i & (__i - 1)) == 0)
+
 #endif

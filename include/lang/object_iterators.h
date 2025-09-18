@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 #include "lang/types.h"
+#include "datastructures/seg_list.h"
 #include "preprocessor_helpers.h"
 
 /******************************************************************************
@@ -53,7 +54,7 @@ struct obj_dict_for_helper {
 };
 
 #define obj_dict_for_get_kv_big(__iter, __key, __val)                                                \
-	__iter.k = arr_get(&__iter.h->keys, __iter.i), __iter.v.u64 = *hash_get(__iter.h, __iter.k), \
+	__iter.k = sl_get_((struct slist *)&__iter.h->keys, __iter.i, __iter.h->key_size), __iter.v.u64 = *hash_get(__iter.h, __iter.k), \
 	__key = __iter.v.val.key, __val = __iter.v.val.val
 
 #define obj_dict_for_get_kv(__iter, __key, __val) __key = __iter.e->key, __val = __iter.e->val

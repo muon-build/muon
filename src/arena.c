@@ -267,6 +267,11 @@ ar_realloc(struct arena *a, void *ptr, int64_t original_size, int64_t new_size, 
 		ar_alloc(a, 1, new_size - original_size, 1);
 		return ptr;
 	} else {
+		static float realloc_waste;
+		realloc_waste += original_size;
+		float realloc_waste_mb = realloc_waste / (1024 * 1024);
+		TracyCPlot("realloc_waste", realloc_waste_mb);
+
 		void *res = ar_alloc(a, 1, new_size, align);
 
 		if (have_ptr && res) {
