@@ -1,0 +1,14 @@
+M = {}
+
+M.compile_resources = func(
+    rcs glob[str|file|custom_tgt],
+    args listify[str]: [],
+    depend_files listify[str|file]: [],
+    depends listify[build_tgt|custom_tgt|file]: [],
+    include_directories list[str|inc]: [],
+) -> list[custom_tgt]
+    warning('compile_resources not implemented')
+    return []
+endfunc
+
+return M

@@ -116,6 +116,7 @@ enum feature_opt_state {
 	_(subprojects, "private/subprojects", true)                             \
 	_(getopt, "private/getopt", true)                                       \
 	_(curl, "private/curl", true)                                           \
+	_(windows, "public/windows", true)                                      \
 	_(json, "private/json", true)                                           \
 	_(cmake, "public/cmake", false)                                         \
 	_(dlang, "public/dlang", false)                                         \
@@ -134,7 +135,6 @@ enum feature_opt_state {
 	_(unstable_rust, "public/unstable-rust", false)                         \
 	_(unstable_simd, "public/unstable-simd", false)                         \
 	_(unstable_wayland, "public/unstable-wayland", false)                   \
-	_(windows, "public/windows", false)
 
 #define MODULE_ENUM(mod, path, implemented) module_##mod,
 enum module {

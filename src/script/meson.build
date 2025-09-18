@@ -19,6 +19,7 @@ foreach s : [
     'modules/_test.meson',
     'modules/gnome.meson',
     'modules/i18n.meson',
+    'modules/windows.meson',
     'options/global.meson',
     'options/per_project.meson',
     'python/python_info.py',
