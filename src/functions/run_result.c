@@ -9,12 +9,12 @@
 #include "lang/typecheck.h"
 
 static bool
-ensure_valid_run_result(struct workspace *wk, obj self)
+ensure_valid_run_result(struct workspace *wk, obj self, enum log_level lvl)
 {
 	struct obj_run_result *rr = get_obj_run_result(wk, self);
 
 	if ((rr->flags & run_result_flag_from_compile) && !(rr->flags & run_result_flag_compile_ok)) {
-		vm_error(wk, "this run_result was not run because its source could not be compiled");
+		vm_diagnostic(wk, 0, lvl, 0, "this run_result was not run because its source could not be compiled");
 		return false;
 	}
 
@@ -27,8 +27,10 @@ FUNC_IMPL(run_result, returncode, tc_number, func_impl_flag_impure)
 		return false;
 	}
 
-	if (!ensure_valid_run_result(wk, self)) {
-		return false;
+	if (!ensure_valid_run_result(wk, self, log_warn)) {
+		*res = make_obj(wk, obj_number);
+		set_obj_number(wk, *res, -1);
+		return true;
 	}
 
 	*res = make_obj(wk, obj_number);
@@ -42,7 +44,7 @@ FUNC_IMPL(run_result, stdout_, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	if (!ensure_valid_run_result(wk, self)) {
+	if (!ensure_valid_run_result(wk, self, log_error)) {
 		return false;
 	}
 
@@ -56,7 +58,7 @@ FUNC_IMPL(run_result, stderr_, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	if (!ensure_valid_run_result(wk, self)) {
+	if (!ensure_valid_run_result(wk, self, log_error)) {
 		return false;
 	}
 
