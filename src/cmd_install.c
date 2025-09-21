@@ -118,6 +118,12 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		dest = full_dest_dir.buf;
 	}
 
+	// meson creates empty directories for dirs that don't exist in the source
+	// tree
+	if (in->type == install_target_subdir && !fs_dir_exists(src)) {
+		in->type = install_target_emptydir;
+	}
+
 	switch (in->type) {
 	case install_target_default: LOG_I("install '%s' -> '%s'", src, dest); break;
 	case install_target_subdir: LOG_I("install subdir '%s' -> '%s'", src, dest); break;
