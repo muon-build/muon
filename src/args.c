@@ -14,9 +14,11 @@
 #include "functions/both_libs.h"
 #include "functions/environment.h"
 #include "lang/workspace.h"
+#include "lang/object_iterators.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 void
 push_args(struct workspace *wk, obj arr, const struct args *args)
@@ -201,46 +203,27 @@ pkgconf_escape(struct workspace *wk, struct tstr *sb, const char *str)
 
 typedef void((*escape_func)(struct workspace *wk, struct tstr *sb, const char *str));
 
-struct join_args_iter_ctx {
-	uint32_t i, len;
-	uint32_t *obj;
-	escape_func escape;
-};
-
-static enum iteration_result
-join_args_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct join_args_iter_ctx *ctx = _ctx;
-
-	const char *s = get_cstr(wk, val);
-
-	TSTR(esc);
-	if (ctx->escape) {
-		ctx->escape(wk, &esc, s);
-
-		s = esc.buf;
-	}
-
-	str_app(wk, ctx->obj, s);
-
-	if (ctx->i < ctx->len - 1) {
-		str_app(wk, ctx->obj, " ");
-	}
-
-	++ctx->i;
-
-	return ir_cont;
-}
-
 static obj
 join_args(struct workspace *wk, obj arr, escape_func escape)
 {
-	obj o = make_str(wk, "");
+	TracyCZoneAutoS;
+	TSTR(res);
 
-	struct join_args_iter_ctx ctx = { .obj = &o, .len = get_obj_array(wk, arr)->len, .escape = escape };
+	obj val;
+	obj_array_for_(wk, arr, val, iter) {
+		const struct str *s = get_str(wk, val);
+		if (escape) {
+			escape(wk, &res, s->s);
+		} else {
+			tstr_pushn(wk, &res, s->s, s->len);
+		}
+		if (iter.i < iter.len - 1) {
+			tstr_push(wk, &res, ' ');
+		}
+	}
 
-	obj_array_foreach(wk, arr, &ctx, join_args_iter);
-	return o;
+	TracyCZoneAutoE;
+	return tstr_into_str(wk, &res);
 }
 
 obj

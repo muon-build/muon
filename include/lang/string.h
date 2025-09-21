@@ -91,6 +91,7 @@ obj make_str(struct workspace *wk, const char *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);
 obj make_strf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 obj make_strfv(struct workspace *wk, const char *fmt, va_list args);
+struct str *reserve_str(struct workspace *wk, obj *s, uint32_t len);
 
 obj make_str_enum(struct workspace *wk, const char *str, obj values);
 obj mark_typeinfo_as_enum(struct workspace *wk, obj ti, obj values);

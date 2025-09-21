@@ -534,7 +534,7 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 
 	if (ctx->force) {
 		LOG_I("removing %s", wrap.dest_dir.buf);
-		fs_rmdir_recursive(wrap.dest_dir.buf, true);
+		fs_rmdir_recursive(wk, wrap.dest_dir.buf, true);
 		fs_rmdir(wrap.dest_dir.buf, true);
 
 		obj_array_push(wk, *ctx->res, make_str(wk, wrap.name.buf));

@@ -63,33 +63,24 @@ bucket_arr_clear(struct bucket_arr *ba)
 void
 bucket_arr_save(const struct bucket_arr *ba, struct bucket_arr_save *save)
 {
-	struct bucket *b;
-	b = arr_get(&ba->buckets, ba->tail_bucket);
-
-	save->tail_bucket = ba->tail_bucket;
-	save->tail_bucket_len = b->len;
+	save->tail_bucket = *(struct bucket *)arr_get(&ba->buckets, ba->tail_bucket);
+	save->ba = *ba;
 }
 
 void
 bucket_arr_restore(struct bucket_arr *ba, const struct bucket_arr_save *save)
 {
-	struct bucket *b;
+	*ba = save->ba;
+	struct bucket *b = arr_get(&ba->buckets, ba->tail_bucket);
+	*b = save->tail_bucket;
 
-	b = arr_get(&ba->buckets, save->tail_bucket);
-	assert(save->tail_bucket_len <= b->len);
-	ba->len -= b->len - save->tail_bucket_len;
-	b->len = save->tail_bucket_len;
 	memset(&b->mem[b->len * ba->item_size], 0, (ba->bucket_size - b->len) * ba->item_size);
 
 	uint32_t bi;
-	for (bi = save->tail_bucket + 1; bi < ba->buckets.len; ++bi) {
-		b = arr_get(&ba->buckets, bi);
-		memset(b->mem, 0, b->len * ba->item_size);
-		ba->len -= b->len;
-		b->len = 0;
+	for (bi = ba->tail_bucket + 1; bi < ba->buckets.cap; ++bi) {
+		b = &((struct bucket *)ba->buckets.e)[bi];
+		*b = (struct bucket){ 0 };
 	}
-
-	ba->tail_bucket = save->tail_bucket;
 }
 
 void *

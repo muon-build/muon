@@ -20,6 +20,7 @@
 #include "platform/log.h"
 #include "platform/os.h"
 #include "platform/term.h"
+#include "tracy.h"
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = STRINGIZE(c_red),
@@ -327,6 +328,8 @@ print_buffer(FILE *out, const char *s, uint32_t len, bool tty, bool progress)
 void
 log_printn(enum log_level lvl, const char *buf, uint32_t len)
 {
+	TracyCMessage(buf, len);
+
 	if (log_cfg.debug_file) {
 		print_buffer(log_cfg.debug_file, buf, len, false, false);
 	}

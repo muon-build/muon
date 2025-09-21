@@ -17,6 +17,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 struct write_tgt_source_ctx {
 	FILE *out;
@@ -39,15 +40,19 @@ enum write_tgt_src_flag {
 static obj
 write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum compiler_language lang, obj val, enum write_tgt_src_flag flags)
 {
+	TracyCZoneAutoS;
+	workspace_scratch_begin(wk);
+	obj dest_res = 0;
+
 	/* build paths */
 	TSTR(dest_path);
 	if ((flags & write_tgt_src_flag_pch)) {
 		if (!tgt_src_to_pch_path(wk, ctx->tgt, lang, val, &dest_path)) {
-			return 0;
+			goto done;
 		}
 	} else {
 		if (!tgt_src_to_object_path(wk, ctx->tgt, lang, val, true, &dest_path)) {
-			return 0;
+			goto done;
 		}
 	}
 
@@ -55,7 +60,7 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 
 	if ((flags & write_tgt_src_flag_pch)) {
 		if (get_obj_type(wk, val) == obj_build_target) {
-			return dest;
+			goto done;
 		}
 	} else {
 		obj_array_push(wk, ctx->object_names, dest);
@@ -116,18 +121,24 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 		obj args;
 		if (!obj_dict_geti(wk, *joined_args, lang, &args)) {
 			LOG_E("No compiler defined for language %s", compiler_language_to_s(lang));
-			return 0;
+			goto done;
 		}
 
 		fprintf(ctx->out, " ARGS = %s\n", get_cstr(wk, args));
 	}
 
-	return dest;
+	dest_res = dest;
+done:
+	TracyCZoneAutoE;
+	workspace_scratch_end(wk);
+	return dest_res;
 }
 
 bool
 ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wctx)
 {
+	TracyCZoneAutoS;
+
 	struct obj_build_target *tgt = get_obj_build_target(wk, tgt_id);
 	L("writing rules for target '%s'", get_cstr(wk, tgt->build_name));
 
@@ -299,5 +310,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 done:
 	fprintf(wctx->out, "\n");
+	TracyCZoneAutoE;
 	return true;
 }

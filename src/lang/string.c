@@ -98,7 +98,7 @@ get_cstr(struct workspace *wk, obj s)
 	return ss->s;
 }
 
-static struct str *
+struct str *
 reserve_str(struct workspace *wk, obj *s, uint32_t len)
 {
 	enum str_flags f = 0;
@@ -339,6 +339,7 @@ make_strfv(struct workspace *wk, const char *fmt, va_list args)
 
 	obj s;
 	struct str *ss = reserve_str(wk, &s, len);
+
 	// TODO: the buffer size is too small here because the object expansion
 	// isn't taken in to account by vsnprintf above.  Need to make it
 	// possible to pass NULL to obj_vsnprintf to get a reliable buffer

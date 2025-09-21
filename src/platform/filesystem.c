@@ -494,7 +494,7 @@ fs_rmdir_iter(void *_ctx, const char *path)
 	}
 
 	if (S_ISDIR(sb.st_mode)) {
-		if (!fs_rmdir_recursive(name.buf, ctx->force)) {
+		if (!fs_rmdir_recursive(ctx->wk, name.buf, ctx->force)) {
 			return ir_err;
 		}
 
@@ -516,9 +516,10 @@ fs_rmdir_iter(void *_ctx, const char *path)
 }
 
 bool
-fs_rmdir_recursive(const char *path, bool force)
+fs_rmdir_recursive(struct workspace *wk, const char *path, bool force)
 {
 	struct fs_rmdir_ctx ctx = {
+		.wk = wk,
 		.base_dir = path,
 		.force = force,
 	};

@@ -642,7 +642,7 @@ FUNC_IMPL(module_fs, rmdir, func_impl_flag_impure | func_impl_flag_sandbox_disab
 	bool force = akw[kw_force].set ? get_obj_bool(wk, akw[kw_force].val) : false;
 
 	if (recursive) {
-		return fs_rmdir_recursive(get_cstr(wk, an[0].val), force);
+		return fs_rmdir_recursive(wk, get_cstr(wk, an[0].val), force);
 	} else {
 		return fs_rmdir(get_cstr(wk, an[0].val), force);
 	}

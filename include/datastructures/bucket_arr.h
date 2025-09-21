@@ -8,10 +8,6 @@
 
 #include "datastructures/arr.h"
 
-struct bucket_arr_save {
-	uint32_t tail_bucket, tail_bucket_len;
-};
-
 struct bucket_arr {
 	struct arr buckets;
 	uint32_t item_size, item_align;
@@ -22,6 +18,11 @@ struct bucket_arr {
 struct bucket {
 	uint8_t *mem;
 	uint32_t len;
+};
+
+struct bucket_arr_save {
+	struct bucket tail_bucket;
+	struct bucket_arr ba;
 };
 
 void init_bucket(struct arena *a, struct bucket_arr *ba, struct bucket *b);
