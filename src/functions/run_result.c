@@ -38,7 +38,7 @@ FUNC_IMPL(run_result, returncode, tc_number, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(run_result, stdout_, tc_string, func_impl_flag_impure)
+FUNC_IMPL(run_result, stdout, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -52,7 +52,7 @@ FUNC_IMPL(run_result, stdout_, tc_string, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(run_result, stderr_, tc_string, func_impl_flag_impure)
+FUNC_IMPL(run_result, stderr, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -87,8 +87,6 @@ FUNC_REGISTER(run_result)
 {
 	FUNC_IMPL_REGISTER(run_result, compiled);
 	FUNC_IMPL_REGISTER(run_result, returncode);
-
-	// stderr and stdout are standard macros
-	func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_run_result_stderr_, "stderr");
-	func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_run_result_stdout_, "stdout");
+	FUNC_IMPL_REGISTER(run_result, stderr);
+	FUNC_IMPL_REGISTER(run_result, stdout);
 }

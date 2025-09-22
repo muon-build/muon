@@ -30,12 +30,10 @@ struct func_impl {
 	uint32_t line;
 };
 
-#define FUNC_IMPL_(__type, ___, __name, ...)  \
-static bool func_ ## __type ## ___ ## __name(struct workspace *wk, obj self, obj *res); \
-static struct func_impl func_impl_ ## __type ## ___ ## __name = { #__name, func_ ## __type ## ___ ## __name, __VA_ARGS__, .file = __FILE__, .line = __LINE__ }; \
-static bool func_ ## __type ## ___ ## __name(struct workspace *wk, obj self, obj *res)
-
-#define FUNC_IMPL(__type, __name, ...) FUNC_IMPL_(__type, _, __name, __VA_ARGS__)
+#define FUNC_IMPL(__type, __name, ...) \
+static bool func_ ## __type ## _ ## __name(struct workspace *wk, obj self, obj *res); \
+static struct func_impl func_impl_ ## __type ## _ ## __name = { #__name, func_ ## __type ## _ ## __name, __VA_ARGS__, .file = __FILE__, .line = __LINE__ }; \
+static bool func_ ## __type ## _ ## __name(struct workspace *wk, obj self, obj *res)
 
 #define FUNC_IMPL_REGISTER_ARGS enum language_mode lang_mode, struct func_impl *dest, uint32_t cap, uint32_t *added
 #define FUNC_IMPL_REGISTER_ARGS_FWD lang_mode, dest, cap, added
@@ -45,15 +43,13 @@ void func_impl_register(FUNC_IMPL_REGISTER_ARGS, const struct func_impl *src, co
 // These functions also define integer variables so that we get errors on
 // duplicate registration
 
-#define FUNC_IMPL_REGISTER_(__type, ___, __name)  \
-int dup_func_impl_ ## __type ## ___ ## __name; (void)dup_func_impl_ ## __type ## ___ ## __name; \
-func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## ___ ## __name, 0)
-#define FUNC_IMPL_REGISTER(__type, __name) FUNC_IMPL_REGISTER_(__type, _, __name)
+#define FUNC_IMPL_REGISTER(__type, __name) \
+int dup_func_impl_ ## __type ## _ ## __name; (void)dup_func_impl_ ## __type ## _ ## __name; \
+func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## _ ## __name, 0)
 
-#define FUNC_IMPL_REGISTER_ALIAS_(__type, ___, __name, __alias)  \
-int dup_func_impl_ ## __type ## ___ ## __alias; (void)dup_func_impl_ ## __type ## ___ ## __alias; \
-func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## ___ ## __name, #__alias)
-#define FUNC_IMPL_REGISTER_ALIAS(__type, __name, __alias) FUNC_IMPL_REGISTER_ALIAS_(__type, _, __name, __alias)
+#define FUNC_IMPL_REGISTER_ALIAS(__type, __name, __alias) \
+int dup_func_impl_ ## __type ## __alias; (void)dup_func_impl_ ## __type ## __alias; \
+func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## _ ## __name, #__alias)
 
 #define FUNC_REGISTER(__type) void func_impl_register_ ## __type(FUNC_IMPL_REGISTER_ARGS)
 typedef void ((*func_impl_register_proto)(FUNC_IMPL_REGISTER_ARGS));
