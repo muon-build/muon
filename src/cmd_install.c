@@ -124,6 +124,11 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		in->type = install_target_emptydir;
 	}
 
+	if ((in->type == install_target_default || in->type == install_target_symlink) && !fs_exists(src)) {
+		LOG_W("src '%s' does not exist, skipping", src);
+		return ir_cont;
+	}
+
 	switch (in->type) {
 	case install_target_default: LOG_I("install '%s' -> '%s'", src, dest); break;
 	case install_target_subdir: LOG_I("install subdir '%s' -> '%s'", src, dest); break;
