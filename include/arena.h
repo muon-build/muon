@@ -17,12 +17,19 @@ struct ar_params {
 	uint64_t block_size;
 };
 
+#if defined(TRACY_ENABLE) || 1
+#define ARENA_TRACE 1
+#else
+#define ARENA_TRACE 0
+#endif
+
 struct arena {
 	struct ar_params params;
 	struct ar_block *head, *tail;
 	int64_t pos;
-#ifdef TRACY_ENABLE
-	const char *tracy_tag;
+#if ARENA_TRACE
+	struct ar_trace *trace;
+	const char *trace_tag;
 #endif
 };
 

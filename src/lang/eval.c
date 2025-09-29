@@ -140,6 +140,9 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 		struct node *n = 0;
 
 		vm_compile_state_reset(wk);
+		workspace_scratch_begin(wk);
+
+		bool ok = false;
 
 		switch (lang) {
 		case build_language_meson: n = parse(wk, src, compile_mode); break;
@@ -147,19 +150,25 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 		}
 
 		if (!n) {
-			TracyCZoneAutoE;
-			return false;
+			goto compile_done;
 		}
 
 		bool first = lang == build_language_meson && (mode & eval_mode_first);
 		if (first) {
 			if (!ensure_project_is_first_statement(wk, src, n, false)) {
-				TracyCZoneAutoE;
-				return false;
+				goto compile_done;
 			}
 		}
 
 		if (!vm_compile_ast(wk, n, compile_mode, &entry)) {
+			goto compile_done;
+		}
+
+		ok = true;
+compile_done:
+		workspace_scratch_end(wk);
+
+		if (!ok) {
 			TracyCZoneAutoE;
 			return false;
 		}

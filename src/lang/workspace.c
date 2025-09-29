@@ -457,9 +457,13 @@ workspace_build_dir(struct workspace *wk)
 	}
 }
 
-
 bool
-workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags)
+workspace_do_setup_prepare(struct workspace *wk,
+	const char *build,
+	const char *argv0,
+	uint32_t argc,
+	char *const argv[],
+	enum workspace_do_setup_flag flags)
 {
 	workspace_setup_paths(wk, build, argv0, argc, argv);
 
@@ -516,7 +520,7 @@ workspace_do_setup(struct workspace *wk)
 
 	if (progress) {
 		log_progress_enable();
-		log_progress_set_style(&(struct log_progress_style) { .rate_limit = 64, .name_pad = 20 });
+		log_progress_set_style(&(struct log_progress_style){ .rate_limit = 64, .name_pad = 20 });
 	}
 
 	uint32_t project_id;
@@ -552,7 +556,6 @@ void
 workspace_scratch_begin(struct workspace *wk)
 {
 	stack_push(&wk->stack, wk->a_scratch_pos, wk->a_scratch->pos);
-	TracyCPlot(wk->a_scratch->tracy_tag, wk->a_scratch->pos);
 }
 
 void
@@ -560,5 +563,4 @@ workspace_scratch_end(struct workspace *wk)
 {
 	ar_pop_to(wk->a_scratch, wk->a_scratch_pos);
 	stack_pop(&wk->stack, wk->a_scratch_pos);
-	TracyCPlot(wk->a_scratch->tracy_tag, wk->a_scratch->pos);
 }

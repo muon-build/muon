@@ -696,6 +696,61 @@ vm_get_constant(uint8_t *code, uint32_t *ip)
  * disassembler
  ******************************************************************************/
 
+static const char *
+vm_op_to_s(uint8_t op)
+{
+#define op_case(__op) \
+	case __op: return #__op;
+
+	// clang-format off
+	switch (op) {
+	op_case(op_pop)
+	op_case(op_dup)
+	op_case(op_swap)
+	op_case(op_stringify)
+	op_case(op_index)
+	op_case(op_add)
+	op_case(op_sub)
+	op_case(op_mul)
+	op_case(op_div)
+	op_case(op_mod)
+	op_case(op_eq)
+	op_case(op_in)
+	op_case(op_gt)
+	op_case(op_lt)
+	op_case(op_not)
+	op_case(op_negate)
+	op_case(op_return)
+	op_case(op_return_end)
+	op_case(op_try_load)
+	op_case(op_load)
+	op_case(op_store)
+	op_case(op_iterator)
+	op_case(op_iterator_next)
+	op_case(op_constant)
+	op_case(op_constant_list)
+	op_case(op_constant_dict)
+	op_case(op_constant_func)
+	op_case(op_call)
+	op_case(op_member)
+	op_case(op_call_native)
+	op_case(op_jmp_if_true)
+	op_case(op_jmp_if_false)
+	op_case(op_jmp_if_disabler)
+	op_case(op_jmp_if_disabler_keep)
+	op_case(op_jmp)
+	op_case(op_typecheck)
+	op_case(op_az_branch)
+	op_case(op_az_merge)
+	op_case(op_dbg_break)
+	case op_count: UNREACHABLE;
+	}
+	// clang-format on
+#undef op_case
+
+	UNREACHABLE_RETURN;
+}
+
 const char *
 vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 {
@@ -1274,9 +1329,11 @@ vm_op_div(struct workspace *wk)
 			return;
 		}
 
+		workspace_scratch_begin(wk);
 		TSTR(buf);
 		path_join(wk, &buf, ss1->s, ss2->s);
 		res = tstr_into_str(wk, &buf);
+		workspace_scratch_end(wk);
 		break;
 	}
 	case obj_typeinfo: {
@@ -1954,7 +2011,7 @@ vm_op_member(struct workspace *wk)
 		return;
 	}
 
-	obj  res = make_obj(wk, obj_capture);
+	obj res = make_obj(wk, obj_capture);
 	struct obj_capture *c = get_obj_capture(wk, res);
 
 	if (f) {
@@ -2195,7 +2252,9 @@ vm_op_iterator_next(struct workspace *wk)
 			should_break = true;
 		} else {
 			push_key = true;
-			void *k = sl_get_((struct slist *)&iterator->data.dict_big.h->keys, iterator->data.dict_big.i, iterator->data.dict_big.h->key_size);
+			void *k = sl_get_((struct slist *)&iterator->data.dict_big.h->keys,
+				iterator->data.dict_big.i,
+				iterator->data.dict_big.h->key_size);
 			union obj_dict_big_dict_value *uv
 				= (union obj_dict_big_dict_value *)hash_get(iterator->data.dict_big.h, k);
 			key = uv->val.key;
@@ -2465,7 +2524,12 @@ vm_unwind_call_stack(struct workspace *wk)
 
 		const char *fmt = frame->func->name ? "in function '%s'" : "in %s";
 		const char *fname = frame->func->name ? frame->func->name : "anonymous function";
-		vm_diagnostic(wk, frame->return_ip - 1, log_error, error_message_flag_no_source | error_message_flag_coalesce, fmt, fname);
+		vm_diagnostic(wk,
+			frame->return_ip - 1,
+			log_error,
+			error_message_flag_no_source | error_message_flag_coalesce,
+			fmt,
+			fname);
 	}
 
 	error_message_flush_coalesced_message();
@@ -2474,6 +2538,7 @@ vm_unwind_call_stack(struct workspace *wk)
 obj
 vm_execute(struct workspace *wk)
 {
+	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
 
 	platform_set_abort_handler(vm_abort_handler, wk);
@@ -2488,8 +2553,10 @@ vm_execute(struct workspace *wk)
 		vm_unwind_call_stack(wk);
 		assert(wk->vm.stack.ba.len >= object_stack_base);
 		object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - object_stack_base);
+		TracyCZoneAutoE;
 		return 0;
 	} else {
+		TracyCZoneAutoE;
 		return object_stack_pop(&wk->vm.stack);
 	}
 }
@@ -2753,7 +2820,16 @@ vm_execute_loop(struct workspace *wk)
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
+
+		// TracyCZoneN(tctx, "op", true);
+		// {
+		// 	const char *op_name = vm_op_to_s(wk->vm.code.e[cip]);
+		// 	TracyCZoneName(tctx, op_name, strlen(op_name));
+		// }
+
 		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
+
+		// TracyCZoneEnd(tctx);
 
 		++wk->vm.dbg_state.icount;
 	}
@@ -2834,7 +2910,8 @@ vm_struct_(struct workspace *wk, const char *name)
 }
 
 const char *
-vm_enum_docs_def(struct workspace *wk, obj def) {
+vm_enum_docs_def(struct workspace *wk, obj def)
+{
 	obj doc;
 	if (obj_dict_geti(wk, wk->vm.types.docs, def, &doc)) {
 		return get_str(wk, doc)->s;
@@ -2853,7 +2930,8 @@ vm_enum_docs_def(struct workspace *wk, obj def) {
 }
 
 const char *
-vm_struct_docs_def(struct workspace *wk, obj def) {
+vm_struct_docs_def(struct workspace *wk, obj def)
+{
 	obj doc;
 	if (obj_dict_geti(wk, wk->vm.types.docs, def, &doc)) {
 		return get_str(wk, doc)->s;
@@ -2868,21 +2946,11 @@ vm_struct_docs_def(struct workspace *wk, obj def) {
 		const char *type_str = 0;
 
 		switch (type) {
-		case vm_struct_type_struct_:
-			type_str = vm_struct_docs_def(wk, t >> vm_struct_type_shift);
-			break;
-		case vm_struct_type_enum_:
-			type_str = vm_enum_docs_def(wk, t >> vm_struct_type_shift);
-			break;
-		case vm_struct_type_bool:
-			type_str = "bool";
-			break;
-		case vm_struct_type_str:
-			type_str = "str";
-			break;
-		case vm_struct_type_obj:
-			type_str = "any";
-			break;
+		case vm_struct_type_struct_: type_str = vm_struct_docs_def(wk, t >> vm_struct_type_shift); break;
+		case vm_struct_type_enum_: type_str = vm_enum_docs_def(wk, t >> vm_struct_type_shift); break;
+		case vm_struct_type_bool: type_str = "bool"; break;
+		case vm_struct_type_str: type_str = "str"; break;
+		case vm_struct_type_obj: type_str = "any"; break;
 		}
 
 		assert(type_str);
@@ -2902,7 +2970,8 @@ vm_struct_docs_def(struct workspace *wk, obj def) {
 }
 
 const char *
-vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt) {
+vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt)
+{
 	vm_types_init(wk);
 
 	obj doc;
@@ -2926,7 +2995,8 @@ vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt) {
 }
 
 void
-vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t) {
+vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t)
+{
 	obj def;
 	if (!obj_dict_index_str(wk, wk->vm.types.structs, name, &def)) {
 		error_unrecoverable("struct %s is not registered", name);
@@ -3073,13 +3143,21 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 
 #define vm_reflect_obj_singleton(__type)
 
-#define vm_reflect_obj_field(__type, __field_type, __name) \
-	vm_reflect_obj_field_(wk, __type,                      \
-		&(struct vm_reflected_field){ .name = #__name, .type = #__field_type, .off = offsetof(struct __type, __name), .size = sizeof(__field_type) })
+#define vm_reflect_obj_field(__type, __field_type, __name)      \
+	vm_reflect_obj_field_(wk,                               \
+		__type,                                         \
+		&(struct vm_reflected_field){ .name = #__name,  \
+			.type = #__field_type,                  \
+			.off = offsetof(struct __type, __name), \
+			.size = sizeof(__field_type) })
 
-#define vm_reflect_obj_field_simple(__type, __field_type) \
-	vm_reflect_obj_field_(wk, __type,                      \
-		&(struct vm_reflected_field){ .name = 0, .type = #__field_type, .off = offsetof(struct obj_internal, val), .size = sizeof(__field_type) })
+#define vm_reflect_obj_field_simple(__type, __field_type)          \
+	vm_reflect_obj_field_(wk,                                  \
+		__type,                                            \
+		&(struct vm_reflected_field){ .name = 0,           \
+			.type = #__field_type,                     \
+			.off = offsetof(struct obj_internal, val), \
+			.size = sizeof(__field_type) })
 
 #define vm_reflect_obj_field_for_each_toolchain_component(__type, __field_type, __name)   \
 	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_compiler]); \
@@ -3218,7 +3296,11 @@ vm_init_objects(struct workspace *wk)
 
 	uint32_t i;
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_arr_init_(wk->a, &wk->vm.objects.obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size, sizes[i].item_align);
+		bucket_arr_init_(wk->a,
+			&wk->vm.objects.obj_aos[i - _obj_aos_start],
+			sizes[i].bucket_size,
+			sizes[i].item_size,
+			sizes[i].item_align);
 	}
 
 	// reserve dict_elem 0 and array_elem as a null element

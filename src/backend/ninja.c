@@ -192,6 +192,7 @@ ninja_write_all(struct workspace *wk)
 
 	{ /* compile_commands.json */
 		TracyCZoneN(tctx_compdb, "output compile_commands.json", true);
+		workspace_scratch_begin(wk);
 
 		obj compdb_args;
 		compdb_args = make_obj(wk, obj_array);
@@ -204,6 +205,7 @@ ninja_write_all(struct workspace *wk)
 			LOG_E("error writing compile_commands.json");
 		}
 
+		workspace_scratch_end(wk);
 		TracyCZoneEnd(tctx_compdb);
 	}
 

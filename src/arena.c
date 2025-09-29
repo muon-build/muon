@@ -8,14 +8,16 @@
 #include <stdbool.h>
 #include <string.h>
 
-#ifdef TRACY_ENABLE
-#include <stdio.h>
-#endif
-
 #include "arena.h"
+#include "buf_size.h"
 #include "platform/assert.h"
 #include "platform/mem.h"
 #include "tracy.h"
+
+#if ARENA_TRACE
+#include <stdio.h>
+#include <stdlib.h>
+#endif
 
 #if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
 #include <sanitizer/asan_interface.h>
@@ -24,6 +26,112 @@
 #else
 #define asan_poison_memory_region(addr, size) ((void)(addr), (void)(size))
 #define asan_unpoison_memory_region(addr, size) ((void)(addr), (void)(size))
+#endif
+
+#if ARENA_TRACE
+
+struct ar_traced_alloc {
+	const void *mem;
+	uint64_t size;
+};
+
+struct ar_traced_block {
+	uint64_t alloc_start;
+};
+
+struct ar_trace {
+	struct ar_traced_block blocks[64];
+	struct ar_traced_alloc allocs[1024 * 1024];
+	uint64_t blocks_len;
+	uint64_t allocs_len;
+};
+
+static void
+ar_trace_alloc_block(struct arena *a, struct ar_block *b)
+{
+	struct ar_trace *t = a->trace;
+
+	if (t->blocks_len >= ARRAY_LEN(t->blocks)) {
+		assert(false && "too many blocks to trace");
+	}
+
+	t->blocks[t->blocks_len] = (struct ar_traced_block){
+		.alloc_start = t->allocs_len,
+	};
+	++t->blocks_len;
+}
+
+static void
+ar_trace_free(struct arena *a, struct ar_block *b, struct ar_traced_alloc *ta)
+{
+	TracyCFreeN(ta->mem, a->trace_tag);
+}
+
+static void
+ar_trace_free_block_section(struct arena *a, struct ar_block *b, uint64_t block_want_pos)
+{
+	struct ar_trace *t = a->trace;
+	struct ar_traced_block *tb;
+	struct ar_traced_alloc *ta;
+	assert(t->blocks_len);
+	tb = &t->blocks[t->blocks_len - 1];
+
+	uint64_t block_pos = 0, allocs_freed = 0;
+
+	for (uint64_t i = tb->alloc_start; i < t->allocs_len; ++i) {
+		ta = &t->allocs[i];
+		if (block_pos >= block_want_pos) {
+			ar_trace_free(a, b, ta);
+			++allocs_freed;
+		}
+
+		block_pos += ta->size;
+	}
+
+	t->allocs_len -= allocs_freed;
+}
+
+static void
+ar_trace_free_block(struct arena *a, struct ar_block *b)
+{
+	struct ar_trace *t = a->trace;
+	struct ar_traced_block *tb;
+	struct ar_traced_alloc *ta;
+
+	assert(t->blocks_len);
+
+	--t->blocks_len;
+	tb = &t->blocks[t->blocks_len];
+
+	for (uint64_t i = tb->alloc_start; i < t->allocs_len; ++i) {
+		ta = &t->allocs[i];
+		ar_trace_free(a, b, ta);
+	}
+	t->allocs_len = tb->alloc_start;
+}
+
+static void
+ar_trace_alloc(struct arena *a, struct ar_block *b, const void *mem, uint64_t size)
+{
+	struct ar_trace *t = a->trace;
+
+	if (t->allocs_len >= ARRAY_LEN(t->allocs)) {
+		assert(false && "too many allocations to trace");
+	}
+
+	t->allocs[t->allocs_len] = (struct ar_traced_alloc){ mem, size };
+	++t->allocs_len;
+	TracyCAllocN(mem, size, a->trace_tag);
+}
+
+static void
+ar_trace_waste(uint64_t n)
+{
+	static float sum;
+	sum += n;
+	(void)sum;
+	TracyCPlot("arena_waste", sum);
+}
 #endif
 
 enum ar_flag {
@@ -68,7 +176,7 @@ ar_block_init(struct ar_block *b, struct ar_block *prev, uint64_t block_size)
 }
 
 static struct ar_block *
-ar_block_alloc(const struct arena *a, uint64_t count, uint64_t objsize, struct ar_block *prev)
+ar_block_alloc(struct arena *a, uint64_t count, uint64_t objsize, struct ar_block *prev)
 {
 	TracyCZoneAutoS;
 	uint64_t block_size = a->params.block_size, size = count * objsize;
@@ -84,8 +192,8 @@ ar_block_alloc(const struct arena *a, uint64_t count, uint64_t objsize, struct a
 
 	uint64_t s = sizeof(struct ar_block) + block_size;
 	struct ar_block *b = z_malloc(s);
-	TracyCAllocN(b, s, a->tracy_tag);
 	ar_block_init(b, prev, block_size);
+	ar_trace_alloc_block(a, b);
 	TracyCZoneAutoE;
 	return b;
 }
@@ -93,7 +201,7 @@ ar_block_alloc(const struct arena *a, uint64_t count, uint64_t objsize, struct a
 static void
 ar_block_free(struct arena *a, struct ar_block *block)
 {
-	TracyCFreeN(block, a->tracy_tag);
+	ar_trace_free_block(a, block);
 	z_free(block);
 }
 
@@ -107,11 +215,14 @@ ar_init(struct arena *a, const struct ar_params *params)
 	}
 	assert(a->params.block_size);
 
-#ifdef TRACY_ENABLE
+#if ARENA_TRACE
 	static int id = 0;
 	char buf[256] = { 0 };
 	snprintf(buf, sizeof(buf), "arena-%d", id);
-	a->tracy_tag = strdup(buf); // Leaked and not tracked
+
+	// The following are leaked and not tracked
+	a->trace_tag = strdup(buf);
+	a->trace = calloc(sizeof(struct ar_trace), 1);
 	++id;
 #endif
 }
@@ -132,6 +243,8 @@ retry:
 	size_unpadded = objsize * count;
 	size = size_unpadded + pad;
 	if (size > ar_block_len_free(a->tail)) {
+		ar_trace_waste(ar_block_len_free(a->tail));
+
 		if (a->params.flags & ar_flag_fixed) {
 			assert(false && "fixed arena OOM");
 		}
@@ -157,7 +270,8 @@ retry:
 	a->pos += size;
 
 	void *mem = a->tail->end + pad;
-	//TracyCAllocN(mem, size_unpadded, tracy_arena_block_mem_tag);
+	ar_trace_waste(pad);
+	ar_trace_alloc(a, a->tail, mem, size_unpadded);
 
 	a->tail->end += size;
 	asan_unpoison_memory_region(mem, size_unpadded);
@@ -226,6 +340,8 @@ ar_pop_to(struct arena *a, int64_t want_pos)
 	assert(a->tail->size >= block_pos);
 	assert(block_pos >= block_want_pos);
 
+	ar_trace_free_block_section(a, a->tail, block_want_pos);
+
 	a->tail->end = a->tail->start + block_want_pos;
 	asan_poison_memory_region(a->tail->end, ar_block_len_free(a->tail));
 	a->pos = want_pos;
@@ -267,11 +383,7 @@ ar_realloc(struct arena *a, void *ptr, int64_t original_size, int64_t new_size, 
 		ar_alloc(a, 1, new_size - original_size, 1);
 		return ptr;
 	} else {
-		static float realloc_waste;
-		realloc_waste += original_size;
-		float realloc_waste_mb = realloc_waste / (1024 * 1024);
-		TracyCPlot("realloc_waste", realloc_waste_mb);
-
+		ar_trace_waste(original_size);
 		void *res = ar_alloc(a, 1, new_size, align);
 
 		if (have_ptr && res) {

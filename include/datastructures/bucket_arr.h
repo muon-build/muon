@@ -21,8 +21,7 @@ struct bucket {
 };
 
 struct bucket_arr_save {
-	struct bucket tail_bucket;
-	struct bucket_arr ba;
+	uint32_t tail_bucket, tail_bucket_len;
 };
 
 void init_bucket(struct arena *a, struct bucket_arr *ba, struct bucket *b);

@@ -1405,5 +1405,9 @@ main(int argc, char *argv[])
 	workspace_destroy_bare(&wk);
 	ar_destroy(&a);
 	ar_destroy(&a_scratch);
+
+#ifdef TRACY_ENABLE
+	sleep(1);
+#endif
 	return ret;
 }
