@@ -17,7 +17,6 @@
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 
 struct parse_editorconfig_ctx {
@@ -355,9 +354,6 @@ try_parse_editorconfig(struct workspace *wk, struct source *src, struct fmt_opts
 		   *insert_final_newline = 0;
 	struct source cfg_src = { 0 };
 
-	struct arr garbage;
-	arr_init(wk->a, &garbage, 16, void *);
-
 	while (true) {
 		path_join(wk, &path, wd.buf, ".editorconfig");
 		if (fs_file_exists(path.buf)) {
@@ -366,13 +362,10 @@ try_parse_editorconfig(struct workspace *wk, struct source *src, struct fmt_opts
 			};
 
 			char *cfg_buf = NULL;
-			if (!ini_parse(path.buf, &cfg_src, &cfg_buf, editorconfig_cfg_parse_cb, &editorconfig_ctx)) {
-				goto ret;
+			if (!ini_parse(wk, path.buf, &cfg_src, &cfg_buf, editorconfig_cfg_parse_cb, &editorconfig_ctx)) {
+				return;
 			}
 
-			arr_push(wk->a, &garbage, &cfg_buf);
-
-			fs_source_destroy(&cfg_src);
 			cfg_src = (struct source){ 0 };
 
 			if (editorconfig_ctx.matched) {
@@ -460,11 +453,4 @@ try_parse_editorconfig(struct workspace *wk, struct source *src, struct fmt_opts
 	if (insert_final_newline) {
 		opts->insert_final_newline = strcmp(insert_final_newline, "false") == 0 ? false : true;
 	}
-
-ret:
-	for (uint32_t i = 0; i < garbage.len; ++i) {
-		z_free(*(void **)arr_get(&garbage, i));
-	}
-
-	fs_source_destroy(&cfg_src);
 }

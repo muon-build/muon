@@ -7,8 +7,7 @@
 #ifndef MUON_EXTERNAL_SAMU_SCAN_H
 #define MUON_EXTERNAL_SAMU_SCAN_H
 
-void samu_scaninit(struct samu_scanner *, const char *);
-void samu_scanclose(struct samu_scanner *);
+void samu_scaninit(struct samu_ctx *ctx, struct samu_scanner *s, const char *path);
 
 void samu_scanerror(struct samu_scanner *, const char *, ...)
 MUON_ATTR_FORMAT(printf, 2, 3);

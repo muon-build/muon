@@ -75,7 +75,7 @@ vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
-	error_messagev(src, n->location, log_error, fmt, args);
+	error_messagev(wk, src, n->location, log_error, fmt, args);
 	va_end(args);
 
 	wk->vm.compiler_state.err = true;

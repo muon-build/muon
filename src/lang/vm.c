@@ -286,7 +286,7 @@ vm_diagnostic_v(struct workspace *wk,
 		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 	}
 
-	error_message(src, loc, lvl, flags, buf);
+	error_message(wk, src, loc, lvl, flags, buf);
 
 	if (lvl == log_error) {
 		vm_trigger_error(wk);
@@ -2512,7 +2512,7 @@ vm_unwind_call_stack(struct workspace *wk)
 
 		switch (frame->type) {
 		case call_frame_type_eval: {
-			error_message_flush_coalesced_message();
+			error_message_flush_coalesced_message(wk);
 			wk->vm.ip = frame->return_ip;
 			// TODO: this is a little hacky?  We need to make sure that
 			// execution can continue even if we emitted errors.
@@ -2532,7 +2532,7 @@ vm_unwind_call_stack(struct workspace *wk)
 			fname);
 	}
 
-	error_message_flush_coalesced_message();
+	error_message_flush_coalesced_message(wk);
 }
 
 obj
@@ -3428,17 +3428,6 @@ vm_init(struct workspace *wk)
 
 	/* initial code segment */
 	vm_compile_initial_code_segment(wk);
-}
-
-void
-vm_destroy(struct workspace *wk)
-{
-	for (uint32_t i = 0; i < wk->vm.src.len; ++i) {
-		struct source *src = arr_get(&wk->vm.src, i);
-		if (src->type == source_type_file) {
-			fs_source_destroy(src);
-		}
-	}
 }
 
 void

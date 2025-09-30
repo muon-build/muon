@@ -257,7 +257,6 @@ const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);
 void vm_reflect_objects(struct workspace *wk);
-void vm_destroy(struct workspace *wk);
 
 struct vm_mem_stats {
 	uint32_t count[obj_type_count];

@@ -195,7 +195,6 @@ workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 void
 workspace_destroy_bare(struct workspace *wk)
 {
-	vm_destroy(wk);
 	stack_destroy(&wk->stack);
 }
 

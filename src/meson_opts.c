@@ -576,7 +576,7 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 		tstr_pushf(wk, &path, "%s.json", get_cstr(wk, v));
 
 		struct source src;
-		if (!fs_read_entire_file(path.buf, &src)) {
+		if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 			LOG_E("failed to introspect %s", get_cstr(wk, v));
 			return false;
 		}

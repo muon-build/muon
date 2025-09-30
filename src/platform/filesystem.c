@@ -33,7 +33,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 
@@ -166,10 +165,10 @@ fs_is_seekable(FILE *file, bool *res)
 }
 
 bool
-fs_read_entire_file(const char *path, struct source *src)
+fs_read_entire_file(struct arena *a, const char *path, struct source *src)
 {
-	FILE *f;
-	bool opened = false;
+	FILE *f = 0;
+	bool ok = false;
 	size_t read;
 	char *buf = NULL;
 
@@ -187,47 +186,45 @@ fs_read_entire_file(const char *path, struct source *src)
 	} else {
 		if (!fs_file_exists(path)) {
 			LOG_E("'%s' is not a file", path);
-			goto err;
+			goto done;
 		}
 
 		if (!(f = fs_fopen(path, "rb"))) {
-			goto err;
+			goto done;
 		}
-
-		opened = true;
 	}
 
 	if (seekable) {
 		if (!fs_is_seekable(f, &seekable)) {
-			goto err;
+			goto done;
 		}
 	}
 
 	if (seekable) {
 		if (!fs_fsize(f, &src->len)) {
-			goto err;
+			goto done;
 		}
 
-		buf = z_calloc(src->len + 1, 1);
+		buf = ar_alloc(a, 1, src->len + 1, 1);
 		read = fread(buf, 1, src->len, f);
 
 		if (read != src->len) {
 			LOG_E("failed to read entire file, only read %" PRIu64 "/%" PRId64 "bytes",
 				(uint64_t)read,
 				src->len);
-			goto err;
+			goto done;
 		}
 	} else {
 		uint32_t buf_size = BUF_SIZE_4k;
-		buf = z_calloc(buf_size + 1, 1);
+		buf = ar_alloc(a, 1, buf_size + 1, 1);
 
 		while ((read = fread(&buf[src->len], 1, buf_size - src->len, f))) {
 			src->len += read;
 
 			if (src->len >= buf_size) {
-				buf_size *= 2;
-				buf = z_realloc(buf, buf_size);
-				memset(&buf[src->len], 0, buf_size - src->len);
+				uint32_t new_buf_size = buf_size * 2;
+				buf = ar_realloc(a, buf, buf_size, new_buf_size, 1);
+				buf_size = new_buf_size;
 			}
 		}
 
@@ -235,34 +232,28 @@ fs_read_entire_file(const char *path, struct source *src)
 
 		if (!feof(f)) {
 			LOG_E("failed to read entire file, only read %" PRId64 "bytes", src->len);
-			goto err;
+			goto done;
 		}
 	}
 
-	if (opened) {
+	ok = true;
+
+done:
+	if (f) {
 		if (!fs_fclose(f)) {
-			goto err;
+			ok = false;
 		}
 	}
 
 	src->src = buf;
-	return true;
-err:
-	if (opened) {
-		fs_fclose(f);
-	}
-
-	if (buf) {
-		z_free(buf);
-	}
-	return false;
+	return ok;
 }
 
 void
-fs_source_dup(const struct source *src, struct source *dup)
+fs_source_dup(struct arena *a, const struct source *src, struct source *dup)
 {
 	uint32_t label_len = strlen(src->label);
-	char *buf = z_calloc(src->len + label_len + 1, 1);
+	char *buf = ar_alloc(a, 1, src->len + label_len + 1, 1);
 	dup->label = &buf[src->len];
 	dup->src = buf;
 	dup->len = src->len;
@@ -270,18 +261,6 @@ fs_source_dup(const struct source *src, struct source *dup)
 
 	memcpy(buf, src->src, src->len);
 	memcpy(&buf[src->len], src->label, label_len);
-}
-
-void
-fs_source_destroy(struct source *src)
-{
-	if (!src->is_weak_reference) {
-		if (src->src) {
-			z_free((char *)src->src);
-		}
-	}
-	src->src = 0;
-	src->len = 0;
 }
 
 bool

@@ -204,13 +204,11 @@ FUNC_IMPL(module_fs, read, tc_string, func_impl_flag_impure, .desc = "Read a fil
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path.buf, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 		return false;
 	}
 
 	*res = make_strn(wk, src.src, src.len);
-
-	fs_source_destroy(&src);
 	return true;
 }
 
@@ -352,7 +350,7 @@ FUNC_IMPL(module_fs, hash, tc_string, func_impl_flag_impure, .desc = "Calculate 
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path.buf, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 		return false;
 	}
 
@@ -364,7 +362,6 @@ FUNC_IMPL(module_fs, hash, tc_string, func_impl_flag_impure, .desc = "Calculate 
 
 	*res = make_str(wk, buf);
 
-	fs_source_destroy(&src);
 	return true;
 }
 

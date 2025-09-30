@@ -1446,7 +1446,6 @@ list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx 
 	}
 
 cont:
-	wrap_destroy(&wrap);
 	wk->cur_project = 0;
 
 	return ir_cont;

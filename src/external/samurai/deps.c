@@ -164,7 +164,6 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	struct samu_edge *e;
 	struct samu_entry *entry, *oldentries;
 	struct seekable_source src = { 0 };
-	bool free_src = false;
 
 	/* XXX: when ninja hits a bad record, it truncates the log to the last
 	 * good record. perhaps we should do the same. */
@@ -183,11 +182,10 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 		goto rewrite;
 	}
 
-	if (!fs_read_entire_file(depspath, &src.src)) {
+	if (!fs_read_entire_file(ctx->a, depspath, &src.src)) {
 		samu_warn("failed to read deps file");
 		goto rewrite;
 	}
-	free_src = true;
 
 	if (strncmp(src.src.src, ninja_depsheader, strlen(ninja_depsheader)) != 0) {
 		samu_warn("invalid deps log header");
@@ -329,10 +327,6 @@ rewrite:
 	if (ferror(ctx->deps.depsfile)) {
 		samu_fatal("deps log write failed");
 	}
-
-	if (free_src) {
-		fs_source_destroy(&src.src);
-	}
 }
 
 void
@@ -379,7 +373,7 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 		return 0;
 	}
 
-	if (!fs_read_entire_file(name, &src.src)) {
+	if (!fs_read_entire_file(ctx->a, name, &src.src)) {
 		return 0;
 	}
 
@@ -484,11 +478,9 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 		}
 	}
 
-	fs_source_destroy(&src.src);
 	return &ctx->deps.deps;
 
 err:
-	fs_source_destroy(&src.src);
 	if (!allowmissing) {
 		samu_fatal("failed to parse depfile %s", name);
 	}

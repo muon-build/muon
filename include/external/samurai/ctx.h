@@ -212,7 +212,8 @@ struct samu_ctx {
 	const char *argv0;
 	struct samu_rule phonyrule;
 	struct samu_pool consolepool;
-	struct samu_arena arena;
+	struct samu_arena arena; // TOOD: delete me
+	struct arena *a;
 
 	struct workspace *wk;
 	FILE *out;

@@ -36,11 +36,8 @@ file_exists_with_content(struct workspace *wk, const char *dest, const char *out
 {
 	if (fs_file_exists(dest)) {
 		struct source src = { 0 };
-		if (fs_read_entire_file(dest, &src)) {
+		if (fs_read_entire_file(wk->a_scratch, dest, &src)) {
 			bool eql = out_len == src.len && memcmp(out_buf, src.src, src.len) == 0;
-
-			fs_source_destroy(&src);
-
 			return eql;
 		}
 	}
@@ -106,9 +103,10 @@ configure_file_var_pattern_push(struct configure_file_var_patterns *var_patterns
 	++var_patterns->len;
 }
 
-MUON_ATTR_FORMAT(printf, 4, 5)
+MUON_ATTR_FORMAT(printf, 5, 6)
 static void
-configure_file_log(struct configure_file_context *ctx,
+configure_file_log(struct workspace *wk,
+	struct configure_file_context *ctx,
 	struct source_location loc,
 	enum log_level lvl,
 	const char *fmt,
@@ -123,7 +121,7 @@ configure_file_log(struct configure_file_context *ctx,
 		.label = ctx->name,
 	};
 
-	error_messagev(&src, loc, lvl, fmt, args);
+	error_messagev(wk, &src, loc, lvl, fmt, args);
 
 	va_end(args);
 }
@@ -230,7 +228,8 @@ substitute_config_variables(struct workspace *wk, struct configure_file_context 
 				tstr_pushs(wk, out, "@@");
 				continue;
 			} else if (!obj_dict_index_strn(wk, ctx->dict, &in->buf[id_start], i - id_start, &elem)) {
-				configure_file_log(ctx,
+				configure_file_log(wk,
+					ctx,
 					id_location,
 					log_error,
 					"key %.*s not found in configuration data",
@@ -241,7 +240,7 @@ substitute_config_variables(struct workspace *wk, struct configure_file_context 
 
 			obj sub;
 			if (!coerce_string(wk, 0, elem, &sub)) {
-				configure_file_log(ctx, id_location, log_error, "unable to substitute value");
+				configure_file_log(wk, ctx, id_location, log_error, "unable to substitute value");
 				return false;
 			}
 
@@ -286,8 +285,11 @@ substitute_config_defines(struct workspace *wk, struct configure_file_context *c
 				bool cmake_bool = str_startswith(&line, &STR("#cmakedefine01"));
 
 				if (get_obj_array(wk, arr)->len < 2) {
-					configure_file_log(
-						ctx, location, log_error, "#cmakedefine does not contain >= 2 tokens");
+					configure_file_log(wk,
+						ctx,
+						location,
+						log_error,
+						"#cmakedefine does not contain >= 2 tokens");
 					return false;
 				}
 
@@ -327,7 +329,8 @@ substitute_config_defines(struct workspace *wk, struct configure_file_context *c
 				}
 			} else {
 				if (get_obj_array(wk, arr)->len != 2) {
-					configure_file_log(ctx,
+					configure_file_log(wk,
+						ctx,
 						location,
 						log_error,
 						"#mesondefine does not contain exactly two tokens");
@@ -392,7 +395,7 @@ substitute_config(struct workspace *wk,
 	bool ret = true;
 	struct source src = { 0 };
 
-	if (!fs_read_entire_file(input_path, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, input_path, &src)) {
 		ret = false;
 		goto cleanup;
 	}
@@ -434,7 +437,6 @@ substitute_config(struct workspace *wk,
 	}
 
 cleanup:
-	fs_source_destroy(&src);
 	return ret;
 }
 
@@ -845,8 +847,6 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		}
 	} else if (akw[kw_copy].set) {
 		obj input;
-		bool copy_res = false;
-
 		if (!array_to_elem_or_err(wk, akw[kw_input].node, input_arr, &input)) {
 			return false;
 		}
@@ -854,25 +854,18 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		workspace_add_regenerate_deps(wk, *get_obj_file(wk, input));
 
 		struct source src = { 0 };
-		if (!fs_read_entire_file(get_file_path(wk, input), &src)) {
+		if (!fs_read_entire_file(wk->a_scratch, get_file_path(wk, input), &src)) {
 			return false;
 		}
 
 		if (!file_exists_with_content(wk, get_cstr(wk, output_str), src.src, src.len)) {
 			if (!fs_write(get_cstr(wk, output_str), (uint8_t *)src.src, src.len)) {
-				goto copy_err;
+				return false;
 			}
 
 			if (!fs_copy_metadata(get_file_path(wk, input), get_cstr(wk, output_str))) {
-				goto copy_err;
+				return false;
 			}
-		}
-
-		copy_res = true;
-copy_err:
-		fs_source_destroy(&src);
-		if (!copy_res) {
-			return false;
 		}
 	} else {
 		obj dict, conf = akw[kw_configuration].val;

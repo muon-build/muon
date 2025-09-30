@@ -837,7 +837,6 @@ az_eval_project_file(struct workspace *wk,
 		const struct source *src = arr_get(&analyzer.opts->file_override_src, override);
 
 		struct source weak_src = *src;
-		weak_src.is_weak_reference = true;
 
 		return eval(wk, &weak_src, lang, eval_mode, res);
 	} else {
@@ -1433,7 +1432,7 @@ az_warn_dead_code(struct workspace *wk,
 		= { .off = start_loc->off, .len = (end_loc->off - start_loc->off) + end_loc->len };
 	struct source *src = arr_get(&wk->vm.src, src_idx);
 
-	error_message(src, merged, log_warn, 0, "dead code");
+	error_message(wk, src, merged, log_warn, 0, "dead code");
 }
 
 void
@@ -1442,18 +1441,6 @@ analyze_opts_init(struct workspace *wk, struct az_opts *opts)
 	*opts = (struct az_opts){ 0 };
 	opts->file_override = make_obj(wk, obj_dict);
 	arr_init(wk->a, &opts->file_override_src, 8, struct source);
-}
-
-void
-analyze_opts_destroy(struct workspace *wk, struct az_opts *opts)
-{
-	TracyCZoneAutoS;
-	uint32_t i;
-	for (i = 0; i < opts->file_override_src.len; ++i) {
-		struct source *src = arr_get(&opts->file_override_src, i);
-		fs_source_destroy(src);
-	}
-	TracyCZoneAutoE;
 }
 
 bool
@@ -1470,11 +1457,6 @@ analyze_opts_push_override(struct workspace *wk,
 	TSTR(abs);
 	path_make_absolute(wk, &abs, override);
 	obj path = tstr_into_str(wk, &abs);
-
-	if (obj_dict_index(wk, opts->file_override, path, &idx)) {
-		src = arr_get(&opts->file_override_src, idx);
-		fs_source_destroy(src);
-	}
 
 	if (!content && !content_path) {
 		obj_dict_del(wk, opts->file_override, path);
@@ -1501,7 +1483,7 @@ analyze_opts_push_override(struct workspace *wk,
 			.src = buf,
 		};
 	} else {
-		if (!fs_read_entire_file(content_path, src)) {
+		if (!fs_read_entire_file(wk->a, content_path, src)) {
 			TracyCZoneAutoE;
 			return false;
 		}
@@ -1629,7 +1611,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	if (opts->single_file) {
 		struct source src;
-		if (!fs_read_entire_file(opts->single_file, &src)) {
+		if (!fs_read_entire_file(wk->a, opts->single_file, &src)) {
 			res = false;
 		} else {
 			obj _v;

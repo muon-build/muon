@@ -11,6 +11,7 @@
 
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
+#include "lang/workspace.h"
 #include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
@@ -121,6 +122,7 @@ static void
 samu_init_ctx(struct workspace *wk, struct samu_ctx *ctx, struct samu_opts *opts) {
 	*ctx = (struct samu_ctx){
 		.wk = wk,
+		.a = wk->a_scratch,
 		.buildopts = {.maxfail = 1},
 		.phonyrule = {.name = "phony"},
 		.consolepool = {.name = "console", .maxjobs = 1},

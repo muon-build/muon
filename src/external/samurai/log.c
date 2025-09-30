@@ -172,7 +172,7 @@ samu_loginit(struct samu_ctx *ctx, const char *builddir)
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(logpath, &src)) {
+	if (!fs_read_entire_file(ctx->a, logpath, &src)) {
 		samu_fatal("failed to read log file at %s", logpath);
 	}
 
@@ -182,8 +182,6 @@ samu_loginit(struct samu_ctx *ctx, const char *builddir)
 	};
 
 	each_line((char *)src.src, src.len, &samu_log_parse_ctx, samu_log_parse_cb);
-
-	fs_source_destroy(&src);
 
 	/* if (samu_log_parse_ctx.line_no <= 100 || samu_log_parse_ctx.line_no <= 3 * samu_log_parse_ctx.nentry) { */
 	/* 	return; */

@@ -289,9 +289,8 @@ az_srv_position(struct workspace *wk, uint32_t line, uint32_t col)
 static obj
 az_srv_range(struct workspace *wk, const struct source *src, struct source_location loc)
 {
-	bool destroy_source = false;
 	struct source src_reopened = { 0 };
-	reopen_source(src, &src_reopened, &destroy_source);
+	reopen_source(wk->a_scratch, src, &src_reopened);
 
 	struct detailed_source_location dloc;
 	get_detailed_source_location(&src_reopened, loc, &dloc, get_detailed_source_location_flag_multiline);
@@ -303,10 +302,6 @@ az_srv_range(struct workspace *wk, const struct source *src, struct source_locat
 		make_str(wk, "end"),
 		az_srv_position(
 			wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
-
-	if (destroy_source) {
-		fs_source_destroy(&src_reopened);
-	}
 
 	return range;
 }
@@ -1115,7 +1110,6 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 	}
 	LOG_I("muon lsp shutting down");
 
-	analyze_opts_destroy(srv.wk, &srv.opts);
 	workspace_destroy(srv.wk);
 
 	if (debug_log) {

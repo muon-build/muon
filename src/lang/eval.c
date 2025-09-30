@@ -90,7 +90,7 @@ ensure_project_is_first_statement(struct workspace *wk, const struct source *src
 
 	if (!first_statement_is_a_call_to_project) {
 		if (!check_only) {
-			error_message(src, n->location, log_error, 0, "first statement is not a call to project()");
+			error_message(wk, src, n->location, log_error, 0, "first statement is not a call to project()");
 		}
 		return false;
 	}
@@ -239,7 +239,7 @@ eval_project_file(struct workspace *wk, const char *path, enum build_language la
 	workspace_add_regenerate_deps(wk, path_str);
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(get_str(wk, path_str)->s, &src)) {
+	if (!fs_read_entire_file(wk->a, get_str(wk, path_str)->s, &src)) {
 		return false;
 	}
 
@@ -317,7 +317,7 @@ repl(struct workspace *wk, bool dbg)
 		struct source_location loc;
 		uint32_t src_idx;
 		vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.ip, &loc, &src_idx);
-		list_line_range(arr_get(&wk->vm.src, src_idx), loc, 1);
+		list_line_range(wk->a_scratch, arr_get(&wk->vm.src, src_idx), loc, 1);
 	}
 
 	const char *prompt = "> ";
@@ -396,7 +396,7 @@ cmd_found:
 			struct source_location loc;
 			uint32_t src_idx;
 			vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.ip, &loc, &src_idx);
-			list_line_range(arr_get(&wk->vm.src, src_idx), loc, 11);
+			list_line_range(wk->a_scratch, arr_get(&wk->vm.src, src_idx), loc, 11);
 			break;
 		}
 		case repl_cmd_step: {
@@ -457,7 +457,7 @@ cmd_found:
 
 				vm_lookup_inst_location(&wk->vm, frame.return_ip, &loc, &src);
 
-				error_message(src, loc, log_info, 0, "");
+				error_message(wk, src, loc, log_info, 0, "");
 			}
 			break;
 		}
@@ -490,7 +490,7 @@ determine_project_root(struct workspace *wk, const char *path)
 		struct node *n;
 		struct source src = { 0 };
 
-		if (!fs_read_entire_file(path, &src)) {
+		if (!fs_read_entire_file(wk->a_scratch, path, &src)) {
 			goto cont;
 		} else if (!(n = parse(wk, &src, vm_compile_mode_quiet | vm_compile_mode_relaxed_parse))) {
 			// If we failed to parse this file, try just searching for the string project(
@@ -506,12 +506,10 @@ found:
 			// found
 			path_dirname(wk, &tmp, path);
 			obj s = tstr_into_str(wk, &tmp);
-			fs_source_destroy(&src);
 			return get_cstr(wk, s);
 		}
 
 cont:
-		fs_source_destroy(&src);
 		path_dirname(wk, &tmp, path);
 		path_dirname(wk, &new_path, tmp.buf);
 		if (strcmp(new_path.buf, tmp.buf) == 0) {

@@ -392,8 +392,6 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		}
 
 		obj_array_push(wk, *opts->res, d);
-
-		wrap_destroy(&wrap_ctx->wrap);
 	}
 
 	wrap_handle_async_end(wk);
@@ -519,17 +517,17 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 {
 	struct wrap wrap = { 0 };
 	if (!wrap_parse(wk, subprojects_dir(wk), path, &wrap)) {
-		goto cont;
+		return ir_cont;
 	}
 
 	bool can_clean = wrap.type == wrap_type_git || (wrap.type == wrap_type_file && wrap.fields[wf_source_url]);
 
 	if (!can_clean) {
-		goto cont;
+		return ir_cont;
 	}
 
 	if (!fs_dir_exists(wrap.dest_dir.buf)) {
-		goto cont;
+		return ir_cont;
 	}
 
 	if (ctx->force) {
@@ -542,9 +540,6 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 		LOG_I("would remove %s", wrap.dest_dir.buf);
 	}
 
-	wrap_destroy(&wrap);
-
-cont:
 	return ir_cont;
 }
 
@@ -623,7 +618,6 @@ FUNC_IMPL(module_subprojects, load_wrap, 0, func_impl_flag_impure | func_impl_fl
 
 	*res = wrap_to_obj(wk, &wrap);
 
-	wrap_destroy(&wrap);
 	return true;
 }
 

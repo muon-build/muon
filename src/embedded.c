@@ -10,6 +10,7 @@
 
 #include "embedded.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -37,7 +38,7 @@ embedded_get(struct workspace *wk, const char *name, struct source *src_out)
 		struct source src = { 0 };
 		if (!fs_file_exists(path.buf)) {
 			return false;
-		} else if (!fs_read_entire_file(path.buf, &src)) {
+		} else if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 			return false;
 		}
 		*src_out = src;

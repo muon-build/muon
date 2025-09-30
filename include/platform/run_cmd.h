@@ -72,7 +72,9 @@ void argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32
 uint32_t argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res);
 
 struct source;
-bool run_cmd_determine_interpreter(struct source *src,
+bool run_cmd_determine_interpreter(
+	struct workspace *wk,
+	struct source *src,
 	const char *path,
 	const char **err_msg,
 	const char **new_argv0,

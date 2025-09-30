@@ -379,7 +379,7 @@ build_argv(struct workspace *wk,
 		path_make_absolute(wk, cmd, argv0);
 
 		if (!fs_exe_exists(cmd->buf)) {
-			if (!run_cmd_determine_interpreter(src, cmd->buf, &ctx->err_msg, &new_argv0, &new_argv1)) {
+			if (!run_cmd_determine_interpreter(wk, src, cmd->buf, &ctx->err_msg, &new_argv0, &new_argv1)) {
 				return false;
 			}
 
@@ -421,23 +421,19 @@ build_argv(struct workspace *wk,
 bool
 run_cmd_argv(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
-	bool ret = false;
 	struct source src = { 0 };
 	const char **new_argv = NULL;
 
 	TSTR(cmd);
 	if (!build_argv(wk, ctx, &src, NULL, 0, argv, &cmd, &new_argv)) {
-		goto err;
+		return false;
 	}
 
 	if (new_argv) {
 		argv = (char **)new_argv;
 	}
 
-	ret = run_cmd_internal(wk, ctx, cmd.buf, (char *const *)argv, envstr, envc);
-err:
-	fs_source_destroy(&src);
-	return ret;
+	return run_cmd_internal(wk, ctx, cmd.buf, (char *const *)argv, envstr, envc);
 }
 
 bool
@@ -448,19 +444,15 @@ run_cmd(struct workspace *wk,
 	const char *envstr,
 	uint32_t envc)
 {
-	bool ret = false;
 	struct source src = { 0 };
 	const char **argv = NULL;
 
 	TSTR(cmd);
 	if (!build_argv(wk, ctx, &src, argstr, argc, NULL, &cmd, &argv)) {
-		goto err;
+		return false;
 	}
 
-	ret = run_cmd_internal(wk, ctx, cmd.buf, (char *const *)argv, envstr, envc);
-err:
-	fs_source_destroy(&src);
-	return ret;
+	return run_cmd_internal(wk, ctx, cmd.buf, (char *const *)argv, envstr, envc);
 }
 
 void

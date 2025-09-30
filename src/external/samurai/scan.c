@@ -18,7 +18,7 @@
 #include "external/samurai/util.h"
 
 void
-samu_scaninit(struct samu_scanner *s, const char *path)
+samu_scaninit(struct samu_ctx *ctx, struct samu_scanner *s, const char *path)
 {
 	*s = (struct samu_scanner) {
 		.path = path,
@@ -27,17 +27,11 @@ samu_scaninit(struct samu_scanner *s, const char *path)
 		.src_i = 1,
 	};
 
-	if (!fs_read_entire_file(path, &s->src)) {
+	if (!fs_read_entire_file(ctx->a, path, &s->src)) {
 		samu_fatal("failed to read %s", path);
 	}
 
 	s->chr = s->src.src[0];
-}
-
-void
-samu_scanclose(struct samu_scanner *s)
-{
-	fs_source_destroy(&s->src);
 }
 
 void

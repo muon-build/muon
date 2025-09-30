@@ -58,9 +58,8 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type 
 
 	if (cache_path && fs_file_exists(cache_path)) {
 		struct source src;
-		if (fs_read_entire_file(cache_path, &src)) {
+		if (fs_read_entire_file(wk->a_scratch, cache_path, &src)) {
 			vsenv_set_vars(wk, src.src, src.len);
-			fs_source_destroy(&src);
 			return true;
 		}
 	}

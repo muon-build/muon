@@ -12,7 +12,6 @@
 #include "lang/typecheck.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 
 struct keyval_parse_ctx {
 	struct workspace *wk;
@@ -57,16 +56,12 @@ FUNC_IMPL(module_keyval, load, tc_dict, func_impl_flag_impure)
 
 	struct source src = { 0 };
 	char *buf = NULL;
-	if (!keyval_parse(path, &src, &buf, keyval_parse_cb, &ctx)) {
+	if (!keyval_parse(wk, path, &src, &buf, keyval_parse_cb, &ctx)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
-	fs_source_destroy(&src);
-	if (buf) {
-		z_free(buf);
-	}
 	return ret;
 }
 

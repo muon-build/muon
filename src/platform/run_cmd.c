@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
@@ -98,13 +99,14 @@ run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
 }
 
 bool
-run_cmd_determine_interpreter(struct source *src,
+run_cmd_determine_interpreter(struct workspace *wk,
+	struct source *src,
 	const char *path,
 	const char **err_msg,
 	const char **new_argv0,
 	const char **new_argv1)
 {
-	if (!fs_read_entire_file(path, src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path, src)) {
 		*err_msg = "error determining command interpreter: failed to read file";
 		return false;
 	}

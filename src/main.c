@@ -249,25 +249,23 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 
 	opts.filename = argv[argi];
 
-	bool ret = false;
-
 	arr_push(wk->a, &wk->vm.src, &(struct source){ 0 });
 	struct source *src = arr_get(&wk->vm.src, 0);
 
-	if (!fs_read_entire_file(opts.filename, src)) {
-		goto ret;
+	if (!fs_read_entire_file(wk->a_scratch, opts.filename, src)) {
+		return false;
 	}
 
 	if (opts.breakpoint) {
 		if (!vm_dbg_push_breakpoint_str(wk, opts.breakpoint)) {
-			goto ret;
+			return false;
 		}
 	}
 
 	if (opts.print_ast) {
 		struct node *n;
 		if (!(n = parse(wk, src, opts.compile_mode))) {
-			goto ret;
+			return false;
 		}
 
 		if (opts.compile_mode & vm_compile_mode_fmt) {
@@ -278,7 +276,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	} else {
 		uint32_t _entry;
 		if (!vm_compile(wk, src, opts.compile_mode, &_entry)) {
-			goto ret;
+			return false;
 		}
 
 		if (opts.print_dis) {
@@ -286,10 +284,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		}
 	}
 
-	ret = true;
-ret:
-	fs_source_destroy(src);
-	return ret;
+	return true;
 }
 
 static bool
@@ -438,7 +433,6 @@ cmd_analyze(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 			res = do_analyze(wk, &az_opts);
 		}
 
-		analyze_opts_destroy(wk, &az_opts);
 		return res;
 	}
 }
@@ -475,18 +469,14 @@ cmd_summary(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 	TSTR(path);
 	path_join(wk, &path, output_path.private_dir, output_path.paths[output_path_summary].path);
 
-	bool ret = false;
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path.buf, &src)) {
-		goto ret;
+	if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
+		return false;
 	}
 
 	fwrite(src.src, 1, src.len, stdout);
 
-	ret = true;
-ret:
-	fs_source_destroy(&src);
-	return ret;
+	return true;
 }
 
 static bool
@@ -571,7 +561,7 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 				goto ret;
 			}
 		} else {
-			if (!fs_read_entire_file(filename, &src)) {
+			if (!fs_read_entire_file(wk->a_scratch, filename, &src)) {
 				goto ret;
 			}
 		}
@@ -1169,7 +1159,7 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 		opened_out = false;
 
 		struct source src = { 0 };
-		if (!fs_read_entire_file(opts.filenames[i], &src)) {
+		if (!fs_read_entire_file(wk->a_scratch, opts.filenames[i], &src)) {
 			ret = false;
 			goto cont;
 		}
@@ -1201,7 +1191,6 @@ cont:
 				fs_write(opts.filenames[i], (const uint8_t *)src.src, src.len);
 			}
 		}
-		fs_source_destroy(&src);
 		ret &= fmt_ret;
 	}
 

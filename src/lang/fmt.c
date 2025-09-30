@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,7 +22,6 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 enum fmt_frag_flag {
 	fmt_frag_flag_add_trailing_comma = 1 << 1,
@@ -1483,13 +1483,13 @@ fmt_cfg_parse_cb(void *_ctx,
 	};
 
 	if (!k || !*k) {
-		error_messagef(src, location, log_error, "missing key");
+		error_messagef(ctx->wk, src, location, log_error, "missing key");
 		return false;
 	} else if (!v || !*v) {
-		error_messagef(src, location, log_error, "missing value");
+		error_messagef(ctx->wk, src, location, log_error, "missing value");
 		return false;
 	} else if (sect) {
-		error_messagef(src, location, log_error, "invalid section");
+		error_messagef(ctx->wk, src, location, log_error, "invalid section");
 		return false;
 	}
 
@@ -1502,7 +1502,7 @@ fmt_cfg_parse_cb(void *_ctx,
 		void *val_dest = (((uint8_t *)(&ctx->opts)) + keys[i].off);
 
 		if (keys[i].deprecated) {
-			error_messagef(src, location, log_warn, "option %s is deprecated", keys[i].name);
+			error_messagef(ctx->wk, src, location, log_warn, "option %s is deprecated", keys[i].name);
 		}
 
 		switch (keys[i].type) {
@@ -1510,10 +1510,10 @@ fmt_cfg_parse_cb(void *_ctx,
 			char *endptr = NULL;
 			long long lval = strtoll(v, &endptr, 10);
 			if (*endptr) {
-				error_messagef(src, location, log_error, "unable to parse integer");
+				error_messagef(ctx->wk, src, location, log_error, "unable to parse integer");
 				return false;
 			} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-				error_messagef(src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
+				error_messagef(ctx->wk, src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
 				return false;
 			}
 
@@ -1532,7 +1532,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			end = strrchr(v, '\'');
 
 			if (!start || !end || start == end) {
-				error_messagef(src, location, log_error, "expected single-quoted string");
+				error_messagef(ctx->wk, src, location, log_error, "expected single-quoted string");
 				return false;
 			}
 
@@ -1553,7 +1553,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			} else if (strcmp(v, "false") == 0) {
 				val = false;
 			} else {
-				error_messagef(src, location, log_error, "invalid value for bool, expected true/false");
+				error_messagef(ctx->wk, src, location, log_error, "invalid value for bool, expected true/false");
 				return false;
 			}
 
@@ -1576,7 +1576,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			}
 
 			if (!keys[i].enum_tbl[j].name) {
-				error_messagef(src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
+				error_messagef(ctx->wk, src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
 				return false;
 			}
 
@@ -1592,7 +1592,7 @@ fmt_cfg_parse_cb(void *_ctx,
 	}
 
 	if (!keys[i].name) {
-		error_messagef(src, location, log_error, "unknown config key: %s", k);
+		error_messagef(ctx->wk, src, location, log_error, "unknown config key: %s", k);
 		return false;
 	}
 
@@ -1730,7 +1730,7 @@ fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool c
 	char *cfg_buf = NULL;
 	struct source cfg_src = { 0 };
 	if (cfg_path) {
-		if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
+		if (!ini_parse(f.wk, cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
 			goto ret;
 		}
 	}
@@ -1766,9 +1766,5 @@ fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool c
 	ret = true;
 ret:
 	workspace_destroy_bare(&wk);
-	if (cfg_buf) {
-		z_free(cfg_buf);
-	}
-	fs_source_destroy(&cfg_src);
 	return ret;
 }

@@ -223,7 +223,7 @@ samu_parse(struct samu_ctx *ctx, const char *name, struct samu_environment *env)
 	struct samu_string *val;
 	struct samu_evalstring *str;
 
-	samu_scaninit(&s, name);
+	samu_scaninit(ctx, &s, name);
 	for (;;) {
 		switch (samu_scankeyword(ctx, &s, &var)) {
 		case SAMU_RULE:
@@ -252,7 +252,6 @@ samu_parse(struct samu_ctx *ctx, const char *name, struct samu_environment *env)
 			samu_envaddvar(ctx, env, var, val);
 			break;
 		case EOF:
-			samu_scanclose(&s);
 			return;
 		}
 	}

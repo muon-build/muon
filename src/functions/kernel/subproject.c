@@ -42,7 +42,7 @@ subproject_prepare(struct workspace *wk,
 				    .subprojects = base_path.buf,
 			    } };
 		if (!wrap_handle(wk, wrap_path.buf, &wrap_ctx)) {
-			goto wrap_cleanup;
+			goto done;
 		}
 
 		if (wrap_ctx.wrap.fields[wf_directory]) {
@@ -57,9 +57,7 @@ subproject_prepare(struct workspace *wk,
 
 		wrap_ok = true;
 
-wrap_cleanup:
-		wrap_destroy(&wrap_ctx.wrap);
-
+done:
 		if (!wrap_ok) {
 			if (required) {
 				LOG_E("project %s wrap error", *cwd);

@@ -18,7 +18,9 @@ typedef bool((*inihcb)(void *ctx,
 	const char *v,
 	struct source_location location));
 
-bool ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx);
-bool ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx);
-bool keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx);
+struct workspace;
+
+bool ini_parse(struct workspace *a, const char *path, struct source *src, char **buf, inihcb cb, void *octx);
+bool ini_reparse(struct workspace *a, const char *path, const struct source *src, char *buf, inihcb cb, void *octx);
+bool keyval_parse(struct workspace *a, const char *path, struct source *src, char **buf, inihcb cb, void *octx);
 #endif

@@ -244,7 +244,7 @@ FUNC_IMPL(kernel, project, 0)
 			current_project(wk)->cfg.version = akw[kw_version].val;
 		} else {
 			struct source ver_src = { 0 };
-			if (!fs_read_entire_file(get_file_path(wk, akw[kw_version].val), &ver_src)) {
+			if (!fs_read_entire_file(wk->a_scratch, get_file_path(wk, akw[kw_version].val), &ver_src)) {
 				vm_error_at(wk, akw[kw_version].node, "failed to read version file");
 				return false;
 			}
@@ -253,7 +253,6 @@ FUNC_IMPL(kernel, project, 0)
 			obj stripped = str_strip(wk, &ver_str, 0, 0);
 
 			current_project(wk)->cfg.version = stripped;
-			fs_source_destroy(&ver_src);
 		}
 	} else {
 		current_project(wk)->cfg.version = make_str(wk, "undefined");

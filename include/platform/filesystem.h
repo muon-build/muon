@@ -14,6 +14,7 @@
 #include "lang/source.h"
 
 struct workspace;
+struct arena;
 struct tstr;
 
 bool fs_stat(const char *path, struct stat *sb);
@@ -28,7 +29,7 @@ bool fs_mkdir(const char *path, bool exist_ok);
 bool fs_mkdir_p(struct workspace *wk, const char *path);
 bool fs_rmdir(const char *path, bool force);
 bool fs_rmdir_recursive(struct workspace *wk, const char *path, bool force);
-bool fs_read_entire_file(const char *path, struct source *src);
+bool fs_read_entire_file(struct arena *a, const char *path, struct source *src);
 bool fs_fsize(FILE *file, uint64_t *ret);
 bool fs_fclose(FILE *file);
 FILE *fs_fopen(const char *path, const char *mode);
@@ -37,8 +38,7 @@ bool fs_fread(void *ptr, size_t size, FILE *f);
 int32_t fs_read(int fd, void *buf, uint32_t buf_len);
 bool fs_write(const char *path, const uint8_t *buf, uint64_t buf_len);
 bool fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd);
-void fs_source_destroy(struct source *src);
-void fs_source_dup(const struct source *src, struct source *dup);
+void fs_source_dup(struct arena *a, const struct source *src, struct source *dup);
 bool fs_copy_file(const char *src, const char *dest, bool force);
 struct fs_copy_dir_ctx {
 	struct workspace *wk;
