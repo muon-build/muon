@@ -34,6 +34,7 @@ struct test_options {
 	char *const *tests;
 	const char *setup;
 	uint32_t suites_len, tests_len, jobs, verbosity;
+	float timeout_multiplier;
 	enum test_display display;
 	enum test_output output;
 	bool fail_fast, print_summary, no_rebuild, list, include_subprojects;

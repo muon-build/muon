@@ -216,6 +216,7 @@ enum meson_opts_test {
 	opt_test_verbose,
 	opt_test_setup,
 	opt_test_fail_fast,
+	opt_test_timeout_multiplier,
 };
 
 static bool
@@ -242,6 +243,7 @@ translate_meson_opts_test_callback(struct workspace *wk,
 		obj_array_push(wk, ctx->argv, make_strf(wk, "-f"));
 		break;
 	}
+	case opt_test_timeout_multiplier: obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-t%s", val)); break;
 	default: UNREACHABLE;
 	}
 
@@ -265,8 +267,8 @@ translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc, str
 		{ "setup", true, .handle_as = opt_test_setup },
 		{ "q", .ignore = true, .handle_as = 0xfff0 },
 		{ "quiet", .ignore = true, .handle_as = 0xfff0 },
-		{ "t", true, .ignore = true, .handle_as = 0xfff1 },
-		{ "timeout-multiplier", true, .ignore = true, .handle_as = 0xfff1 },
+		{ "t", true, .handle_as = opt_test_timeout_multiplier },
+		{ "timeout-multiplier", true, .handle_as = opt_test_timeout_multiplier },
 		{ "gdb", .ignore = true },
 		{ "gdb-path", true, .ignore = true },
 		{ "repeat", true, .ignore = true },

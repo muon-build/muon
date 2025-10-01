@@ -1164,7 +1164,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 
 	struct run_test_ctx ctx = {
 		.opts = opts,
-		.setup = { .timeout_multiplier = 1.0f, },
+		.setup = { .timeout_multiplier = opts->timeout_multiplier, },
 	};
 
 	arr_init(wk->a, &ctx.test_results, 32, struct test_result);

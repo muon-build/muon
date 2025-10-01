@@ -391,6 +391,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  specified multiple times.
 	- *-S* - print a summary of test results, including the duration of
 	  each test
+	- *-t* <factor> - multiply timeouts with _factor_. If _factor_ <= 0
+	  test have infinite duration.
 	- *-v* - Increase verbosity.  When passed once, print test results as
 	  they are completed.  When passed twice, the stdout/stderr of tests is
 	  not captured.

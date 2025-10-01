@@ -858,9 +858,11 @@ cmd_samu(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 static bool
 cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct test_options test_opts = { 0 };
+	struct test_options test_opts = {
+		.timeout_multiplier = 1.0f,
+	};
 
-	OPTSTART("abs:d:Sfj:lvRe:o:") {
+	OPTSTART("abs:d:Sfj:lvRe:o:t:") {
 	case 'a': {
 		test_opts.include_subprojects = true;
 		break;
@@ -920,6 +922,16 @@ cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	case 'v': ++test_opts.verbosity; break;
 	case 'R': test_opts.no_rebuild = true; break;
+	case 't': {
+		char *endptr;
+		test_opts.timeout_multiplier = strtof(optarg, &endptr);
+
+		if (!*optarg || *endptr) {
+			LOG_E("invalid timeout multiplier: %s", optarg);
+			return false;
+		}
+		break;
+	}
 	}
 	OPTEND(argv[argi],
 		" [test [test [...]]]",
@@ -934,6 +946,7 @@ cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		"  -R - disable automatic rebuild\n"
 		"  -S - print a summary with elapsed time\n"
 		"  -s <suite> - only run items in <suite>, may be passed multiple times\n"
+		"  -t <factor> - multiply test timeouts with <factor>\n"
 		"  -v - increase verbosity, may be passed twice\n",
 		NULL,
 		-1)
