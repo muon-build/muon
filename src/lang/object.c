@@ -999,8 +999,9 @@ obj_array_clear(struct workspace *wk, obj arr)
 void
 obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 {
-	hash_clear(&wk->vm.objects.obj_hash);
-	hash_clear(&wk->vm.objects.dedup_str_hash);
+	struct hash objs, strs;
+	hash_init(wk->a_scratch, &objs, 128, obj);
+	hash_init_str(wk->a_scratch, &strs, 128);
 
 	*res = make_obj(wk, obj_array);
 
@@ -1013,19 +1014,19 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 			/* fallthrough */
 		case obj_string: {
 			const struct str *s = get_str(wk, val);
-			if (hash_get_strn(&wk->vm.objects.dedup_str_hash, s->s, s->len)) {
+			if (hash_get_strn(&strs, s->s, s->len)) {
 				continue;
 			}
-			hash_set_strn(wk->a, wk->a_scratch, &wk->vm.objects.dedup_str_hash, s->s, s->len, true);
+			hash_set_strn(wk->a_scratch, wk->a_scratch, &strs, s->s, s->len, true);
 
 			obj_array_push(wk, *res, oval);
 			break;
 		}
 		default: {
-			if (hash_get(&wk->vm.objects.obj_hash, &val)) {
+			if (hash_get(&objs, &val)) {
 				continue;
 			}
-			hash_set(wk->a, wk->a_scratch, &wk->vm.objects.obj_hash, &val, true);
+			hash_set(wk->a_scratch, wk->a_scratch, &objs, &val, true);
 
 			if (!obj_array_in(wk, *res, val)) {
 				obj_array_push(wk, *res, val);
@@ -1669,7 +1670,7 @@ obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dic
 /* */
 
 static bool
-obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
+obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, struct hash *objs, obj val, obj *ret)
 {
 	*ret = 0;
 
@@ -1680,7 +1681,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 
 	{
 		uint64_t *hv;
-		if ((hv = hash_get(&wk_src->vm.objects.obj_hash, &val))) {
+		if ((hv = hash_get(objs, &val))) {
 			*ret = *hv;
 			return true;
 		}
@@ -1710,7 +1711,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		obj v;
 		obj_array_for(wk_src, val, v) {
 			obj cloned;
-			if (!obj_clone_impl(wk_src, wk_dest, v, &cloned)) {
+			if (!obj_clone_impl(wk_src, wk_dest, objs, v, &cloned)) {
 				return false;
 			}
 
@@ -1725,9 +1726,9 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		obj k, v;
 		obj_dict_for(wk_src, val, k, v) {
 			obj dest_key, dest_val;
-			if (!obj_clone_impl(wk_src, wk_dest, k, &dest_key)) {
+			if (!obj_clone_impl(wk_src, wk_dest, objs, k, &dest_key)) {
 				return false;
-			} else if (!obj_clone_impl(wk_src, wk_dest, v, &dest_val)) {
+			} else if (!obj_clone_impl(wk_src, wk_dest, objs, v, &dest_val)) {
 				return false;
 			}
 
@@ -1755,7 +1756,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 			void *dest_field = dest + f->off;
 
 			if (strcmp(f->type, "obj") == 0) {
-				if (!obj_clone_impl(wk_src, wk_dest, *(obj *)src_field, (obj *)dest_field)) {
+				if (!obj_clone_impl(wk_src, wk_dest, objs, *(obj *)src_field, (obj *)dest_field)) {
 					return false;
 				}
 			} else {
@@ -1766,15 +1767,16 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 	}
 	}
 
-	hash_set(wk_src->a, wk_src->a_scratch, &wk_src->vm.objects.obj_hash, &val, *ret);
+	hash_set(wk_src->a_scratch, wk_src->a_scratch, objs, &val, *ret);
 	return true;
 }
 
 bool
 obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
-	hash_clear(&wk_src->vm.objects.obj_hash);
-	bool ok = obj_clone_impl(wk_src, wk_dest, val, ret);
+	struct hash objs;
+	hash_init(wk_src->a_scratch, &objs, 128, obj);
+	bool ok = obj_clone_impl(wk_src, wk_dest, &objs, val, ret);
 	return ok;
 }
 

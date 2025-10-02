@@ -3277,9 +3277,7 @@ vm_init_objects(struct workspace *wk)
 	bucket_arr_pushn(wk->a, &wk->vm.objects.dict_elems, 0, 0, 1);
 	bucket_arr_pushn(wk->a, &wk->vm.objects.array_elems, 0, 0, 1);
 
-	hash_init(wk->a, &wk->vm.objects.obj_hash, 128, obj);
 	hash_init_str(wk->a, &wk->vm.objects.str_hash, 128);
-	hash_init_str(wk->a, &wk->vm.objects.dedup_str_hash, 128);
 
 	make_default_objects(wk);
 }
