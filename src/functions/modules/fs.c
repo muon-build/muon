@@ -568,7 +568,7 @@ FUNC_IMPL(module_fs, copy, 0, func_impl_flag_impure | func_impl_flag_sandbox_dis
 		return false;
 	}
 
-	if (!fs_copy_file(path.buf, get_cstr(wk, an[1].val), force)) {
+	if (!fs_copy_file(wk, path.buf, get_cstr(wk, an[1].val), force)) {
 		return false;
 	}
 	return true;

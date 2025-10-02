@@ -12,7 +12,6 @@
 #include "machine_file.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 
 struct machine_info {
 	obj system, cpu_family, cpu, endian;
@@ -150,6 +149,5 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 
 	ret = true;
 ret:
-	workspace_destroy(&wk);
 	return ret;
 }

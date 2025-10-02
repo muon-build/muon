@@ -407,7 +407,7 @@ fs_copy_dir_iter(void *_ctx, const char *path)
 			ctx->file_cb(ctx->usr_ctx, src.buf, dest.buf);
 		}
 
-		if (!fs_copy_file(src.buf, dest.buf, ctx->force)) {
+		if (!fs_copy_file(ctx->wk, src.buf, dest.buf, ctx->force)) {
 			return ir_err;
 		}
 	} else {

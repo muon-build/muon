@@ -107,7 +107,7 @@ samu_parseedge(struct samu_ctx *ctx, struct samu_scanner *s, struct samu_environ
 		samu_envaddvar(ctx, e->env, name, val);
 	}
 
-	e->out = samu_xreallocarray(&ctx->arena, NULL, 0, e->nout, sizeof(e->out[0]));
+	e->out = samu_xreallocarray(ctx->a, NULL, 0, e->nout, sizeof(e->out[0]));
 	for (i = 0, path = ctx->scan.paths; i < e->nout; ++path) {
 		val = samu_enveval(ctx, e->env, *path);
 		samu_canonpath(val);
@@ -125,7 +125,7 @@ samu_parseedge(struct samu_ctx *ctx, struct samu_scanner *s, struct samu_environ
 			++i;
 		}
 	}
-	e->in = samu_xreallocarray(&ctx->arena, NULL, 0, e->nin, sizeof(e->in[0]));
+	e->in = samu_xreallocarray(ctx->a, NULL, 0, e->nin, sizeof(e->in[0]));
 	for (i = 0; i < e->nin; ++i, ++path) {
 		val = samu_enveval(ctx, e->env, *path);
 		samu_canonpath(val);
@@ -165,7 +165,7 @@ samu_parsedefault(struct samu_ctx *ctx, struct samu_scanner *s, struct samu_envi
 	size_t i;
 
 	samu_scanpaths(ctx, s);
-	ctx->parse.deftarg = samu_xreallocarray(&ctx->arena, ctx->parse.deftarg, ctx->parse.ndeftarg, ctx->parse.ndeftarg + ctx->scan.npaths, sizeof(*ctx->parse.deftarg));
+	ctx->parse.deftarg = samu_xreallocarray(ctx->a, ctx->parse.deftarg, ctx->parse.ndeftarg, ctx->parse.ndeftarg + ctx->scan.npaths, sizeof(*ctx->parse.deftarg));
 	for (i = 0; i < ctx->scan.npaths; ++i) {
 		path = samu_enveval(ctx, env, ctx->scan.paths[i]);
 		samu_canonpath(path);

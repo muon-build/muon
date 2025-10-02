@@ -174,9 +174,9 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	}
 	ctx->deps.entrieslen = 0;
 	cap = BUFSIZ;
-	buf = samu_xmalloc(&ctx->arena, cap);
+	buf = samu_xmalloc(ctx->a, cap);
 	if (builddir) {
-		samu_xasprintf(&ctx->arena, &depspath, "%s/%s", builddir, ninja_depsname);
+		samu_xasprintf(ctx->a, &depspath, "%s/%s", builddir, ninja_depsname);
 	}
 	if (!fs_exists(depspath)) {
 		goto rewrite;
@@ -215,7 +215,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			do {
 				cap *= 2;
 			} while (sz > cap);
-			buf = samu_xmalloc(&ctx->arena, cap);
+			buf = samu_xmalloc(ctx->a, cap);
 		}
 		if (src_fread(buf, sz, 1, &src) != 1) {
 			samu_warn("deps log truncated");
@@ -244,7 +244,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			}
 			sz /= 4;
 			entry->deps.len = sz;
-			entry->deps.node = samu_xreallocarray(&ctx->arena, NULL, 0, sz, sizeof(n));
+			entry->deps.node = samu_xreallocarray(ctx->a, NULL, 0, sz, sizeof(n));
 			for (i = 0; i < sz; ++i) {
 				id = buf[3 + i];
 				if (id >= ctx->deps.entrieslen) {
@@ -270,14 +270,14 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			while (((char *)buf)[len - 1] == '\0') {
 				--len;
 			}
-			path = samu_mkstr(&ctx->arena, len);
+			path = samu_mkstr(ctx->a, len);
 			memcpy(path->s, buf, len);
 			path->s[len] = '\0';
 
 			n = samu_mknode(ctx, path);
 			if (ctx->deps.entrieslen >= ctx->deps.entriescap) {
 				size_t newcap = ctx->deps.entriescap ? ctx->deps.entriescap * 2 : 1024;
-				ctx->deps.entries = samu_xreallocarray(&ctx->arena,
+				ctx->deps.entries = samu_xreallocarray(ctx->a,
 					ctx->deps.entries,
 					ctx->deps.entriescap,
 					newcap,
@@ -306,7 +306,7 @@ rewrite:
 		ctx->deps.entries[i].node->id = -1;
 	}
 	/* save a temporary copy of the old entries */
-	oldentries = samu_xreallocarray(&ctx->arena, NULL, 0, ctx->deps.entrieslen, sizeof(ctx->deps.entries[0]));
+	oldentries = samu_xreallocarray(ctx->a, NULL, 0, ctx->deps.entrieslen, sizeof(ctx->deps.entries[0]));
 	memcpy(oldentries, ctx->deps.entries, ctx->deps.entrieslen * sizeof(ctx->deps.entries[0]));
 
 	len = ctx->deps.entrieslen;
@@ -348,10 +348,10 @@ samu_deps_push_node(struct samu_ctx *ctx, const struct str *f)
 	if (ctx->deps.deps.len == ctx->deps.depscap) {
 		size_t newcap = ctx->deps.deps.node ? ctx->deps.depscap * 2 : 32;
 		ctx->deps.deps.node = samu_xreallocarray(
-			&ctx->arena, ctx->deps.deps.node, ctx->deps.depscap, newcap, sizeof(ctx->deps.deps.node[0]));
+			ctx->a, ctx->deps.deps.node, ctx->deps.depscap, newcap, sizeof(ctx->deps.deps.node[0]));
 		ctx->deps.depscap = newcap;
 	}
-	in = samu_mkstr(&ctx->arena, f->len);
+	in = samu_mkstr(ctx->a, f->len);
 	memcpy(in->s, f->s, f->len);
 	in->s[f->len] = '\0';
 	ctx->deps.deps.node[ctx->deps.deps.len++] = samu_mknode(ctx, in);
@@ -390,19 +390,19 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				do {
 					c = src_getc(&src);
 					if (++n % 2 == 0) {
-						samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
+						samu_bufadd(ctx->a, &ctx->deps.buf, '\\');
 					}
 				} while (c == '\\');
 				if ((c == ' ' || c == '\t') && n % 2 != 0) {
 					break;
 				}
 				for (; n > 2; n -= 2) {
-					samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
+					samu_bufadd(ctx->a, &ctx->deps.buf, '\\');
 				}
 				switch (c) {
 				case '#': break;
 				case '\n': c = ' '; continue;
-				default: samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\'); continue;
+				default: samu_bufadd(ctx->a, &ctx->deps.buf, '\\'); continue;
 				}
 				break;
 			case '$':
@@ -413,7 +413,7 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				}
 				break;
 			}
-			samu_bufadd(&ctx->arena, &ctx->deps.buf, c);
+			samu_bufadd(ctx->a, &ctx->deps.buf, c);
 			c = src_getc(&src);
 		}
 		if (sawcolon) {
@@ -449,7 +449,7 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				goto err;
 			}
 			if (!out) {
-				out = samu_mkstr(&ctx->arena, ctx->deps.buf.len);
+				out = samu_mkstr(ctx->a, ctx->deps.buf.len);
 				memcpy(out->s, ctx->deps.buf.data, ctx->deps.buf.len);
 				out->s[ctx->deps.buf.len] = '\0';
 			} else if (out->n != ctx->deps.buf.len
@@ -557,11 +557,11 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 				});
 		} else {
 			for (i = 0; (uint32_t)i < line.len; ++i) {
-				samu_bufadd(&ctx->arena, &ctx->deps.buf, line.s[i]);
+				samu_bufadd(ctx->a, &ctx->deps.buf, line.s[i]);
 			}
 
 			if (nl) {
-				samu_bufadd(&ctx->arena, &ctx->deps.buf, '\n');
+				samu_bufadd(ctx->a, &ctx->deps.buf, '\n');
 			}
 		}
 
@@ -573,7 +573,7 @@ cont:
 		}
 	}
 
-	samu_bufadd(&ctx->arena, &ctx->deps.buf, 0);
+	samu_bufadd(ctx->a, &ctx->deps.buf, 0);
 	return &ctx->deps.deps;
 }
 

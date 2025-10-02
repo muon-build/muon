@@ -136,12 +136,12 @@ samu_name(struct samu_ctx *ctx, struct samu_scanner *s)
 {
 	ctx->scan.buf.len = 0;
 	while (samu_isvar(s->chr)) {
-		samu_bufadd(&ctx->arena, &ctx->scan.buf, s->chr);
+		samu_bufadd(ctx->a, &ctx->scan.buf, s->chr);
 		samu_next(s);
 	}
 	if (!ctx->scan.buf.len)
 		samu_scanerror(s, "expected name");
-	samu_bufadd(&ctx->arena, &ctx->scan.buf, '\0');
+	samu_bufadd(ctx->a, &ctx->scan.buf, '\0');
 	samu_space(s);
 }
 
@@ -190,7 +190,7 @@ samu_scankeyword(struct samu_ctx *ctx, struct samu_scanner *s, char **var)
 				else
 					low = mid + 1;
 			}
-			*var = samu_xmemdup(&ctx->arena, ctx->scan.buf.data, ctx->scan.buf.len);
+			*var = samu_xmemdup(ctx->a, ctx->scan.buf.data, ctx->scan.buf.len);
 			return SAMU_VARIABLE;
 		}
 	}
@@ -200,7 +200,7 @@ char *
 samu_scanname(struct samu_ctx *ctx, struct samu_scanner *s)
 {
 	samu_name(ctx, s);
-	return samu_xmemdup(&ctx->arena, ctx->scan.buf.data, ctx->scan.buf.len);
+	return samu_xmemdup(ctx->a, ctx->scan.buf.data, ctx->scan.buf.len);
 }
 
 static void
@@ -208,15 +208,15 @@ samu_addstringpart(struct samu_ctx *ctx, struct samu_evalstring ***end, bool var
 {
 	struct samu_evalstring *p;
 
-	p = samu_xmalloc(&ctx->arena, sizeof(*p));
+	p = samu_xmalloc(ctx->a, sizeof(*p));
 	p->next = NULL;
 	**end = p;
 	if (var) {
-		samu_bufadd(&ctx->arena, &ctx->scan.buf, '\0');
-		p->var = samu_xmemdup(&ctx->arena, ctx->scan.buf.data, ctx->scan.buf.len);
+		samu_bufadd(ctx->a, &ctx->scan.buf, '\0');
+		p->var = samu_xmemdup(ctx->a, ctx->scan.buf.data, ctx->scan.buf.len);
 	} else {
 		p->var = NULL;
-		p->str = samu_mkstr(&ctx->arena, ctx->scan.buf.len);
+		p->str = samu_mkstr(ctx->a, ctx->scan.buf.len);
 		memcpy(p->str->s, ctx->scan.buf.data, ctx->scan.buf.len);
 		p->str->s[ctx->scan.buf.len] = '\0';
 	}
@@ -231,14 +231,14 @@ samu_escape(struct samu_ctx *ctx, struct samu_scanner *s, struct samu_evalstring
 	case '$':
 	case ' ':
 	case ':':
-		samu_bufadd(&ctx->arena, &ctx->scan.buf, s->chr);
+		samu_bufadd(ctx->a, &ctx->scan.buf, s->chr);
 		samu_next(s);
 		break;
 	case '{':
 		if (ctx->scan.buf.len > 0)
 			samu_addstringpart(ctx, end, false);
 		while (samu_isvar(samu_next(s)))
-			samu_bufadd(&ctx->arena, &ctx->scan.buf, s->chr);
+			samu_bufadd(ctx->a, &ctx->scan.buf, s->chr);
 		if (s->chr != '}')
 			samu_scanerror(s, "invalid variable name");
 		samu_next(s);
@@ -253,7 +253,7 @@ samu_escape(struct samu_ctx *ctx, struct samu_scanner *s, struct samu_evalstring
 		if (ctx->scan.buf.len > 0)
 			samu_addstringpart(ctx, end, false);
 		while (samu_issimplevar(s->chr)) {
-			samu_bufadd(&ctx->arena, &ctx->scan.buf, s->chr);
+			samu_bufadd(ctx->a, &ctx->scan.buf, s->chr);
 			samu_next(s);
 		}
 		if (!ctx->scan.buf.len)
@@ -281,7 +281,7 @@ samu_scanstring(struct samu_ctx *ctx, struct samu_scanner *s, bool path)
 				goto out;
 			/* fallthrough */
 		default:
-			samu_bufadd(&ctx->arena, &ctx->scan.buf, s->chr);
+			samu_bufadd(ctx->a, &ctx->scan.buf, s->chr);
 			samu_next(s);
 			break;
 		case '\r':
@@ -306,7 +306,7 @@ samu_scanpaths(struct samu_ctx *ctx, struct samu_scanner *s)
 	while ((str = samu_scanstring(ctx, s, true))) {
 		if (ctx->scan.npaths == ctx->scan.paths_max) {
 			size_t newmax = ctx->scan.paths_max ? ctx->scan.paths_max * 2 : 32;
-			ctx->scan.paths = samu_xreallocarray(&ctx->arena, ctx->scan.paths, ctx->scan.paths_max, newmax, sizeof(ctx->scan.paths[0]));
+			ctx->scan.paths = samu_xreallocarray(ctx->a, ctx->scan.paths, ctx->scan.paths_max, newmax, sizeof(ctx->scan.paths[0]));
 			ctx->scan.paths_max = newmax;
 		}
 		ctx->scan.paths[ctx->scan.npaths++] = str;

@@ -180,10 +180,14 @@ cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const 
 	if (opts.dir) {
 		tstr_pushs(wk, &path, opts.dir);
 	} else {
+		workspace_perm_begin(wk);
+
 		struct workspace az_wk = { 0 };
-		analyze_project_call(&az_wk, wk->a_scratch);
+		workspace_init_bare(&az_wk, wk->a, wk->a_scratch);
+		analyze_project_call(&az_wk);
 		path_make_absolute(wk, &path, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
-		workspace_destroy(&az_wk);
+
+		workspace_perm_end(wk);
 	}
 
 	{
@@ -197,8 +201,6 @@ cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const 
 	wk->vm.lang_mode = language_extended;
 
 	bool res = commands[cmd_i].cmd(wk, argc, argi, argv);
-
-	workspace_destroy(wk);
 
 	return res;
 }

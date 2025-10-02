@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
  * SPDX-FileCopyrightText: Owen Rafferty <owen@owenrafferty.com>
+		"-Wsuggest-attribute=malloc",
  * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net>
  * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only

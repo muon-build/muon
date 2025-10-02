@@ -15,6 +15,7 @@
 #include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 #include "external/samurai.h"
 #include "external/samurai/arg.h"
@@ -94,7 +95,7 @@ samu_parseenvargs(struct samu_ctx *ctx, const char *_env)
 
 	if (!_env)
 		return;
-	char *env = samu_xmemdup(&ctx->arena, _env, strlen(_env) + 1);
+	char *env = samu_xmemdup(ctx->a, _env, strlen(_env) + 1);
 	argc = 1;
 	argv[0] = NULL;
 	arg = strtok(env, " ");
@@ -136,13 +137,13 @@ samu_init_ctx(struct workspace *wk, struct samu_ctx *ctx, struct samu_opts *opts
 	}
 
 	ctx->argv0 = "<muon samu>";
-
-	samu_arena_init(&ctx->arena);
 }
 
 bool
 samu_main(struct workspace *wk, int argc, char *argv[], struct samu_opts *opts)
 {
+	TracyCZoneAutoS;
+
 	char *builddir, *manifest = "build.ninja", *end, *arg;
 	const struct samu_tool *tool = NULL;
 	struct samu_node *n;
@@ -158,6 +159,7 @@ samu_main(struct workspace *wk, int argc, char *argv[], struct samu_opts *opts)
 		arg = SAMU_EARGF(samu_usage(ctx));
 		if (strcmp(arg, "version") == 0) {
 			samu_printf(ctx, "%d.%d.0\n", samu_ninjamajor, samu_ninjaminor);
+			TracyCZoneAutoE;
 			return true;
 		} else if (strcmp(arg, "verbose") == 0) {
 			ctx->buildopts.verbose = true;
@@ -222,7 +224,7 @@ retry:
 
 	if (tool) {
 		int r = tool->run(ctx, argc, argv);
-		samu_arena_destroy(&ctx->arena);
+		TracyCZoneAutoE;
 		return r == 0;
 	}
 
@@ -263,6 +265,6 @@ retry:
 	samu_logclose(ctx);
 	samu_depsclose(ctx);
 
-	samu_arena_destroy(&ctx->arena);
+	TracyCZoneAutoE;
 	return true;
 }

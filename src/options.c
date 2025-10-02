@@ -1496,19 +1496,29 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 
 		{
 			TSTR(subprojects_dir);
-			struct workspace az_wk = { 0 };
-			analyze_project_call(&az_wk, wk->a_scratch);
-			path_make_absolute(
-				wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+			TSTR(name);
+			{
+				workspace_perm_begin(wk);
 
-			obj name = current_project(&az_wk)->cfg.name;
-			if (name) {
-				current_project(wk)->cfg.name = make_str(wk, get_cstr(&az_wk, name));
+				struct workspace az_wk = { 0 };
+				workspace_init_bare(&az_wk, wk->a, wk->a_scratch);
+				analyze_project_call(&az_wk);
+
+				path_make_absolute(
+					wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+
+				obj az_name = current_project(&az_wk)->cfg.name;
+				if (az_name) {
+					const struct str *n = get_str(&az_wk, az_name);
+					tstr_pushn(wk, &name, n->s, n->len);
+				}
+
+				workspace_perm_end(wk);
 			}
-
+			if (name.len) {
+				current_project(wk)->cfg.name = tstr_into_str(wk, &name);
+			}
 			current_project(wk)->subprojects_dir = tstr_into_str(wk, &subprojects_dir);
-
-			workspace_destroy(&az_wk);
 
 			subprojects_foreach(wk, 0, 0, list_options_for_subproject);
 		}

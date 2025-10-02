@@ -69,7 +69,7 @@ void argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32
  * argstr is a NUL delimited array of strings
  * envstr is like argstr, every two strings is considered a key/value pair
  */
-uint32_t argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res);
+uint32_t argstr_to_argv(struct workspace *wk, const char *argstr, uint32_t argc, const char *prepend, char *const **res);
 
 struct source;
 bool run_cmd_determine_interpreter(

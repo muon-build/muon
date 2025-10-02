@@ -809,12 +809,10 @@ xcode_write_all(struct workspace *wk)
 
 	struct xc_ctx ctx = { .wk = wk };
 	bucket_arr_init(wk->a, &ctx.pbx_item, 1024, struct pbx_item);
-	stack_init(&ctx.stack, 4096);
+	stack_init(wk->a_scratch, &ctx.stack, 4096);
 	xml_writer_init(wk, &ctx.xw);
 
 	bool ok = with_open("", xcworkspace_path.buf, wk, &ctx, xc_main);
-
-	stack_destroy(&ctx.stack);
 
 	return ok;
 }

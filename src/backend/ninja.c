@@ -22,7 +22,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"
@@ -215,8 +214,20 @@ ninja_write_all(struct workspace *wk)
 bool
 ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture, enum ninja_run_flag flags)
 {
+	TracyCZoneAutoS;
+
+	const char *argstr;
+	uint32_t argstr_argc;
+	char *const *argv = NULL;
+	uint32_t argc;
+	TSTR(cwd);
+	bool ret = false;
 	bool use_internal_samurai = false;
+	bool did_chdir = false;
+
 	{
+		TracyCZoneN(tctx_func, "determine ninja", true)
+
 		obj found_ninja;
 		obj version = make_obj(wk, obj_array);
 		obj_array_push(wk, version, make_str(wk, ">=1.7.1"));
@@ -227,9 +238,9 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			.machine = machine_kind_build,
 		};
 		if (!find_program(wk, &fp_ctx, make_str(wk, "ninja"))) {
-			return false;
+			goto ret;
 		} else if (!fp_ctx.found) {
-			return false;
+			goto ret;
 		}
 
 		struct obj_external_program *ep = get_obj_external_program(wk, found_ninja);
@@ -242,15 +253,9 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			obj_array_extend_nodup(wk, cmd_array_dup, args);
 			args = cmd_array_dup;
 		}
+
+		TracyCZoneEnd(tctx_func)
 	}
-
-	const char *argstr;
-	uint32_t argstr_argc;
-
-	bool ret = false;
-	char *const *argv = NULL;
-	uint32_t argc;
-	TSTR(cwd);
 
 	if (chdir) {
 		path_copy_cwd(wk, &cwd);
@@ -258,6 +263,8 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		if (!path_chdir(wk, chdir)) {
 			goto ret;
 		}
+
+		did_chdir = true;
 	}
 
 	if (use_internal_samurai) {
@@ -268,7 +275,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			goto ret;
 		}
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
-		argc = argstr_to_argv(argstr, argstr_argc, "samu", &argv);
+		argc = argstr_to_argv(wk, argstr, argstr_argc, "samu", &argv);
 
 		struct samu_opts samu_opts = { .out = stdout };
 		if (capture) {
@@ -291,7 +298,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		const char *prepend = NULL;
 
 		join_args_argstr(wk, &argstr, &argstr_argc, args);
-		argc = argstr_to_argv(argstr, argstr_argc, prepend, &argv);
+		argc = argstr_to_argv(wk, argstr, argstr_argc, prepend, &argv);
 
 		if (!capture && !(flags & ninja_run_flag_ignore_errors)) {
 			cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
@@ -316,13 +323,10 @@ run_cmd_done:
 	}
 
 ret:
-	if (argv) {
-		z_free((void *)argv);
-	}
-
-	if (chdir) {
+	if (did_chdir) {
 		path_chdir(wk, cwd.buf);
 	}
 
+	TracyCZoneAutoE;
 	return ret;
 }

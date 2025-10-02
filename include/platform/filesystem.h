@@ -39,7 +39,7 @@ int32_t fs_read(int fd, void *buf, uint32_t buf_len);
 bool fs_write(const char *path, const uint8_t *buf, uint64_t buf_len);
 bool fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd);
 void fs_source_dup(struct arena *a, const struct source *src, struct source *dup);
-bool fs_copy_file(const char *src, const char *dest, bool force);
+bool fs_copy_file(struct workspace *wk, const char *src, const char *dest, bool force);
 struct fs_copy_dir_ctx {
 	struct workspace *wk;
 	void (*file_cb)(void *usr_ctx, const char *src, const char *dest);

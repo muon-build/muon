@@ -47,9 +47,16 @@ struct project {
 	obj generic_rules[machine_kind_count];
 };
 
+enum workspace_init_flag {
+	workspace_init_flag_arena = 1 << 0,
+	workspace_init_flag_bare = 1 << 1,
+	workspace_init_flag_runtime = 1 << 2,
+	workspace_init_flag_startup_files = 1 << 3,
+};
+
 struct workspace {
 	struct arena *a, *a_scratch;
-	uint64_t a_scratch_pos;
+	uint64_t a_pos, a_scratch_pos;
 
 	const char *argv0, *source_root, *build_root, *muon_private;
 
@@ -102,7 +109,7 @@ struct workspace {
 	struct arr projects;
 	struct arr option_overrides;
 
-	uint32_t cur_project;
+	uint32_t cur_project, init_flags;
 
 #ifdef TRACY_ENABLE
 	struct {
@@ -116,8 +123,6 @@ void workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_
 void workspace_init_runtime(struct workspace *wk);
 void workspace_init_startup_files(struct workspace *wk);
 void workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch);
-void workspace_destroy_bare(struct workspace *wk);
-void workspace_destroy(struct workspace *wk);
 void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
 void workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v);
 void workspace_add_regenerate_dep(struct workspace *wk, obj v);
@@ -139,4 +144,6 @@ bool workspace_do_setup_prepare(struct workspace *wk, const char *build, const c
 bool workspace_do_setup(struct workspace *wk);
 void workspace_scratch_begin(struct workspace *wk);
 void workspace_scratch_end(struct workspace *wk);
+void workspace_perm_begin(struct workspace *wk);
+void workspace_perm_end(struct workspace *wk);
 #endif

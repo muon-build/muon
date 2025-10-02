@@ -1098,19 +1098,13 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 			} else {
 				az_srv_all_diagnostics(&srv, &wk);
 			}
-
-			error_diagnostic_store_destroy(&wk);
 		}
-
-		workspace_destroy(&wk);
 
 		if (debug_log) {
 			fflush(debug_log);
 		}
 	}
 	LOG_I("muon lsp shutting down");
-
-	workspace_destroy(srv.wk);
 
 	if (debug_log) {
 		fs_fclose(debug_log);

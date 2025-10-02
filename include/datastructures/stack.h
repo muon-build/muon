@@ -11,17 +11,14 @@
 
 #include "preprocessor_helpers.h"
 
-struct stack_tag;
-
-typedef void (*stack_print_cb)(void *ctx, void *mem, struct stack_tag *tag);
+struct arena;
 
 struct stack {
 	char *mem;
 	uint32_t len, cap;
 };
 
-void stack_init(struct stack *stack, uint32_t cap);
-void stack_destroy(struct stack *stack);
+void stack_init(struct arena *a, struct stack *stack, uint32_t cap);
 
 void stack_print(struct stack *_stack);
 void stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name);

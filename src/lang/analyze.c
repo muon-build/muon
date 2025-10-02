@@ -15,7 +15,6 @@
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 #include "tracy.h"
@@ -355,7 +354,7 @@ check_reassign_to_different_type(struct workspace *wk,
 			typechecking_type_to_s(wk, t2));
 
 		if (new_a) {
-			error_diagnostic_store_push(new_a->src_idx, new_a->location, log_warn, buf);
+			error_diagnostic_store_push(wk, new_a->src_idx, new_a->location, log_warn, buf);
 		} else {
 			vm_warning_at(wk, n_id, "%s", buf);
 		}
@@ -1475,7 +1474,7 @@ analyze_opts_push_override(struct workspace *wk,
 	assert(!src->len);
 
 	if (content) {
-		void *buf = z_calloc(content->len + 1, 1);
+		void *buf = ar_alloc(wk->a, content->len + 1, 1, 1);
 		memcpy(buf, content->s, content->len);
 		*src = (struct source){
 			.type = source_type_file,
@@ -1630,7 +1629,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(wk, make_strf(wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
-				error_diagnostic_store_push(a->src_idx, a->location, lvl, msg);
+				error_diagnostic_store_push(wk, a->src_idx, a->location, lvl, msg);
 
 				if (analyzer.opts->subdir_error && a->ep_stack_len) {
 					mark_az_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
@@ -1707,7 +1706,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			enum log_level lvl = ep_stack->lvl;
 
 			for (j = 0; j < len; ++j) {
-				error_diagnostic_store_push(
+				error_diagnostic_store_push(wk,
 					ep_stack[j].src_idx, ep_stack[j].location, lvl, "errors in subdir");
 			}
 		}
@@ -1731,14 +1730,17 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 }
 
 bool
-analyze_project_call(struct workspace *wk, struct arena *a)
+analyze_project_call(struct workspace *wk)
 {
 	struct az_opts opts = {
 		.replay_opts = error_diagnostic_store_replay_errors_only,
 		.analyze_project_call_only = true,
 	};
 
-	workspace_init_bare(wk, a, 0);
+	assert(wk->init_flags & workspace_init_flag_bare);
 
-	return do_analyze(wk, &opts);
+	workspace_scratch_begin(wk);
+	bool ok = do_analyze(wk, &opts);
+	workspace_scratch_end(wk);
+	return ok;
 }

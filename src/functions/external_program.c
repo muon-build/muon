@@ -17,6 +17,7 @@ void
 find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argument, obj *ver)
 {
 	*ver = 0;
+
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	obj args;
 	obj_array_dup(wk, cmd_array, &args);

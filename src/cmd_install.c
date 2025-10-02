@@ -79,7 +79,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 
 		LOG_I("install '%s' -> '%s'", src.buf, dest.buf);
 
-		if (!fs_copy_file(src.buf, dest.buf, 0)) {
+		if (!fs_copy_file(ctx->wk, src.buf, dest.buf, 0)) {
 			return ir_err;
 		}
 	} else {
@@ -161,7 +161,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 					return ir_err;
 				}
 			} else {
-				if (!fs_copy_file(src, dest, true)) {
+				if (!fs_copy_file(wk, src, dest, true)) {
 					return ir_err;
 				}
 			}

@@ -18,7 +18,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/run_cmd.h"
 
 void
@@ -54,7 +53,7 @@ argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32_t *a
 }
 
 uint32_t
-argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res)
+argstr_to_argv(struct workspace *wk, const char *argstr, uint32_t argc, const char *prepend, char *const **res)
 {
 	uint32_t argi = 0, max = argc;
 
@@ -62,7 +61,7 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 		max += 1;
 	}
 
-	const char **new_argv = z_calloc(max + 1, sizeof(const char *));
+	const char **new_argv = ar_maken(wk->a_scratch, const char *, max + 1);
 
 	if (prepend) {
 		push_argv_single(new_argv, &argi, max, prepend);
@@ -170,7 +169,12 @@ run_cmd_print_error(struct run_cmd_ctx *ctx, enum log_level lvl)
 }
 
 bool
-run_cmd_checked(struct workspace *wk, struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
+run_cmd_checked(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
+	const char *argstr,
+	uint32_t argc,
+	const char *envstr,
+	uint32_t envc)
 {
 	if (!run_cmd(wk, ctx, argstr, argc, envstr, envc) || ctx->status != 0) {
 		run_cmd_print_error(ctx, log_error);

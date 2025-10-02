@@ -29,7 +29,7 @@ samu_htabkey(struct samu_hashtablekey *k, const char *s, size_t n)
 }
 
 struct samu_hashtable *
-samu_mkhtab(struct samu_arena *a, size_t cap)
+samu_mkhtab(struct arena *a, size_t cap)
 {
 	struct samu_hashtable *h;
 	size_t i;
@@ -66,7 +66,7 @@ samu_keyindex(struct samu_hashtable *h, struct samu_hashtablekey *k)
 }
 
 void **
-samu_htabput(struct samu_arena *a, struct samu_hashtable *h, struct samu_hashtablekey *k)
+samu_htabput(struct arena *a, struct samu_hashtable *h, struct samu_hashtablekey *k)
 {
 	struct samu_hashtablekey *oldkeys;
 	void **oldvals;

@@ -42,11 +42,10 @@ void error_messagef(struct workspace *wk, const struct source *src, struct sourc
 	MUON_ATTR_FORMAT(printf, 5, 6);
 
 void error_diagnostic_store_init(struct workspace *wk);
-void error_diagnostic_store_destroy(struct workspace *wk);
 struct arr *error_diagnostic_store_get(void);
 bool error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_replay_opts opts);
 void
-error_diagnostic_store_push(uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg);
+error_diagnostic_store_push(struct workspace *wk, uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg);
 void list_line_range(struct arena *a, const struct source *src, struct source_location location, uint32_t context);
 
 void reopen_source(struct arena *a, const struct source *src, struct source *src_reopened);

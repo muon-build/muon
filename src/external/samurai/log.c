@@ -127,7 +127,7 @@ samu_log_open_and_write(struct samu_ctx *ctx, const char *builddir, bool write_g
 	const char *logpath;
 	if (builddir) {
 		char *path;
-		samu_xasprintf(&ctx->arena, &path, "%s/%s", builddir, samu_logname);
+		samu_xasprintf(ctx->a, &path, "%s/%s", builddir, samu_logname);
 		logpath = path;
 	} else {
 		logpath = samu_logname;
@@ -163,7 +163,7 @@ samu_loginit(struct samu_ctx *ctx, const char *builddir)
 	}
 
 	if (builddir) {
-		samu_xasprintf(&ctx->arena, &logpath, "%s/%s", builddir, samu_logname);
+		samu_xasprintf(ctx->a, &logpath, "%s/%s", builddir, samu_logname);
 	}
 
 	if (!fs_exists(logpath)) {

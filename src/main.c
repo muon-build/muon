@@ -34,7 +34,6 @@
 #include "opts.h"
 #include "platform/assert.h"
 #include "platform/init.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -130,7 +129,6 @@ cmd_exe(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		ctx.flags |= run_cmd_ctx_flag_dont_capture;
 	}
 
-	bool allocated_argv = false;
 
 	const char *envstr = NULL;
 	uint32_t envc = 0;
@@ -152,9 +150,7 @@ cmd_exe(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		const char *argstr;
 		uint32_t argc;
 		join_args_argstr(wk, &argstr, &argc, args);
-
-		argstr_to_argv(argstr, argc, NULL, (char *const **)&opts.cmd);
-		allocated_argv = true;
+		argstr_to_argv(wk, argstr, argc, NULL, (char *const **)&opts.cmd);
 	}
 
 	if (!run_cmd_argv(wk, &ctx, (char *const *)opts.cmd, envstr, envc)) {
@@ -176,9 +172,6 @@ cmd_exe(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 ret:
 	run_cmd_ctx_destroy(&ctx);
-	if (allocated_argv) {
-		z_free((void *)opts.cmd);
-	}
 	return ret;
 }
 
@@ -635,7 +628,6 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 
 	dump_function_docs(wk);
 
-	workspace_destroy(wk);
 	return true;
 }
 
@@ -824,7 +816,6 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 
 	toolchain_dump(wk, &comp, &opts);
 
-	workspace_destroy(wk);
 	return true;
 }
 
@@ -1253,10 +1244,7 @@ cmd_meson(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	argc = new_argc;
 	argv = new_argv;
 
-	bool res = cmd_main(wk, argc, argi, (char **)argv);
-
-	z_free(new_argv);
-	return res;
+	return cmd_main(wk, argc, argi, (char **)argv);
 }
 
 static bool
@@ -1391,7 +1379,6 @@ main(int argc, char *argv[])
 
 	int ret = res ? 0 : 1;
 
-	workspace_destroy_bare(&wk);
 	ar_destroy(&a);
 	ar_destroy(&a_scratch);
 

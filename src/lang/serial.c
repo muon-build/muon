@@ -13,7 +13,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 
 #define SERIAL_MAGIC_LEN 9
@@ -215,7 +214,7 @@ load_big_strings(struct workspace *wk, struct big_string_table *bst, FILE *f)
 			return corrupted_dump();
 		}
 
-		buf = z_calloc(1, len);
+		buf = ar_alloc(wk->a_scratch, 1, len, 1);
 		if (!fs_fread(buf, len, f)) {
 			return false;
 		}
@@ -244,7 +243,7 @@ get_big_string(struct workspace *wk, const struct big_string_table *bst, struct 
 		return corrupted_dump();
 	}
 
-	char *buf = z_calloc(1, src->len + 1);
+	char *buf = ar_alloc(wk->a_scratch, 1, src->len + 1, 1);
 	memcpy(buf, &bst->data[src->s], src->len);
 
 	*res = (struct str){
@@ -462,9 +461,6 @@ serial_load(struct workspace *wk, obj *res, FILE *f)
 
 	ret = true;
 ret:
-	if (bst.data) {
-		z_free(bst.data);
-	}
 	workspace_scratch_end(wk);
 	return ret;
 }

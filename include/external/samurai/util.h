@@ -18,22 +18,17 @@ void samu_puts(struct samu_ctx *ctx, const char *str);
 void samu_puts_no_newline(struct samu_ctx *ctx, const char *str);
 void samu_putchar(struct samu_ctx *ctx, const char c);
 
-void samu_arena_init(struct samu_arena *a);
-void samu_arena_destroy(struct samu_arena *a);
-void *samu_arena_alloc(struct samu_arena *a, size_t size);
-void *samu_arena_realloc(struct samu_arena *a, void *p, size_t old, size_t new);
-
-void *samu_xmalloc(struct samu_arena *a, size_t);
-void *samu_xreallocarray(struct samu_arena *a, void *, size_t old, size_t new, size_t item_size);
-char *samu_xmemdup(struct samu_arena *a, const char *, size_t);
-int samu_xasprintf(struct samu_arena *a, char **, const char *, ...);
+void *samu_xmalloc(struct arena *a, size_t);
+void *samu_xreallocarray(struct arena *a, void *, size_t old, size_t new, size_t item_size);
+char *samu_xmemdup(struct arena *a, const char *, size_t);
+int samu_xasprintf(struct arena *a, char **, const char *, ...);
 
 /* append a byte to a buffer */
-void samu_bufadd(struct samu_arena *a, struct samu_buffer *buf, char c);
+void samu_bufadd(struct arena *a, struct samu_buffer *buf, char c);
 
 /* allocates a new string with length n. n + 1 bytes are allocated for
  * s, but not initialized. */
-struct samu_string *samu_mkstr(struct samu_arena *a, size_t n);
+struct samu_string *samu_mkstr(struct arena *a, size_t n);
 
 /* canonicalizes the given path by removing duplicate slashes, and
  * folding '/.' and 'foo/..' */

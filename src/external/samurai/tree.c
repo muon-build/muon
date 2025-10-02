@@ -116,7 +116,7 @@ samu_treeinsert(struct samu_ctx *ctx, struct samu_treenode **rootp, char *key, v
 		a[i++] = &n->child[c > 0];
 		n = n->child[c > 0];
 	}
-	r = samu_xmalloc(&ctx->arena, sizeof(*r));
+	r = samu_xmalloc(ctx->a, sizeof(*r));
 	r->key = key;
 	r->value = value;
 	r->child[0] = r->child[1] = NULL;

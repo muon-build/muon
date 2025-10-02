@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +16,6 @@
 #include "lang/string.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 
 #include "external/samurai/util.h"
@@ -92,83 +90,28 @@ samu_putchar(struct samu_ctx *ctx, const char c)
 }
 
 void *
-samu_xmalloc(struct samu_arena *a, size_t n)
+samu_xmalloc(struct arena *a, size_t n)
 {
-	return samu_arena_alloc(a, n);
+	return ar_alloc(a, 1, n, 8);
 }
 
-static void
-samu_arena_push_block(struct samu_arena *a, uint64_t size)
-{
-	++a->blocks_len;
-	a->blocks = z_realloc(a->blocks, sizeof(const char *) * a->blocks_len);
-	a->allocd += size;
-	a->blocks[a->blocks_len - 1] = z_calloc(1, size);
-}
-
-#define SAMU_ARENA_DEF_BLOCK_SIZE BUF_SIZE_1m
-
-void
-samu_arena_init(struct samu_arena *a)
-{
-	samu_arena_push_block(a, SAMU_ARENA_DEF_BLOCK_SIZE);
-}
-
-void
-samu_arena_destroy(struct samu_arena *a)
-{
-	size_t i;
-	for (i = 0; i < a->blocks_len; ++i) {
-		z_free(a->blocks[i]);
-	}
-
-	L("samu allocd %d blocks, a:%d, f:%d, r:%3.3f\n", (int)a->blocks_len, (int)a->allocd, (int)a->filled, (float)a->filled / (float)a->allocd * 100.0f);
-
-	z_free(a->blocks);
-}
+// void *
+// samu_arena_realloc(struct arena *a, void *p, size_t old, size_t new)
+// {
+// 	return ar_realloc(a, p, old, new, 8);
+// }
 
 void *
-samu_arena_alloc(struct samu_arena *a, size_t size)
-{
-	uint64_t align = -(int64_t)a->i & (int64_t)7;
-	a->i += align;
-
-	if (a->i + size > SAMU_ARENA_DEF_BLOCK_SIZE || size > SAMU_ARENA_DEF_BLOCK_SIZE) {
-		uint64_t new_block_size = size > SAMU_ARENA_DEF_BLOCK_SIZE ? size : SAMU_ARENA_DEF_BLOCK_SIZE;
-
-		samu_arena_push_block(a, new_block_size);
-		a->i = 0;
-	}
-
-	a->filled += size;
-
-	char *mem = a->blocks[a->blocks_len - 1] + a->i;
-	a->i += align + size;
-	return mem;
-}
-
-
-void *
-samu_arena_realloc(struct samu_arena *a, void *p, size_t old, size_t new)
-{
-	char *mem = samu_arena_alloc(a, new);
-	if (p) {
-		memcpy(mem, p, old);
-	}
-	return mem;
-}
-
-void *
-samu_xreallocarray(struct samu_arena *a, void *p, size_t old, size_t new, size_t m)
+samu_xreallocarray(struct arena *a, void *p, size_t old, size_t new, size_t m)
 {
 	if (m && new > SIZE_MAX / m) {
 		error_unrecoverable("samu_xreallocarray failed: %lld > %lld", (long long)new, (long long)(SIZE_MAX / m));
 	}
-	return samu_arena_realloc(a, p, old * m, new * m);
+	return ar_realloc(a, p, old * m, new * m, 8);
 }
 
 char *
-samu_xmemdup(struct samu_arena *a, const char *s, size_t n)
+samu_xmemdup(struct arena *a, const char *s, size_t n)
 {
 	char *p;
 
@@ -179,7 +122,7 @@ samu_xmemdup(struct samu_arena *a, const char *s, size_t n)
 }
 
 int
-samu_xasprintf(struct samu_arena *a, char **s, const char *fmt, ...)
+samu_xasprintf(struct arena *a, char **s, const char *fmt, ...)
 {
 	va_list ap;
 	int ret;
@@ -200,18 +143,18 @@ samu_xasprintf(struct samu_arena *a, char **s, const char *fmt, ...)
 }
 
 void
-samu_bufadd(struct samu_arena *a, struct samu_buffer *buf, char c)
+samu_bufadd(struct arena *a, struct samu_buffer *buf, char c)
 {
 	if (buf->len >= buf->cap) {
 		size_t newcap = buf->cap ? buf->cap * 2 : 1 << 8;
-		buf->data = samu_arena_realloc(a, buf->data, buf->cap, newcap);
+		buf->data = ar_realloc(a, buf->data, buf->cap, newcap, 8);
 		buf->cap = newcap;
 	}
 	buf->data[buf->len++] = c;
 }
 
 struct samu_string *
-samu_mkstr(struct samu_arena *a, size_t n)
+samu_mkstr(struct arena *a, size_t n)
 {
 	struct samu_string *str;
 

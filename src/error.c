@@ -16,7 +16,6 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 static struct {
 	struct arr messages;
@@ -28,6 +27,7 @@ static struct {
 void
 error_diagnostic_store_init(struct workspace *wk)
 {
+	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
 	arr_init(wk->a, &error_diagnostic_store.messages, 32, struct error_diagnostic_message);
 	error_diagnostic_store.init = true;
 	error_diagnostic_store.wk = wk;
@@ -40,23 +40,10 @@ error_diagnostic_store_get(void)
 }
 
 void
-error_diagnostic_store_destroy(struct workspace *wk)
-{
-	uint32_t i;
-	struct error_diagnostic_message *msg;
-	for (i = 0; i < error_diagnostic_store.messages.len; ++i) {
-		msg = arr_get(&error_diagnostic_store.messages, i);
-		z_free((char *)msg->msg);
-	}
-
-	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
-}
-
-void
-error_diagnostic_store_push(uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg)
+error_diagnostic_store_push(struct workspace *wk, uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg)
 {
 	uint32_t mlen = strlen(msg);
-	char *m = z_calloc(mlen + 1, 1);
+	char *m = ar_alloc(wk->a, mlen + 1, 1, 1);
 	memcpy(m, msg, mlen);
 
 	arr_push(error_diagnostic_store.wk->a, &error_diagnostic_store.messages,
@@ -128,7 +115,6 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 			msg = arr_get(&error_diagnostic_store.messages, i);
 
 			if (error_diagnostic_store_compare_except_lvl(prev_msg, msg, 0) == 0) {
-				z_free((char *)msg->msg);
 				continue;
 			}
 
@@ -188,8 +174,6 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 
 		error_message(wk, &src, msg->location, msg->lvl, flags, msg->msg);
 	}
-
-	error_diagnostic_store_destroy(wk);
 
 	return !ok;
 }
@@ -483,7 +467,7 @@ error_message(struct workspace *wk,
 		}
 		assert(i < error_diagnostic_store.wk->vm.src.len);
 
-		error_diagnostic_store_push(i, location, lvl, msg);
+		error_diagnostic_store_push(wk, i, location, lvl, msg);
 		return;
 	}
 

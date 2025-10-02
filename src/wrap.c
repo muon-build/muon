@@ -18,7 +18,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "sha_256.h"
@@ -1111,9 +1110,6 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			return true;
 		}
 		case mc_fetch_collect_result_error:
-			if (ctx->fetch_ctx.buf) {
-				z_free(ctx->fetch_ctx.buf);
-			}
 			return false;
 		case mc_fetch_collect_result_done: {
 			ctx->sub_state = wrap_handle_sub_state_extracting;

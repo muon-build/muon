@@ -1690,7 +1690,6 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 bool
 fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
 {
-	bool ret = false;
 	struct tstr out_buf;
 	struct workspace wk = { 0 };
 	workspace_init_bare(&wk, a, 0);
@@ -1731,7 +1730,7 @@ fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool c
 	struct source cfg_src = { 0 };
 	if (cfg_path) {
 		if (!ini_parse(f.wk, cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
-			goto ret;
+			return false;
 		}
 	}
 
@@ -1742,7 +1741,7 @@ fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool c
 
 	struct node *n;
 	if (!(n = parse_fmt(&wk, src, compile_mode, &f.raw_blocks))) {
-		goto ret;
+		return false;
 	}
 
 	tstr_init(&out_buf, 0);
@@ -1757,14 +1756,11 @@ fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool c
 
 	if (check_only) {
 		if (src->len != out_buf.len) {
-			goto ret;
+			return false;
 		} else if (memcmp(src->src, out_buf.buf, src->len)) {
-			goto ret;
+			return false;
 		}
 	}
 
-	ret = true;
-ret:
-	workspace_destroy_bare(&wk);
-	return ret;
+	return true;
 }

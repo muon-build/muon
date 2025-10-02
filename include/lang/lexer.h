@@ -148,7 +148,6 @@ bool is_hex_digit(const char c);
 bool lex_string_escape_utf8(struct workspace *wk, struct tstr *buf, uint32_t val);
 
 void lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, enum lexer_mode mode);
-void lexer_destroy(struct lexer *lexer);
 void lexer_next(struct lexer *lexer, struct token *token);
 
 obj lexer_get_preceeding_whitespace(struct lexer *lexer);

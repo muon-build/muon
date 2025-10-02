@@ -445,7 +445,7 @@ samu_build(struct samu_ctx *ctx)
 		return;
 	}
 
-	jobs = samu_xreallocarray(&ctx->arena, jobs, jobslen, maxjobs, sizeof(jobs[0]));
+	jobs = samu_xreallocarray(ctx->a, jobs, jobslen, maxjobs, sizeof(jobs[0]));
 	jobslen = maxjobs;
 	for (i = next; i < jobslen; ++i) {
 		jobs[i].next = i + 1;

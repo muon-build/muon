@@ -780,7 +780,7 @@ translate_meson_opts(struct workspace *wk,
 
 	const char *argstr;
 	join_args_argstr(wk, &argstr, new_argc, ctx.argv);
-	argstr_to_argv(argstr, *new_argc, NULL, (char *const **)new_argv);
+	argstr_to_argv(wk, argstr, *new_argc, NULL, (char *const **)new_argv);
 	*new_argi = 0;
 	return true;
 }

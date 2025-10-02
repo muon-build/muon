@@ -40,10 +40,12 @@ struct ar_traced_block {
 };
 
 struct ar_trace {
+	const char *tag, *waste_tag;
 	struct ar_traced_block blocks[64];
 	struct ar_traced_alloc allocs[1024 * 1024];
 	uint64_t blocks_len;
 	uint64_t allocs_len;
+	uint64_t waste;
 };
 
 static void
@@ -64,7 +66,7 @@ ar_trace_alloc_block(struct arena *a, struct ar_block *b)
 static void
 ar_trace_free(struct arena *a, struct ar_block *b, struct ar_traced_alloc *ta)
 {
-	TracyCFreeN(ta->mem, a->trace_tag);
+	TracyCFreeN(ta->mem, a->trace->tag);
 }
 
 static void
@@ -121,16 +123,17 @@ ar_trace_alloc(struct arena *a, struct ar_block *b, const void *mem, uint64_t si
 
 	t->allocs[t->allocs_len] = (struct ar_traced_alloc){ mem, size };
 	++t->allocs_len;
-	TracyCAllocN(mem, size, a->trace_tag);
+	TracyCAllocN(mem, size, a->trace->tag);
 }
 
 static void
-ar_trace_waste(uint64_t n)
+ar_trace_waste(struct arena *a, uint64_t n)
 {
-	static float sum;
-	sum += n;
-	(void)sum;
-	TracyCPlot("arena_waste", sum);
+	a->trace->waste += n;
+#ifdef TRACY_ENABLE
+	float waste_mb = a->trace->waste / (1024.0 * 1024.0);
+	TracyCPlot(a->trace->waste_tag, waste_mb);
+#endif
 }
 #endif
 
@@ -218,11 +221,16 @@ ar_init(struct arena *a, const struct ar_params *params)
 #if ARENA_TRACE
 	static int id = 0;
 	char buf[256] = { 0 };
-	snprintf(buf, sizeof(buf), "arena-%d", id);
 
 	// The following are leaked and not tracked
-	a->trace_tag = strdup(buf);
 	a->trace = calloc(sizeof(struct ar_trace), 1);
+
+	snprintf(buf, sizeof(buf), "arena-%d", id);
+	a->trace->tag = strdup(buf);
+
+	snprintf(buf, sizeof(buf), "arena-waste-%d", id);
+	a->trace->waste_tag = strdup(buf);
+
 	++id;
 #endif
 }
@@ -243,7 +251,7 @@ retry:
 	size_unpadded = objsize * count;
 	size = size_unpadded + pad;
 	if (size > ar_block_len_free(a->tail)) {
-		ar_trace_waste(ar_block_len_free(a->tail));
+		ar_trace_waste(a, ar_block_len_free(a->tail));
 
 		if (a->params.flags & ar_flag_fixed) {
 			assert(false && "fixed arena OOM");
@@ -270,7 +278,7 @@ retry:
 	a->pos += size;
 
 	void *mem = a->tail->end + pad;
-	ar_trace_waste(pad);
+	ar_trace_waste(a, pad);
 	ar_trace_alloc(a, a->tail, mem, size_unpadded);
 
 	a->tail->end += size;
@@ -383,7 +391,7 @@ ar_realloc(struct arena *a, void *ptr, int64_t original_size, int64_t new_size, 
 		ar_alloc(a, 1, new_size - original_size, 1);
 		return ptr;
 	} else {
-		ar_trace_waste(original_size);
+		ar_trace_waste(a, original_size);
 		void *res = ar_alloc(a, 1, new_size, align);
 
 		if (have_ptr && res) {

@@ -88,6 +88,7 @@ workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a_scra
 	assert(a);
 	wk->a = a;
 	wk->a_scratch = a_scratch ? a_scratch : a;
+	wk->init_flags = workspace_init_flag_arena;
 }
 
 void
@@ -95,7 +96,8 @@ workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scrat
 {
 	workspace_init_arena(wk, a, a_scratch);
 	vm_init(wk);
-	stack_init(&wk->stack, 4096);
+	stack_init(wk->a, &wk->stack, 4096);
+	wk->init_flags |= workspace_init_flag_bare;
 
 	{
 #ifdef TRACY_ENABLE
@@ -164,6 +166,8 @@ workspace_init_runtime(struct workspace *wk)
 		wk->find_program_overrides[i] = make_obj(wk, obj_dict);
 		wk->machine_properties[i] = make_obj(wk, obj_dict);
 	}
+
+	wk->init_flags |= workspace_init_flag_runtime;
 }
 
 void
@@ -182,6 +186,8 @@ workspace_init_startup_files(struct workspace *wk)
 			LOG_W("script %s failed to load", startup_files[i]);
 		}
 	}
+
+	wk->init_flags |= workspace_init_flag_startup_files;
 }
 
 void
@@ -190,20 +196,6 @@ workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 	workspace_init_bare(wk, a, a_scratch);
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
-}
-
-void
-workspace_destroy_bare(struct workspace *wk)
-{
-	stack_destroy(&wk->stack);
-}
-
-void
-workspace_destroy(struct workspace *wk)
-{
-	TracyCZoneAutoS;
-	workspace_destroy_bare(wk);
-	TracyCZoneAutoE;
 }
 
 void
@@ -562,4 +554,17 @@ workspace_scratch_end(struct workspace *wk)
 {
 	ar_pop_to(wk->a_scratch, wk->a_scratch_pos);
 	stack_pop(&wk->stack, wk->a_scratch_pos);
+}
+
+void
+workspace_perm_begin(struct workspace *wk)
+{
+	stack_push(&wk->stack, wk->a_pos, wk->a->pos);
+}
+
+void
+workspace_perm_end(struct workspace *wk)
+{
+	ar_pop_to(wk->a, wk->a_pos);
+	stack_pop(&wk->stack, wk->a_pos);
 }

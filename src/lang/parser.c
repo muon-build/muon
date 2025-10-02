@@ -1245,8 +1245,6 @@ parse_impl(struct workspace *wk,
 		n = make_node_t(p, node_type_stmt);
 	}
 
-	lexer_destroy(&p->lexer);
-
 	TracyCZoneAutoE;
 	return p->err.count ? 0 : n;
 }

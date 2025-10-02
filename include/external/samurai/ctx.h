@@ -192,11 +192,6 @@ struct samu_scan_ctx {
 	struct samu_buffer buf;
 };
 
-struct samu_arena {
-	size_t blocks_len, i, allocd, filled;
-	char **blocks;
-};
-
 struct samu_ctx {
 	struct samu_buildoptions buildopts;
 	struct samu_parseoptions parseopts;
@@ -212,7 +207,6 @@ struct samu_ctx {
 	const char *argv0;
 	struct samu_rule phonyrule;
 	struct samu_pool consolepool;
-	struct samu_arena arena; // TOOD: delete me
 	struct arena *a;
 
 	struct workspace *wk;

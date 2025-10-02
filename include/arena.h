@@ -29,7 +29,6 @@ struct arena {
 	int64_t pos;
 #if ARENA_TRACE
 	struct ar_trace *trace;
-	const char *trace_tag;
 #endif
 };
 

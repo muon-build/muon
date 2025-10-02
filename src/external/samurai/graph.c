@@ -29,7 +29,7 @@ samu_graphinit(struct samu_ctx *ctx)
 		e = ctx->graph.alledges;
 		ctx->graph.alledges = e->allnext;
 	}
-	ctx->graph.allnodes = samu_mkhtab(&ctx->arena, 1024);
+	ctx->graph.allnodes = samu_mkhtab(ctx->a, 1024);
 }
 
 struct samu_node *
@@ -40,11 +40,11 @@ samu_mknode(struct samu_ctx *ctx, struct samu_string *path)
 	struct samu_hashtablekey k;
 
 	samu_htabkey(&k, path->s, path->n);
-	v = samu_htabput(&ctx->arena, ctx->graph.allnodes, &k);
+	v = samu_htabput(ctx->a, ctx->graph.allnodes, &k);
 	if (*v) {
 		return *v;
 	}
-	n = samu_xmalloc(&ctx->arena, sizeof(*n));
+	n = samu_xmalloc(ctx->a, sizeof(*n));
 	n->path = path;
 	n->shellpath = NULL;
 	n->gen = NULL;
@@ -97,7 +97,7 @@ samu_nodepath(struct samu_ctx *ctx, struct samu_node *n, bool escape)
 
 	TSTR(buf);
 	shell_escape(ctx->wk, &buf, n->path->s);
-	n->shellpath = samu_mkstr(&ctx->arena, buf.len);
+	n->shellpath = samu_mkstr(ctx->a, buf.len);
 	memcpy(n->shellpath->s, buf.buf, buf.len);
 
 	return n->shellpath;
@@ -109,7 +109,7 @@ samu_nodeuse(struct samu_ctx *ctx, struct samu_node *n, struct samu_edge *e)
 	/* allocate in powers of two */
 	if (!(n->nuse & (n->nuse - 1))) {
 		size_t new_nuse = n->nuse ? n->nuse * 2 : 1;
-		n->use = samu_xreallocarray(&ctx->arena, n->use, n->nuse, new_nuse, sizeof(e));
+		n->use = samu_xreallocarray(ctx->a, n->use, n->nuse, new_nuse, sizeof(e));
 	}
 	n->use[n->nuse++] = e;
 }
@@ -119,7 +119,7 @@ samu_mkedge(struct samu_ctx *ctx, struct samu_environment *parent)
 {
 	struct samu_edge *e;
 
-	e = samu_xmalloc(&ctx->arena, sizeof(*e));
+	e = samu_xmalloc(ctx->a, sizeof(*e));
 	e->env = samu_mkenv(ctx, parent);
 	e->pool = NULL;
 	e->out = NULL;
@@ -147,7 +147,7 @@ samu_edgehash(struct samu_ctx *ctx, struct samu_edge *e)
 		samu_fatal("rule '%s' has no command", e->rule->name);
 	rsp = samu_edgevar(ctx, e, "rspfile_content", true);
 	if (rsp && rsp->n > 0) {
-		s = samu_mkstr(&ctx->arena, cmd->n + sizeof(sep) - 1 + rsp->n);
+		s = samu_mkstr(ctx->a, cmd->n + sizeof(sep) - 1 + rsp->n);
 		memcpy(s->s, cmd->s, cmd->n);
 		memcpy(s->s + cmd->n, sep, sizeof(sep) - 1);
 		memcpy(s->s + cmd->n + sizeof(sep) - 1, rsp->s, rsp->n);
@@ -169,7 +169,7 @@ samu_mkphony(struct samu_ctx *ctx, struct samu_node *n)
 	e->inorderidx = 0;
 	e->outimpidx = 1;
 	e->nout = 1;
-	e->out = samu_xmalloc(&ctx->arena, sizeof(n));
+	e->out = samu_xmalloc(ctx->a, sizeof(n));
 	e->out[0] = n;
 
 	return e;
@@ -187,7 +187,7 @@ samu_edgeadddeps(struct samu_ctx *ctx, struct samu_edge *e, struct samu_node **d
 			n->gen = samu_mkphony(ctx, n);
 		samu_nodeuse(ctx, n, e);
 	}
-	e->in = samu_xreallocarray(&ctx->arena, e->in, e->nin, e->nin + ndeps, sizeof(e->in[0]));
+	e->in = samu_xreallocarray(ctx->a, e->in, e->nin, e->nin + ndeps, sizeof(e->in[0]));
 	order = e->in + e->inorderidx;
 	norder = e->nin - e->inorderidx;
 	memmove(order + ndeps, order, norder * sizeof(e->in[0]));
