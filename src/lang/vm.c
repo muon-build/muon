@@ -758,8 +758,6 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	static char buf[2048];
 	buf[0] = 0;
 #define buf_push(...) i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, __VA_ARGS__);
-#define op_case(__op) \
-	case __op: buf_push(#__op);
 
 	uint32_t ip = base_ip;
 	buf_push("%04x ", ip);
@@ -773,30 +771,31 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		}
 	}
 
-	// clang-format off
-	switch (op) {
-	op_case(op_pop) break;
-	op_case(op_dup) break;
-	op_case(op_swap) break;
-	op_case(op_stringify) break;
-	op_case(op_index) break;
-	op_case(op_add) break;
-	op_case(op_sub) break;
-	op_case(op_mul) break;
-	op_case(op_div) break;
-	op_case(op_mod) break;
-	op_case(op_eq) break;
-	op_case(op_in) break;
-	op_case(op_gt) break;
-	op_case(op_lt) break;
-	op_case(op_not) break;
-	op_case(op_negate) break;
-	op_case(op_return) break;
-	op_case(op_return_end) break;
-	op_case(op_try_load) break;
-	op_case(op_load) break;
+	buf_push("%s", vm_op_to_s(op));
 
-	op_case(op_store) {
+	switch (op) {
+	case op_pop: break;
+	case op_dup: break;
+	case op_swap: break;
+	case op_stringify: break;
+	case op_index: break;
+	case op_add: break;
+	case op_sub: break;
+	case op_mul: break;
+	case op_div: break;
+	case op_mod: break;
+	case op_eq: break;
+	case op_in: break;
+	case op_gt: break;
+	case op_lt: break;
+	case op_not: break;
+	case op_negate: break;
+	case op_return: break;
+	case op_return_end: break;
+	case op_try_load: break;
+	case op_load: break;
+
+	case op_store: {
 		buf_push(":%04x:", constants[0]);
 		if (constants[0] & op_store_flag_member) {
 			buf_push("member");
@@ -806,69 +805,40 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		}
 		break;
 	}
-	op_case(op_iterator)
-		buf_push(":%d", constants[0]);
-		break;
-	op_case(op_iterator_next)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_constant)
-		buf_push(":%o", constants[0]);
-		break;
-	op_case(op_constant_list)
-		buf_push(":len:%d", constants[0]);
-		break;
-	op_case(op_constant_dict)
-		buf_push(":len:%d", constants[0]);
-		break;
-	op_case(op_constant_func)
-		buf_push(":%d", constants[0]);
-		break;
-	op_case(op_call)
-		buf_push(":%d,%d", constants[0], constants[1]);
-		break;
-	op_case(op_member) {
+	case op_iterator: buf_push(":%d", constants[0]); break;
+	case op_iterator_next: buf_push(":%04x", constants[0]); break;
+	case op_constant: buf_push(":%o", constants[0]); break;
+	case op_constant_list: buf_push(":len:%d", constants[0]); break;
+	case op_constant_dict: buf_push(":len:%d", constants[0]); break;
+	case op_constant_func: buf_push(":%d", constants[0]); break;
+	case op_call: buf_push(":%d,%d", constants[0], constants[1]); break;
+	case op_member: {
 		uint32_t a;
 		a = constants[0];
 		buf_push(":%o", a);
 		break;
 	}
-	op_case(op_call_native)
+	case op_call_native:
 		buf_push(":");
 		buf_push("%d,%d,", constants[0], constants[1]);
 		uint32_t id = constants[2];
 		buf_push("%s", native_funcs[id].name);
 		break;
-	op_case(op_jmp_if_true)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp_if_false)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp_if_disabler)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp_if_disabler_keep)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_typecheck)
-		buf_push(":%s", obj_type_to_s(constants[0]));
-		break;
+	case op_jmp_if_true: buf_push(":%04x", constants[0]); break;
+	case op_jmp_if_false: buf_push(":%04x", constants[0]); break;
+	case op_jmp_if_disabler: buf_push(":%04x", constants[0]); break;
+	case op_jmp_if_disabler_keep: buf_push(":%04x", constants[0]); break;
+	case op_jmp: buf_push(":%04x", constants[0]); break;
+	case op_typecheck: buf_push(":%s", obj_type_to_s(constants[0])); break;
 
-	op_case(op_az_branch)
+	case op_az_branch:
 		buf_push(":%d", constants[0]);
 		buf_push(", obj:%d, %d", constants[1], constants[2]);
 		break;
-	op_case(op_az_merge)
-		break;
-	op_case(op_dbg_break)
-		break;
+	case op_az_merge: break;
+	case op_dbg_break: break;
 	case op_count: UNREACHABLE;
 	}
-	// clang-format on
 
 #undef buf_push
 
