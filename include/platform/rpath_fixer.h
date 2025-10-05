@@ -9,5 +9,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-bool fix_rpaths(const char *elf_path, const char *build_root);
+struct workspace;
+bool fix_rpaths(struct workspace *wk, const char *elf_path, const char *build_root);
 #endif

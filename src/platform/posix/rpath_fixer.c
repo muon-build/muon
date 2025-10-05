@@ -196,7 +196,7 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 }
 
 static bool
-remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
+remove_paths(struct workspace *wk, FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
 {
 	char rpath[BUF_SIZE_4k];
 	uint32_t rpath_len = 0, cur_off = s_dynstr->off + str->off, copy_to = cur_off;
@@ -217,7 +217,7 @@ remove_paths(FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, cons
 			assert(rpath_len <= ARRAY_LEN(rpath));
 			rpath[rpath_len] = 0;
 
-			if (path_is_subpath(build_root, rpath) || rpath_len == 0) {
+			if (path_is_subpath(wk, build_root, rpath) || rpath_len == 0) {
 				modified = true;
 			} else {
 				if (modified) {
@@ -296,7 +296,7 @@ remove_path_entry(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 }
 
 bool
-fix_rpaths(const char *elf_path, const char *build_root)
+fix_rpaths(struct workspace *wk, const char *elf_path, const char *build_root)
 {
 	bool ret = false;
 	FILE *f = NULL;

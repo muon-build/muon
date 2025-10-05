@@ -167,7 +167,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			}
 
 			if (in->build_target) {
-				if (!fix_rpaths(dest, wk->build_root)) {
+				if (!fix_rpaths(wk, dest, wk->build_root)) {
 					return ir_err;
 				}
 			}
