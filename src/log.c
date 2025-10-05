@@ -328,7 +328,7 @@ print_buffer(FILE *out, const char *s, uint32_t len, bool tty, bool progress)
 void
 log_printn(enum log_level lvl, const char *buf, uint32_t len)
 {
-	TracyCMessage(buf, len);
+	// TracyCMessage(buf, len);
 
 	if (log_cfg.debug_file) {
 		print_buffer(log_cfg.debug_file, buf, len, false, false);
