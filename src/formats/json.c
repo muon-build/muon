@@ -8,7 +8,6 @@
 #include "compat.h"
 
 #include <ctype.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,8 +25,6 @@
  *
  * jmsn was replaced with json because I find that much easier to read and type
  ******************************************************************************/
-
-#include <stddef.h>
 
 enum json_type {
 	json_type_eof,
@@ -85,7 +82,7 @@ json_error(struct workspace *wk, struct json_parser *p, const char *fmt, ...)
 
 	TSTR(buf);
 
-	tstr_pushf(wk, &buf, "%d:%d: ", dloc.line, dloc.col);
+	tstr_pushf(wk, &buf, "%d %d:%d: ", p->tok.loc.off, dloc.line, dloc.col);
 
 	va_list ap;
 	va_start(ap, fmt);
@@ -233,7 +230,7 @@ json_lex_string(struct workspace *wk, struct json_parser *p)
 			}
 			}
 		} else if (c == 0) {
-			return json_error(wk, p, "unescaped control character in string");
+			return json_error(wk, p, "unescaped 0 byte in string");
 		} else if (c == '\n' || c == '\t' || c == '\r') {
 			return json_error(wk, p, "unescaped whitespace in string");
 		} else {
@@ -355,6 +352,11 @@ json_parse_container(struct workspace *wk, struct json_parser *p, enum json_type
 
 	do {
 		obj v = json_parse(wk, p);
+		if (p->err) {
+			res = p->err;
+			goto done;
+		}
+
 		if (container_type == '{') {
 			if (get_obj_type(wk, v) != obj_string) {
 				json_error(wk, p, "object keys must be strings");
