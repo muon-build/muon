@@ -14,7 +14,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/os.h"
-#include <sys/param.h>
 #include "platform/path.h"
 
 static struct {
