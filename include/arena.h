@@ -17,7 +17,7 @@ struct ar_params {
 	uint64_t block_size;
 };
 
-#if defined(TRACY_ENABLE) || 1
+#if defined(TRACY_ENABLE)
 #define ARENA_TRACE 1
 #else
 #define ARENA_TRACE 0
