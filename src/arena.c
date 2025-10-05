@@ -135,6 +135,12 @@ ar_trace_waste(struct arena *a, uint64_t n)
 	TracyCPlot(a->trace->waste_tag, waste_mb);
 #endif
 }
+#else
+#define ar_trace_alloc_block(a, b)
+#define ar_trace_free_block(a, b)
+#define ar_trace_waste(a, b)
+#define ar_trace_alloc(a, b, c, d)
+#define ar_trace_free_block_section(a, b, c)
 #endif
 
 enum ar_flag {
