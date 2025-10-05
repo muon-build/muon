@@ -95,19 +95,25 @@ enum LspCompletionItemKind {
 	LspCompletionItemKindTypeParameter = 25,
 };
 
-static bool
-az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
+enum az_srv_read_result {
+	az_srv_read_result_err,
+	az_srv_read_result_ok,
+	az_srv_read_result_eof,
+};
+
+static enum az_srv_read_result
+az_srv_read_bytes(struct az_srv *srv)
 {
 	struct tstr *buf = srv->transport.in_buf;
 
 	if (buf->cap - buf->len < 16) {
-		tstr_grow(wk, buf, 1024);
+		tstr_grow(srv->wk, buf, 1024);
 	}
 
 	const uint32_t space_available = buf->cap - buf->len;
 	uint32_t bytes_available = space_available;
 	if (!fs_wait_for_input(srv->transport.in, &bytes_available)) {
-		return false;
+		return az_srv_read_result_err;
 	}
 
 	if (bytes_available > space_available) {
@@ -116,13 +122,12 @@ az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 
 	int32_t n = fs_read(srv->transport.in, buf->buf + buf->len, bytes_available);
 	if (n <= 0) {
-		// EOF, error
-		return false;
+		return az_srv_read_result_eof;
 	}
 
 	buf->len += n;
 
-	return true;
+	return az_srv_read_result_ok;
 }
 
 static void
@@ -135,8 +140,8 @@ az_srv_buf_shift(struct az_srv *srv, uint32_t amnt)
 	memmove(buf->buf, start, buf->len);
 }
 
-static bool
-az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
+static enum az_srv_read_result
+az_srv_read(struct az_srv *srv, struct workspace *wk, obj *msg)
 {
 	TracyCZoneAutoS;
 	int64_t content_length = 0;
@@ -145,9 +150,18 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 	{
 		char *end;
 		while (!(end = memmem(buf->buf, buf->len, "\r\n\r\n", 4))) {
-			if (!az_srv_read_bytes(wk, srv)) {
-				LOG_E("failed to read entire header");
-				return false;
+			switch(az_srv_read_bytes(srv)) {
+			case az_srv_read_result_err:
+				LOG_E("error when reading message header");
+				return az_srv_read_result_err;
+			case az_srv_read_result_ok:
+				break;
+			case az_srv_read_result_eof:
+				if (buf->len) {
+					LOG_E("eof when reading message header");
+					return az_srv_read_result_err;
+				}
+				return az_srv_read_result_eof;
 			}
 		}
 
@@ -190,9 +204,15 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 
 	{
 		while (buf->len < content_length) {
-			if (!az_srv_read_bytes(wk, srv)) {
-				LOG_E("Failed to read entire message");
-				return false;
+			switch (az_srv_read_bytes(srv)) {
+			case az_srv_read_result_err:
+				LOG_E("error when reading message body");
+				return az_srv_read_result_err;
+			case az_srv_read_result_eof:
+				LOG_E("eof when reading message body");
+				return az_srv_read_result_err;
+			case az_srv_read_result_ok:
+				break;
 			}
 		}
 
@@ -1038,22 +1058,38 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 	analyze_opts_init(srv.wk, &srv.opts);
 	srv.opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
 
+	struct arena a, a_scratch;
+	arena_init(&a,);
+	arena_init(&a_scratch,);
+
+	bool ok = true;
+
 	LOG_I("muon lsp listening...");
+
+	TSTR(in_buf);
+	srv.transport.in_buf = &in_buf;
 
 	while (true) {
 		TracyCFrameMark;
 
-		struct workspace wk = { 0 };
-		workspace_init_bare(&wk, srv_wk->a_scratch, 0);
-		TSTR(in_buf);
-		srv.transport.in_buf = &in_buf;
+		struct workspace wk = { .a = &a, .a_scratch = &a_scratch };
+		workspace_init_bare(&wk, &a, &a_scratch);
+
 		srv.should_analyze = false;
 		srv.req.id = srv.req.result = srv.req.type = 0;
 
 		obj msg;
-		if (!az_srv_read(&wk, &srv, &msg)) {
+		switch (az_srv_read(&srv, &wk, &msg)) {
+		case az_srv_read_result_err:
+			ok = false;
+			goto shutdown;
+		case az_srv_read_result_eof:
+			goto shutdown;
+		case az_srv_read_result_ok:
 			break;
 		}
+
+		workspace_scratch_begin(srv_wk);
 
 		obj_lprintf(&wk, log_debug, "<<< %#o\n", msg);
 
@@ -1103,7 +1139,15 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		if (debug_log) {
 			fflush(debug_log);
 		}
+
+		workspace_scratch_end(srv_wk);
+
+		ar_clear(&a);
+		ar_clear(&a_scratch);
 	}
+
+shutdown:
+
 	LOG_I("muon lsp shutting down");
 
 	if (debug_log) {
@@ -1111,5 +1155,8 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		log_set_debug_file(0);
 	}
 
-	return true;
+	ar_destroy(&a);
+	ar_destroy(&a_scratch);
+
+	return ok;
 }
