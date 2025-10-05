@@ -10,17 +10,17 @@ endfunc
 
 func initialize_msg(src_root str) -> dict[any]
     return {
-		'method': 'initialize',
+        'method': 'initialize',
         'params': {
-			'processId': 1,
-			'clientInfo': {'name': 'muon lsp tests runner'},
-			'locale': 'en',
-			'rootUri': uri(src_root),
-			'capabilities': {},
-			'initializationOptions': {},
-			'trace': 'verbose',
-		}
-	}
+            'processId': 1,
+            'clientInfo': {'name': 'muon lsp tests runner'},
+            'locale': 'en',
+            'rootUri': uri(src_root),
+            'capabilities': {},
+            'initializationOptions': {},
+            'trace': 'verbose',
+        },
+    }
 endfunc
 
 func did_open_msg(path str) -> dict[any]
@@ -31,8 +31,8 @@ func did_open_msg(path str) -> dict[any]
                 'uri': uri(path),
                 'languageId': 'meson',
                 'text': fs.read(path),
-            }
-        }
+            },
+        },
     }
 endfunc
 
@@ -46,12 +46,11 @@ func did_change_msg(path str, text_path str) -> dict[any]
             'contentChanges': [
                 {
                     'text': fs.read(text_path),
-                }
+                },
             ],
-        }
+        },
     }
 endfunc
-
 
 func build_input(src_root str) -> str
     input = [initialize_msg(src_root)] + json.parse(fs.read(src_root / 'input.json'))
@@ -76,10 +75,7 @@ func build_input(src_root str) -> str
 
         msg += {'jsonrpc': '2.0', 'id': msg_id}
         msg = json.stringify(msg)
-        tmp += [
-            'Content-Length: @0@\r\n\r\n'.format(msg.length()),
-            msg
-        ]
+        tmp += ['Content-Length: @0@\r\n\r\n'.format(msg.length()), msg]
     endforeach
 
     return ''.join(tmp)
@@ -89,10 +85,10 @@ func publish_diagnostics_msg(msg dict[any], path str) -> dict[any]
     return {
         'method': 'textDocument/publishDiagnostics',
         'params': {
-          'uri': uri(path),
-          'diagnostics': msg.params.diagnostics,
-        }
-      }
+            'uri': uri(path),
+            'diagnostics': msg.params.diagnostics,
+        },
+    }
 endfunc
 
 func parse_output(raw_output str) -> list[dict[any]]
@@ -156,7 +152,9 @@ func main()
     expected_output = parse_expected_output(src_root, json.parse(fs.read(src_root / 'output.json')))
 
     if output.length() != expected_output.length() + 1
-        message('got @0@ messages but expected @1@'.format(output.length(), expected_output.length() + 1))
+        message(
+            'got @0@ messages but expected @1@'.format(output.length(), expected_output.length() + 1),
+        )
         assert(false)
     endif
 
