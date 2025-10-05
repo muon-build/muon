@@ -111,6 +111,8 @@ struct workspace {
 
 	uint32_t cur_project, init_flags;
 
+	struct error_diagnostic_store *diagnostic_store;
+
 #ifdef TRACY_ENABLE
 	struct {
 		bool is_master_workspace;

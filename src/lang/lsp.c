@@ -415,7 +415,7 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 		}
 	}
 
-	const struct arr *diagnostics = error_diagnostic_store_get();
+	const struct arr *diagnostics = &wk->diagnostic_store->messages;
 
 	uint32_t i;
 	struct error_diagnostic_message *msg;

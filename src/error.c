@@ -17,26 +17,11 @@
 #include "log.h"
 #include "platform/assert.h"
 
-static struct {
-	struct arr messages;
-	struct workspace *wk;
-	enum error_diagnostic_store_replay_opts opts;
-	bool init;
-} error_diagnostic_store = { 0 };
-
 void
 error_diagnostic_store_init(struct workspace *wk)
 {
-	memset(&error_diagnostic_store, 0, sizeof(error_diagnostic_store));
-	arr_init(wk->a, &error_diagnostic_store.messages, 32, struct error_diagnostic_message);
-	error_diagnostic_store.init = true;
-	error_diagnostic_store.wk = wk;
-}
-
-struct arr *
-error_diagnostic_store_get(void)
-{
-	return &error_diagnostic_store.messages;
+	wk->diagnostic_store = ar_make(wk->a, struct error_diagnostic_store);
+	arr_init(wk->a, &wk->diagnostic_store->messages, 32, struct error_diagnostic_message);
 }
 
 void
@@ -46,7 +31,7 @@ error_diagnostic_store_push(struct workspace *wk, uint32_t src_idx, struct sourc
 	char *m = ar_alloc(wk->a, mlen + 1, 1, 1);
 	memcpy(m, msg, mlen);
 
-	arr_push(error_diagnostic_store.wk->a, &error_diagnostic_store.messages,
+	arr_push(wk->a, &wk->diagnostic_store->messages,
 		&(struct error_diagnostic_message){
 			.location = location,
 			.lvl = lvl,
@@ -92,27 +77,27 @@ error_diagnostic_store_compare(const void *_a, const void *_b, void *ctx)
 bool
 error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_replay_opts opts)
 {
-	error_diagnostic_store.init = false;
-	error_diagnostic_store.opts = opts;
+	struct error_diagnostic_store *diagnostic_store = wk->diagnostic_store;
+	diagnostic_store->opts = opts;
 
 	uint32_t i;
 	struct error_diagnostic_message *msg;
 	struct source *last_src = 0, *cur_src;
 
-	if (!error_diagnostic_store.messages.len) {
+	if (!diagnostic_store->messages.len) {
 		return false;
 	}
 
-	arr_sort(&error_diagnostic_store.messages, NULL, error_diagnostic_store_compare);
+	arr_sort(&diagnostic_store->messages, NULL, error_diagnostic_store_compare);
 
 	{
 		struct arr filtered;
 		arr_init(wk->a, &filtered, 32, struct error_diagnostic_message);
-		arr_push(wk->a, &filtered, arr_get(&error_diagnostic_store.messages, 0));
+		arr_push(wk->a, &filtered, arr_get(&diagnostic_store->messages, 0));
 		struct error_diagnostic_message *prev_msg, tmp;
-		for (i = 1; i < error_diagnostic_store.messages.len; ++i) {
-			prev_msg = arr_get(&error_diagnostic_store.messages, i - 1);
-			msg = arr_get(&error_diagnostic_store.messages, i);
+		for (i = 1; i < diagnostic_store->messages.len; ++i) {
+			prev_msg = arr_get(&diagnostic_store->messages, i - 1);
+			msg = arr_get(&diagnostic_store->messages, i);
 
 			if (error_diagnostic_store_compare_except_lvl(prev_msg, msg, 0) == 0) {
 				continue;
@@ -122,7 +107,7 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 			arr_push(wk->a, &filtered, &tmp);
 		}
 
-		error_diagnostic_store.messages = filtered;
+		diagnostic_store->messages = filtered;
 	}
 
 	if (opts & error_diagnostic_store_replay_prepare_only) {
@@ -130,6 +115,8 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 	}
 
 	/* ---------------------------------------------------------------------- */
+
+	wk->diagnostic_store = 0;
 
 	bool ok = true;
 
@@ -141,8 +128,8 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 	struct source src = { 0 }, null_src = {
 		.label = "",
 	};
-	for (i = 0; i < error_diagnostic_store.messages.len; ++i) {
-		msg = arr_get(&error_diagnostic_store.messages, i);
+	for (i = 0; i < diagnostic_store->messages.len; ++i) {
+		msg = arr_get(&diagnostic_store->messages, i);
 
 		if (opts & error_diagnostic_store_replay_werror) {
 			msg->lvl = log_error;
@@ -379,7 +366,6 @@ struct error_diagnostic_message_record {
 	bool was_emitted;
 };
 
-// TODO: move into workspace?
 static struct error_diagnostic_message_record error_message_previously_emitted = { 0 };
 
 void
@@ -452,7 +438,7 @@ error_message(struct workspace *wk,
 		error_message_previously_emitted.was_emitted = true;
 	}
 
-	if (error_diagnostic_store.init) {
+	if (wk->diagnostic_store) {
 		if (!src || (src->len == 0 && src->src == 0)) {
 			// Skip messages generated for code regions with no
 			// sources
@@ -460,12 +446,12 @@ error_message(struct workspace *wk,
 		}
 
 		uint32_t i;
-		for (i = 0; i < error_diagnostic_store.wk->vm.src.len; ++i) {
-			if (src == (struct source *)(arr_get(&error_diagnostic_store.wk->vm.src, i))) {
+		for (i = 0; i < wk->vm.src.len; ++i) {
+			if (src == (struct source *)(arr_get(&wk->vm.src, i))) {
 				break;
 			}
 		}
-		assert(i < error_diagnostic_store.wk->vm.src.len);
+		assert(i < wk->vm.src.len);
 
 		error_diagnostic_store_push(wk, i, location, lvl, msg);
 		return;
