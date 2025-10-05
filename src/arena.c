@@ -307,6 +307,9 @@ ar_clear(struct arena *a)
 		b = next;
 	}
 
+	ar_trace_free_block(a, b);
+	ar_trace_alloc_block(a, b);
+
 	a->head->next = 0;
 	a->tail = a->head;
 	ar_block_clear(a->head);
