@@ -328,7 +328,7 @@ fix_rpaths(struct workspace *wk, const char *elf_path, const char *build_root)
 		}
 
 		bool cleared;
-		if (!remove_paths(f, &s_dynstr, &rpaths[i], build_root, &cleared)) {
+		if (!remove_paths(wk, f, &s_dynstr, &rpaths[i], build_root, &cleared)) {
 			goto ret;
 		}
 
