@@ -1,0 +1,180 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+json = import('json')
+fs = import('fs')
+
+func uri(s str) -> str
+    return f'file://@s@'
+endfunc
+
+func initialize_msg(src_root str) -> dict[any]
+    return {
+		'method': 'initialize',
+        'params': {
+			'processId': 1,
+			'clientInfo': {'name': 'muon lsp tests runner'},
+			'locale': 'en',
+			'rootUri': uri(src_root),
+			'capabilities': {},
+			'initializationOptions': {},
+			'trace': 'verbose',
+		}
+	}
+endfunc
+
+func did_open_msg(path str) -> dict[any]
+    return {
+        'method': 'textDocument/didOpen',
+        'params': {
+            'textDocument': {
+                'uri': uri(path),
+                'languageId': 'meson',
+                'text': fs.read(path),
+            }
+        }
+    }
+endfunc
+
+func did_change_msg(path str, text_path str) -> dict[any]
+    return {
+        'method': 'textDocument/didChange',
+        'params': {
+            'textDocument': {
+                'uri': uri(path),
+            },
+            'contentChanges': [
+                {
+                    'text': fs.read(text_path),
+                }
+            ],
+        }
+    }
+endfunc
+
+
+func build_input(src_root str) -> str
+    input = [initialize_msg(src_root)] + json.parse(fs.read(src_root / 'input.json'))
+
+    file_rev = {}
+
+    tmp = []
+    msg_id = 1
+    foreach msg : input
+        # Replace custom messages
+        if msg.method == 'muon/textDocument/didOpen'
+            rel_uri = msg.params.relUri
+            msg = did_open_msg(src_root / rel_uri)
+            file_rev[rel_uri] = 0
+        elif msg.method == 'muon/textDocument/didChange'
+            rel_uri = msg.params.relUri
+            assert(rel_uri in file_rev)
+            rev = file_rev[rel_uri] += 1
+
+            msg = did_change_msg(src_root / rel_uri, src_root / f'@rel_uri@-@rev@')
+        endif
+
+        msg += {'jsonrpc': '2.0', 'id': msg_id}
+        msg = json.stringify(msg)
+        tmp += [
+            'Content-Length: @0@\r\n\r\n'.format(msg.length()),
+            msg
+        ]
+    endforeach
+
+    return ''.join(tmp)
+endfunc
+
+func publish_diagnostics_msg(msg dict[any], path str) -> dict[any]
+    return {
+        'method': 'textDocument/publishDiagnostics',
+        'params': {
+          'uri': uri(path),
+          'diagnostics': msg.params.diagnostics,
+        }
+      }
+endfunc
+
+func parse_output(raw_output str) -> list[dict[any]]
+    tmp = []
+    foreach msg : raw_output.split('Content-Length').slice(1)
+        msg_parts = msg.split('\r\n\r\n')
+
+        msg = json.parse(msg_parts[1])
+        msg.delete('jsonrpc')
+        msg.delete('id')
+
+        tmp += msg
+    endforeach
+
+    return tmp
+endfunc
+
+func parse_expected_output(src_root str, output list[dict[any]]) -> list[dict[any]]
+    tmp = []
+    foreach msg : output
+        # Replace custom messages
+        if 'method' in msg and msg.method == 'muon/textDocument/publishDiagnostics'
+            msg = publish_diagnostics_msg(msg, src_root / msg.params.relUri)
+        endif
+
+        tmp += msg
+    endforeach
+    return tmp
+endfunc
+
+func main()
+    if argv.length() != 4
+        error('usage: @0@ <muon> <src_root> <build_root>'.format(argv[0]))
+    endif
+
+    muon = argv[1]
+    src_root = fs.make_absolute(argv[2])
+    build_root = fs.make_absolute(argv[3])
+
+    # build and write input
+    fs.mkdir(build_root)
+    tmp_json = build_root / 'input.json'
+    fs.write(tmp_json, build_input(src_root))
+
+    # run lsp
+    run_result = run_command(
+        [muon, '-v', '-C', src_root, 'analyze', 'lsp'],
+        feed: tmp_json,
+        check: true,
+    )
+
+    # print('got:\n')
+    # print('---\n')
+    # p(run_result.stdout())
+    # print('---\n')
+    # print(run_result.stderr())
+    # print('---\n')
+
+    # diff output with expected output
+    output = parse_output(run_result.stdout())
+    expected_output = parse_expected_output(src_root, json.parse(fs.read(src_root / 'output.json')))
+
+    if output.length() != expected_output.length() + 1
+        message('got @0@ messages but expected @1@'.format(output.length(), expected_output.length() + 1))
+        assert(false)
+    endif
+
+    foreach i : range(output.length())
+        if i == 0
+            assert(output[i].result.serverInfo.name == 'muon')
+        else
+            eq = output[i] == expected_output[i - 1]
+            if not eq
+                print('-----------------\nactual: ')
+                p(output[i], pretty: true)
+                print('!=\nexpected: ')
+                p(expected_output[i - 1], pretty: true)
+                print('-----------------\n')
+            endif
+            assert(eq)
+        endif
+    endforeach
+endfunc
+
+main()

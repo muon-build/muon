@@ -1,0 +1,4 @@
+project('foobar')
+
+unused_var = 1
+message(unused_var)

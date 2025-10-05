@@ -1,0 +1,23 @@
+[
+  {
+    "method": "muon/textDocument/didOpen",
+    "params": {
+      "relUri": "meson.build"
+    }
+  },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } },
+  { "method": "muon/textDocument/didChange", "params": { "relUri": "meson.build" } }
+]

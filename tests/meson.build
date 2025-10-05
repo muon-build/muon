@@ -7,6 +7,7 @@ add_test_setup('no_python', exclude_suites: 'requires_python')
 subdir('fmt')
 subdir('fuzz')
 subdir('lang')
+subdir('lsp')
 subdir('project')
 
 foreach script : embedded_scripts
