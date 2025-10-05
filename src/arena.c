@@ -19,7 +19,13 @@
 #include <stdlib.h>
 #endif
 
-#if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
+#if !defined(__SANITIZE_ADDRESS__) && defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define __SANITIZE_ADDRESS__
+#endif
+#endif
+
+#if defined(__SANITIZE_ADDRESS__)
 #include <sanitizer/asan_interface.h>
 #define asan_poison_memory_region(addr, size) __asan_poison_memory_region((addr), (size))
 #define asan_unpoison_memory_region(addr, size) __asan_unpoison_memory_region((addr), (size))
