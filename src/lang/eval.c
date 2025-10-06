@@ -551,7 +551,7 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 			tstr_pushf(wk, &name_buf, "%s%s", names[i].name, i + 1 == ARRAY_LEN(names) ? "" : ", ");
 		}
 
-		vm_error_at(wk, -1, "no build file found in %s (tried %s)", cwd, name_buf.buf);
+		vm_error_at(wk, UINT32_MAX, "no build file found in %s (tried %s)", cwd, name_buf.buf);
 	}
 
 	if (!found) {

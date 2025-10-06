@@ -1021,7 +1021,7 @@ az_srv_dbg_break_cb(struct workspace *wk)
 bool
 analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 {
-	log_set_file(stderr);
+	log_set_file(srv_wk, stderr);
 
 	if (cmdline_opts->lsp.wait_for_debugger) {
 		LOG_I("muon lsp waiting for debugger...");

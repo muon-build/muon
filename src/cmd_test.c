@@ -1193,7 +1193,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 
 		if (opts->display == test_display_auto) {
 			opts->display = test_display_dots;
-			if (fs_is_a_tty_from_fd(term_fd)) {
+			if (fs_is_a_tty_from_fd(wk, term_fd)) {
 				opts->display = test_display_bar;
 			}
 		}

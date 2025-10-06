@@ -30,10 +30,11 @@ extern const char *log_level_shortname[log_level_count];
 #define LLOG_W(...) log_print(false, log_warn, __VA_ARGS__)
 #define LLOG_E(...) log_print(false, log_error, __VA_ARGS__)
 
-void log_set_file(FILE *log_file);
-void log_set_debug_file(FILE *log_file);
 struct tstr;
 struct workspace;
+
+void log_set_file(struct workspace *wk, FILE *log_file);
+void log_set_debug_file(FILE *log_file);
 void log_set_buffer(struct workspace *wk, struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
 void log_set_prefix(int32_t n);
@@ -43,7 +44,6 @@ void log_progress_disable(void);
 bool log_is_progress_bar_enabled(void);
 void log_progress_push_level(double start, double end);
 void log_progress_pop_level(void);
-struct workspace;
 void log_progress_push_state(struct workspace *wk);
 void log_progress_pop_state(struct workspace *wk);
 void log_progress_inc(struct workspace *wk);

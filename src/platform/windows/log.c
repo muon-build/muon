@@ -50,8 +50,8 @@ print_colorized_attr_cb(void *_ctx, enum ansi_attr attr)
 {
 	struct print_colorized_ctx *ctx = _ctx;
 
-	WORD attr_to_set;
-	if (attr < ARRAY_LEN(color_map)) {
+	WORD attr_to_set = 0;
+	if ((uint32_t)attr < ARRAY_LEN(color_map)) {
 		attr_to_set = color_map[attr];
 	}
 

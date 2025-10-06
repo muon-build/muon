@@ -431,12 +431,12 @@ bool_to_yn(bool v)
 }
 
 void
-log_set_file(FILE *log_file)
+log_set_file(struct workspace *wk, FILE *log_file)
 {
 	log_cfg.file = log_file;
 	log_cfg.tstr = 0;
 	log_cfg.tstr_wk = 0;
-	log_cfg.file_is_a_tty = log_file && fs_is_a_tty(log_file);
+	log_cfg.file_is_a_tty = log_file && fs_is_a_tty(wk, log_file);
 }
 
 void
@@ -448,7 +448,7 @@ log_set_debug_file(FILE *log_file)
 void
 log_set_buffer(struct workspace *wk, struct tstr *buf)
 {
-	log_set_file(0);
+	log_set_file(wk, 0);
 	log_cfg.tstr = buf;
 	log_cfg.tstr_wk = wk;
 }

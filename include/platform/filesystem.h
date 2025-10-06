@@ -23,7 +23,7 @@ enum fs_mtime_result fs_mtime(const char *path, int64_t *mtime);
 bool fs_exists(const char *path);
 bool fs_file_exists(const char *path);
 bool fs_symlink_exists(const char *path);
-bool fs_exe_exists(const char *path);
+bool fs_exe_exists(struct workspace *wk, const char *path);
 bool fs_dir_exists(const char *path);
 bool fs_mkdir(const char *path, bool exist_ok);
 bool fs_mkdir_p(struct workspace *wk, const char *path);
@@ -55,8 +55,8 @@ bool fs_make_symlink(const char *target, const char *path, bool force);
 bool fs_fseek(FILE *file, size_t off);
 bool fs_ftell(FILE *file, uint64_t *res);
 const char *fs_user_home(void);
-bool fs_is_a_tty_from_fd(int fd);
-bool fs_is_a_tty(FILE *f);
+bool fs_is_a_tty_from_fd(struct workspace *wk, int fd);
+bool fs_is_a_tty(struct workspace *wk, FILE *f);
 bool fs_chmod(const char *path, uint32_t mode);
 bool fs_copy_metadata(const char *src, const char *dest);
 bool fs_remove(const char *path);
@@ -66,7 +66,7 @@ bool fs_make_writeable_if_exists(const char *path);
 bool fs_wait_for_input(int fd, uint32_t *bytes_available);
 
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
-bool fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb);
+bool fs_dir_foreach(struct workspace *wk, const char *path, void *_ctx, fs_dir_foreach_cb cb);
 
 #ifndef S_ISGID
 #define S_ISGID 0

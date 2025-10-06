@@ -68,7 +68,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 			.wk = ctx->wk,
 		};
 
-		if (!fs_dir_foreach(src.buf, &new_ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(ctx->wk, src.buf, &new_ctx, copy_subdir_iter)) {
 			return ir_err;
 		}
 	} else if (fs_symlink_exists(src.buf) || fs_file_exists(src.buf)) {
@@ -193,7 +193,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			.wk = wk,
 		};
 
-		if (!fs_dir_foreach(src, &ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(wk, src, &ctx, copy_subdir_iter)) {
 			return ir_err;
 		}
 		break;

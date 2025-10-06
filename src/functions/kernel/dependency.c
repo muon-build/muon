@@ -469,7 +469,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 					.wk = wk,
 					.fw = get_str(wk, fw),
 				};
-				fs_dir_foreach(get_str(wk, fw_dir)->s,
+				fs_dir_foreach(wk, get_str(wk, fw_dir)->s,
 					&scan_path_ctx,
 					get_dependency_extraframework_scan_path_cb);
 				if (!scan_path_ctx.res) {

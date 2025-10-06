@@ -1402,7 +1402,7 @@ wrap_load_all_provides(struct workspace *wk, const char *subprojects)
 		return true;
 	}
 
-	if (!fs_dir_foreach(subprojects, &ctx, wrap_load_all_iter)) {
+	if (!fs_dir_foreach(wk, subprojects, &ctx, wrap_load_all_iter)) {
 		return false;
 	}
 

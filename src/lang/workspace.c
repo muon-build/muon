@@ -288,7 +288,7 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 	}
 
 	FILE *old_log_file = _log_file();
-	log_set_file(out);
+	log_set_file(wk, out);
 
 	uint32_t i;
 	struct project *proj;
@@ -367,7 +367,7 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 		}
 	}
 
-	log_set_file(old_log_file);
+	log_set_file(wk, old_log_file);
 }
 
 static obj

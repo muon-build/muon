@@ -616,7 +616,7 @@ cmd_dump_signatures(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 static bool
 cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	log_set_file(stderr);
+	log_set_file(wk, stderr);
 
 	OPTSTART("") {
 	}
@@ -1136,7 +1136,7 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 		return false;
 	}
 
-	log_set_file(stderr);
+	log_set_file(wk, stderr);
 
 	opts.filenames = &argv[argi];
 	const uint32_t num_files = argc - argi;
@@ -1347,14 +1347,16 @@ main(int argc, char *argv[])
 {
 	platform_init();
 
-	log_set_file(stdout);
-	log_set_lvl(log_info);
-
 	struct arena a;
 	struct arena a_scratch;
 	arena_init(&a,);
 	arena_init(&a_scratch,);
 	struct workspace wk;
+	workspace_init_arena(&wk, &a, &a_scratch);
+
+	log_set_file(&wk, stdout);
+	log_set_lvl(log_info);
+
 	workspace_init_bare(&wk, &a, &a_scratch);
 
 	path_init(&wk);

@@ -427,7 +427,7 @@ fs_copy_dir_ctx(struct workspace *wk, struct fs_copy_dir_ctx *ctx)
 		return ir_err;
 	}
 
-	return fs_dir_foreach(ctx->src_base, ctx, fs_copy_dir_iter);
+	return fs_dir_foreach(wk, ctx->src_base, ctx, fs_copy_dir_iter);
 }
 
 bool
@@ -503,17 +503,17 @@ fs_rmdir_recursive(struct workspace *wk, const char *path, bool force)
 		.force = force,
 	};
 
-	return fs_dir_foreach(path, &ctx, fs_rmdir_iter);
+	return fs_dir_foreach(wk, path, &ctx, fs_rmdir_iter);
 }
 
 bool
-fs_is_a_tty(FILE *f)
+fs_is_a_tty(struct workspace *wk, FILE *f)
 {
 	int fd;
 	if (!fs_fileno(f, &fd)) {
 		return false;
 	}
-	return fs_is_a_tty_from_fd(fd);
+	return fs_is_a_tty_from_fd(wk, fd);
 }
 
 bool

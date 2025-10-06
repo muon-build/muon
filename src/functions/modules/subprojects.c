@@ -93,7 +93,7 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 			.wk = wk,
 		};
 
-		return fs_dir_foreach(subprojects_dir(wk), &ctx, subprojects_foreach_iter);
+		return fs_dir_foreach(wk, subprojects_dir(wk), &ctx, subprojects_foreach_iter);
 	}
 
 	return true;
