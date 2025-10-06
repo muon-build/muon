@@ -70,6 +70,9 @@ void tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const
 void tstr_trim_trailing_newline(struct tstr *sb);
 obj tstr_into_str(struct workspace *wk, struct tstr *sb);
 
+void str_percent_encode(struct workspace *wk, const struct str *s, struct tstr *res);
+bool str_percent_decode(struct workspace *wk, const struct str *s, struct tstr *res);
+
 /* str - strings
  *
  * struct str a.k.a. obj_string a.k.a. string objects are the primary

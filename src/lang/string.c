@@ -69,6 +69,49 @@ str_escape_json(struct workspace *wk, struct tstr *sb, const struct str *ss)
 	}
 }
 
+void
+str_percent_encode(struct workspace *wk, const struct str *s, struct tstr *res)
+{
+	const char *uri_reserved_chars = "!#$&'()*+,:;=?@[]% ";
+
+	uint32_t i;
+	for (i = 0; i < s->len; ++i) {
+		if (strchr(uri_reserved_chars, s->s[i])) {
+			tstr_pushf(wk, res, "%%%02x", s->s[i]);
+		} else {
+			tstr_push(wk, res, s->s[i]);
+		}
+	}
+}
+
+bool
+str_percent_decode(struct workspace *wk, const struct str *s, struct tstr *res)
+{
+	for (uint32_t i = 0; i < s->len; ++i) {
+		if (s->s[i] == '%') {
+			++i;
+			if (i + 2 >= s->len) {
+				return false;
+			}
+
+			const struct str num = { &s->s[i], 2, 0 };
+			++i;
+
+			int64_t n;
+
+			if (!str_to_i_base(&num, &n, false, 16)) {
+				return 0;
+			}
+
+			tstr_push(wk, res, n);
+		} else {
+			tstr_push(wk, res, s->s[i]);
+		}
+	}
+
+	return true;
+}
+
 bool
 str_has_null(const struct str *ss)
 {

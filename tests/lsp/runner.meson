@@ -5,7 +5,7 @@ json = import('json')
 fs = import('fs')
 
 func uri(s str) -> str
-    return f'file://@s@'
+    return p('file://' + s.percent_encode())
 endfunc
 
 func initialize_msg(src_root str) -> dict[any]

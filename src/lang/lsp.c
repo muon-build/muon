@@ -341,27 +341,8 @@ az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
 	}
 
 	TSTR(res);
-
-	for (uint32_t i = 0; i < uri_s.len; ++i) {
-		if (uri_s.s[i] == '%') {
-			++i;
-			if (i + 2 >= uri_s.len) {
-				return 0;
-			}
-
-			const struct str num = { &uri_s.s[i], 2, 0 };
-			++i;
-
-			int64_t n;
-
-			if (!str_to_i_base(&num, &n, false, 16)) {
-				return 0;
-			}
-
-			tstr_push(wk, &res, n);
-		} else {
-			tstr_push(wk, &res, uri_s.s[i]);
-		}
+	if (!str_percent_decode(wk, &uri_s, &res)) {
+		return 0;
 	}
 
 	// Trim leading / from path on windows
@@ -378,8 +359,6 @@ az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
 static obj
 az_srv_path_to_uri(struct workspace *wk, const struct str *path)
 {
-	const char *uri_reserved_chars = "!#$&'()*+,:;=?@[]%";
-
 	TSTR(res);
 
 	tstr_pushs(wk, &res, "file://");
@@ -388,14 +367,7 @@ az_srv_path_to_uri(struct workspace *wk, const struct str *path)
 		tstr_push(wk, &res, '/');
 	}
 
-	uint32_t i;
-	for (i = 0; i < path->len; ++i) {
-		if (strchr(uri_reserved_chars, path->s[i])) {
-			tstr_pushf(wk, &res, "%%%02x", path->s[i]);
-		} else {
-			tstr_push(wk, &res, path->s[i]);
-		}
-	}
+	str_percent_encode(wk, path, &res);
 
 	return tstr_into_str(wk, &res);
 }

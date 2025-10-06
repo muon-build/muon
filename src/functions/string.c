@@ -539,6 +539,34 @@ FUNC_IMPL(string, shell_quote, tc_string)
 	return true;
 }
 
+FUNC_IMPL(string, percent_encode, tc_string)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	TSTR(buf);
+	str_percent_encode(wk, get_str(wk, self), &buf);
+
+	*res = tstr_into_str(wk, &buf);
+	return true;
+}
+
+FUNC_IMPL(string, percent_decode, tc_string)
+{
+	if (!pop_args(wk, 0, 0)) {
+		return false;
+	}
+
+	TSTR(buf);
+	if (!str_percent_decode(wk, get_str(wk, self), &buf)) {
+		return false;
+	}
+
+	*res = tstr_into_str(wk, &buf);
+	return true;
+}
+
 FUNC_IMPL(string, full_path, tc_string)
 {
 	if (!pop_args(wk, 0, 0)) {
@@ -571,6 +599,8 @@ FUNC_REGISTER(string)
 		FUNC_IMPL_REGISTER(string, length);
 		FUNC_IMPL_REGISTER(string, shell_split);
 		FUNC_IMPL_REGISTER(string, shell_quote);
+		FUNC_IMPL_REGISTER(string, percent_encode);
+		FUNC_IMPL_REGISTER(string, percent_decode);
 		FUNC_IMPL_REGISTER(string, full_path);
 	}
 }
