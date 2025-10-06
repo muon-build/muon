@@ -100,7 +100,7 @@ fs_file_exists(const char *path)
 }
 
 bool
-fs_exe_exists(const char *path)
+fs_exe_exists(struct workspace *wk, const char *path)
 {
 	struct stat sb;
 	if (access(path, X_OK) != 0) {
@@ -335,7 +335,7 @@ ret:
 }
 
 bool
-fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
+fs_dir_foreach(struct workspace *wk, const char *path, void *_ctx, fs_dir_foreach_cb cb)
 {
 	DIR *d;
 	struct dirent *ent;
@@ -404,7 +404,7 @@ fs_user_home(void)
 }
 
 bool
-fs_is_a_tty_from_fd(int fd)
+fs_is_a_tty_from_fd(struct workspace *wk, int fd)
 {
 	errno = 0;
 	if (isatty(fd) == 1) {
@@ -462,7 +462,7 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
 
-		if (fs_exe_exists(buf->buf)) {
+		if (fs_exe_exists(wk, buf->buf)) {
 			return true;
 		} else {
 			return false;
@@ -486,7 +486,7 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 
 			path_push(wk, buf, cmd);
 
-			if (fs_exe_exists(buf->buf)) {
+			if (fs_exe_exists(wk, buf->buf)) {
 				return true;
 			}
 

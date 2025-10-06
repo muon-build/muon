@@ -106,7 +106,7 @@ log_progress_set_style(const struct log_progress_style *style)
 }
 
 void
-log_progress_enable(void)
+log_progress_enable(struct workspace *wk)
 {
 	if (!log_cfg.file_is_a_tty) {
 		return;
@@ -121,7 +121,7 @@ log_progress_enable(void)
 	int term_fd;
 	if (fs_fileno(log_cfg.file, &term_fd)) {
 		uint32_t _h;
-		term_winsize(term_fd, &_h, &lp->width);
+		term_winsize(wk, term_fd, &_h, &lp->width);
 	}
 
 	if (!lp->width) {

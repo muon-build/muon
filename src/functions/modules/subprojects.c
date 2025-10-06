@@ -292,7 +292,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	// Progress bar setup
 	log_progress_push_state(wk);
 	if (opts->progress_bar) {
-		log_progress_enable();
+		log_progress_enable(wk);
 		log_progress_push_level(0, ctx.handlers.len);
 	}
 	struct subprojects_process_progress_decorate_ctx decorate_ctx = { .ctx = &ctx };

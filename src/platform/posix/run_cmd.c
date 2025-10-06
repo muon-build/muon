@@ -378,7 +378,7 @@ build_argv(struct workspace *wk,
 	if (!path_is_basename(cmd->buf)) {
 		path_make_absolute(wk, cmd, argv0);
 
-		if (!fs_exe_exists(cmd->buf)) {
+		if (!fs_exe_exists(wk, cmd->buf)) {
 			if (!run_cmd_determine_interpreter(wk, src, cmd->buf, &ctx->err_msg, &new_argv0, &new_argv1)) {
 				return false;
 			}

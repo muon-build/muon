@@ -510,7 +510,7 @@ workspace_do_setup(struct workspace *wk)
 	LOG_I("muon %s%s%s", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
 	if (progress) {
-		log_progress_enable();
+		log_progress_enable(wk);
 		log_progress_set_style(&(struct log_progress_style){ .rate_limit = 64, .name_pad = 20 });
 	}
 

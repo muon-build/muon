@@ -20,12 +20,12 @@
 #include "platform/term.h"
 
 bool
-term_winsize(int fd, uint32_t *height, uint32_t *width)
+term_winsize(struct workspace *wk, int fd, uint32_t *height, uint32_t *width)
 {
 	*height = 24;
 	*width = 80;
 
-	if (!fs_is_a_tty_from_fd(fd)) {
+	if (!fs_is_a_tty_from_fd(wk, fd)) {
 		return true;
 	}
 

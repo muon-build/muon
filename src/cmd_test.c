@@ -1200,7 +1200,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 
 		if (opts->display == test_display_bar) {
 			ctx.stats.term = true;
-			term_winsize(term_fd, &ctx.stats.term_height, &ctx.stats.term_width);
+			term_winsize(wk, term_fd, &ctx.stats.term_height, &ctx.stats.term_width);
 		} else if (opts->display == test_display_dots) {
 			ctx.stats.term = false;
 		} else {

@@ -1004,7 +1004,7 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	uint32_t original_argi = argi + 1;
 
 	OPTSTART("D:b:#w") {
-	case '#': log_progress_enable(); break;
+	case '#': log_progress_enable(wk); break;
 	case 'D':
 		if (!parse_and_set_cmdline_option(wk, optarg)) {
 			goto ret;

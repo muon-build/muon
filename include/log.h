@@ -39,7 +39,7 @@ void log_set_buffer(struct workspace *wk, struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
 void log_set_prefix(int32_t n);
 
-void log_progress_enable(void);
+void log_progress_enable(struct workspace *wk);
 void log_progress_disable(void);
 bool log_is_progress_bar_enabled(void);
 void log_progress_push_level(double start, double end);
