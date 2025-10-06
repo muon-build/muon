@@ -5,7 +5,7 @@ lsp_tests = [
     ['basic'],
     ['diagnostics'],
     ['diagnostics_with_edit'],
-    ['many_edits'],
+    ['many edits'],
 ]
 
 foreach t : lsp_tests
