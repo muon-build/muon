@@ -397,6 +397,10 @@ ar_realloc(struct arena *a, void *ptr, int64_t original_size, int64_t new_size, 
 		return ptr;
 	}
 
+	if (!original_size) {
+		return ar_alloc(a, 1, new_size, align);
+	}
+
 	bool have_ptr = ptr && original_size;
 	bool resizeable = a->tail // This arena has allocations
 			  && a->tail->end == (char *)ptr + original_size // ptr is the last allocation in this arena
