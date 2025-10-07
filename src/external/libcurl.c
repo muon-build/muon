@@ -152,14 +152,14 @@ mc_add_transfer(struct mc_transfer_ctx *ctx)
 	}
 
 	mc_easy_setopt(ctx, CURLOPT_ERRORBUFFER, ctx->errbuf);
-	mc_easy_setopt(ctx, CURLOPT_FOLLOWLOCATION, 1);
+	mc_easy_setopt(ctx, CURLOPT_FOLLOWLOCATION, 1L);
 	mc_easy_setopt(ctx, CURLOPT_URL, ctx->url);
 	mc_easy_setopt(ctx, CURLOPT_VERBOSE, 0L);
 	mc_easy_setopt(ctx, CURLOPT_NOPROGRESS, 1L);
 	mc_easy_setopt(ctx, CURLOPT_WRITEFUNCTION, mc_write_data);
 	mc_easy_setopt(ctx, CURLOPT_WRITEDATA, ctx);
 	mc_easy_setopt(ctx, CURLOPT_PRIVATE, ctx);
-	mc_easy_setopt(ctx, CURLOPT_BUFFERSIZE, 1*1024*1024);
+	mc_easy_setopt(ctx, CURLOPT_BUFFERSIZE, 1L*1024L*1024L);
 
 	CURLMcode err;
 	if ((err = curl_multi_add_handle(mc_ctx->cm, ctx->handle)) != CURLM_OK) {
