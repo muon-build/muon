@@ -6,12 +6,10 @@
 
 #include "compat.h"
 
-#include <stdlib.h>
-#include <string.h>
-
 #include "args.h"
 #include "backend/output.h"
 #include "cmd_install.h"
+#include "error.h"
 #include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -99,6 +97,7 @@ struct install_ctx {
 	obj prefix;
 	obj full_prefix;
 	obj destdir;
+	obj env;
 };
 
 static enum iteration_result
@@ -134,7 +133,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	case install_target_subdir: LOG_I("install subdir '%s' -> '%s'", src, dest); break;
 	case install_target_symlink: LOG_I("install symlink '%s' -> '%s'", dest, src); break;
 	case install_target_emptydir: LOG_I("install emptydir '%s'", dest); break;
-	default: abort();
+	default: UNREACHABLE_RETURN;
 	}
 
 	if (ctx->opts->dry_run) {
@@ -202,7 +201,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			return ir_err;
 		}
 		break;
-	default: abort();
+	default: UNREACHABLE_RETURN;
 	}
 
 	if (in->has_perm && !fs_chmod(dest, in->perm)) {
@@ -210,6 +209,14 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	}
 
 	return ir_cont;
+}
+
+static void
+install_script_env_set(struct workspace *wk, obj env, const char *k, obj v)
+{
+	if (!environment_set(wk, env, environment_set_mode_set, make_str(wk, k), v, 0)) {
+		UNREACHABLE;
+	}
 }
 
 static enum iteration_result
@@ -226,16 +233,20 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	bool script_can_dry_run = get_obj_bool(wk, install_script_dry_run);
 
 	obj env;
-	env = make_obj(wk, obj_dict);
-	if (ctx->destdir) {
-		obj_dict_set(wk, env, make_str(wk, "DESTDIR"), ctx->destdir);
+	{
+		env = make_obj_environment(wk, 0);
+
+		environment_extend(wk, env, ctx->env);
+
+		if (ctx->destdir) {
+			install_script_env_set(wk, env, "DESTDIR", ctx->destdir);
+		}
+		install_script_env_set(wk, env, "MESON_INSTALL_PREFIX", ctx->prefix);
+		install_script_env_set(wk, env, "MESON_INSTALL_DESTDIR_PREFIX", ctx->full_prefix);
+		if (ctx->opts->dry_run && script_can_dry_run) {
+			install_script_env_set(wk, env, "MESON_INSTALL_DRY_RUN", make_str(wk, "1"));
+		}
 	}
-	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_PREFIX"), ctx->prefix);
-	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DESTDIR_PREFIX"), ctx->full_prefix);
-	if (ctx->opts->dry_run && script_can_dry_run) {
-		obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DRY_RUN"), make_str(wk, "1"));
-	}
-	set_default_environment_vars(wk, env, false);
 
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
@@ -304,6 +315,7 @@ install_run(struct workspace *wk, struct install_options *opts)
 	install_scripts = obj_array_index(wk, install, 1);
 	source_root = obj_array_index(wk, install, 2);
 	ctx.prefix = obj_array_index(wk, install, 3);
+	ctx.env = obj_array_index(wk, install, 4);
 
 	TSTR(build_root);
 	path_copy_cwd(wk, &build_root);
