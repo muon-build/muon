@@ -1641,7 +1641,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	if (az_diagnostic_enabled(az_diagnostic_dead_code)) {
 		uint32_t i, *ip;
 		for (i = 0; i < analyzer.branch_map.keys.len; ++i) {
-			ip = sl_get_((struct slist *)&analyzer.branch_map.keys, i, analyzer.branch_map.key_size);
+			ip = sl_get_(sl_cast(&analyzer.branch_map.keys), i, analyzer.branch_map.key_size);
 			const union branch_map *map = (union branch_map *)hash_get(&analyzer.branch_map, ip);
 			if (!map->data.impure) {
 				if (!map->data.taken && map->data.not_taken) {

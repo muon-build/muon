@@ -13,8 +13,8 @@
 #include "util.h"
 
 /* Make the first segment 2 ^ SLIST_BASE_POW items long. */
-#define SLIST_BASE_POW 6
-#define SLIST_BASE (1 << SLIST_BASE_POW)
+#define SLIST_BASE_POW 6u
+#define SLIST_BASE (uint32_t)(1 << SLIST_BASE_POW)
 
 static uint32_t
 sl_log2i(uint32_t i)

@@ -139,7 +139,7 @@ hash_clear(struct hash *h)
 static void
 probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t **ret_meta, uint64_t *hv)
 {
-#define match ((meta & 0x7f) == h2 && h->keycmp(h, sl_get_((struct slist *)&h->keys, he->keyi, h->key_size), key))
+#define match ((meta & 0x7f) == h2 && h->keycmp(h, sl_get_(sl_cast(&h->keys), he->keyi, h->key_size), key))
 
 	struct hash_elem *he;
 	*hv = h->hash_func(h, key);
@@ -147,15 +147,15 @@ probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t 
 	uint8_t meta;
 	uint64_t hvi = h1 & (h->cap - 1);
 
-	meta = *sl_get(&h->meta, hvi, uint8_t);
-	he = sl_get(&h->e, hvi, struct hash_elem);
+	meta = *sl_get(sl_cast(&h->meta), hvi, uint8_t);
+	he = sl_get(sl_cast(&h->e), hvi, struct hash_elem);
 
 	// printf("probed to %d, 0x%02x, %d, %d\n", (int)hvi, meta, (int)he->keyi, (int)he->val);
 
 	while (meta == k_deleted || (k_full(meta) && !match)) {
 		hvi = (hvi + 1) & (h->cap - 1);
-		meta = *sl_get(&h->meta, hvi, uint8_t);
-		he = sl_get(&h->e, hvi, struct hash_elem);
+		meta = *sl_get(sl_cast(&h->meta), hvi, uint8_t);
+		he = sl_get(sl_cast(&h->e), hvi, struct hash_elem);
 		// printf("--> probed to %d, 0x%02x, %d, %d\n", (int)hvi, meta, (int)he->keyi, (int)he->val);
 	}
 
@@ -205,7 +205,7 @@ hash_resize(struct arena *a, struct arena *a_scratch, struct hash *h, uint32_t n
 	prepare_table(a, h);
 
 	sl_for(&tmp, struct hash_elem) {
-		void *key = sl_get_((struct slist *)&h->keys, it.it->keyi, h->key_size);
+		void *key = sl_get_(sl_cast(&h->keys), it.it->keyi, h->key_size);
 		// printf("probing %.*s\n", (int)((struct strkey *)key)->len, ((struct strkey *)key)->str);
 
 		struct hash_elem *he;
@@ -298,7 +298,7 @@ hash_set(struct arena *a, struct arena *a_scratch, struct hash *h, const void *k
 		he->val = val;
 	} else {
 		he->keyi = h->keys.len;
-		sl_push_(a, (struct slist *)&h->keys, key, h->key_size, h->key_align, ARRAY_LEN(h->keys.segments));
+		sl_push_(a, sl_cast(&h->keys), key, h->key_size, h->key_align, ARRAY_LEN(h->keys.segments));
 		he->val = val;
 		*meta = hv & 0x7f;
 		++h->len;
