@@ -109,7 +109,7 @@ mc_write_data(void *src, size_t size, size_t nmemb, void *_ctx)
 			ctx->cap *= 2;
 		}
 
-		ctx->buf = ar_realloc(mc_ctx->a, ctx->buf, old_cap, ctx->cap, 0);
+		ctx->buf = ar_realloc(mc_ctx->a, ctx->buf, old_cap, ctx->cap, 1);
 	}
 
 	memcpy(&ctx->buf[ctx->len], src, want_to_write);
