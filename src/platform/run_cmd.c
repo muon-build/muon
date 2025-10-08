@@ -73,22 +73,30 @@ argstr_to_argv(struct workspace *wk, const char *argstr, uint32_t argc, const ch
 	return argi;
 }
 
+enum run_cmd_determine_interpreter_skip_mode {
+	run_cmd_determine_interpreter_skip_mode_whitespace,
+	run_cmd_determine_interpreter_skip_mode_non_whitespace,
+};
+
 static bool
-run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
+run_cmd_determine_interpreter_skip_chars(char **p, enum run_cmd_determine_interpreter_skip_mode mode)
 {
-	bool char_found;
+	bool is_whitespace;
 
 	while (**p) {
-		char_found = is_whitespace_except_newline(**p);
+		is_whitespace = is_whitespace_except_newline(**p);
 
-		if (invert) {
-			if (char_found) {
+		switch (mode) {
+		case run_cmd_determine_interpreter_skip_mode_whitespace:
+			if (!is_whitespace) {
 				return true;
 			}
-		} else {
-			if (!char_found) {
+			break;
+		case run_cmd_determine_interpreter_skip_mode_non_whitespace:
+			if (is_whitespace) {
 				return true;
 			}
+			break;
 		}
 
 		++*p;
@@ -97,21 +105,13 @@ run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
 	return false;
 }
 
-bool
-run_cmd_determine_interpreter(struct workspace *wk,
+static bool
+run_cmd_determine_interpreter_from_file(struct workspace *wk,
 	const char *path,
 	const char **err_msg,
 	const char **new_argv0,
 	const char **new_argv1)
 {
-	if (host_machine.is_windows) {
-		if (fs_has_extension(path, ".bat")) {
-			*new_argv0 = "cmd.exe";
-			*new_argv1 = "/c";
-			return true;
-		}
-	}
-
 	uint64_t buf_size = 2048;
 
 	FILE *f;
@@ -151,7 +151,7 @@ run_cmd_determine_interpreter(struct workspace *wk,
 	}
 
 	// skip over all whitespace characters before the next token
-	if (!run_cmd_determine_interpreter_skip_whitespace(&p, false)) {
+	if (!run_cmd_determine_interpreter_skip_chars(&p, run_cmd_determine_interpreter_skip_mode_whitespace)) {
 		*err_msg = "error determining command interpreter: no interpreter specified after #!";
 		return false;
 	}
@@ -160,7 +160,7 @@ run_cmd_determine_interpreter(struct workspace *wk,
 	*new_argv1 = 0;
 
 	// skip over all non-whitespace characters
-	if (!run_cmd_determine_interpreter_skip_whitespace(&p, true)) {
+	if (!run_cmd_determine_interpreter_skip_chars(&p, run_cmd_determine_interpreter_skip_mode_non_whitespace)) {
 		return true;
 	}
 
@@ -168,11 +168,39 @@ run_cmd_determine_interpreter(struct workspace *wk,
 	++p;
 
 	// skip over all whitespace characters before the next token
-	if (!run_cmd_determine_interpreter_skip_whitespace(&p, false)) {
+	if (!run_cmd_determine_interpreter_skip_chars(&p, run_cmd_determine_interpreter_skip_mode_whitespace)) {
 		return true;
 	}
 
 	*new_argv1 = p;
+
+	return true;
+}
+
+bool
+run_cmd_determine_interpreter(struct workspace *wk,
+	const char *path,
+	const char **err_msg,
+	const char **new_argv0,
+	const char **new_argv1)
+{
+	if (host_machine.is_windows) {
+		if (fs_has_extension(path, ".bat")) {
+			*new_argv0 = "cmd.exe";
+			*new_argv1 = "/c";
+			return true;
+		}
+	}
+
+	if (!run_cmd_determine_interpreter_from_file(wk, path, err_msg, new_argv0, new_argv1)) {
+		return true;
+	}
+
+	// skip /usr/bin/env on windows
+	if (host_machine.is_windows && *new_argv1 && strcmp(*new_argv0, "/usr/bin/env") == 0) {
+		*new_argv0 = *new_argv1;
+		*new_argv1 = 0;
+	}
 
 	return true;
 }
