@@ -543,7 +543,7 @@ argv_to_command_line(struct workspace *wk,
 
 	bool have_arg0 = false;
 
-	if (!fs_exe_exists(wk, argv0)) {
+	if (fs_file_exists(argv0) && !fs_exe_exists(wk, argv0)) {
 		const char *new_argv0 = 0, *new_argv1 = 0;
 		if (!run_cmd_determine_interpreter(wk, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
 			return false;
