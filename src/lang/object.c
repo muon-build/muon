@@ -807,9 +807,11 @@ obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2)
 	struct obj_array *a, *b;
 	struct obj_array_elem *tail;
 
-	if (!(b = get_obj_array(wk, arr2))->len) {
+	b = get_obj_array(wk, arr2);
+	if (!b->len) {
 		return;
 	}
+	obj_array_copy_on_write(wk, b, arr2);
 
 	a = get_obj_array(wk, arr);
 	obj_array_copy_on_write(wk, a, arr);
