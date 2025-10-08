@@ -531,7 +531,6 @@ run_cmd_push_arg0(struct workspace *wk, struct run_cmd_ctx *ctx, struct tstr *cm
 static bool
 argv_to_command_line(struct workspace *wk,
 	struct run_cmd_ctx *ctx,
-	struct source *src,
 	const char *argstr,
 	char *const *argv,
 	uint32_t argstr_argc,
@@ -544,39 +543,29 @@ argv_to_command_line(struct workspace *wk,
 
 	bool have_arg0 = false;
 
-	if (fs_has_extension(argv0, ".bat")) {
-		if (!run_cmd_push_arg0(wk, ctx, cmd, &arg_buf, "cmd.exe")) {
+	if (!fs_exe_exists(wk, argv0)) {
+		const char *new_argv0 = 0, *new_argv1 = 0;
+		if (!run_cmd_determine_interpreter(wk, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
 			return false;
 		}
-		run_cmd_push_arg(wk, cmd, &arg_buf, "/c");
-		run_cmd_push_arg(wk, cmd, &arg_buf, argv0);
-		have_arg0 = true;
-	} else if (fs_file_exists(argv0)) {
-		DWORD _binary_type;
-		if (!GetBinaryType(argv0, &_binary_type)) {
-			const char *new_argv0 = 0, *new_argv1 = 0;
-			if (!run_cmd_determine_interpreter(wk, src, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
-				return false;
-			}
 
-			/* ignore /usr/bin/env on Windows */
-			if (strcmp(new_argv0, "/usr/bin/env") == 0 && new_argv1) {
-				new_argv0 = new_argv1;
-				new_argv1 = 0;
-			}
-
-			if (!run_cmd_push_arg0(wk, ctx, cmd, &arg_buf, new_argv0)) {
-				return false;
-			}
-
-			if (new_argv1) {
-				run_cmd_push_arg(wk, cmd, &arg_buf, new_argv1);
-			}
-
-			run_cmd_push_arg(wk, cmd, &arg_buf, argv0);
-
-			have_arg0 = true;
+		/* ignore /usr/bin/env on Windows */
+		if (strcmp(new_argv0, "/usr/bin/env") == 0 && new_argv1) {
+			new_argv0 = new_argv1;
+			new_argv1 = 0;
 		}
+
+		if (!run_cmd_push_arg0(wk, ctx, cmd, &arg_buf, new_argv0)) {
+			return false;
+		}
+
+		if (new_argv1) {
+			run_cmd_push_arg(wk, cmd, &arg_buf, new_argv1);
+		}
+
+		run_cmd_push_arg(wk, cmd, &arg_buf, argv0);
+
+		have_arg0 = true;
 	}
 
 	if (!have_arg0) {
@@ -622,10 +611,8 @@ run_cmd_unsplit(struct workspace *wk, struct run_cmd_ctx *ctx, char *cmd, const 
 bool
 run_cmd_argv(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
-	struct source src = { 0 };
-
 	TSTR(cmd);
-	if (!argv_to_command_line(wk, ctx, &src, NULL, argv, 0, &cmd)) {
+	if (!argv_to_command_line(wk, ctx, NULL, argv, 0, &cmd)) {
 		return false;
 	}
 
@@ -640,10 +627,8 @@ run_cmd(struct workspace *wk,
 	const char *envstr,
 	uint32_t envc)
 {
-	struct source src = { 0 };
-
 	TSTR(cmd);
-	if (!argv_to_command_line(wk, ctx, &src, argstr, NULL, argc, &cmd)) {
+	if (!argv_to_command_line(wk, ctx, argstr, NULL, argc, &cmd)) {
 		return false;
 	}
 

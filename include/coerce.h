@@ -14,7 +14,7 @@ bool coerce_string_to_file(struct workspace *wk, const char *dir, obj string, ob
 bool coerce_string(struct workspace *wk, uint32_t node, obj val, obj *res);
 bool coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res);
 bool coerce_num_to_string(struct workspace *wk, uint32_t node, obj val, obj *res);
-bool coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *args);
+bool coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *args, obj *original_argv0);
 bool coerce_requirement(struct workspace *wk, struct args_kw *kw_required, enum requirement_type *requirement);
 bool coerce_files(struct workspace *wk, uint32_t node, obj val, obj *res);
 bool coerce_file(struct workspace *wk, uint32_t node, obj val, obj *res);

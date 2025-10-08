@@ -99,30 +99,55 @@ run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
 
 bool
 run_cmd_determine_interpreter(struct workspace *wk,
-	struct source *src,
 	const char *path,
 	const char **err_msg,
 	const char **new_argv0,
 	const char **new_argv1)
 {
-	if (!fs_read_entire_file(wk->a_scratch, path, src)) {
+	if (host_machine.is_windows) {
+		if (fs_has_extension(path, ".bat")) {
+			*new_argv0 = "cmd.exe";
+			*new_argv1 = "/c";
+			return true;
+		}
+	}
+
+	uint64_t buf_size = 2048;
+
+	FILE *f;
+	char *buf = ar_alloc(wk->a_scratch, buf_size, 1, 1);
+	if (!(f = fs_fopen(path, "rb"))) {
 		*err_msg = "error determining command interpreter: failed to read file";
 		return false;
 	}
 
-	if (strncmp(src->src, "#!", 2) != 0) {
+	fread(buf, 1, buf_size - 1, f);
+
+	if (!fs_fclose(f)) {
+		*err_msg = "error determining command interpreter: failed to close file";
+		return false;
+	}
+
+	if (strncmp(buf, "#!", 2) != 0) {
 		*err_msg = "error determining command interpreter: missing #!";
 		return false;
 	}
 
 	char *p, *q;
-	p = (char *)&src->src[2];
+	p = (char *)&buf[2];
 
+	bool found_line_end = false;
 	for (q = p; *q; ++q) {
 		if (*q == '\n' || *q == '\r') {
 			*q = 0;
+			found_line_end = true;
 			break;
 		}
+	}
+
+	if (!found_line_end) {
+		*err_msg = "error determining command interpreter: #! line too long";
+		return false;
 	}
 
 	// skip over all whitespace characters before the next token

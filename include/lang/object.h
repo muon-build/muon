@@ -364,6 +364,7 @@ struct obj_external_program {
 	bool found, guessed_ver;
 	obj cmd_array;
 	obj ver;
+	obj original_argv0;
 };
 
 struct obj_python_installation {

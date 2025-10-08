@@ -860,9 +860,28 @@ find_program_step_8:
 
 	return true;
 found: {
+	obj original_argv0 = 0;
+
 	if (!cmd_array) {
 		cmd_array = make_obj(wk, obj_array);
-		obj_array_push(wk, cmd_array, make_str(wk, path));
+		obj path_str = make_str(wk, path);
+
+		if (fs_exe_exists(wk, path)) {
+			obj_array_push(wk, cmd_array, path_str);
+		} else {
+			const char *err_msg = 0, *new_argv0 = 0, *new_argv1 = 0;
+			if (!run_cmd_determine_interpreter(wk, path, &err_msg, &new_argv0, &new_argv1)) {
+				return false;
+			}
+
+			obj_array_push(wk, cmd_array, make_str(wk, new_argv0));
+			if (new_argv1) {
+				obj_array_push(wk, cmd_array, make_str(wk, new_argv1));
+			}
+			obj_array_push(wk, cmd_array, path_str);
+
+			original_argv0 = path_str;
+		}
 	}
 
 	if (ctx->version) {
@@ -880,6 +899,7 @@ found: {
 	ep->cmd_array = cmd_array;
 	ep->guessed_ver = guessed_ver;
 	ep->ver = ver;
+	ep->original_argv0 = original_argv0;
 
 	ctx->found = true;
 	return true;
@@ -1587,8 +1607,8 @@ add_test_common(struct workspace *wk, enum test_category cat)
 		}
 	}
 
-	obj exe, exe_args = 0;
-	if (!coerce_executable(wk, an[1].node, an[1].val, &exe, &exe_args)) {
+	obj exe, exe_args = 0, _original_argv0;
+	if (!coerce_executable(wk, an[1].node, an[1].val, &exe, &exe_args, &_original_argv0)) {
 		return false;
 	}
 

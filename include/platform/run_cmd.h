@@ -74,7 +74,6 @@ uint32_t argstr_to_argv(struct workspace *wk, const char *argstr, uint32_t argc,
 struct source;
 bool run_cmd_determine_interpreter(
 	struct workspace *wk,
-	struct source *src,
 	const char *path,
 	const char **err_msg,
 	const char **new_argv0,

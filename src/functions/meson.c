@@ -379,8 +379,8 @@ process_script_commandline(struct workspace *wk, struct process_script_commandli
 	case obj_external_program:
 	case obj_python_installation:
 	case obj_file: {
-		obj str, args;
-		if (!coerce_executable(wk, ctx->node, val, &str, &args)) {
+		obj str, args, _original_argv0;
+		if (!coerce_executable(wk, ctx->node, val, &str, &args, &_original_argv0)) {
 			return false;
 		}
 

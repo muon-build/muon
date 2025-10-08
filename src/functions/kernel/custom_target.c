@@ -261,19 +261,24 @@ custom_target_cmd_fmt_iter(struct workspace *wk, void *_ctx, obj val)
 
 	switch (t) {
 	case obj_both_libs:
-	case obj_build_target:
 	case obj_external_program:
+	case obj_build_target:
 	case obj_python_installation:
 	case obj_file: {
-		obj str;
-		if (!coerce_executable(wk, ctx->opts->err_node, val, &str, &extra_args)) {
+		obj str, original_argv0;
+		if (!coerce_executable(wk, ctx->opts->err_node, val, &str, &extra_args, &original_argv0)) {
 			return ir_err;
 		}
 
 		str_relative_to_build_root(wk, ctx, get_cstr(wk, str), &ss);
 
 		if (!ctx->skip_depends) {
-			obj_array_push(wk, ctx->opts->depends, ss);
+			obj dep = ss;
+			if (original_argv0) {
+				str_relative_to_build_root(wk, ctx, get_cstr(wk, original_argv0), &dep);
+			}
+
+			obj_array_push(wk, ctx->opts->depends, dep);
 		}
 		break;
 	}
