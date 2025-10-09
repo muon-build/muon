@@ -259,6 +259,7 @@ join_args_pkgconf(struct workspace *wk, obj arr)
 struct arr_to_args_ctx {
 	enum arr_to_args_flags mode;
 	obj res;
+	uint32_t i;
 };
 
 static enum iteration_result
@@ -317,13 +318,13 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		// the target's name and continue.
 		if (!get_obj_type(wk, output_arr)) {
 			obj_array_push(wk, ctx->res, custom_tgt->name);
-			return ir_cont;
+			goto cont;
 		}
 
 		if (!obj_array_foreach(wk, output_arr, ctx, arr_to_args_iter)) {
 			return ir_err;
 		}
-		return ir_cont;
+		goto cont;
 	}
 	case obj_external_program:
 	case obj_python_installation:
@@ -331,11 +332,16 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 			goto type_err;
 		}
 
-		obj_array_extend(wk, ctx->res, get_obj_external_program(wk, src)->cmd_array);
-		return ir_cont;
+		struct obj_external_program *ep = get_obj_external_program(wk, src);
+		if (ctx->i > 0 && ep->original_argv0) {
+			obj_array_push(wk, ctx->res, ep->original_argv0);
+		} else {
+			obj_array_extend(wk, ctx->res, ep->cmd_array);
+		}
+		goto cont;
 	case obj_compiler:
 		obj_array_extend(wk, ctx->res, get_obj_compiler(wk, src)->cmd_arr[toolchain_component_compiler]);
-		return ir_cont;
+		goto cont;
 	default:
 type_err:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(t));
@@ -343,6 +349,8 @@ type_err:
 	}
 
 	obj_array_push(wk, ctx->res, str);
+cont:
+	++ctx->i;
 	return ir_cont;
 }
 
