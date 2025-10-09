@@ -1166,7 +1166,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		[kw_capture] = { "capture", obj_bool },
 		[kw_feed] = { "feed",
 			tc_coercible_files,
-			.desc = "Specify a directory to search for .meson files in when import()-ing modules",
+			.desc = "Specify a file to be used for stdin",
 			.extension = true },
 		0,
 	};
