@@ -53,6 +53,12 @@ FUNC_IMPL(external_program, full_path, tc_string, func_impl_flag_impure)
 	}
 
 	struct obj_external_program *ep = get_obj_external_program(wk, self);
+
+	if (ep->original_argv0) {
+		*res = ep->original_argv0;
+		return true;
+	}
+
 	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
 		vm_error(wk,
 			"cannot return the full_path() of an external program with multiple elements (have: %o)\n",
