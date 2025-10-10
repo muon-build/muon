@@ -1736,6 +1736,26 @@ TOOLCHAIN_PROTO_1s(linker_ld_args_whole_archive)
 	return &args;
 }
 
+TOOLCHAIN_PROTO_1s(linker_ld_args_implib)
+{
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "--out-implib,%s", s1);
+
+	return &args;
+}
+
+TOOLCHAIN_PROTO_1s(linker_ld_args_def)
+{
+	static char buf[BUF_SIZE_S];
+	TOOLCHAIN_ARGS({ buf });
+
+	snprintf(buf, BUF_SIZE_S, "%s", s1);
+
+	return &args;
+}
+
 /* cl linkers */
 
 TOOLCHAIN_PROTO_1s(linker_link_args_lib)
@@ -2008,6 +2028,8 @@ build_linkers(void)
 	ld.args.whole_archive = linker_ld_args_whole_archive;
 	ld.args.enable_lto = compiler_gcc_args_lto;
 	ld.args.coverage = compiler_gcc_args_coverage;
+	ld.args.implib = linker_ld_args_implib;
+	ld.args.def = linker_ld_args_def;
 
 	struct linker lld = ld;
 

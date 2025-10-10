@@ -352,6 +352,7 @@ setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const 
 {
 	{
 		TSTR(implib);
+		// Although /mingw64/bin/ld typically uses a .dll.a suffix, -implib.lib also works.
 		tstr_pushf(wk, &implib, "%s-implib.lib", plain_name);
 		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
