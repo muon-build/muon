@@ -16,13 +16,10 @@ jobs:
   test:
     strategy:
       matrix:
-        arch:
-          - x86
-          - amd64
         compiler:
           - cl
           - clang
-    name: ${{ matrix.arch }} - ${{ matrix.compiler }}
+    name: ${{ matrix.compiler }}
     runs-on: windows-2022
     defaults:
       run:
@@ -62,4 +59,4 @@ jobs:
             deploy@mochiro.moe\
             "sh -c 'mkdir -p \"$dest_dir\"; cat - > \"$dest_dir/$exe_name\"'"\
             < "build/muon.exe"
-        if: matrix.arch == 'amd64' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
