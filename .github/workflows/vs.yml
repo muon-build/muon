@@ -17,9 +17,9 @@ jobs:
     strategy:
       matrix:
         compiler:
-          - cl
-          - clang
-    name: ${{ matrix.compiler }}
+          - {c: 'cl', cpp: 'cl'}
+          - {c: 'clang', cpp: 'clang++'}
+    name: ${{ matrix.compiler.c }}
     runs-on: windows-2022
     defaults:
       run:
@@ -28,7 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: set env vars
         run: >
-          echo CC=${{ matrix.compiler }} >> %GITHUB_ENV%
+          echo CC=${{ matrix.compiler.c }} >> %GITHUB_ENV%
+          && echo CXX=${{ matrix.compiler.cpp }} >> %GITHUB_ENV%
       - name: bootstrap
         run: >
           bootstrap.bat build
