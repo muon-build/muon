@@ -20,7 +20,8 @@ jobs:
           - x86
           - amd64
         compiler:
-          - msvc
+          - cl
+          - clang
     name: ${{ matrix.arch }} - ${{ matrix.compiler }}
     runs-on: windows-2022
     defaults:
@@ -28,6 +29,9 @@ jobs:
         shell: cmd
     steps:
       - uses: actions/checkout@v4
+      - name: set env vars
+        run: >
+          echo CC=${{ matrix.compiler }} >> %GITHUB_ENV%
       - name: bootstrap
         run: >
           bootstrap.bat build
