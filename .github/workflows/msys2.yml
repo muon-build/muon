@@ -50,4 +50,4 @@ jobs:
         build/muon-bootstrap.exe -C build samu
     - name: 'Tests'
       run: |
-        ./build/muon.exe -C build test -v -ddots || true
+        ./build/muon.exe -C build test -v -ddots
