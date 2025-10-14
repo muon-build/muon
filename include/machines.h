@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "lang/types.h"
 #include "platform/uname.h"
 
 /*
@@ -92,7 +93,7 @@ const char *machine_system_to_s(enum machine_system sys);
 const char *machine_subsystem_to_s(enum machine_subsystem sys);
 const char *machine_system_to_kernel_name(enum machine_system sys);
 
-void machine_parse_and_apply_triplet(struct machine_definition *m, const char *s);
+void machine_parse_triple(const struct str *raw, struct target_triple *triple);
 
 void machine_init(void);
 

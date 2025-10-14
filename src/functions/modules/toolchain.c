@@ -102,9 +102,34 @@ FUNC_IMPL(module_toolchain,
 	return true;
 }
 
+static void module_toolchain_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
+{
+	obj_dict_set(wk, d, make_str(wk, key), val->len ? make_strn(wk, val->s, val->len) : make_str(wk, "unknown"));
+}
+
+FUNC_IMPL(module_toolchain, parse_triple, tc_dict, .desc = "parse a target triple")
+{
+	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	struct target_triple t = { 0 };
+	machine_parse_triple(get_str(wk, an[0].val), &t);
+
+	*res = make_obj(wk, obj_dict);
+	module_toolchain_set_triple_value(wk, *res, "arch", &t.arch);
+	module_toolchain_set_triple_value(wk, *res, "vendor", &t.vendor);
+	module_toolchain_set_triple_value(wk, *res, "system", &t.system);
+	module_toolchain_set_triple_value(wk, *res, "env", &t.env);
+
+	return true;
+}
+
 FUNC_REGISTER(module_toolchain)
 {
 	if (lang_mode == language_internal) {
 		FUNC_IMPL_REGISTER(module_toolchain, create);
+		FUNC_IMPL_REGISTER(module_toolchain, parse_triple);
 	}
 }

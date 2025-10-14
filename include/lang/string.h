@@ -143,6 +143,7 @@ obj str_splitlines(struct workspace *wk, const struct str *ss);
 enum str_strip_flag {
 	str_strip_flag_right_only = 1 << 1,
 };
+void str_strip_in_place(struct str *ss, const struct str *strip, enum str_strip_flag flags);
 obj str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags);
 obj str_split_strip(struct workspace *wk, const struct str *ss, const struct str *split, const struct str *strip);
 bool str_split_in_two(const struct str *s, struct str *l, struct str *r, char split);

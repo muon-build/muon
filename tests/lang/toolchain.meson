@@ -1,0 +1,89 @@
+parse_triple = import('toolchain').parse_triple
+
+tests = [
+    [
+        'aarch64-w64-windows-gnu',
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'x86_64-w64-windows-gnu', #msys2 clang64
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'aarch64-w64-windows-gnu', #msys2 clangarm64
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'x86_64-unknown-w64-mingw32', # msys2 mingw64
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'i686-unknown-w64-mingw32', # msys2 mingw32
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'x86_64-pc-windows-msvc', # msvc clang
+        {'system': 'windows', 'env': 'msvc'},
+    ],
+    [
+        'arm-linux-gnueabihf',
+        {'system': 'linux', 'env': 'gnueabihf'},
+    ],
+    [
+        'arm-none-eabi',
+        {'system': 'none', 'env': 'eabi'},
+    ],
+    [
+        'arm-none-linux-gnueabi',
+        {'system': 'linux', 'env': 'gnueabi'},
+    ],
+    [
+        'i386-pc-linux-gnu',
+        {'system': 'linux', 'env': 'gnu'},
+    ],
+    [
+        'i686-pc-windows-gnu', # MSVC
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'i686-w64-windows-gnu', # same as i686-w64-mingw32
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'x86_64-apple-darwin10',
+        {'system': 'darwin10'},
+    ],
+    [
+        'x86_64-pc-linux-gnu', # from ubuntu 64 bit
+        {'system': 'linux', 'env': 'gnu'},
+    ],
+    [
+        'x86_64-pc-windows-gnu', # MSVC 64-BIT
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'x86_64-unknown-windows-cygnus', # cygwin 64-bit
+        {'system': 'windows', 'env': 'cygnus'},
+    ],
+    [
+        'x86_64-w64-windows-gnu', # same as x86_64-w64-mingw32
+        {'system': 'windows', 'env': 'gnu'},
+    ],
+    [
+        'arm64-apple-darwin24.6.0',
+        {'system': 'darwin24.6.0'},
+    ],
+]
+
+foreach t : tests
+    print('----- ' + t[0] + ' -----\n')
+    parsed = parse_triple(t[0])
+    print('result: ')
+    p(parsed)
+    foreach k, v : t[1]
+        if parsed[k] != v
+            error('@0@: @1@ != @2@'.format(k, parsed[k], v))
+        endif
+    endforeach
+    print('\n')
+endforeach

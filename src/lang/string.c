@@ -774,8 +774,8 @@ str_has_chr(char c, const struct str *ss)
 	return false;
 }
 
-obj
-str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags)
+void
+str_strip_in_place(struct str *ss, const struct str *strip, enum str_strip_flag flags)
 {
 	const struct str *defstrip = &STR(" \r\n\t");
 
@@ -806,7 +806,15 @@ str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, e
 	++len;
 
 	assert((int64_t)len >= (int64_t)i);
-	return make_strn(wk, &ss->s[i], len - i);
+	*ss = (struct str) { &ss->s[i], len - i };
+}
+
+obj
+str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags)
+{
+	struct str stripped = *ss;
+	str_strip_in_place(&stripped, strip, flags);
+	return make_strn(wk, stripped.s, stripped.len);
 }
 
 struct str_split_strip_ctx {

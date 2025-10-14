@@ -596,16 +596,24 @@ done:
 }
 
 static void
-compiler_refine_host_machine(struct workspace *wk, struct obj_compiler *comp)
+compiler_refine_machine(struct workspace *wk, struct obj_compiler *comp)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (run_cmd_arr(wk, &cmd_ctx, comp->cmd_arr[toolchain_component_compiler], "-dumpmachine")
 		&& cmd_ctx.status == 0) {
-		machine_parse_and_apply_triplet(&host_machine, cmd_ctx.out.buf);
+		struct target_triple *t = &comp->triple;
+		machine_parse_triple(&TSTR_STR(&cmd_ctx.out), t);
+
+		// make triple permanent by allocating it in the workspace
+		struct str *parts[] = { &t->arch, &t->vendor, &t->system, &t->env };
+		for (uint32_t i = 0; i < ARRAY_LEN(parts); ++i) {
+			if (parts[i]->len) {
+				const struct str *perm = get_str(wk, make_strn(wk, parts[i]->s, parts[i]->len));
+				*parts[i] = *perm;
+			}
+		}
 	}
 	run_cmd_ctx_destroy(&cmd_ctx);
-
-	// TODO: check for macros like ILP32 and x86_64
 }
 
 static bool
@@ -625,7 +633,7 @@ compiler_detect_cmd_arr(struct workspace *wk, obj comp, enum compiler_language l
 		struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 		compiler_get_libdirs(wk, compiler);
 
-		compiler_refine_host_machine(wk, compiler);
+		compiler_refine_machine(wk, compiler);
 
 		compiler->lang = lang;
 		return true;
@@ -671,24 +679,31 @@ static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang
 	return true;
 }
 
+static enum linker_type
+toolchain_default_linker(struct obj_compiler *comp)
+{
+	if (comp->type[toolchain_component_compiler] == compiler_clang) {
+		if (host_machine.sys == machine_system_windows) {
+			if (str_eql(&comp->triple.env, &STR("gnu")))  {
+				return linker_ld;
+			} else {
+				return linker_lld_link;
+			}
+		} else if (host_machine.sys == machine_system_darwin) {
+			return linker_apple;
+		}
+	}
+
+	return compilers[comp->type[toolchain_component_compiler]].default_linker;
+}
+
 static bool
 linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr)
 {
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
-	bool msvc_like = compiler->type[toolchain_component_compiler] == compiler_msvc;
-
-	enum linker_type type = compilers[compiler->type[toolchain_component_compiler]].default_linker;
-	if (host_machine.sys == machine_system_windows) {
-		if (compiler->type[toolchain_component_compiler] == compiler_clang) {
-			type = linker_lld_link;
-			msvc_like = true;
-		}
-	} else if (host_machine.sys == machine_system_darwin) {
-		if (compiler->type[toolchain_component_compiler] == compiler_clang) {
-			type = linker_apple;
-		}
-	}
+	enum linker_type type = toolchain_default_linker(compiler);
+	bool msvc_like = type == linker_msvc || type == linker_lld_link;
 
 	obj_lprintf(wk, log_debug, "checking linker %o\n", cmd_arr);
 
@@ -750,15 +765,16 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
-	if (host_machine.sys == machine_system_windows && compiler->type[toolchain_component_compiler] == compiler_clang) {
-		static const char *clang_list[] = { "lld-link", NULL };
-		exe_list = clang_list;
-	} else if (compiler->type[toolchain_component_compiler] == compiler_msvc) {
-		static const char *msvc_list[] = { "link", NULL };
-		exe_list = msvc_list;
+	enum linker_type type = toolchain_default_linker(compiler);
+	if (type == linker_lld_link) {
+		static const char *list[] = { "lld-link", NULL };
+		exe_list = list;
+	} else if (type == linker_msvc) {
+		static const char *list[] = { "link", NULL };
+		exe_list = list;
 	} else {
-		static const char *default_list[] = { "lld", "ld", NULL };
-		exe_list = default_list;
+		static const char *list[] = { "lld", "ld", NULL };
+		exe_list = list;
 	}
 
 	return toolchain_exe_detect(wk,
@@ -830,6 +846,7 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 	}
 
 	*comp = make_obj(wk, obj_compiler);
+	get_obj_compiler(wk, *comp)->machine = machine;
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
 		LOG_W("failed to detect compiler for %s", compiler_language_to_s(lang));

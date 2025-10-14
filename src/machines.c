@@ -74,8 +74,9 @@ machine_system_to_s(enum machine_system sys)
 {
 	switch (sys) {
 	case machine_system_uninitialized: return "<uninitialized>";
-#define MACHINE_ENUM(id) case machine_system_##id: return #id;
-FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
+#define MACHINE_ENUM(id) \
+	case machine_system_##id: return #id;
+		FOREACH_MACHINE_SYSTEM(MACHINE_ENUM)
 #undef MACHINE_ENUM
 	}
 
@@ -87,8 +88,9 @@ machine_subsystem_to_s(enum machine_subsystem sys)
 {
 	switch (sys) {
 	case machine_subsystem_uninitialized: return "<uninitialized>";
-#define MACHINE_ENUM(id) case machine_subsystem_##id: return #id;
-FOREACH_MACHINE_SUBSYSTEM(MACHINE_ENUM)
+#define MACHINE_ENUM(id) \
+	case machine_subsystem_##id: return #id;
+		FOREACH_MACHINE_SUBSYSTEM(MACHINE_ENUM)
 #undef MACHINE_ENUM
 	}
 
@@ -197,7 +199,7 @@ machine_cpu(struct machine_definition *m, const struct str *mstr)
 	memcpy(m->cpu, norm, len);
 }
 
-static void
+static bool
 machine_cpu_family(struct machine_definition *m)
 {
 	const char *norm = 0;
@@ -252,8 +254,135 @@ machine_cpu_family(struct machine_definition *m)
 	}
 
 	if (i == ARRAY_LEN(known_cpu_families)) {
-		LOG_W("%s machine has unknown cpu family '%s'", machine_kind_to_s(m->kind), m->cpu_family);
+		return false;
 	}
+	return true;
+}
+
+static bool
+machine_cpu_is_known(const struct str *cpu)
+{
+	if (!cpu->len) {
+		return false;
+	}
+	struct machine_definition m = { 0 };
+	machine_cpu(&m, cpu);
+	return machine_cpu_family(&m);
+}
+
+static bool
+machine_vendor_is_known(const struct str *s)
+{
+	if (!s->len) {
+		return false;
+	}
+	const char *known_vendors[] = {
+		"apple",
+		"pc",
+		"scei",
+		"sie",
+		"fsl",
+		"ibm",
+		"img",
+		"mti",
+		"nvidia",
+		"csr",
+		"amd",
+		"mesa",
+		"suse",
+		"oe",
+		"intel",
+		"meta",
+	};
+
+	for (uint32_t i = 0; i < ARRAY_LEN(known_vendors); ++i) {
+		if (str_eql(s, &STRL(known_vendors[i]))) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+machine_env_is_known(const struct str *s)
+{
+	if (!s->len) {
+		return false;
+	}
+	const char *known_abis[] = {
+		"eabihf",
+		"eabi",
+		"gnuabin32",
+		"gnuabi64",
+		"gnueabihft64",
+		"gnueabihf",
+		"gnueabit64",
+		"gnueabi",
+		"gnuf32",
+		"gnuf64",
+		"gnusf",
+		"gnux32",
+		"gnu_ilp32",
+		"code16",
+		"gnut64",
+		"gnu",
+		"android",
+		"muslabin32",
+		"muslabi64",
+		"musleabihf",
+		"musleabi",
+		"muslf32",
+		"muslsf",
+		"muslx32",
+		"muslwali",
+		"musl",
+		"msvc",
+		"itanium",
+		"cygnus",
+		"coreclr",
+		"simulator",
+		"macabi",
+		"pixel",
+		"vertex",
+		"geometry",
+		"hull",
+		"domain",
+		"compute",
+		"library",
+		"raygeneration",
+		"intersection",
+		"anyhit",
+		"closesthit",
+		"miss",
+		"callable",
+		"mesh",
+		"amplification",
+		"rootsignature",
+		"opencl",
+		"ohos",
+		"pauthtest",
+		"llvm",
+		"mlibc",
+		"mtia",
+	};
+
+	for (uint32_t i = 0; i < ARRAY_LEN(known_abis); ++i) {
+		if (str_startswith(s, &STRL(known_abis[i]))) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
+machine_system_is_known(const struct str *s)
+{
+	if (!s->len) {
+		return false;
+	}
+	return str_eql(s, &STR("none")) || machine_system(s) != machine_system_unknown;
 }
 
 static uint32_t
@@ -285,87 +414,173 @@ machine_cpu_address_bits(struct machine_definition *m)
 	return 32;
 }
 
-/* arm-none-eabi */
-/* armv7a-none-eabi */
-/* arm-linux-gnueabihf */
-/* arm-none-linux-gnueabi */
-/* i386-pc-linux-gnu */
-/* x86_64-apple-darwin10 */
-/* i686-w64-windows-gnu # same as i686-w64-mingw32 */
-/* x86_64-pc-linux-gnu # from ubuntu 64 bit */
-/* x86_64-unknown-windows-cygnus # cygwin 64-bit */
-/* x86_64-w64-windows-gnu # same as x86_64-w64-mingw32 */
-/* i686-pc-windows-gnu # MSVC */
-/* x86_64-pc-windows-gnu # MSVC 64-BIT */
-
-void
-machine_parse_and_apply_triplet(struct machine_definition *m, const char *s)
+static void
+machine_str_swap(struct str *a, struct str *b)
 {
-	enum part {
-		part_arch,
-		part_vendor,
-		part_sys,
-		part_env,
+	struct str tmp = *a;
+	*a = *b;
+	*b = tmp;
+}
+
+// ported from llvm:
+// https://llvm.org/doxygen/Triple_8cpp_source.html
+void
+machine_parse_triple(const struct str *str, struct target_triple *t)
+{
+	L("parsing triple: '%.*s'", str->len, str->s);
+
+	*t = (struct target_triple){ 0 };
+	struct str *parts[] = { &t->arch, &t->vendor, &t->system, &t->env };
+	uint32_t parts_len = 0;
+	{
+		for (const char *s = str->s; parts_len < ARRAY_LEN(parts) && s < str->s + str->len; ++parts_len) {
+			const char *end;
+			if (!(end = memchr(s, '-', str->len - (s - str->s)))) {
+				end = str->s + str->len;
+			}
+
+			*parts[parts_len] = (struct str){
+				.s = s,
+				.len = end - s,
+			};
+			s = end + 1;
+		}
+
+		for (uint32_t i = 0; i < parts_len; ++i) {
+			str_strip_in_place(parts[i], 0, 0);
+
+			// replace unknown / none with empty string
+			if (str_eql(parts[i], &STR("unknown"))) {
+				*parts[i] = (struct str) { 0 };
+			}
+		}
+	}
+
+	// Note which components are already in their final position.  These will not
+	// be moved.
+	bool found[4] = {
+		machine_cpu_is_known(parts[0]),
+		machine_vendor_is_known(parts[1]),
+		machine_system_is_known(parts[2]),
+		machine_env_is_known(parts[3]),
 	};
 
-	struct str parts[4] = { 0 };
-	uint32_t i;
-	const char *end;
+	// If they are not there already, permute the components into their canonical
+	// positions by seeing if they parse as a valid architecture, and if so moving
+	// the component to the architecture position etc.
+	for (uint32_t pos = 0; pos < 4; ++pos) {
+		if (found[pos]) {
+			continue; // Already in the canonical position.
+		}
 
-	i = 0;
-	while ((end = strchr(s, '-')) && i < ARRAY_LEN(parts) - 1) {
-		parts[i].s = s;
-		parts[i].len = end - s;
-		s = end + 1;
-		++i;
+		for (uint32_t i = 0; i < parts_len; ++i) {
+			// Do not reparse any components that already matched.
+			if (i < 4 && found[i]) {
+				continue;
+			}
+
+			// Does this component parse as valid for the target position?
+			bool valid = false;
+			switch (pos) {
+			default: UNREACHABLE;
+			case 0: valid = machine_cpu_is_known(parts[i]); break;
+			case 1: valid = machine_vendor_is_known(parts[i]); break;
+			case 2: valid = machine_system_is_known(parts[i]); break;
+			case 3: valid = machine_vendor_is_known(parts[i]); break;
+			}
+
+			if (!valid) {
+				continue; // Nope, try the next component.
+			}
+
+			// Move the component to the target position, pushing any non-fixed
+			// components that are in the way to the right.  This tends to give
+			// good results in the common cases of a forgotten vendor component
+			// or a wrongly positioned environment.
+			if (pos < i) {
+				// Insert left, pushing the existing components to the right.  For
+				// example, a-b-i386 -> i386-a-b when moving i386 to the front.
+				struct str cur = { 0 }; // The empty component.
+				// Replace the component we are moving with an empty component.
+				machine_str_swap(&cur, parts[i]);
+				// Insert the component being moved at Pos, displacing any existing
+				// components to the right.
+				for (uint32_t j = pos; cur.len; ++j) {
+					// Skip over any fixed components.
+					while (j < 4 && found[j])
+					{
+						++j;
+					}
+					// Place the component at the new position, getting the component
+					// that was at this position - it will be moved right.
+					machine_str_swap(&cur, parts[j]);
+				}
+			} else if (pos > i) {
+				// Push right by inserting empty components until the component at Idx
+				// reaches the target position Pos.  For example, pc-a -> -pc-a when
+				// moving pc to the second position.
+				do {
+					// Insert one empty component at Idx.
+					struct str cur = { 0 }; // The empty component.
+					uint32_t j;
+					for (j = i; j < parts_len;) {
+						// Place the component at the new position, getting the component
+						// that was at this position - it will be moved right.
+						machine_str_swap(&cur, parts[j]);
+						// If it was placed on top of an empty component then we are done.
+						if (!cur.len)
+						{
+							break;
+						}
+						// Advance to the next component, skipping any fixed components.
+						while (++j < 4 && found[j])
+						{
+						}
+					}
+					// The last component was pushed off the end - append it.
+					if (cur.len)
+					{
+						if (j < 4) {
+							machine_str_swap(&cur, parts[j]);
+						}
+					}
+
+					// Advance Idx to the component's new position.
+					while (++i < 4 && found[i])
+					{
+					}
+				} while (i < pos); // Add more until the final position is reached.
+			}
+			assert(pos < parts_len && "Component moved wrong!");
+			found[pos] = true;
+			break;
+		}
 	}
 
-	// Add the trailing part, trimming whitespace
-	parts[i].s = s;
-	while (!is_whitespace(parts[i].s[parts[i].len])) {
-		++parts[i].len;
-	}
-	if (parts[i].len) {
-		++i;
+	// If "none" is in the middle component in a three-component triple, treat it
+	// as the OS (Components[2]) instead of the vendor (Components[1]).
+	if (found[0] && !found[1] && !found[2] && found[3] && str_eql(parts[1], &STR("none")) && !parts[2]->len)
+	{
+		machine_str_swap(parts[1], parts[2]);
 	}
 
-	// Fill in missing slots
-	if (i == 0) {
-		parts[0] = STR("unknown");
-		parts[1] = STR("unknown");
-		parts[2] = STR("unknown");
-		parts[3] = STR("unknown");
-	} else if (i == 1) {
-		parts[1] = STR("unknown");
-		parts[2] = STR("unknown");
-		parts[3] = STR("unknown");
-	} else if (i == 2) {
-		parts[2] = parts[1];
-		parts[1] = STR("unknown");
-		parts[3] = STR("unknown");
-	} else if (i == 3) {
-		parts[3] = parts[2];
-		parts[2] = parts[1];
-		parts[1] = STR("unknown");
-	} else if (i == 4) {
-		// nothing to do, we got all the parts
-	} else {
-		UNREACHABLE;
+	for (uint32_t i = 0; i < 4; ++i) {
+		if (str_startswithi(parts[i], &STR("mingw"))) {
+			*parts[2] = STR("windows");
+			*parts[3] = STR("gnu");
+			break;
+		}
 	}
 
-	L("reconstructed triplet: %.*s-%.*s-%.*s-%.*s",
-		parts[0].len,
-		parts[0].s,
-		parts[1].len,
-		parts[1].s,
-		parts[2].len,
-		parts[2].s,
-		parts[3].len,
-		parts[3].s);
-
-	if (str_eql(&parts[part_sys], &STR("apple"))) {
-		m->sys = machine_system_darwin;
-	}
+	L("reconstructed triple: %.*s-%.*s-%.*s-%.*s",
+		parts[0]->len,
+		parts[0]->s,
+		parts[1]->len,
+		parts[1]->s,
+		parts[2]->len,
+		parts[2]->s,
+		parts[3]->len,
+		parts[3]->s);
 }
 
 void
@@ -386,7 +601,9 @@ machine_init(void)
 					  machine_subsystem_macos :
 					  (enum machine_subsystem)build_machine.sys;
 	machine_cpu(&build_machine, &STRL(mstr));
-	machine_cpu_family(&build_machine);
+	if (!machine_cpu_family(&build_machine)) {
+		LOG_W("%s machine has unknown cpu family '%s'", machine_kind_to_s(build_machine.kind), build_machine.cpu_family);
+	}
 	build_machine.endianness = uname_endian();
 	build_machine.address_bits = machine_cpu_address_bits(&build_machine);
 	build_machine.is_windows = build_machine.sys == machine_system_windows
@@ -402,7 +619,8 @@ machine_matches(enum machine_kind a, enum machine_kind b)
 	return a == machine_kind_either || a == b;
 }
 
-bool machine_definitions_eql(struct machine_definition *a, struct machine_definition *b)
+bool
+machine_definitions_eql(struct machine_definition *a, struct machine_definition *b)
 {
 	return a->sys == b->sys && a->subsystem == b->subsystem && a->endianness == b->endianness
 	       && a->address_bits == b->address_bits && strcmp(a->cpu, b->cpu) == 0;

@@ -142,17 +142,6 @@ enum module {
 };
 #undef MODULE_ENUM
 
-enum str_flags {
-	str_flag_big = 1 << 0,
-	str_flag_mutable = 1 << 1,
-};
-
-struct str {
-	const char *s;
-	uint32_t len;
-	enum str_flags flags;
-};
-
 struct obj_internal {
 	enum obj_type t;
 	uint32_t val;
@@ -434,6 +423,7 @@ struct obj_compiler {
 	obj cmd_arr[toolchain_component_count];
 	obj overrides[toolchain_component_count];
 	uint32_t type[toolchain_component_count];
+	struct target_triple triple;
 	obj ver;
 	obj libdirs;
 	obj fwdirs;

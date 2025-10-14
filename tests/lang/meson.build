@@ -24,6 +24,7 @@ tests = [
     ['string_format_escape.meson'],
     ['strings.meson'],
     ['ternary.meson'],
+    ['toolchain.meson'],
     ['unicode.meson'],
     ['version_compare.meson'],
 ]

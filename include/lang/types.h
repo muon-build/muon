@@ -79,4 +79,19 @@ enum requirement_type {
 	requirement_required,
 	requirement_auto,
 };
+
+enum str_flags {
+	str_flag_big = 1 << 0,
+	str_flag_mutable = 1 << 1,
+};
+
+struct str {
+	const char *s;
+	uint32_t len;
+	enum str_flags flags;
+};
+
+struct target_triple {
+	struct str arch, vendor, system, env;
+};
 #endif
