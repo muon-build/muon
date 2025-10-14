@@ -33,7 +33,8 @@ struct obj_compiler;
 	_(ld, "ld", "ld")                   \
 	_(clang, "lld", "lld")              \
 	_(apple, "ld", "ld-apple")          \
-	_(lld_link, "lld-link", "lld-link") \
+	_(clang_win_link, "lld-link", "lld-link") \
+	_(clang_win, "lld", "lld") \
 	_(msvc, "link", "link")
 
 #define FOREACH_TOOLCHAIN_STATIC_LINKER_TYPE(_) \

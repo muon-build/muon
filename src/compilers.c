@@ -685,9 +685,9 @@ toolchain_default_linker(struct obj_compiler *comp)
 	if (comp->type[toolchain_component_compiler] == compiler_clang) {
 		if (host_machine.sys == machine_system_windows) {
 			if (str_eql(&comp->triple.env, &STR("gnu")))  {
-				return linker_ld;
+				return linker_clang_win;
 			} else {
-				return linker_lld_link;
+				return linker_clang_win_link;
 			}
 		} else if (host_machine.sys == machine_system_darwin) {
 			return linker_apple;
@@ -703,7 +703,7 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
 	enum linker_type type = toolchain_default_linker(compiler);
-	bool msvc_like = type == linker_msvc || type == linker_lld_link;
+	bool msvc_like = type == linker_msvc || type == linker_clang_win_link;
 
 	obj_lprintf(wk, log_debug, "checking linker %o\n", cmd_arr);
 
@@ -766,11 +766,14 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
 	enum linker_type type = toolchain_default_linker(compiler);
-	if (type == linker_lld_link) {
+	if (type == linker_clang_win_link) {
 		static const char *list[] = { "lld-link", NULL };
 		exe_list = list;
 	} else if (type == linker_msvc) {
 		static const char *list[] = { "link", NULL };
+		exe_list = list;
+	} else if (type == linker_clang_win) {
+		static const char *list[] = { "lld", NULL };
 		exe_list = list;
 	} else {
 		static const char *list[] = { "lld", "ld", NULL };
@@ -1994,7 +1997,6 @@ build_compilers(void)
 	struct compiler clang_cl = msvc;
 	clang_cl.args.color_output = compiler_clang_cl_args_color_output;
 	clang_cl.args.enable_lto = compiler_clang_cl_args_lto;
-	clang_cl.default_linker = linker_lld_link;
 
 	compilers[compiler_posix] = posix;
 	compilers[compiler_gcc] = gcc;
@@ -2050,6 +2052,10 @@ build_linkers(void)
 
 	struct linker lld = ld;
 
+	struct linker lld_win = lld;
+	// -soname is not supported
+	lld_win.args.soname = toolchain_arg_empty_1s;
+
 	struct linker apple = posix;
 	posix.args.shared = linker_posix_args_shared;
 	apple.args.sanitize = compiler_gcc_args_sanitize;
@@ -2078,7 +2084,8 @@ build_linkers(void)
 	linkers[linker_ld] = ld;
 	linkers[linker_clang] = lld;
 	linkers[linker_apple] = apple;
-	linkers[linker_lld_link] = lld_link;
+	linkers[linker_clang_win_link] = lld_link;
+	linkers[linker_clang_win] = lld_win;
 	linkers[linker_msvc] = link;
 }
 
