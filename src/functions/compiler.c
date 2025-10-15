@@ -1698,15 +1698,27 @@ compiler_has_argument(struct workspace *wk,
 	}
 
 	if (!opts.from_cache) {
+		bool option_ignored = false;
 		if (comp->type[toolchain_component_compiler] == compiler_msvc) {
 			// Check for msvc command line warning D9002 : ignoring unknown option
 			if (opts.cmd_ctx.err.len && strstr(opts.cmd_ctx.err.buf, "D9002")) {
-				*has_argument = false;
-
-				compiler_check_cache_set(wk,
-					opts.cache_key,
-					&(struct compiler_check_cache_value){ .success = *has_argument });
+				option_ignored = true;
 			}
+		}
+
+		if (comp->type[toolchain_component_linker] == linker_msvc
+			|| comp->type[toolchain_component_linker] == linker_clang_win_link) {
+			// Check for link command line warning LNK4044: unrecognized option
+			if (opts.cmd_ctx.out.len && strstr(opts.cmd_ctx.out.buf, "LNK4044")) {
+				option_ignored = true;
+			}
+		}
+
+		if (option_ignored) {
+			*has_argument = false;
+
+			compiler_check_cache_set(
+				wk, opts.cache_key, &(struct compiler_check_cache_value){ .success = *has_argument });
 		}
 
 		run_cmd_ctx_destroy(&opts.cmd_ctx);
