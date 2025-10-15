@@ -1847,6 +1847,15 @@ TOOLCHAIN_PROTO_1s(linker_link_args_whole_archive)
 	return &args;
 }
 
+/* lld-link linker */
+
+TOOLCHAIN_PROTO_0(linker_lld_link_args_always)
+{
+	TOOLCHAIN_ARGS({ "-fuse-ld=lld-link" });
+
+	return &args;
+}
+
 /* apple linker */
 
 TOOLCHAIN_PROTO_1s(linker_apple_args_whole_archive)
@@ -2078,7 +2087,7 @@ build_linkers(void)
 
 	struct linker lld_link = link;
 	lld_link.args.lib = linker_posix_args_lib;
-	lld_link.args.always = toolchain_arg_empty_0;
+	lld_link.args.always = linker_lld_link_args_always;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_ld] = ld;
