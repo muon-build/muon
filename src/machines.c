@@ -427,8 +427,6 @@ machine_str_swap(struct str *a, struct str *b)
 void
 machine_parse_triple(const struct str *str, struct target_triple *t)
 {
-	L("parsing triple: '%.*s'", str->len, str->s);
-
 	*t = (struct target_triple){ 0 };
 	struct str *parts[] = { &t->arch, &t->vendor, &t->system, &t->env };
 	uint32_t parts_len = 0;
