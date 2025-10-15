@@ -133,7 +133,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	switch (opts->mode) {
 	case compiler_check_mode_run:
-	case compiler_check_mode_link: ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
+	case compiler_check_mode_link:
+		push_args(wk, compiler_args, toolchain_compiler_always(wk, comp));
+		ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
 	case compiler_check_mode_compile:
 		ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
