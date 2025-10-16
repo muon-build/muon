@@ -1714,6 +1714,13 @@ compiler_has_argument(struct workspace *wk,
 			}
 		}
 
+		if (comp->type[toolchain_component_linker] == linker_clang_win_link)
+		{
+			if (opts.cmd_ctx.err.len && strstr(opts.cmd_ctx.err.buf, "ignoring unknown argument")) {
+				option_ignored = true;
+			}
+		}
+
 		if (option_ignored) {
 			*has_argument = false;
 
