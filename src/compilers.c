@@ -1041,6 +1041,10 @@ TOOLCHAIN_PROTO_ns(linker_args_passthrough)
 			}
 		}
 
+		if (str_startswith(&STRL(n1->args[0]), &STR("-fuse-ld="))) {
+			return n1;
+		}
+
 		snprintf(buf, BUF_SIZE_S, "-Wl,%s", n1->args[0]);
 		args.len = 1;
 	} else if (n1->len == 2) {
@@ -1849,7 +1853,7 @@ TOOLCHAIN_PROTO_1s(linker_link_args_whole_archive)
 
 /* lld-link linker */
 
-TOOLCHAIN_PROTO_0(linker_lld_link_args_always)
+TOOLCHAIN_PROTO_0(linker_lld_link_args_fuse_ld)
 {
 	TOOLCHAIN_ARGS({ "-fuse-ld=lld-link" });
 
@@ -2087,7 +2091,7 @@ build_linkers(void)
 
 	struct linker lld_link = link;
 	lld_link.args.lib = linker_posix_args_lib;
-	lld_link.args.always = linker_lld_link_args_always;
+	lld_link.args.fuse_ld = linker_lld_link_args_fuse_ld;
 
 	linkers[linker_posix] = posix;
 	linkers[linker_ld] = ld;

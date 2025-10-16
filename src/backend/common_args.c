@@ -649,6 +649,7 @@ ca_prepare_target_linker_args(struct workspace *wk,
 	}
 
 	ca_push_linker_args(wk, comp, tgt, toolchain_linker_always(wk, comp));
+	ca_push_linker_args(wk, comp, tgt, toolchain_linker_fuse_ld(wk, comp));
 	ca_push_linker_args(wk, comp, tgt, toolchain_linker_as_needed(wk, comp));
 
 	if (proj) {
