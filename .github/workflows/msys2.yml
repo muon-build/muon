@@ -24,6 +24,7 @@ jobs:
           - { sys: ucrt64, cc: gcc, runs-on: 'windows-latest' }
           - { sys: clang64, cc: clang, runs-on: 'windows-latest' }
           - { sys: clangarm64, cc: clang, runs-on: 'windows-11-arm' }
+      fail-fast: false
     name: ${{ matrix.sys }}
     defaults:
       run:
