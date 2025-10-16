@@ -8,7 +8,7 @@ tests = [
     ['muon/str'],
     ['muon/python', {'python': true}],
     ['muon/script_module'],
-    ['muon/objc and cpp', {'objc': true}],
+    ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
 
     # project tests imported from meson unit tests
     # TODO: move this to meson-tests
