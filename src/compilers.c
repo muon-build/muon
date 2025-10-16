@@ -2066,8 +2066,10 @@ build_linkers(void)
 	struct linker lld = ld;
 
 	struct linker lld_win = lld;
-	// -soname is not supported
-	lld_win.args.soname = toolchain_arg_empty_1s;
+	// disable unsupported flags
+	lld_win.args.soname = empty.args.soname;
+	lld_win.args.export_dynamic = empty.args.export_dynamic;
+	lld_win.args.allow_shlib_undefined = empty.args.allow_shlib_undefined;
 
 	struct linker apple = posix;
 	posix.args.shared = linker_posix_args_shared;
