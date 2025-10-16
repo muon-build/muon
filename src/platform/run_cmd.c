@@ -193,7 +193,7 @@ run_cmd_determine_interpreter(struct workspace *wk,
 	}
 
 	if (!run_cmd_determine_interpreter_from_file(wk, path, err_msg, new_argv0, new_argv1)) {
-		return true;
+		return false;
 	}
 
 	// skip /usr/bin/env on windows

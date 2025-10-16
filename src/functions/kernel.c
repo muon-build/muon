@@ -869,18 +869,21 @@ found: {
 		if (fs_exe_exists(wk, path)) {
 			obj_array_push(wk, cmd_array, path_str);
 		} else {
-			const char *err_msg = 0, *new_argv0 = 0, *new_argv1 = 0;
-			if (!run_cmd_determine_interpreter(wk, path, &err_msg, &new_argv0, &new_argv1)) {
-				return false;
+			if (fs_file_exists(path)) {
+				const char *err_msg = 0, *new_argv0 = 0, *new_argv1 = 0;
+				if (!run_cmd_determine_interpreter(wk, path, &err_msg, &new_argv0, &new_argv1)) {
+					return false;
+				}
+
+				obj_array_push(wk, cmd_array, make_str(wk, new_argv0));
+				if (new_argv1) {
+					obj_array_push(wk, cmd_array, make_str(wk, new_argv1));
+				}
+
+				original_argv0 = path_str;
 			}
 
-			obj_array_push(wk, cmd_array, make_str(wk, new_argv0));
-			if (new_argv1) {
-				obj_array_push(wk, cmd_array, make_str(wk, new_argv1));
-			}
 			obj_array_push(wk, cmd_array, path_str);
-
-			original_argv0 = path_str;
 		}
 	}
 
