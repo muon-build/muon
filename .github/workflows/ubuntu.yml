@@ -37,6 +37,11 @@ jobs:
         run: |
           cd build_asan_ubsan
           ./muon test -d dots
+      # test again with clang
+      - name: test_asan_ubsan_clang
+        run: |
+          cd build_asan_ubsan
+          CC=clang CXX=clang++ ./muon test -d dots
 
       # Build muon FORTIFY_SOURCE=3 and run the testsuite.
       - name: build_fortify_source
