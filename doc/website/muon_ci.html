@@ -21,6 +21,7 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>os</td>
             <td>arch</td>
+            <td>compilers</td>
             <td>status</td>
             <td>flags</td>
           </tr>
@@ -29,6 +30,7 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>Alpine</td>
             <td>x86_64</td>
+            <td>gcc, clang, tcc</td>
             <td>
               <a href="https://builds.sr.ht/~lattis/muon/commits/master/alpine.yml">
                 <img src="https://builds.sr.ht/~lattis/muon/commits/master/alpine.yml.svg"></img>
@@ -39,6 +41,7 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>Alpine</td>
             <td>aarch64</td>
+            <td>gcc</td>
             <td>
               <a href="https://github.com/muon-build/muon/actions/workflows/alpine-arm.yml">
                 <img src="https://github.com/muon-build/muon/actions/workflows/alpine-arm.yml/badge.svg"></img>
@@ -48,7 +51,8 @@ SPDX-License-Identifier: GPL-3.0-only
           </tr>
           <tr>
             <td>NetBSD</td>
-            <td>amd64</td>
+            <td>x86_64</td>
+            <td>gcc</td>
             <td>
               <a href="https://builds.sr.ht/~lattis/muon/commits/master/netbsd.yml">
                 <img src="https://builds.sr.ht/~lattis/muon/commits/master/netbsd.yml.svg"></img>
@@ -58,7 +62,8 @@ SPDX-License-Identifier: GPL-3.0-only
           </tr>
           <tr>
             <td>Debian Stable</td>
-            <td>amd64</td>
+            <td>x86_64</td>
+            <td>gcc, clang</td>
             <td>
               <a href="https://builds.sr.ht/~lattis/muon/commits/master/debian.yml">
                 <img src="https://builds.sr.ht/~lattis/muon/commits/master/debian.yml.svg"></img>
@@ -69,6 +74,7 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>Fedora</td>
             <td>x86_64</td>
+            <td>gcc</td>
             <td>
               <a href="https://builds.sr.ht/~lattis/muon/commits/master/fedora.yml">
                 <img src="https://builds.sr.ht/~lattis/muon/commits/master/fedora.yml.svg"></img>
@@ -78,7 +84,8 @@ SPDX-License-Identifier: GPL-3.0-only
           </tr>
           <tr>
             <td>Ubuntu</td>
-            <td>amd64</td>
+            <td>x86_64</td>
+            <td>gcc</td>
             <td>
               <a href="https://github.com/muon-build/muon/actions/workflows/ubuntu.yml">
                 <img src="https://github.com/muon-build/muon/actions/workflows/ubuntu.yml/badge.svg"></img>
@@ -89,6 +96,7 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>Solaris 11</td>
             <td>sun4u</td>
+            <td>gcc</td>
             <td>
               <a href="https://muon.build/ci/solaris11/build_log.txt">
                 <span id="solaris11Status">...</span>
@@ -99,16 +107,18 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>Windows - msys2</td>
             <td>x86_64</td>
+            <td>gcc, clang</td>
             <td>
               <a href="https://github.com/muon-build/muon/actions/workflows/msys2.yml">
                 <img src="https://github.com/muon-build/muon/actions/workflows/msys2.yml/badge.svg"></img>
               </a>
             </td>
-            <td>🧪</td>
+            <td></td>
           </tr>
           <tr>
             <td>Windows - vs</td>
-            <td>amd64, x86</td>
+            <td>x86_64</td>
+            <td>gcc, clang</td>
             <td>
               <a href="https://github.com/muon-build/muon/actions/workflows/vs.yml">
                 <img src="https://github.com/muon-build/muon/actions/workflows/vs.yml/badge.svg"></img>
@@ -119,6 +129,7 @@ SPDX-License-Identifier: GPL-3.0-only
           <tr>
             <td>macOS</td>
             <td>arm64</td>
+            <td>clang</td>
             <td>
               <a href="https://github.com/muon-build/muon/actions/workflows/macos.yml">
                 <img src="https://github.com/muon-build/muon/actions/workflows/macos.yml/badge.svg"></img>
@@ -132,7 +143,6 @@ SPDX-License-Identifier: GPL-3.0-only
       <h3>flags</h3>
       <ul>
         <li>🧪 - at least some tests failing.</li>
-        <li>Architectures are named after the upstream port (e.g. Debian uses "amd64" while Alpine uses "x86_64").</li>
       </ul>
     </div>
 
