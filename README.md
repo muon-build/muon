@@ -19,30 +19,30 @@ dependencies.
 - An interactive stepping debugger
 - A built-in cross platform [ninja implementation]
 - [fast]
+- Compiles to a single portable binary available for linux, windows, and macOS.
 
 ## Status
 
-`muon` is close to feature-complete with the core of meson for `c` and `c++`.
+`muon` is close to feature-complete with meson for c-like languages: `c`, `c++`,
+`objc`, `objc++`.  Support for other languages is planned.
 
 See the [Muon Reference] for more detailed information.
 
 Things missing include:
 
-- build optimizations like unity
-- some `b_` options
-- dependencies with a custom configuration tool
-- some modules
+- some niche options such as -Dunity and -Dlayout have no effect
+- dependencies with custom logic hardcoded in meson don't yet have the same
+  treatment in muon
+- some less common meson modules
+- language support for non c-like languages
 
 Other differences from meson are described in the [Muon Docs].
 
 If you want to contribute, try using `muon` to build your favorite project.
 Patches and bug reports welcome!
 
-Additionally, muon is not fully supported on all platforms yet.  The current
-status may be viewed on muon's [ci dashboard].  Platforms with some or all tests
-disabled are currently WIP and platforms not tested in CI have unknown status.
-In general, posix systems should work fine.  Windows support is improving
-slowly.
+Muon runs CI on all major desktop platforms. CI status may be viewed on
+muon's [ci dashboard].
 
 ## Dependencies
 
@@ -111,8 +111,8 @@ build/muon-bootstrap -C build install
 ## Contribute
 
 Please refer to the [contributing guide] before sending patches.  Send patches
-on the [mailing list], report issues on the [issue tracker], and discuss in
-[#muon on libera.chat].
+on the [mailing list] or PRs on [github], report issues on the [issue tracker]
+or [github_issues], and discuss in [#muon on libera.chat].
 
 ## License
 
@@ -129,7 +129,9 @@ originally based on `boson`, though has since been almost completely rewritten.
 [muon]: https://muon.build
 [contributing guide]: https://docs.muon.build/contributing.html
 [mailing list]: https://lists.sr.ht/~lattis/muon/
+[github]: https://github.com/muon-build/muon
 [issue tracker]: https://todo.sr.ht/~lattis/muon/
+[github_issues]: https://github.com/muon-build/muon/issues
 [#muon on libera.chat]: ircs://irc.libera.chat/#muon
 [meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
