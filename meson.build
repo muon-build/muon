@@ -33,6 +33,7 @@ if platform != 'windows'
     # change in the future.
     platform = 'posix'
 endif
+summary('platform', platform)
 
 # version information
 
@@ -50,6 +51,7 @@ version_info.set('vcs_tag', git_sha)
 version_info.set('meson_compat', '1.7')
 version_info.set('platform', platform)
 version_info.set('compiler', cc.get_id())
+summary('compiler', cc.get_id())
 
 configure_file(
     configuration: version_info,
@@ -59,20 +61,14 @@ configure_file(
 
 # compiler setup
 
-c_args = [
-    '-DMUON_PLATFORM_' + platform,
-    '-DMUON_ENDIAN=@0@'.format({'big': 1, 'little': 0}[host_machine.endian()]),
-]
-link_args = []
+foreach native : [false, true]
+    machine = native ? build_machine : host_machine
+    machine_cc = meson.get_compiler('c', native: native)
 
-if get_option('static')
-    c_args += '-DMUON_STATIC'
-    link_args += '-static'
-endif
+    project_arguments = []
 
-if cc.get_argument_syntax() == 'msvc'
-    project_arguments = cc.get_supported_arguments(
-        [
+    if machine_cc.get_argument_syntax() == 'msvc'
+        project_arguments += [
             '/we4027', # -Wstrict-prototypes
             '/we4056', # -Woverflow
             '/we4013', # function undefined; assuming extern returning int
@@ -96,11 +92,9 @@ if cc.get_argument_syntax() == 'msvc'
             # Occurs spuriously due to /std:c11 enabling a
             # standards-conformant preprocessor
             '/wd5105', # macro expansion producing 'defined' has undefined behavior
-        ],
-    )
-else
-    project_arguments = cc.get_supported_arguments(
-        [
+        ]
+    else
+        project_arguments += [
             '-Wendif-labels',
             '-Wimplicit-fallthrough=2',
             '-Winit-self',
@@ -120,31 +114,47 @@ else
             '-fmacro-prefix-map=@0@/='.format(
                 fs.relative_to(meson.current_source_dir(), meson.current_build_dir()),
             ),
-        ],
-    )
-endif
+        ]
+    endif
 
-add_project_arguments(project_arguments, language: ['c'])
+    project_arguments = machine_cc.get_supported_arguments(project_arguments)
 
-if platform == 'windows'
-    add_project_arguments(
-        ['-D_CRT_SECURE_NO_WARNINGS', '-D_CRT_NONSTDC_NO_DEPRECATE'],
-        language: 'c',
-    )
-endif
+    project_arguments += '-DMUON_BOOTSTRAPPED'
 
-add_project_arguments('-DMUON_BOOTSTRAPPED', language: 'c')
+    if machine.system() == 'windows'
+        project_arguments += ['-D_CRT_SECURE_NO_WARNINGS', '-D_CRT_NONSTDC_NO_DEPRECATE']
+    endif
+
+    add_project_arguments(project_arguments, language: ['c'], native: native)
+
+    if not meson.is_cross_build()
+        add_project_arguments(project_arguments, language: ['c'], native: true)
+        break
+    endif
+endforeach
 
 include_dir = [include_directories('include')]
 
 subdir('tools')
 subdir('src')
 
+# muon compiler setup
+muon_c_args = [
+    '-DMUON_PLATFORM_' + platform,
+    '-DMUON_ENDIAN=@0@'.format({'big': 1, 'little': 0}[host_machine.endian()]),
+]
+link_args = []
+
+if get_option('static')
+    muon_c_args += '-DMUON_STATIC'
+    link_args += '-static'
+endif
+
 # tracy
 tracy_dep = dependency('tracy', required: get_option('tracy'))
 if tracy_dep.found()
     add_languages('cpp')
-    c_args += [
+    muon_c_args += [
         '-DTRACY_ENABLE',
         '-DTRACY_NO_EXIT',
     ]
@@ -165,7 +175,7 @@ if python3.found() and not get_option('meson-docs').disabled()
     meson_docs_proj = subproject('meson-docs', required: get_option('meson-docs'))
     if meson_docs_proj.found()
         src += meson_docs_proj.get_variable('meson_docs_h')
-        c_args += ['-DHAVE_MESON_DOCS_H']
+        muon_c_args += ['-DHAVE_MESON_DOCS_H']
     endif
 else
     meson_docs_proj = dependency('', required: false)
@@ -177,8 +187,8 @@ muon = executable(
     dependencies: deps,
     include_directories: include_dir,
     link_args: link_args,
-    c_args: c_args,
-    cpp_args: c_args,
+    c_args: muon_c_args,
+    cpp_args: muon_c_args,
     install: true,
 )
 
