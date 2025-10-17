@@ -1,84 +1,84 @@
-# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-# SPDX-License-Identifier: GPL-3.0-only
+# # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# # SPDX-License-Identifier: GPL-3.0-only
 
-name: ubuntu
+# name: ubuntu
 
-on:
-  push:
-    branches:
-      - master
-      - '[0-9]+.[0-9]+'
-  pull_request:
-    branches: [master]
-    types: [opened, synchronize, reopened]
+# on:
+#   push:
+#     branches:
+#       - master
+#       - '[0-9]+.[0-9]+'
+#   pull_request:
+#     branches: [master]
+#     types: [opened, synchronize, reopened]
 
-jobs:
-  with-sanitizers:
-    runs-on: ubuntu-latest
-    steps:
-      # Checkout muon source and install dependencies.
-      - uses: actions/checkout@master
-        with:
-          fetch-depth: 0
+# jobs:
+#   with-sanitizers:
+#     runs-on: ubuntu-latest
+#     steps:
+#       # Checkout muon source and install dependencies.
+#       - uses: actions/checkout@master
+#         with:
+#           fetch-depth: 0
 
-      # Bootstrap basic build.
-      - name: Bootstrap
-        run: |
-          ./bootstrap.sh build
-          build/muon-bootstrap -v setup build
-          build/muon-bootstrap -C build samu
+#       # Bootstrap basic build.
+#       - name: Bootstrap
+#         run: |
+#           ./bootstrap.sh build
+#           build/muon-bootstrap -v setup build
+#           build/muon-bootstrap -C build samu
 
-      # Build muon with ASan and UBSan and run the testsuite.
-      - name: build_asan_ubsan
-        run: |
-          build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
-          build/muon -C build_asan_ubsan samu
-      - name: test_asan_ubsan
-        run: |
-          cd build_asan_ubsan
-          ./muon test -d dots
-      # test again with clang
-      - name: test_asan_ubsan_clang
-        run: |
-          cd build_asan_ubsan
-          CC=clang CXX=clang++ ./muon test -d dots
+#       # Build muon with ASan and UBSan and run the testsuite.
+#       - name: build_asan_ubsan
+#         run: |
+#           build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
+#           build/muon -C build_asan_ubsan samu
+#       - name: test_asan_ubsan
+#         run: |
+#           cd build_asan_ubsan
+#           ./muon test -d dots
+#       # test again with clang
+#       - name: test_asan_ubsan_clang
+#         run: |
+#           cd build_asan_ubsan
+#           CC=clang CXX=clang++ ./muon test -d dots
 
-      # Build muon FORTIFY_SOURCE=3 and run the testsuite.
-      - name: build_fortify_source
-        run: |
-          CFLAGS=-U_FORTIFY_SOURCE D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
-          build/muon -C build_fortify_source samu
-      - name: test_fortify_source
-        run: |
-          cd build_fortify_source
-          ./muon test -d dots
+#       # Build muon FORTIFY_SOURCE=3 and run the testsuite.
+#       - name: build_fortify_source
+#         run: |
+#           CFLAGS=-U_FORTIFY_SOURCE D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
+#           build/muon -C build_fortify_source samu
+#       - name: test_fortify_source
+#         run: |
+#           cd build_fortify_source
+#           ./muon test -d dots
 
-  # Build muon with libpkgconf and run the testsuite.
-  #
-  # Muon with libpkgconf requires version >= 1.9.0 which is newer than what is
-  # packaged by Debian so it will be fetched via a wrap.
-  with-libpkgconf:
-    runs-on: ubuntu-latest
-    env:
-      DEBIAN_FRONTEND: noninteractive
-    steps:
-      # Checkout muon source and install dependencies.
-      - uses: actions/checkout@master
-        with:
-          fetch-depth: 0
-      # Required for gnome module tests.
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libglib2.0-0 libglib2.0-dev libgirepository1.0-dev
+#   # Build muon with libpkgconf and run the testsuite.
+#   #
+#   # Muon with libpkgconf requires version >= 1.9.0 which is newer than what is
+#   # packaged by Debian so it will be fetched via a wrap.
+#   with-libpkgconf:
+#     runs-on: ubuntu-latest
+#     env:
+#       DEBIAN_FRONTEND: noninteractive
+#     steps:
+#       # Checkout muon source and install dependencies.
+#       - uses: actions/checkout@master
+#         with:
+#           fetch-depth: 0
+#       # Required for gnome module tests.
+#       - name: Install dependencies
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y libglib2.0-0 libglib2.0-dev libgirepository1.0-dev
 
-      # Bootstrap basic build.
-      - name: Bootstrap
-        run: |
-          ./bootstrap.sh build
-          build/muon-bootstrap -v setup -Dlibpkgconf=enabled build
-          build/muon-bootstrap -C build samu
+#       # Bootstrap basic build.
+#       - name: Bootstrap
+#         run: |
+#           ./bootstrap.sh build
+#           build/muon-bootstrap -v setup -Dlibpkgconf=enabled build
+#           build/muon-bootstrap -C build samu
 
-      - name: test_with_libpkgconf
-        run: |
-          build/muon -C build test -d dots
+#       - name: test_with_libpkgconf
+#         run: |
+#           build/muon -C build test -d dots

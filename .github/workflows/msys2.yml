@@ -19,11 +19,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - { sys: mingw32, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
-          - { sys: mingw64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
-          - { sys: ucrt64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
+          # - { sys: mingw32, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
+          # - { sys: mingw64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
+          # - { sys: ucrt64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
           - { sys: clang64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-latest' }
-          - { sys: clangarm64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-11-arm' }
+          # - { sys: clangarm64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-11-arm' }
       fail-fast: false
     name: ${{ matrix.sys }}
     defaults:
@@ -46,9 +46,20 @@ jobs:
           libarchive:p
     - name: 'Build'
       run: |
+        echo '--------------------------------'
+        /usr/bin/env | /usr/bin/grep -i clang64
+        echo '--------------------------------'
+        clang -v -E -x c - < /dev/null
+        echo '--------------------------------'
+        /usr/bin/find /clang64 -name curl.h -o -name archive.h -o -name stdio.h
+        echo '--------------------------------'
         CC="${{ matrix.cc }} -std=c99"  ./bootstrap.sh build
-        CC="${{ matrix.cc }}" ./build/muon-bootstrap.exe setup ${{ matrix.args }} build
-        build/muon-bootstrap.exe -C build samu
+        echo '--------------------------------'
+        CC="${{ matrix.cc }} -v" ./build/muon-bootstrap.exe -v setup ${{ matrix.args }} build
+        echo '--------------------------------'
+        cat build/build.ninja
+        echo '--------------------------------'
+        build/muon-bootstrap.exe -vC build samu
         build/muon.exe version
     - name: 'Tests'
       run: |

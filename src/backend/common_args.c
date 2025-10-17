@@ -327,10 +327,12 @@ ca_get_base_compiler_args(struct workspace *wk,
 	}
 
 	{ /* project args */
-		obj proj_args;
+		obj proj_args = 0;
 		if (obj_dict_geti(wk, proj->args[tgt->machine], lang, &proj_args)) {
 			obj_array_extend(wk, args, proj_args);
 		}
+		LO("-applying project args %d, %d, %o\n", tgt->machine, lang, proj_args);
+		LO(": %o\n", args);
 	}
 
 	return args;
@@ -372,6 +374,7 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_
 		TSTR(rel);
 		if (relativize) {
 			if (!fs_dir_exists(dir)) {
+				L("dropping include '%s' because the directory does not exist", dir);
 				continue;
 			}
 
@@ -409,6 +412,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		obj_array_extend_nodup(wk, inc, tgt->dep_internal.include_directories);
 		tgt->dep_internal.include_directories = inc;
 	}
+	LO("preparing target args for %o\n", tgt->name);
 
 	obj _lang, _n;
 	obj_dict_for(wk, tgt->required_compilers, _lang, _n) {
@@ -507,6 +511,9 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		obj_array_extend(wk, args, args_post);
 
 		obj_dict_seti(wk, tgt->processed_args, lang, args);
+
+		LO("tgt: %o\n", tgt->name);
+		LO("processed args: %o\n", tgt->processed_args);
 	}
 
 	return true;

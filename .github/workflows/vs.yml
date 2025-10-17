@@ -1,63 +1,63 @@
-# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-# SPDX-License-Identifier: GPL-3.0-only
+# # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# # SPDX-License-Identifier: GPL-3.0-only
 
-name: vs
+# name: vs
 
-on:
-  push:
-    branches:
-      - master
-      - '[0-9]+.[0-9]+'
-  pull_request:
-    branches: [master]
-    types: [opened, synchronize, reopened]
+# on:
+#   push:
+#     branches:
+#       - master
+#       - '[0-9]+.[0-9]+'
+#   pull_request:
+#     branches: [master]
+#     types: [opened, synchronize, reopened]
 
-jobs:
-  test:
-    strategy:
-      matrix:
-        compiler:
-          - {c: 'cl', cpp: 'cl'}
-          - {c: 'clang', cpp: 'clang++'}
-    name: ${{ matrix.compiler.c }}
-    runs-on: windows-2022
-    defaults:
-      run:
-        shell: cmd
-    steps:
-      - uses: actions/checkout@v4
-      - name: set env vars
-        run: >
-          echo CC=${{ matrix.compiler.c }} >> %GITHUB_ENV%
-          && echo CXX=${{ matrix.compiler.cpp }} >> %GITHUB_ENV%
-      - name: bootstrap
-        run: >
-          bootstrap.bat build
-          && build\muon-bootstrap.exe -v setup -Dvsenv=true build
-          && build\muon-bootstrap.exe -vC build devenv ./muon-bootstrap.exe -v samu
-      - name: test
-        run: >
-          build\muon.exe -vC build devenv ./muon.exe test -R
-      - name: upload-binary
-        shell: bash
-        env:
-          GH_DEPLOY: 1
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
-          chmod 600 ~/.ssh/deploy
-          cat >> ~/.ssh/config <<EOF
-          Host mochiro.moe
-              IdentityFile ~/.ssh/deploy
-              IdentitiesOnly yes
-          EOF
-          . "build/version.sh"
-          exe_name="muon-$version-amd64-win.exe"
-          dest_dir="muon/releases/$version"
-          ssh \
-            -o StrictHostKeyChecking=no\
-            -p 2975\
-            deploy@mochiro.moe\
-            "sh -c 'mkdir -p \"$dest_dir\"; cat - > \"$dest_dir/$exe_name\"'"\
-            < "build/muon.exe"
-        if: github.event_name != 'pull_request'
+# jobs:
+#   test:
+#     strategy:
+#       matrix:
+#         compiler:
+#           - {c: 'cl', cpp: 'cl'}
+#           - {c: 'clang', cpp: 'clang++'}
+#     name: ${{ matrix.compiler.c }}
+#     runs-on: windows-2022
+#     defaults:
+#       run:
+#         shell: cmd
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: set env vars
+#         run: >
+#           echo CC=${{ matrix.compiler.c }} >> %GITHUB_ENV%
+#           && echo CXX=${{ matrix.compiler.cpp }} >> %GITHUB_ENV%
+#       - name: bootstrap
+#         run: >
+#           bootstrap.bat build
+#           && build\muon-bootstrap.exe -v setup -Dvsenv=true build
+#           && build\muon-bootstrap.exe -vC build devenv ./muon-bootstrap.exe -v samu
+#       - name: test
+#         run: >
+#           build\muon.exe -vC build devenv ./muon.exe test -R
+#       - name: upload-binary
+#         shell: bash
+#         env:
+#           GH_DEPLOY: 1
+#         run: |
+#           mkdir -p ~/.ssh
+#           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
+#           chmod 600 ~/.ssh/deploy
+#           cat >> ~/.ssh/config <<EOF
+#           Host mochiro.moe
+#               IdentityFile ~/.ssh/deploy
+#               IdentitiesOnly yes
+#           EOF
+#           . "build/version.sh"
+#           exe_name="muon-$version-amd64-win.exe"
+#           dest_dir="muon/releases/$version"
+#           ssh \
+#             -o StrictHostKeyChecking=no\
+#             -p 2975\
+#             deploy@mochiro.moe\
+#             "sh -c 'mkdir -p \"$dest_dir\"; cat - > \"$dest_dir/$exe_name\"'"\
+#             < "build/muon.exe"
+#         if: github.event_name != 'pull_request'
