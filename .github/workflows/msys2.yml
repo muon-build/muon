@@ -19,11 +19,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - { sys: mingw32, cc: gcc, runs-on: 'windows-latest' }
-          - { sys: mingw64, cc: gcc, runs-on: 'windows-latest' }
-          - { sys: ucrt64, cc: gcc, runs-on: 'windows-latest' }
-          - { sys: clang64, cc: clang, runs-on: 'windows-latest' }
-          - { sys: clangarm64, cc: clang, runs-on: 'windows-11-arm' }
+          - { sys: mingw32, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
+          - { sys: mingw64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
+          - { sys: ucrt64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
+          - { sys: clang64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-latest' }
+          - { sys: clangarm64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-11-arm' }
       fail-fast: false
     name: ${{ matrix.sys }}
     defaults:
@@ -47,8 +47,9 @@ jobs:
     - name: 'Build'
       run: |
         CC="${{ matrix.cc }} -std=c99"  ./bootstrap.sh build
-        CC="${{ matrix.cc }} -std=c99" ./build/muon-bootstrap.exe setup build
+        CC="${{ matrix.cc }}" ./build/muon-bootstrap.exe setup ${{ matrix.args }} build
         build/muon-bootstrap.exe -C build samu
+        build/muon.exe version
     - name: 'Tests'
       run: |
-        ./build/muon.exe -C build test -v -ddots
+        CC="${{ matrix.cc }}" CXX="${{ matrix.cxx }}" ./build/muon.exe -C build test -R -v -ddots
