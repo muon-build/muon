@@ -18,3 +18,15 @@
 #ifdef __OpenBSD__
 #include <stdarg.h>
 #endif
+
+#if !defined(__SANITIZE_ADDRESS__) && defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define __SANITIZE_ADDRESS__
+#endif
+#endif
+
+#if !defined(__SANITIZE_UNDEFINED__) && defined(__has_feature)
+#if __has_feature(undefined_behavior_sanitizer)
+#define __SANITIZE_UNDEFINED__
+#endif
+#endif

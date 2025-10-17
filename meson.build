@@ -23,6 +23,17 @@ project(
 
 fs = import('fs')
 
+cc = meson.get_compiler('c')
+
+# platform
+
+platform = host_machine.system()
+if platform != 'windows'
+    # Assume everything that is not windows is posix.  This will likely need to
+    # change in the future.
+    platform = 'posix'
+endif
+
 # version information
 
 git = find_program('git', required: false)
@@ -37,21 +48,14 @@ version_info = configuration_data()
 version_info.set('version', meson.project_version())
 version_info.set('vcs_tag', git_sha)
 version_info.set('meson_compat', '1.7')
+version_info.set('platform', platform)
+version_info.set('compiler', cc.get_id())
 
 configure_file(
     configuration: version_info,
     input: 'tools/ci/version.sh.in',
     output: 'version.sh',
 )
-
-# platform
-
-platform = host_machine.system()
-if platform != 'windows'
-    # Assume everything that is not windows is posix.  This will likely need to
-    # change in the future.
-    platform = 'posix'
-endif
 
 # compiler setup
 
@@ -65,8 +69,6 @@ if get_option('static')
     c_args += '-DMUON_STATIC'
     link_args += '-static'
 endif
-
-cc = meson.get_compiler('c')
 
 if cc.get_argument_syntax() == 'msvc'
     project_arguments = cc.get_supported_arguments(

@@ -1196,6 +1196,7 @@ cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,
 		muon_version.meson_compat);
+	printf("compiled with: %s, for platform: %s\n", muon_version.compiler, muon_version.platform);
 
 	const struct {
 		const char *name;
@@ -1206,6 +1207,12 @@ cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 		{ "samurai", have_samurai },
 #ifdef TRACY_ENABLE
 		{ "tracy", true },
+#endif
+#ifdef __SANITIZE_ADDRESS__
+		{ "asan", true },
+#endif
+#ifdef __SANITIZE_UNDEFINED__
+		{ "ubsan", true },
 #endif
 	};
 
