@@ -11,8 +11,8 @@
 
 void samu_htabkey(struct samu_hashtablekey *, const char *, size_t);
 
-struct samu_hashtable *samu_mkhtab(struct samu_arena *a, size_t cap);
-void **samu_htabput(struct samu_arena *a, struct samu_hashtable *h, struct samu_hashtablekey *k);
+struct samu_hashtable *samu_mkhtab(struct arena *a, size_t cap);
+void **samu_htabput(struct arena *a, struct samu_hashtable *h, struct samu_hashtablekey *k);
 void *samu_htabget(struct samu_hashtable *, struct samu_hashtablekey *);
 
 uint64_t samu_murmurhash64a(const void *, size_t);

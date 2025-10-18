@@ -42,13 +42,12 @@ const struct output_path output_path = {
 };
 
 FILE *
-output_open(const char *dir, const char *name)
+output_open(struct workspace *wk, const char *dir, const char *name)
 {
-	TSTR_manual(path);
-	path_join(NULL, &path, dir, name);
+	TSTR(path);
+	path_join(wk, &path, dir, name);
 
 	FILE *f = fs_fopen(path.buf, "wb");
-	tstr_destroy(&path);
 	return f;
 }
 
@@ -63,10 +62,11 @@ with_open(const char *dir, const char *name, struct workspace *wk, void *ctx, wi
 #endif
 
 	obj_array_push(wk, wk->backend_output_stack, make_strf(wk, "writing %s", name));
+	workspace_scratch_begin(wk);
 
 	bool ret = false;
 	FILE *out;
-	if (!(out = output_open(dir, name))) {
+	if (!(out = output_open(wk, dir, name))) {
 		goto ret;
 	} else if (!cb(wk, ctx, out)) {
 		goto ret;
@@ -76,8 +76,8 @@ with_open(const char *dir, const char *name, struct workspace *wk, void *ctx, wi
 
 	ret = true;
 ret:
+	workspace_scratch_end(wk);
 	obj_array_pop(wk, wk->backend_output_stack);
-
 	TracyCZoneEnd(tctx_func);
 	return ret;
 }

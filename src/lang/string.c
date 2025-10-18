@@ -19,7 +19,6 @@
 #include "log.h"
 #include "memmem.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 void
 str_escape(struct workspace *wk, struct tstr *sb, const struct str *ss, bool escape_printable)
@@ -70,6 +69,49 @@ str_escape_json(struct workspace *wk, struct tstr *sb, const struct str *ss)
 	}
 }
 
+void
+str_percent_encode(struct workspace *wk, const struct str *s, struct tstr *res)
+{
+	const char *uri_reserved_chars = "!#$&'()*+,:;=?@[]% ";
+
+	uint32_t i;
+	for (i = 0; i < s->len; ++i) {
+		if (strchr(uri_reserved_chars, s->s[i])) {
+			tstr_pushf(wk, res, "%%%02x", s->s[i]);
+		} else {
+			tstr_push(wk, res, s->s[i]);
+		}
+	}
+}
+
+bool
+str_percent_decode(struct workspace *wk, const struct str *s, struct tstr *res)
+{
+	for (uint32_t i = 0; i < s->len; ++i) {
+		if (s->s[i] == '%') {
+			++i;
+			if (i + 2 >= s->len) {
+				return false;
+			}
+
+			const struct str num = { &s->s[i], 2, 0 };
+			++i;
+
+			int64_t n;
+
+			if (!str_to_i_base(&num, &n, false, 16)) {
+				return 0;
+			}
+
+			tstr_push(wk, res, n);
+		} else {
+			tstr_push(wk, res, s->s[i]);
+		}
+	}
+
+	return true;
+}
+
 bool
 str_has_null(const struct str *ss)
 {
@@ -99,7 +141,7 @@ get_cstr(struct workspace *wk, obj s)
 	return ss->s;
 }
 
-static struct str *
+struct str *
 reserve_str(struct workspace *wk, obj *s, uint32_t len)
 {
 	enum str_flags f = 0;
@@ -109,9 +151,9 @@ reserve_str(struct workspace *wk, obj *s, uint32_t len)
 
 	if (new_len > wk->vm.objects.chrs.bucket_size) {
 		f |= str_flag_big;
-		p = z_calloc(new_len, 1);
+		p = ar_alloc(wk->a, 1, new_len, 1);
 	} else {
-		p = bucket_arr_pushn(&wk->vm.objects.chrs, NULL, 0, new_len);
+		p = bucket_arr_pushn(wk->a, &wk->vm.objects.chrs, NULL, 0, new_len);
 	}
 
 	*s = make_obj(wk, obj_string);
@@ -149,15 +191,15 @@ grow_str(struct workspace *wk, obj *s, uint32_t grow_by, bool alloc_nul)
 	}
 
 	if (ss->flags & str_flag_big) {
-		ss->s = z_realloc((void *)ss->s, new_len);
+		ss->s = ar_realloc(wk->a, (void *)ss->s, ss->len, new_len, 1);
 		memset((void *)&ss->s[ss->len], 0, new_len - ss->len);
 	} else if (new_len >= wk->vm.objects.chrs.bucket_size) {
 		ss->flags |= str_flag_big;
-		char *np = z_calloc(new_len, 1);
+		char *np = ar_alloc(wk->a, 1, new_len, 1);
 		memcpy(np, ss->s, ss->len);
 		ss->s = np;
 	} else {
-		char *np = bucket_arr_pushn(&wk->vm.objects.chrs, ss->s, ss->len, new_len);
+		char *np = bucket_arr_pushn(wk->a, &wk->vm.objects.chrs, ss->s, ss->len, new_len);
 		ss->s = np;
 	}
 
@@ -186,7 +228,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 	str->flags |= flags;
 
 	if (hash && !wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
-		hash_set_strn(&wk->vm.objects.str_hash, str->s, str->len, s);
+		hash_set_strn(wk->a, wk->a_scratch, &wk->vm.objects.str_hash, str->s, str->len, s);
 	}
 	return s;
 }
@@ -340,6 +382,7 @@ make_strfv(struct workspace *wk, const char *fmt, va_list args)
 
 	obj s;
 	struct str *ss = reserve_str(wk, &s, len);
+
 	// TODO: the buffer size is too small here because the object expansion
 	// isn't taken in to account by vsnprintf above.  Need to make it
 	// possible to pass NULL to obj_vsnprintf to get a reliable buffer
@@ -846,37 +889,14 @@ str_split_strip(struct workspace *wk, const struct str *ss, const struct str *sp
 /* tstr */
 
 void
-tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags)
+tstr_init(struct tstr *sb, enum tstr_flags flags)
 {
-	// If we don't get passed an initial buffer, initial_buffer_cap must be
-	// zero so that the first write to this buf triggers an allocation.  As
-	// a convenience, ensure the buf points to a valid empty string so that
+	// As a convenience, ensure the buf points to a valid empty string so that
 	// callers don't have to always check len before trying to read buf.
-	if (!initial_buffer) {
-		assert(initial_buffer_cap == 0);
-		initial_buffer = "";
-	}
-
-	if (initial_buffer_cap) {
-		initial_buffer[0] = 0;
-	}
-
 	*sb = (struct tstr){
 		.flags = flags,
-		.buf = initial_buffer,
-		.cap = initial_buffer_cap,
+		.buf = "",
 	};
-}
-
-void
-tstr_destroy(struct tstr *sb)
-{
-	if ((sb->flags & tstr_flag_overflown) && (sb->flags & tstr_flag_overflow_alloc)) {
-		if (sb->buf) {
-			z_free(sb->buf);
-			sb->buf = 0;
-		}
-	}
 }
 
 void
@@ -886,13 +906,19 @@ tstr_clear(struct tstr *sb)
 		return;
 	}
 
-	memset(sb->buf, 0, sb->len);
-	sb->len = 0;
+	if (sb->s) {
+		*sb = (struct tstr) { 0 };
+	} else {
+		memset(sb->buf, 0, sb->len);
+		sb->len = 0;
+	}
 }
 
 void
 tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 {
+	assert(!sb->s);
+
 	uint32_t newcap, newlen = sb->len + inc;
 
 	if (newlen < sb->cap) {
@@ -909,45 +935,7 @@ tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 		newcap *= 2;
 	} while (newcap < newlen);
 
-	if (sb->flags & tstr_flag_overflown) {
-		if (sb->flags & tstr_flag_overflow_alloc) {
-			sb->buf = z_realloc(sb->buf, newcap);
-			memset((void *)&sb->buf[sb->len], 0, newcap - sb->cap);
-		} else {
-			grow_str(wk, &sb->s, newcap - sb->cap, false);
-			struct str *ss = (struct str *)get_str(wk, sb->s);
-			sb->buf = (char *)ss->s;
-			ss->len = newcap;
-		}
-	} else {
-		if (sb->flags & tstr_flag_overflow_error) {
-			error_unrecoverable("unhandled tstr overflow: "
-					    "capacity: %d, length: %d, "
-					    "trying to push %d bytes",
-				sb->cap,
-				sb->len,
-				inc);
-		}
-
-		sb->flags |= tstr_flag_overflown;
-
-		char *obuf = sb->buf;
-
-		if (sb->flags & tstr_flag_overflow_alloc) {
-			sb->buf = z_calloc(newcap, 1);
-		} else {
-			reserve_str(wk, &sb->s, newcap);
-			struct str *ss = (struct str *)get_str(wk, sb->s);
-			ss->flags |= str_flag_mutable;
-			sb->buf = (char *)ss->s;
-			assert(ss->len == newcap);
-		}
-
-		if (obuf) {
-			memcpy(sb->buf, obuf, sb->len);
-		}
-	}
-
+	sb->buf = ar_realloc(wk->a_scratch, sb->buf, sb->cap, newcap, 1);
 	sb->cap = newcap;
 }
 
@@ -1086,19 +1074,20 @@ tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const stru
 obj
 tstr_into_str(struct workspace *wk, struct tstr *sb)
 {
-	assert(!(sb->flags & tstr_flag_string_exposed));
+	assert(!(sb->flags & tstr_flag_write));
 
-	if (!(sb->flags & tstr_flag_overflow_alloc) && sb->flags & tstr_flag_overflown) {
-		sb->flags |= tstr_flag_string_exposed;
-		struct str *ss = (struct str *)get_str(wk, sb->s);
-		assert(strlen(sb->buf) == sb->len);
-		ss->len = sb->len;
-		return sb->s;
-	} else if (!sb->len) {
-		return make_str(wk, "");
-	} else {
-		return make_strn(wk, sb->buf, sb->len);
+	if (!sb->s) {
+		obj s;
+		if (!sb->len) {
+			s = make_str(wk, "");
+		} else {
+			s = make_strn(wk, sb->buf, sb->len);
+		}
+		const struct str *str = get_str(wk, s);
+		*sb = (struct tstr){ .s = s, .buf = (char *)str->s, .len = str->len };
 	}
+
+	return sb->s;
 }
 
 void

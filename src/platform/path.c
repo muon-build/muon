@@ -17,8 +17,7 @@
 #include "platform/path.h"
 
 static struct {
-	char cwd_buf[BUF_SIZE_2k], tmp1_buf[BUF_SIZE_2k], tmp2_buf[BUF_SIZE_2k];
-	struct tstr cwd, tmp1, tmp2;
+	char cwd[4096];
 } path_ctx;
 
 // These functions are defined in platform/<plat>/os.c
@@ -29,33 +28,17 @@ bool os_chdir(const char *path);
 char *os_getcwd(char *buf, size_t size);
 
 static void
-path_getcwd(void)
+path_getcwd(struct workspace *wk)
 {
-	tstr_clear(&path_ctx.cwd);
-	while (!os_getcwd(path_ctx.cwd.buf, path_ctx.cwd.cap)) {
-		if (errno == ERANGE) {
-			tstr_grow(NULL, &path_ctx.cwd, path_ctx.cwd.cap);
-		} else {
-			error_unrecoverable("getcwd failed: %s", strerror(errno));
-		}
+	if (!os_getcwd(path_ctx.cwd, sizeof(path_ctx.cwd))) {
+		error_unrecoverable("getcwd failed: %s", strerror(errno));
 	}
 }
 
 void
-path_init(void)
+path_init(struct workspace *wk)
 {
-	tstr_init(&path_ctx.cwd, path_ctx.cwd_buf, ARRAY_LEN(path_ctx.cwd_buf), tstr_flag_overflow_alloc);
-	tstr_init(&path_ctx.tmp1, path_ctx.tmp1_buf, ARRAY_LEN(path_ctx.tmp1_buf), tstr_flag_overflow_alloc);
-	tstr_init(&path_ctx.tmp2, path_ctx.tmp2_buf, ARRAY_LEN(path_ctx.tmp2_buf), tstr_flag_overflow_alloc);
-	path_getcwd();
-}
-
-void
-path_deinit(void)
-{
-	tstr_destroy(&path_ctx.cwd);
-	tstr_destroy(&path_ctx.tmp1);
-	tstr_destroy(&path_ctx.tmp2);
+	path_getcwd(wk);
 }
 
 void
@@ -147,27 +130,27 @@ path_copy(struct workspace *wk, struct tstr *sb, const char *path)
 }
 
 bool
-path_chdir(const char *path)
+path_chdir(struct workspace *wk, const char *path)
 {
 	if (!os_chdir(path)) {
 		LOG_E("failed chdir(%s): %s", path, strerror(errno));
 		return false;
 	}
 
-	path_getcwd();
+	path_getcwd(wk);
 	return true;
 }
 
 void
 path_copy_cwd(struct workspace *wk, struct tstr *sb)
 {
-	path_copy(wk, sb, path_ctx.cwd.buf);
+	path_copy(wk, sb, path_ctx.cwd);
 }
 
 const char *
 path_cwd(void)
 {
-	return path_ctx.cwd.buf;
+	return path_ctx.cwd;
 }
 
 void
@@ -220,7 +203,7 @@ path_make_absolute(struct workspace *wk, struct tstr *buf, const char *path)
 	if (path_is_absolute(path)) {
 		path_copy(wk, buf, path);
 	} else {
-		path_join(wk, buf, path_ctx.cwd.buf, path);
+		path_join(wk, buf, path_ctx.cwd, path);
 	}
 }
 
@@ -243,15 +226,15 @@ path_relative_to(struct workspace *wk, struct tstr *buf, const char *base_raw, c
 
 	tstr_clear(buf);
 
-	tstr_clear(&path_ctx.tmp1);
-	tstr_pushs(wk, &path_ctx.tmp1, base_raw);
-	_path_normalize(wk, &path_ctx.tmp1, true);
+	TSTR(tmp1);
+	tstr_pushs(wk, &tmp1, base_raw);
+	_path_normalize(wk, &tmp1, true);
 
-	tstr_clear(&path_ctx.tmp2);
-	tstr_pushs(wk, &path_ctx.tmp2, path_raw);
-	_path_normalize(wk, &path_ctx.tmp2, true);
+	TSTR(tmp2);
+	tstr_pushs(wk, &tmp2, path_raw);
+	_path_normalize(wk, &tmp2, true);
 
-	const char *base = path_ctx.tmp1.buf, *path = path_ctx.tmp2.buf;
+	const char *base = tmp1.buf, *path = tmp2.buf;
 
 	if (!path_is_absolute(base)) {
 		LOG_E("base path '%s' is not absolute", base);
@@ -325,8 +308,8 @@ path_without_ext(struct workspace *wk, struct tstr *buf, const char *path)
 
 	bool have_ext = false;
 
-	TSTR_manual(tmp);
-	path_copy(NULL, &tmp, path);
+	TSTR(tmp);
+	path_copy(wk, &tmp, path);
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == '.') {
@@ -343,7 +326,6 @@ path_without_ext(struct workspace *wk, struct tstr *buf, const char *path)
 		path_copy(wk, buf, path);
 	}
 	_path_normalize(wk, buf, false);
-	tstr_destroy(&tmp);
 }
 
 void
@@ -357,8 +339,8 @@ path_basename(struct workspace *wk, struct tstr *buf, const char *path)
 		return;
 	}
 
-	TSTR_manual(tmp);
-	path_copy(NULL, &tmp, path);
+	TSTR(tmp);
+	path_copy(wk, &tmp, path);
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
@@ -373,7 +355,6 @@ path_basename(struct workspace *wk, struct tstr *buf, const char *path)
 
 	tstr_pushs(wk, buf, &path[i]);
 	_path_normalize(wk, buf, false);
-	tstr_destroy(&tmp);
 }
 
 void
@@ -387,8 +368,8 @@ path_dirname(struct workspace *wk, struct tstr *buf, const char *path)
 		goto return_dot;
 	}
 
-	TSTR_manual(tmp);
-	path_copy(NULL, &tmp, path);
+	TSTR(tmp);
+	path_copy(wk, &tmp, path);
 	path = tmp.buf;
 	for (i = strlen(path) - 1; i >= 0; --i) {
 		if (path[i] == PATH_SEP) {
@@ -400,28 +381,26 @@ path_dirname(struct workspace *wk, struct tstr *buf, const char *path)
 			}
 
 			_path_normalize(wk, buf, false);
-			tstr_destroy(&tmp);
 			return;
 		}
 	}
-	tstr_destroy(&tmp);
 
 return_dot:
 	tstr_pushs(wk, buf, ".");
 }
 
 bool
-path_is_subpath(const char *base, const char *sub)
+path_is_subpath(struct workspace *wk, const char *base, const char *sub)
 {
 	if (!*base) {
 		return false;
 	}
 
-	TSTR_manual(base_tmp);
-	TSTR_manual(sub_tmp);
-	path_copy(NULL, &base_tmp, base);
+	TSTR(base_tmp);
+	TSTR(sub_tmp);
+	path_copy(wk, &base_tmp, base);
 	base = base_tmp.buf;
-	path_copy(NULL, &sub_tmp, sub);
+	path_copy(wk, &sub_tmp, sub);
 	sub = sub_tmp.buf;
 
 	uint32_t i = 0;
@@ -429,21 +408,15 @@ path_is_subpath(const char *base, const char *sub)
 		if (!base[i]) {
 			assert(i);
 			if (sub[i] == PATH_SEP || sub[i - 1] == PATH_SEP) {
-				tstr_destroy(&sub_tmp);
-				tstr_destroy(&base_tmp);
 				return true;
 			}
 		}
 
 		if (base[i] == sub[i]) {
 			if (!base[i]) {
-				tstr_destroy(&sub_tmp);
-				tstr_destroy(&base_tmp);
 				return true;
 			}
 		} else {
-			tstr_destroy(&sub_tmp);
-			tstr_destroy(&base_tmp);
 			return false;
 		}
 

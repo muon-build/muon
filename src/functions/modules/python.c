@@ -26,13 +26,13 @@ static bool
 introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
 	struct source src;
-	if (!embedded_get("python/python_info.py", &src)) {
+	if (!embedded_get(wk, "python/python_info.py", &src)) {
 		return false;
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const var_args[] = { (char *)path, "-c", (char *)src.src, 0 };
-	if (!run_cmd_argv_checked(&cmd_ctx, var_args, NULL, 0)) {
+	if (!run_cmd_argv_checked(wk, &cmd_ctx, var_args, NULL, 0)) {
 		return false;
 	}
 
@@ -82,7 +82,7 @@ python_module_present(struct workspace *wk, const char *pythonpath, const char *
 
 	char *const *args = (char *const[]){ (char *)pythonpath, "-c", importstr.buf, 0 };
 
-	bool present = run_cmd_argv(&cmd_ctx, args, NULL, 0) && cmd_ctx.status == 0;
+	bool present = run_cmd_argv(wk, &cmd_ctx, args, NULL, 0) && cmd_ctx.status == 0;
 
 	run_cmd_ctx_destroy(&cmd_ctx);
 
@@ -540,10 +540,8 @@ FUNC_IMPL(python_installation, dependency, tc_dependency, func_impl_flag_impure)
 	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "embed", obj_bool });
 
 	if (!pop_args(wk, 0, (struct args_kw *)kwargs.e)) {
-		kwargs_arr_destroy(wk, &kwargs);
 		return false;
 	}
-	kwargs_arr_destroy(wk, &kwargs);
 
 	vm_error(wk, "unimplemented");
 	return false;
@@ -565,10 +563,8 @@ FUNC_IMPL(python_installation, extension_module, tc_build_target, func_impl_flag
 	kwargs_arr_push(wk, &kwargs, &(struct args_kw){ "limited_api", obj_string });
 
 	if (!pop_args(wk, an, (struct args_kw *)kwargs.e)) {
-		kwargs_arr_destroy(wk, &kwargs);
 		return false;
 	}
-	kwargs_arr_destroy(wk, &kwargs);
 
 	vm_error(wk, "unimplemented");
 	return false;

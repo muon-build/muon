@@ -68,7 +68,11 @@ enum copy_pipe_result {
 };
 
 static bool
-copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr, uint32_t *count_read)
+copy_pipe(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
+	struct win_pipe_inst *pipe,
+	struct tstr *tstr,
+	uint32_t *count_read)
 {
 	if (pipe->is_eof) {
 		return true;
@@ -91,7 +95,7 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr
 	if (pipe->is_reading && bytes_read) {
 		TracyCPlot("Pipe read bytes", bytes_read);
 		*count_read += bytes_read;
-		tstr_pushn(0, tstr, pipe->overlapped_buf, bytes_read);
+		tstr_pushn(wk, tstr, pipe->overlapped_buf, bytes_read);
 	}
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
 	pipe->is_reading = true;
@@ -114,7 +118,7 @@ copy_pipe(struct run_cmd_ctx *ctx, struct win_pipe_inst *pipe, struct tstr *tstr
 }
 
 static bool
-copy_pipes(struct run_cmd_ctx *ctx, bool all)
+copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 {
 	DWORD _bytes_read;
 	OVERLAPPED *_overlapped;
@@ -142,13 +146,13 @@ copy_pipes(struct run_cmd_ctx *ctx, bool all)
 		}
 
 		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
-		if (!copy_pipe(ctx, pipe, tstr, &count_read)) {
+		if (!copy_pipe(wk, ctx, pipe, tstr, &count_read)) {
 			return false;
 		}
 
 		if (!all && count_read >= ctx->count_read_threshold) {
 			uint64_t new_threshold = ctx->count_read_threshold * 2;
-			if (new_threshold > UINT32_MAX) {
+			if (new_threshold > (uint64_t)UINT32_MAX) {
 				new_threshold = UINT32_MAX;
 			}
 			ctx->count_read_threshold = new_threshold;
@@ -169,7 +173,7 @@ run_cmd_ctx_close_pipes(struct run_cmd_ctx *ctx)
 }
 
 enum run_cmd_state
-run_cmd_collect(struct run_cmd_ctx *ctx)
+run_cmd_collect(struct workspace *wk, struct run_cmd_ctx *ctx)
 {
 	TracyCZoneAutoS;
 	DWORD res;
@@ -177,7 +181,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	bool loop = true;
 	while (loop) {
-		if (!copy_pipes(ctx, false)) {
+		if (!copy_pipes(wk, ctx, false)) {
 			TracyCZoneAutoE;
 			return run_cmd_error;
 		}
@@ -215,7 +219,7 @@ run_cmd_collect(struct run_cmd_ctx *ctx)
 
 	ctx->status = (int)status;
 
-	if (!copy_pipes(ctx, true)) {
+	if (!copy_pipes(wk, ctx, true)) {
 		TracyCZoneAutoE;
 		return run_cmd_error;
 	}
@@ -305,8 +309,8 @@ open_run_cmd_pipes(struct run_cmd_ctx *ctx)
 		win32_fatal("CreateIoCompletionPort:");
 	}
 
-	tstr_init(&ctx->out, 0, 0, tstr_flag_overflow_alloc);
-	tstr_init(&ctx->err, 0, 0, tstr_flag_overflow_alloc);
+	tstr_init(&ctx->out, 0);
+	tstr_init(&ctx->err, 0);
 
 	if (!open_pipes(ctx, &ctx->pipe_out, "out")) {
 		return false;
@@ -318,7 +322,7 @@ open_run_cmd_pipes(struct run_cmd_ctx *ctx)
 }
 
 static bool
-run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *envstr, uint32_t envc)
+run_cmd_internal(struct workspace *wk, struct run_cmd_ctx *ctx, const struct str *cmd, const char *envstr, uint32_t envc)
 {
 	const char *p;
 	BOOL res;
@@ -326,7 +330,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 	ctx->process = INVALID_HANDLE_VALUE;
 
 	LL("executing: ");
-	log_plain(log_debug, "%s\n", cmd->buf);
+	log_plain(log_debug, "%s\n", cmd->s);
 
 	if (cmd->len >= 32767) {
 		LOG_E("command too long");
@@ -383,9 +387,9 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 		}
 
 		// Copy newenv into ctx->env
-		tstr_init(&ctx->env, 0, 0, tstr_flag_overflow_alloc);
-		tstr_pushn(0, &ctx->env, newenv, var - newenv);
-		tstr_push(0, &ctx->env, 0);
+		tstr_init(&ctx->env, 0);
+		tstr_pushn(wk, &ctx->env, newenv, var - newenv);
+		tstr_push(wk, &ctx->env, 0);
 
 		FreeEnvironmentStrings(newenv);
 
@@ -457,7 +461,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 	}
 
 	res = CreateProcessA(NULL,
-		cmd->buf,
+		(char*)cmd->s,
 		NULL,
 		NULL,
 		/* inherit handles */ TRUE,
@@ -489,7 +493,7 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 		return true;
 	}
 
-	res = run_cmd_collect(ctx) == run_cmd_finished;
+	res = run_cmd_collect(wk, ctx) == run_cmd_finished;
 	if (!res) {
 		run_cmd_ctx_destroy(ctx);
 		return false;
@@ -498,88 +502,75 @@ run_cmd_internal(struct run_cmd_ctx *ctx, const struct tstr *cmd, const char *en
 }
 
 static void
-run_cmd_push_argv(struct tstr *cmd, struct tstr *arg_buf, const char *arg, bool first)
+run_cmd_push_argv(struct workspace *wk, struct tstr *cmd, struct tstr *arg_buf, const char *arg, bool first)
 {
 	tstr_clear(arg_buf);
-	shell_escape_cmd(0, arg_buf, arg);
-	tstr_pushf(0, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
+	shell_escape_cmd(wk, arg_buf, arg);
+	tstr_pushf(wk, cmd, "%s%s", first ? "" : " ", arg_buf->buf);
 }
 
 static void
-run_cmd_push_arg(struct tstr *cmd, struct tstr *arg_buf, const char *arg)
+run_cmd_push_arg(struct workspace *wk, struct tstr *cmd, struct tstr *arg_buf, const char *arg)
 {
-	run_cmd_push_argv(cmd, arg_buf, arg, false);
+	run_cmd_push_argv(wk, cmd, arg_buf, arg, false);
 }
 
 static bool
-run_cmd_push_arg0(struct run_cmd_ctx *ctx, struct tstr *cmd, struct tstr *arg_buf, const char *arg)
+run_cmd_push_arg0(struct workspace *wk, struct run_cmd_ctx *ctx, struct tstr *cmd, struct tstr *arg_buf, const char *arg)
 {
-	TSTR_manual(found_cmd);
-	if (!fs_find_cmd(0, &found_cmd, arg)) {
+	TSTR(found_cmd);
+	if (!fs_find_cmd(wk, &found_cmd, arg)) {
 		ctx->err_msg = "command not found";
-		tstr_destroy(&found_cmd);
 		return false;
 	}
 
-	run_cmd_push_argv(cmd, arg_buf, found_cmd.buf, true);
-	tstr_destroy(&found_cmd);
+	run_cmd_push_argv(wk, cmd, arg_buf, found_cmd.buf, true);
 	return true;
 }
 
 static bool
-argv_to_command_line(struct run_cmd_ctx *ctx,
-	struct source *src,
+argv_to_command_line(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
 	const char *argstr,
 	char *const *argv,
 	uint32_t argstr_argc,
 	struct tstr *cmd)
 {
-	bool res = false;
-	TSTR_manual(arg_buf);
+	TSTR(arg_buf);
 	const char *argv0 = argstr ? argstr : argv[0];
 
 	tstr_clear(cmd);
 
 	bool have_arg0 = false;
 
-	if (fs_has_extension(argv0, ".bat")) {
-		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, "cmd.exe")) {
-			goto ret;
+	if (fs_file_exists(argv0) && !fs_exe_exists(wk, argv0)) {
+		const char *new_argv0 = 0, *new_argv1 = 0;
+		if (!run_cmd_determine_interpreter(wk, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
+			return false;
 		}
-		run_cmd_push_arg(cmd, &arg_buf, "/c");
-		run_cmd_push_arg(cmd, &arg_buf, argv0);
+
+		/* ignore /usr/bin/env on Windows */
+		if (strcmp(new_argv0, "/usr/bin/env") == 0 && new_argv1) {
+			new_argv0 = new_argv1;
+			new_argv1 = 0;
+		}
+
+		if (!run_cmd_push_arg0(wk, ctx, cmd, &arg_buf, new_argv0)) {
+			return false;
+		}
+
+		if (new_argv1) {
+			run_cmd_push_arg(wk, cmd, &arg_buf, new_argv1);
+		}
+
+		run_cmd_push_arg(wk, cmd, &arg_buf, argv0);
+
 		have_arg0 = true;
-	} else if (fs_file_exists(argv0)) {
-		DWORD _binary_type;
-		if (!GetBinaryType(argv0, &_binary_type)) {
-			const char *new_argv0 = 0, *new_argv1 = 0;
-			if (!run_cmd_determine_interpreter(src, argv0, &ctx->err_msg, &new_argv0, &new_argv1)) {
-				return false;
-			}
-
-			/* ignore /usr/bin/env on Windows */
-			if (strcmp(new_argv0, "/usr/bin/env") == 0 && new_argv1) {
-				new_argv0 = new_argv1;
-				new_argv1 = 0;
-			}
-
-			if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, new_argv0)) {
-				goto ret;
-			}
-
-			if (new_argv1) {
-				run_cmd_push_arg(cmd, &arg_buf, new_argv1);
-			}
-
-			run_cmd_push_arg(cmd, &arg_buf, argv0);
-
-			have_arg0 = true;
-		}
 	}
 
 	if (!have_arg0) {
-		if (!run_cmd_push_arg0(ctx, cmd, &arg_buf, argv0)) {
-			goto ret;
+		if (!run_cmd_push_arg0(wk, ctx, cmd, &arg_buf, argv0)) {
+			return false;
 		}
 	}
 
@@ -591,7 +582,7 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 		for (;; ++p) {
 			if (!p[0]) {
 				if (i > 0) {
-					run_cmd_push_arg(cmd, &arg_buf, arg);
+					run_cmd_push_arg(wk, cmd, &arg_buf, arg);
 				}
 
 				if (++i >= argstr_argc) {
@@ -604,61 +595,44 @@ argv_to_command_line(struct run_cmd_ctx *ctx,
 	} else {
 		uint32_t i;
 		for (i = 1; argv[i]; ++i) {
-			run_cmd_push_arg(cmd, &arg_buf, argv[i]);
+			run_cmd_push_arg(wk, cmd, &arg_buf, argv[i]);
 		}
 	}
 
-	res = true;
-ret:
-	tstr_destroy(&arg_buf);
-	return res;
+	return true;
 }
 
 bool
-run_cmd_unsplit(struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
+run_cmd_unsplit(struct workspace *wk, struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
 {
-	struct tstr _cmd = { cmd, strlen(cmd) };
-	return run_cmd_internal(ctx, &_cmd, envstr, envc);
+	return run_cmd_internal(wk, ctx, &STRL(cmd), envstr, envc);
 }
 
 bool
-run_cmd_argv(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
+run_cmd_argv(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
-	bool ret = false;
-	struct source src = { 0 };
-
-	TSTR_manual(cmd);
-	if (!argv_to_command_line(ctx, &src, NULL, argv, 0, &cmd)) {
-		goto err;
+	TSTR(cmd);
+	if (!argv_to_command_line(wk, ctx, NULL, argv, 0, &cmd)) {
+		return false;
 	}
 
-	ret = run_cmd_internal(ctx, &cmd, envstr, envc);
-
-err:
-	fs_source_destroy(&src);
-	tstr_destroy(&cmd);
-
-	return ret;
+	return run_cmd_internal(wk, ctx, &TSTR_STR(&cmd), envstr, envc);
 }
 
 bool
-run_cmd(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
+run_cmd(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
+	const char *argstr,
+	uint32_t argc,
+	const char *envstr,
+	uint32_t envc)
 {
-	bool ret = false;
-	struct source src = { 0 };
-
-	TSTR_manual(cmd);
-	if (!argv_to_command_line(ctx, &src, argstr, NULL, argc, &cmd)) {
-		goto err;
+	TSTR(cmd);
+	if (!argv_to_command_line(wk, ctx, argstr, NULL, argc, &cmd)) {
+		return false;
 	}
 
-	ret = run_cmd_internal(ctx, &cmd, envstr, envc);
-
-err:
-	fs_source_destroy(&src);
-	tstr_destroy(&cmd);
-
-	return ret;
+	return run_cmd_internal(wk, ctx, &TSTR_STR(&cmd), envstr, envc);
 }
 
 void
@@ -666,11 +640,6 @@ run_cmd_ctx_destroy(struct run_cmd_ctx *ctx)
 {
 	close_handle(&ctx->process);
 	run_cmd_ctx_close_pipes(ctx);
-
-	tstr_destroy(&ctx->out);
-	tstr_destroy(&ctx->err);
-	tstr_destroy(&ctx->env);
-
 	assert(ctx->count_open == 0);
 }
 

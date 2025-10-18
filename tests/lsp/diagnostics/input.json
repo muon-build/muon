@@ -1,0 +1,8 @@
+[
+  {
+    "method": "muon/textDocument/didOpen",
+    "params": {
+      "relUri": "meson.build"
+    }
+  }
+]

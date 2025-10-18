@@ -244,7 +244,7 @@ FUNC_IMPL(kernel, project, 0)
 			current_project(wk)->cfg.version = akw[kw_version].val;
 		} else {
 			struct source ver_src = { 0 };
-			if (!fs_read_entire_file(get_file_path(wk, akw[kw_version].val), &ver_src)) {
+			if (!fs_read_entire_file(wk->a_scratch, get_file_path(wk, akw[kw_version].val), &ver_src)) {
 				vm_error_at(wk, akw[kw_version].node, "failed to read version file");
 				return false;
 			}
@@ -253,7 +253,6 @@ FUNC_IMPL(kernel, project, 0)
 			obj stripped = str_strip(wk, &ver_str, 0, 0);
 
 			current_project(wk)->cfg.version = stripped;
-			fs_source_destroy(&ver_src);
 		}
 	} else {
 		current_project(wk)->cfg.version = make_str(wk, "undefined");
@@ -861,9 +860,31 @@ find_program_step_8:
 
 	return true;
 found: {
+	obj original_argv0 = 0;
+
 	if (!cmd_array) {
 		cmd_array = make_obj(wk, obj_array);
-		obj_array_push(wk, cmd_array, make_str(wk, path));
+		obj path_str = make_str(wk, path);
+
+		if (fs_exe_exists(wk, path)) {
+			obj_array_push(wk, cmd_array, path_str);
+		} else {
+			if (fs_file_exists(path)) {
+				const char *err_msg = 0, *new_argv0 = 0, *new_argv1 = 0;
+				if (!run_cmd_determine_interpreter(wk, path, &err_msg, &new_argv0, &new_argv1)) {
+					return false;
+				}
+
+				obj_array_push(wk, cmd_array, make_str(wk, new_argv0));
+				if (new_argv1) {
+					obj_array_push(wk, cmd_array, make_str(wk, new_argv1));
+				}
+
+				original_argv0 = path_str;
+			}
+
+			obj_array_push(wk, cmd_array, path_str);
+		}
 	}
 
 	if (ctx->version) {
@@ -881,6 +902,7 @@ found: {
 	ep->cmd_array = cmd_array;
 	ep->guessed_ver = guessed_ver;
 	ep->ver = ver;
+	ep->original_argv0 = original_argv0;
 
 	ctx->found = true;
 	return true;
@@ -1147,7 +1169,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		[kw_capture] = { "capture", obj_bool },
 		[kw_feed] = { "feed",
 			tc_coercible_files,
-			.desc = "Specify a directory to search for .meson files in when import()-ing modules",
+			.desc = "Specify a file to be used for stdin",
 			.extension = true },
 		0,
 	};
@@ -1225,7 +1247,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		.stdin_path = feed ? get_file_path(wk, feed) : 0,
 	};
 
-	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error(wk, "%s", cmd_ctx.err_msg);
 		if (cmd_ctx.out.len) {
 			log_plain(log_info, "stdout:\n%s", cmd_ctx.out.buf);
@@ -1362,7 +1384,7 @@ FUNC_IMPL(kernel, subdir, 0)
 
 	bool ret = false;
 	if (!wk->vm.in_analyzer) {
-		if (!fs_mkdir_p(build_dir.buf)) {
+		if (!fs_mkdir_p(wk, build_dir.buf)) {
 			goto ret;
 		}
 	}
@@ -1588,8 +1610,8 @@ add_test_common(struct workspace *wk, enum test_category cat)
 		}
 	}
 
-	obj exe, exe_args = 0;
-	if (!coerce_executable(wk, an[1].node, an[1].val, &exe, &exe_args)) {
+	obj exe, exe_args = 0, _original_argv0;
+	if (!coerce_executable(wk, an[1].node, an[1].val, &exe, &exe_args, &_original_argv0)) {
 		return false;
 	}
 

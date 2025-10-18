@@ -12,6 +12,7 @@
 #include "backend/ninja.h"
 #include "backend/output.h"
 #include "backend/xcode.h"
+#include "error.h"
 #include "functions/environment.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
@@ -41,7 +42,7 @@ run_postconf_script_iter(struct workspace *wk, void *_ctx, obj arr)
 	struct run_cmd_ctx cmd_ctx = {
 		.chdir = wk->build_root,
 	};
-	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		LOG_E("failed to run postconf script: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
@@ -79,7 +80,7 @@ backend_abort_handler(void *_ctx)
 }
 
 static obj
-test_environment(struct workspace *wk)
+base_environment(struct workspace *wk)
 {
 	obj res = make_obj_environment(wk, make_obj_environment_flag_no_default_vars);
 
@@ -112,7 +113,7 @@ test_environment(struct workspace *wk)
 		obj_array_dedup_in_place(wk, &paths);
 
 		if (!environment_set(wk, res, environment_set_mode_append, make_str(wk, "PATH"), paths, 0)) {
-			return 0;
+			UNREACHABLE_RETURN;
 		}
 	}
 
@@ -127,10 +128,7 @@ write_tests(struct workspace *wk, void *_ctx, FILE *out)
 	obj tests;
 	tests = make_obj(wk, obj_dict);
 
-	obj test_env = test_environment(wk);
-	if (!test_env) {
-		assert(false && "unable to construct test environment");
-	}
+	obj test_env = base_environment(wk);
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -179,6 +177,8 @@ write_install(struct workspace *wk, void *_ctx, FILE *out)
 	obj prefix;
 	get_option_value(wk, proj, "prefix", &prefix);
 	obj_array_push(wk, o, prefix);
+	obj_array_push(wk, o, base_environment(wk));
+
 
 	return serial_dump(wk, o, out);
 }

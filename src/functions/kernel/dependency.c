@@ -404,7 +404,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		} else {
 			comp->fwdirs = make_obj(wk, obj_array);
 			struct run_cmd_ctx cmd_ctx = { 0 };
-			if (run_cmd(&cmd_ctx, argstr, argc, 0, 0) && cmd_ctx.status == 0) {
+			if (run_cmd(wk, &cmd_ctx, argstr, argc, 0, 0) && cmd_ctx.status == 0) {
 				char *e, *s = cmd_ctx.err.buf, *eof = s + cmd_ctx.err.len;
 				const struct str fw_suffix = STR("(framework directory)");
 				while (s < eof) {
@@ -469,7 +469,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 					.wk = wk,
 					.fw = get_str(wk, fw),
 				};
-				fs_dir_foreach(get_str(wk, fw_dir)->s,
+				fs_dir_foreach(wk, get_str(wk, fw_dir)->s,
 					&scan_path_ctx,
 					get_dependency_extraframework_scan_path_cb);
 				if (!scan_path_ctx.res) {
@@ -1535,13 +1535,13 @@ FUNC_IMPL(kernel, declare_dependency, tc_dependency, func_impl_flag_impure)
  */
 
 static bool
-skip_if_present(struct workspace *wk, obj arr, obj val)
+skip_if_present(struct workspace *wk, struct hash *objs, obj arr, obj val)
 {
-	if (hash_get(&wk->vm.objects.obj_hash, &val)) {
+	if (hash_get(objs, &val)) {
 		return true;
 	}
 
-	hash_set(&wk->vm.objects.obj_hash, &val, true);
+	hash_set(wk->a_scratch, wk->a_scratch, objs, &val, true);
 
 	return false;
 }
@@ -1830,6 +1830,7 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 
 struct dep_process_link_with_ctx {
 	struct build_dep *dest;
+	struct hash *objs;
 	bool link_whole;
 	enum build_dep_flag flags;
 };
@@ -1837,7 +1838,7 @@ struct dep_process_link_with_ctx {
 static bool
 dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx *ctx, obj val)
 {
-	if (skip_if_present(wk, ctx->dest->raw.link_with, val)) {
+	if (skip_if_present(wk, ctx->objs, ctx->dest->raw.link_with, val)) {
 		return true;
 	}
 
@@ -1962,10 +1963,12 @@ dep_process_link_with(struct workspace *wk, obj arr, struct build_dep *dest, enu
 
 	build_dep_init(wk, dest);
 
-	hash_clear(&wk->vm.objects.obj_hash);
+	struct hash objs;
+	hash_init(wk->a_scratch, &objs, 128, obj);
 
 	struct dep_process_link_with_ctx ctx = {
 		.dest = dest,
+		.objs = &objs,
 		.flags = flags,
 		.link_whole = link_whole,
 	};
@@ -1988,11 +1991,12 @@ dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest)
 	build_dep_init(wk, dest);
 	dest->raw.deps = deps;
 
-	hash_clear(&wk->vm.objects.obj_hash);
+	struct hash objs;
+	hash_init(wk->a_scratch, &objs, 128, obj);
 
 	obj val;
 	obj_array_for(wk, deps, val) {
-		if (skip_if_present(wk, dest->raw.deps, val)) {
+		if (skip_if_present(wk, &objs, dest->raw.deps, val)) {
 			continue;
 		}
 

@@ -15,7 +15,6 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/run_cmd.h"
 
@@ -92,7 +91,6 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 		vm_struct_member(wk, getopt_handler, desc, vm_struct_type_str);
 	}
 
-	bool ret = false;
 	obj handlers = an[1].val;
 	char optstring[256] = { 0 };
 	{
@@ -150,7 +148,7 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 	{
 		const char *joined;
 		join_args_argstr(wk, &joined, &argc, an[0].val);
-		argstr_to_argv(joined, argc, 0, &argv);
+		argstr_to_argv(wk, joined, argc, 0, &argv);
 	}
 
 	signed char opt;
@@ -168,7 +166,7 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 				}
 
 				vm_error(wk, "no handler defined for -%s", opt_as_str);
-				goto ret;
+				return false;
 			}
 
 			vm_obj_to_struct(wk, getopt_handler, v, &handler);
@@ -188,7 +186,7 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 			}
 
 			if (!vm_eval_capture(wk, handler.action, capture_an, 0, &capture_res)) {
-				goto ret;
+				return false;
 			}
 		}
 
@@ -212,10 +210,7 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 		}
 	}
 
-	ret = true;
-ret:
-	z_free((void *)argv);
-	return ret;
+	return true;
 }
 
 FUNC_REGISTER(module_getopt)

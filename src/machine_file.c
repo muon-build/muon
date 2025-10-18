@@ -12,7 +12,6 @@
 #include "machine_file.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 
 struct machine_info {
 	obj system, cpu_family, cpu, endian;
@@ -67,7 +66,7 @@ machine_file_parse_cb(void *_ctx,
 
 	if (!mfile_lookup(_sect, machine_file_section_names, machine_file_section_count, (uint32_t *)&sect)) {
 		if (!k) {
-			error_messagef(src, location, log_error, "invalid section '%s'", _sect);
+			error_messagef(0, src, location, log_error, "invalid section '%s'", _sect);
 		}
 		return false;
 	} else if (!k) {
@@ -76,7 +75,7 @@ machine_file_parse_cb(void *_ctx,
 	}
 
 	if (!_sect) {
-		error_messagef(src, location, log_error, "key not under any section");
+		error_messagef(0, src, location, log_error, "key not under any section");
 		return false;
 	}
 
@@ -88,7 +87,7 @@ machine_file_parse_cb(void *_ctx,
 
 	obj res;
 	if (!eval(ctx->wk, &val_src, build_language_meson, 0, &res)) {
-		error_messagef(src, location, log_error, "failed to parse value");
+		error_messagef(0, src, location, log_error, "failed to parse value");
 		return false;
 	}
 
@@ -129,7 +128,8 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 	bool ret = false;
 
 	struct workspace wk;
-	workspace_init(&wk);
+	// TODO: broken
+	workspace_init(&wk, 0, 0);
 
 	wk.vm.lang_mode = language_internal;
 
@@ -143,16 +143,11 @@ machine_file_parse(struct workspace *dest_wk, const char *path)
 
 	struct source src;
 	char *buf = NULL;
-	if (!ini_parse(path, &src, &buf, machine_file_parse_cb, &ctx)) {
+	if (!ini_parse(&wk, path, &src, &buf, machine_file_parse_cb, &ctx)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
-	if (buf) {
-		z_free(buf);
-	}
-	fs_source_destroy(&src);
-	workspace_destroy(&wk);
 	return ret;
 }

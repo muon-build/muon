@@ -38,7 +38,7 @@ copy_data(struct archive *ar, struct archive *aw)
 }
 
 bool
-muon_archive_extract(const char *buf, size_t size, const char *dest_path)
+muon_archive_extract(struct workspace *wk, const char *buf, size_t size, const char *dest_path)
 {
 	bool res = false;
 	struct archive *a;
@@ -66,7 +66,7 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 		goto ret;
 	}
 
-	TSTR_manual(path);
+	TSTR(path);
 
 	while (true) {
 		if ((r = archive_read_next_header(a, &entry)) == ARCHIVE_EOF) {
@@ -78,7 +78,7 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 			goto ret;
 		}
 
-		path_join(NULL, &path, dest_path, archive_entry_pathname(entry));
+		path_join(wk, &path, dest_path, archive_entry_pathname(entry));
 
 		archive_entry_copy_pathname(entry, path.buf);
 
@@ -103,8 +103,6 @@ muon_archive_extract(const char *buf, size_t size, const char *dest_path)
 
 	res = true;
 ret:
-	tstr_destroy(&path);
-
 	if (a) {
 		archive_read_close(a);
 		archive_read_free(a);

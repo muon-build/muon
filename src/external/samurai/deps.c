@@ -164,7 +164,6 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	struct samu_edge *e;
 	struct samu_entry *entry, *oldentries;
 	struct seekable_source src = { 0 };
-	bool free_src = false;
 
 	/* XXX: when ninja hits a bad record, it truncates the log to the last
 	 * good record. perhaps we should do the same. */
@@ -175,19 +174,18 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 	}
 	ctx->deps.entrieslen = 0;
 	cap = BUFSIZ;
-	buf = samu_xmalloc(&ctx->arena, cap);
+	buf = samu_xmalloc(ctx->a, cap);
 	if (builddir) {
-		samu_xasprintf(&ctx->arena, &depspath, "%s/%s", builddir, ninja_depsname);
+		samu_xasprintf(ctx->a, &depspath, "%s/%s", builddir, ninja_depsname);
 	}
 	if (!fs_exists(depspath)) {
 		goto rewrite;
 	}
 
-	if (!fs_read_entire_file(depspath, &src.src)) {
+	if (!fs_read_entire_file(ctx->a, depspath, &src.src)) {
 		samu_warn("failed to read deps file");
 		goto rewrite;
 	}
-	free_src = true;
 
 	if (strncmp(src.src.src, ninja_depsheader, strlen(ninja_depsheader)) != 0) {
 		samu_warn("invalid deps log header");
@@ -217,7 +215,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			do {
 				cap *= 2;
 			} while (sz > cap);
-			buf = samu_xmalloc(&ctx->arena, cap);
+			buf = samu_xmalloc(ctx->a, cap);
 		}
 		if (src_fread(buf, sz, 1, &src) != 1) {
 			samu_warn("deps log truncated");
@@ -246,7 +244,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			}
 			sz /= 4;
 			entry->deps.len = sz;
-			entry->deps.node = samu_xreallocarray(&ctx->arena, NULL, 0, sz, sizeof(n));
+			entry->deps.node = samu_xreallocarray(ctx->a, NULL, 0, sz, sizeof(n));
 			for (i = 0; i < sz; ++i) {
 				id = buf[3 + i];
 				if (id >= ctx->deps.entrieslen) {
@@ -272,14 +270,14 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 			while (((char *)buf)[len - 1] == '\0') {
 				--len;
 			}
-			path = samu_mkstr(&ctx->arena, len);
+			path = samu_mkstr(ctx->a, len);
 			memcpy(path->s, buf, len);
 			path->s[len] = '\0';
 
 			n = samu_mknode(ctx, path);
 			if (ctx->deps.entrieslen >= ctx->deps.entriescap) {
 				size_t newcap = ctx->deps.entriescap ? ctx->deps.entriescap * 2 : 1024;
-				ctx->deps.entries = samu_xreallocarray(&ctx->arena,
+				ctx->deps.entries = samu_xreallocarray(ctx->a,
 					ctx->deps.entries,
 					ctx->deps.entriescap,
 					newcap,
@@ -308,7 +306,7 @@ rewrite:
 		ctx->deps.entries[i].node->id = -1;
 	}
 	/* save a temporary copy of the old entries */
-	oldentries = samu_xreallocarray(&ctx->arena, NULL, 0, ctx->deps.entrieslen, sizeof(ctx->deps.entries[0]));
+	oldentries = samu_xreallocarray(ctx->a, NULL, 0, ctx->deps.entrieslen, sizeof(ctx->deps.entries[0]));
 	memcpy(oldentries, ctx->deps.entries, ctx->deps.entrieslen * sizeof(ctx->deps.entries[0]));
 
 	len = ctx->deps.entrieslen;
@@ -328,10 +326,6 @@ rewrite:
 	fflush(ctx->deps.depsfile);
 	if (ferror(ctx->deps.depsfile)) {
 		samu_fatal("deps log write failed");
-	}
-
-	if (free_src) {
-		fs_source_destroy(&src.src);
 	}
 }
 
@@ -354,10 +348,10 @@ samu_deps_push_node(struct samu_ctx *ctx, const struct str *f)
 	if (ctx->deps.deps.len == ctx->deps.depscap) {
 		size_t newcap = ctx->deps.deps.node ? ctx->deps.depscap * 2 : 32;
 		ctx->deps.deps.node = samu_xreallocarray(
-			&ctx->arena, ctx->deps.deps.node, ctx->deps.depscap, newcap, sizeof(ctx->deps.deps.node[0]));
+			ctx->a, ctx->deps.deps.node, ctx->deps.depscap, newcap, sizeof(ctx->deps.deps.node[0]));
 		ctx->deps.depscap = newcap;
 	}
-	in = samu_mkstr(&ctx->arena, f->len);
+	in = samu_mkstr(ctx->a, f->len);
 	memcpy(in->s, f->s, f->len);
 	in->s[f->len] = '\0';
 	ctx->deps.deps.node[ctx->deps.deps.len++] = samu_mknode(ctx, in);
@@ -379,7 +373,7 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 		return 0;
 	}
 
-	if (!fs_read_entire_file(name, &src.src)) {
+	if (!fs_read_entire_file(ctx->a, name, &src.src)) {
 		return 0;
 	}
 
@@ -396,19 +390,19 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				do {
 					c = src_getc(&src);
 					if (++n % 2 == 0) {
-						samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
+						samu_bufadd(ctx->a, &ctx->deps.buf, '\\');
 					}
 				} while (c == '\\');
 				if ((c == ' ' || c == '\t') && n % 2 != 0) {
 					break;
 				}
 				for (; n > 2; n -= 2) {
-					samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\');
+					samu_bufadd(ctx->a, &ctx->deps.buf, '\\');
 				}
 				switch (c) {
 				case '#': break;
 				case '\n': c = ' '; continue;
-				default: samu_bufadd(&ctx->arena, &ctx->deps.buf, '\\'); continue;
+				default: samu_bufadd(ctx->a, &ctx->deps.buf, '\\'); continue;
 				}
 				break;
 			case '$':
@@ -419,7 +413,7 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				}
 				break;
 			}
-			samu_bufadd(&ctx->arena, &ctx->deps.buf, c);
+			samu_bufadd(ctx->a, &ctx->deps.buf, c);
 			c = src_getc(&src);
 		}
 		if (sawcolon) {
@@ -455,7 +449,7 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 				goto err;
 			}
 			if (!out) {
-				out = samu_mkstr(&ctx->arena, ctx->deps.buf.len);
+				out = samu_mkstr(ctx->a, ctx->deps.buf.len);
 				memcpy(out->s, ctx->deps.buf.data, ctx->deps.buf.len);
 				out->s[ctx->deps.buf.len] = '\0';
 			} else if (out->n != ctx->deps.buf.len
@@ -484,11 +478,9 @@ samu_depsparse_gcc(struct samu_ctx *ctx, const char *name, bool allowmissing)
 		}
 	}
 
-	fs_source_destroy(&src.src);
 	return &ctx->deps.deps;
 
 err:
-	fs_source_destroy(&src.src);
 	if (!allowmissing) {
 		samu_fatal("failed to parse depfile %s", name);
 	}
@@ -546,10 +538,10 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 
 			str_to_lower(&line);
 
-			TSTR_manual(buf);
-			TSTR_manual(path);
-			tstr_pushn(0, &buf, line.s, line.len);
-			path_make_absolute(0, &path, buf.buf);
+			TSTR(buf);
+			TSTR(path);
+			tstr_pushn(ctx->wk, &buf, line.s, line.len);
+			path_make_absolute(ctx->wk, &path, buf.buf);
 
 			// Skip system headers
 			if (str_contains(&line, &STR("program files"))
@@ -563,16 +555,13 @@ samu_depsparse_msvc(struct samu_ctx *ctx, struct tstr *out, struct samu_string *
 					path.buf,
 					path.len,
 				});
-
-			tstr_destroy(&buf);
-			tstr_destroy(&path);
 		} else {
 			for (i = 0; (uint32_t)i < line.len; ++i) {
-				samu_bufadd(&ctx->arena, &ctx->deps.buf, line.s[i]);
+				samu_bufadd(ctx->a, &ctx->deps.buf, line.s[i]);
 			}
 
 			if (nl) {
-				samu_bufadd(&ctx->arena, &ctx->deps.buf, '\n');
+				samu_bufadd(ctx->a, &ctx->deps.buf, '\n');
 			}
 		}
 
@@ -584,7 +573,7 @@ cont:
 		}
 	}
 
-	samu_bufadd(&ctx->arena, &ctx->deps.buf, 0);
+	samu_bufadd(ctx->a, &ctx->deps.buf, 0);
 	return &ctx->deps.deps;
 }
 

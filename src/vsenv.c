@@ -21,7 +21,7 @@
 static const char *vsenv_list_sep = "---SPLIT---";
 
 static void
-vsenv_set_vars(const char *vars, uint32_t len)
+vsenv_set_vars(struct workspace *wk, const char *vars, uint32_t len)
 {
 	bool sep_seen = false;
 	uint32_t i;
@@ -38,7 +38,7 @@ vsenv_set_vars(const char *vars, uint32_t len)
 				sep_seen = true;
 			}
 		} else if (str_split_in_two(&l, &k, &v, '=')) {
-			os_set_env(&k, &v);
+			os_set_env(wk, &k, &v);
 		}
 
 		i += line_len + 2;
@@ -46,19 +46,20 @@ vsenv_set_vars(const char *vars, uint32_t len)
 }
 
 static bool
-vsenv_setup(const char *cache_path, enum requirement_type req)
+vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type req)
 {
+	TSTR(_buf);
+
 	if (os_get_env("VSINSTALLDIR")) {
 		return true;
-	} else if (fs_has_cmd("cl.exe")) {
+	} else if (fs_find_cmd(wk, &_buf, "cl.exe")) {
 		return true;
 	}
 
 	if (cache_path && fs_file_exists(cache_path)) {
 		struct source src;
-		if (fs_read_entire_file(cache_path, &src)) {
-			vsenv_set_vars(src.src, src.len);
-			fs_source_destroy(&src);
+		if (fs_read_entire_file(wk->a_scratch, cache_path, &src)) {
+			vsenv_set_vars(wk, src.src, src.len);
 			return true;
 		}
 	}
@@ -72,7 +73,7 @@ vsenv_setup(const char *cache_path, enum requirement_type req)
 		};
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(comps); ++i) {
-			if (fs_has_cmd(comps[i])) {
+			if (fs_find_cmd(wk, &_buf, comps[i])) {
 				return true;
 			}
 		}
@@ -80,8 +81,8 @@ vsenv_setup(const char *cache_path, enum requirement_type req)
 
 	bool res = false;
 	char tmp_path[512] = { 0 };
-	TSTR_manual(path);
-	TSTR_manual(ver);
+	TSTR(path);
+	TSTR(ver);
 	const char *program_files;
 	struct run_cmd_ctx vswhere_cmd_ctx = { 0 }, bat_cmd_ctx = { 0 };
 	uint32_t i;
@@ -91,14 +92,14 @@ vsenv_setup(const char *cache_path, enum requirement_type req)
 		goto ret;
 	}
 
-	path_join(0, &path, program_files, "Microsoft Visual Studio/Installer/vswhere.exe");
+	path_join(wk, &path, program_files, "Microsoft Visual Studio/Installer/vswhere.exe");
 
 	if (!fs_file_exists(path.buf)) {
 		LOG_E("vsenv: vswhere.exe not found @ %s", path.buf);
 		goto ret;
 	}
 
-	if (!run_cmd_argv(&vswhere_cmd_ctx,
+	if (!run_cmd_argv(wk, &vswhere_cmd_ctx,
 		    (char *const[]){
 			    path.buf,
 			    "-latest",
@@ -163,22 +164,22 @@ vsenv_setup(const char *cache_path, enum requirement_type req)
 	}
 
 	tstr_clear(&path);
-	tstr_pushn(0, &path, installation_path.s, installation_path.len);
+	tstr_pushn(wk, &path, installation_path.s, installation_path.len);
 
 	if (strcmp(build_machine.cpu, "arm64") == 0) {
-		path_push(0, &path, "VC/Auxiliary/Build/vcvarsarm64.bat");
+		path_push(wk, &path, "VC/Auxiliary/Build/vcvarsarm64.bat");
 		if (!fs_file_exists(path.buf)) {
 			tstr_clear(&path);
-			tstr_pushn(0, &path, installation_path.s, installation_path.len);
-			path_push(0, &path, "VC/Auxiliary/Build/vcvarsx86_arm64.bat");
+			tstr_pushn(wk, &path, installation_path.s, installation_path.len);
+			path_push(wk, &path, "VC/Auxiliary/Build/vcvarsx86_arm64.bat");
 		}
 	} else {
-		path_push(0, &path, "VC/Auxiliary/Build/vcvars64.bat");
+		path_push(wk, &path, "VC/Auxiliary/Build/vcvars64.bat");
 		// if VS is not found try VS Express
 		if (!fs_file_exists(path.buf)) {
 			tstr_clear(&path);
-			tstr_pushn(0, &path, installation_path.s, installation_path.len);
-			path_push(0, &path, "VC/Auxiliary/Build/vcvarsx86_amd64.bat");
+			tstr_pushn(wk, &path, installation_path.s, installation_path.len);
+			path_push(wk, &path, "VC/Auxiliary/Build/vcvarsx86_amd64.bat");
 		}
 	}
 
@@ -204,12 +205,12 @@ vsenv_setup(const char *cache_path, enum requirement_type req)
 		vsenv_list_sep);
 	fs_fclose(tmp);
 
-	if (!run_cmd_argv(&bat_cmd_ctx, (char *const[]){ tmp_path, 0 }, 0, 0)) {
+	if (!run_cmd_argv(wk, &bat_cmd_ctx, (char *const[]){ tmp_path, 0 }, 0, 0)) {
 		LOG_E("vsenv: failed to execute %s", tmp_path);
 		goto ret;
 	}
 
-	vsenv_set_vars(bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len);
+	vsenv_set_vars(wk, bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len);
 
 	if (cache_path) {
 		L("writing %s", cache_path);
@@ -220,8 +221,6 @@ vsenv_setup(const char *cache_path, enum requirement_type req)
 
 	res = true;
 ret:
-	tstr_destroy(&path);
-	tstr_destroy(&ver);
 	run_cmd_ctx_destroy(&vswhere_cmd_ctx);
 	run_cmd_ctx_destroy(&bat_cmd_ctx);
 	if (*tmp_path) {
@@ -231,25 +230,25 @@ ret:
 }
 
 void
-setup_platform_env(const char *build_dir, enum requirement_type req)
+setup_platform_env(struct workspace *wk, const char *build_dir, enum requirement_type req)
 {
 	if (req == requirement_skip) {
 		return;
 	}
 
 	if (host_machine.sys == machine_system_windows) {
-		TSTR_manual(cache);
+		TSTR(cache);
 		const char *cache_path = 0;
 		if (build_dir) {
-			path_copy(0, &cache, build_dir);
-			path_push(0, &cache, output_path.private_dir);
-			fs_mkdir_p(cache.buf);
+			path_copy(wk, &cache, build_dir);
+			path_push(wk, &cache, output_path.private_dir);
+			fs_mkdir_p(wk, cache.buf);
 			if (fs_dir_exists(cache.buf)) {
-				path_push(0, &cache, output_path.paths[output_path_vsenv_cache].path);
+				path_push(wk, &cache, output_path.paths[output_path_vsenv_cache].path);
 				cache_path = cache.buf;
 			}
 		}
 
-		vsenv_setup(cache_path, req);
+		vsenv_setup(wk, cache_path, req);
 	}
 }

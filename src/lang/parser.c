@@ -277,7 +277,7 @@ parse_diagnostic(struct parser *p, struct source_location *l, enum log_level lvl
 	}
 
 	if (!(p->mode & vm_compile_mode_quiet)) {
-		error_message(p->src, *l, lvl, 0, p->err.msg);
+		error_message(p->wk, p->src, *l, lvl, 0, p->err.msg);
 	}
 
 	if (lvl == log_error) {
@@ -436,7 +436,7 @@ parse_expect(struct parser *p, enum token_type type)
 static struct node *
 make_node(struct parser *p, struct node *n)
 {
-	n = bucket_arr_push(p->nodes, n);
+	n = bucket_arr_push(p->wk->a, p->nodes, n);
 	if (p->previous.type) {
 		n->location = p->previous.location;
 		n->data = p->previous.data;
@@ -1244,8 +1244,6 @@ parse_impl(struct workspace *wk,
 		// This is an empty file.  Add a single dummy statement.
 		n = make_node_t(p, node_type_stmt);
 	}
-
-	lexer_destroy(&p->lexer);
 
 	TracyCZoneAutoE;
 	return p->err.count ? 0 : n;

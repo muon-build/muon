@@ -171,7 +171,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 {
 	const char *src = get_file_path(wk, val);
 
-	if (!path_is_subpath(wk->build_root, src)) {
+	if (!path_is_subpath(wk, wk->build_root, src)) {
 		return true;
 	}
 
@@ -200,7 +200,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 	obj_array_push(wk, ctx->prepend_include_directories, inc);
 
 	// mkdir so that the include dir doesn't get pruned later on
-	if (!fs_mkdir_p(dir.buf)) {
+	if (!fs_mkdir_p(wk, dir.buf)) {
 		return false;
 	}
 
@@ -400,7 +400,7 @@ setup_shared_object_symlinks(struct workspace *wk,
 	TSTR(soname_symlink);
 	TSTR(plain_name_symlink);
 
-	if (!fs_mkdir_p(get_cstr(wk, tgt->build_dir))) {
+	if (!fs_mkdir_p(wk, get_cstr(wk, tgt->build_dir))) {
 		return false;
 	}
 
@@ -994,7 +994,7 @@ create_target(struct workspace *wk,
 		const char *private_path = get_cstr(wk, tgt->private_path);
 
 		// mkdir so that the include dir doesn't get pruned later on
-		if (!fs_mkdir_p(private_path)) {
+		if (!fs_mkdir_p(wk, private_path)) {
 			return false;
 		}
 	}

@@ -1,0 +1,31 @@
+project('foobar')
+
+add_languages('c')
+
+f = files(
+    'a.c',
+    'b.c',
+    'c.c',
+    'd.c',
+    'e.c',
+    'f.c',
+    'g.c',
+    'h.c',
+    'i.c',
+    'j.c',
+    'k.c',
+    'l.c',
+)
+
+executable('a', sources: f)
+executable('b', sources: f)
+executable('c', sources: f)
+executable('d', sources: f)
+executable('e', sources: f)
+executable('f', sources: f)
+executable('g', sources: f)
+executable('h', sources: f)
+executable('i', sources: f)
+executable('j', sources: f)
+executable('k', sources: f)
+executable('l', sources: f)

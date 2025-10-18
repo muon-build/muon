@@ -78,7 +78,6 @@ FUNC_REGISTER(analyzer);
 extern struct func_impl_group az_func_impl_group;
 
 void analyze_opts_init(struct workspace *wk, struct az_opts *opts);
-void analyze_opts_destroy(struct workspace *wk, struct az_opts *opts);
 bool analyze_opts_push_override(struct workspace *wk,
 	struct az_opts *opts,
 	const char *override,

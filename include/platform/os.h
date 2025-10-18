@@ -37,7 +37,7 @@ int os_getopt(int argc, char *const argv[], const char *optstring);
 // than the number of cpus.
 uint32_t os_parallel_job_count(void);
 
-void os_set_env(const struct str *k, const struct str *v);
+void os_set_env(struct workspace *wk, const struct str *k, const struct str *v);
 const char *os_get_env(const char *k);
 bool os_is_debugger_attached(void);
 int32_t os_get_pid(void);

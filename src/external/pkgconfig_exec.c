@@ -55,7 +55,7 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, cmd);
 
-	return run_cmd_checked(rctx, argstr, argc, 0, 0);
+	return run_cmd_checked(wk, rctx, argstr, argc, 0, 0);
 }
 
 static bool

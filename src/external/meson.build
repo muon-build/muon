@@ -95,3 +95,9 @@ if readline_opt != 'builtin'
     dep_dict += {name: dep.found()}
     external_deps += [dep]
 endif
+
+p(dep_dict, pretty: true)
+
+foreach dep : external_deps
+    p(dep, inspect: true)
+endforeach

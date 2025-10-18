@@ -34,7 +34,6 @@
 #include "opts.h"
 #include "platform/assert.h"
 #include "platform/init.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -77,7 +76,7 @@ ret:
 }
 
 static bool
-cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_exe(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *feed;
@@ -130,43 +129,31 @@ cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		ctx.flags |= run_cmd_ctx_flag_dont_capture;
 	}
 
-	struct workspace wk;
-	bool initialized_workspace = false, allocated_argv = false;
 
 	const char *envstr = NULL;
 	uint32_t envc = 0;
 	if (opts.environment) {
-		initialized_workspace = true;
-		workspace_init_bare(&wk);
-
 		obj env;
-		if (!load_obj_from_serial_dump(&wk, opts.environment, &env)) {
+		if (!load_obj_from_serial_dump(wk, opts.environment, &env)) {
 			goto ret;
 		}
 
-		env_to_envstr(&wk, &envstr, &envc, env);
+		env_to_envstr(wk, &envstr, &envc, env);
 	}
 
 	if (opts.args) {
-		if (!initialized_workspace) {
-			initialized_workspace = true;
-			workspace_init_bare(&wk);
-		}
-
 		obj args;
-		if (!load_obj_from_serial_dump(&wk, opts.args, &args)) {
+		if (!load_obj_from_serial_dump(wk, opts.args, &args)) {
 			goto ret;
 		}
 
 		const char *argstr;
 		uint32_t argc;
-		join_args_argstr(&wk, &argstr, &argc, args);
-
-		argstr_to_argv(argstr, argc, NULL, (char *const **)&opts.cmd);
-		allocated_argv = true;
+		join_args_argstr(wk, &argstr, &argc, args);
+		argstr_to_argv(wk, argstr, argc, NULL, (char *const **)&opts.cmd);
 	}
 
-	if (!run_cmd_argv(&ctx, (char *const *)opts.cmd, envstr, envc)) {
+	if (!run_cmd_argv(wk, &ctx, (char *const *)opts.cmd, envstr, envc)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
 		goto ret;
 	}
@@ -185,12 +172,6 @@ cmd_exe(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 ret:
 	run_cmd_ctx_destroy(&ctx);
-	if (initialized_workspace) {
-		workspace_destroy_bare(&wk);
-	}
-	if (allocated_argv) {
-		z_free((void *)opts.cmd);
-	}
 	return ret;
 }
 
@@ -224,7 +205,7 @@ language_mode_from_optarg(const char *arg, enum language_mode *langmode)
 }
 
 static bool
-cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *filename;
@@ -261,55 +242,46 @@ cmd_check(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	opts.filename = argv[argi];
 
-	bool ret = false;
+	arr_push(wk->a, &wk->vm.src, &(struct source){ 0 });
+	struct source *src = arr_get(&wk->vm.src, 0);
 
-	struct workspace wk;
-	workspace_init_bare(&wk);
-
-	arr_push(&wk.vm.src, &(struct source){ 0 });
-	struct source *src = arr_get(&wk.vm.src, 0);
-
-	if (!fs_read_entire_file(opts.filename, src)) {
-		goto ret;
+	if (!fs_read_entire_file(wk->a_scratch, opts.filename, src)) {
+		return false;
 	}
 
 	if (opts.breakpoint) {
-		if (!vm_dbg_push_breakpoint_str(&wk, opts.breakpoint)) {
-			goto ret;
+		if (!vm_dbg_push_breakpoint_str(wk, opts.breakpoint)) {
+			return false;
 		}
 	}
 
 	if (opts.print_ast) {
 		struct node *n;
-		if (!(n = parse(&wk, src, opts.compile_mode))) {
-			goto ret;
+		if (!(n = parse(wk, src, opts.compile_mode))) {
+			return false;
 		}
 
 		if (opts.compile_mode & vm_compile_mode_fmt) {
-			print_fmt_ast(&wk, n);
+			print_fmt_ast(wk, n);
 		} else {
-			print_ast(&wk, n);
+			print_ast(wk, n);
 		}
 	} else {
 		uint32_t _entry;
-		if (!vm_compile(&wk, src, opts.compile_mode, &_entry)) {
-			goto ret;
+		if (!vm_compile(wk, src, opts.compile_mode, &_entry)) {
+			return false;
 		}
 
 		if (opts.print_dis) {
-			vm_dis(&wk);
+			vm_dis(wk);
 		}
 	}
 
-	ret = true;
-ret:
-	fs_source_destroy(src);
-	workspace_destroy(&wk);
-	return ret;
+	return true;
 }
 
 static bool
-cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_analyze(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		bool subdir_error;
@@ -418,21 +390,15 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		struct az_opts az_opts = {
 			.enabled_diagnostics = opts.enabled_diagnostics,
 		};
-		return analyze_server(&az_opts);
+		return analyze_server(wk, &az_opts);
 	} else if (opts.action == action_determine_root) {
-		struct workspace wk;
-		workspace_init_bare(&wk);
-		const char *root = determine_project_root(&wk, argv[argi]);
+		const char *root = determine_project_root(wk, argv[argi]);
 		if (root) {
 			printf("%s\n", root);
 		}
-		workspace_destroy(&wk);
 
 		return root ? true : false;
 	} else {
-		struct workspace wk;
-		workspace_init_bare(&wk);
-
 		const char *single_file = 0;
 		if (opts.action == action_file) {
 			single_file = argv[argi];
@@ -442,7 +408,7 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 
 		struct az_opts az_opts;
-		analyze_opts_init(&wk, &az_opts);
+		analyze_opts_init(wk, &az_opts);
 		az_opts.eval_trace = opts.action == action_trace;
 		az_opts.subdir_error = opts.subdir_error;
 		az_opts.replay_opts = opts.replay_opts;
@@ -453,21 +419,19 @@ cmd_analyze(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 		bool res = true;
 		if (opts.file_override) {
-			res = analyze_opts_push_override(&wk, &az_opts, opts.file_override, "-", 0);
+			res = analyze_opts_push_override(wk, &az_opts, opts.file_override, "-", 0);
 		}
 
 		if (res) {
-			res = do_analyze(&wk, &az_opts);
+			res = do_analyze(wk, &az_opts);
 		}
 
-		workspace_destroy(&wk);
-		analyze_opts_destroy(&wk, &az_opts);
 		return res;
 	}
 }
 
 static bool
-cmd_options(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_options(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct list_options_opts opts = { 0 };
 	OPTSTART("am") {
@@ -481,11 +445,11 @@ cmd_options(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		NULL,
 		0)
 
-	return list_options(&opts);
+	return list_options(wk, &opts);
 }
 
 static bool
-cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_summary(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -495,26 +459,21 @@ cmd_summary(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	TSTR_manual(path);
-	path_join(0, &path, output_path.private_dir, output_path.paths[output_path_summary].path);
+	TSTR(path);
+	path_join(wk, &path, output_path.private_dir, output_path.paths[output_path_summary].path);
 
-	bool ret = false;
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path.buf, &src)) {
-		goto ret;
+	if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
+		return false;
 	}
 
 	fwrite(src.src, 1, src.len, stdout);
 
-	ret = true;
-ret:
-	tstr_destroy(&path);
-	fs_source_destroy(&src);
-	return ret;
+	return true;
 }
 
 static bool
-cmd_info(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_info(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	LOG_W("the info subcommand has been deprecated, please use options / summary directly");
 
@@ -537,11 +496,9 @@ cmd_info(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct workspace wk;
-	workspace_init_bare(&wk);
-	workspace_setup_paths(&wk, path_cwd(), argv[0], argc, argv);
+	workspace_setup_paths(wk, path_cwd(), argv[0], argc, argv);
 
 	const char *string_src = 0;
 	bool embedded = false;
@@ -549,11 +506,11 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	OPTSTART("esb:c:") {
 	case 'e': embedded = true; break;
 	case 's': {
-		wk.vm.disable_fuzz_unsafe_functions = true;
+		wk->vm.disable_fuzz_unsafe_functions = true;
 		break;
 	}
 	case 'b': {
-		vm_dbg_push_breakpoint_str(&wk, optarg);
+		vm_dbg_push_breakpoint_str(wk, optarg);
 		break;
 	}
 	case 'c': {
@@ -573,7 +530,7 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 
-	wk.vm.lang_mode = language_internal;
+	wk->vm.lang_mode = language_internal;
 
 	if (string_src) {
 		if (!check_operands(argc, argi, 0)) {
@@ -592,12 +549,12 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		const char *filename = 0;
 		filename = argv[argi];
 		if (embedded) {
-			if (!(embedded_get(filename, &src))) {
+			if (!(embedded_get(wk, filename, &src))) {
 				LOG_E("failed to find '%s' in embedded sources", filename);
 				goto ret;
 			}
 		} else {
-			if (!fs_read_entire_file(filename, &src)) {
+			if (!fs_read_entire_file(wk->a_scratch, filename, &src)) {
 				goto ret;
 			}
 		}
@@ -605,90 +562,77 @@ cmd_eval(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 
 	{ // populate argv array
 		obj argv_obj;
-		argv_obj = make_obj(&wk, obj_array);
-		wk.vm.behavior.assign_variable(&wk, "argv", argv_obj, 0, assign_local);
+		argv_obj = make_obj(wk, obj_array);
+		wk->vm.behavior.assign_variable(wk, "argv", argv_obj, 0, assign_local);
 
 		uint32_t i;
 		for (i = argi; i < argc; ++i) {
-			obj_array_push(&wk, argv_obj, make_str(&wk, argv[i]));
+			obj_array_push(wk, argv_obj, make_str(wk, argv[i]));
 		}
 	}
 
 	obj res;
-	if (!eval(&wk, &src, build_language_meson, 0, &res)) {
+	if (!eval(wk, &src, build_language_meson, 0, &res)) {
 		goto ret;
 	}
 
 	ret = true;
 ret:
-	workspace_destroy(&wk);
 	return ret;
 }
 
 static bool
-cmd_repl(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
-{
-	struct workspace wk;
-	workspace_init(&wk);
-	wk.vm.lang_mode = language_internal;
-
-	obj id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
-
-	repl(&wk, false);
-
-	workspace_destroy(&wk);
-	return true;
-}
-
-static bool
-cmd_dump_signatures(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_repl(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], "", "", NULL, 0)
 
-	struct workspace wk;
-	workspace_init(&wk);
+	wk->vm.lang_mode = language_internal;
 
-	obj id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
-	if (!setup_project_options(&wk, NULL)) {
-		UNREACHABLE;
-	}
+	workspace_init_runtime(wk);
+	workspace_init_startup_files(wk);
+	make_dummy_project(wk, false);
 
-	dump_function_signatures(&wk);
-
-	workspace_destroy(&wk);
+	repl(wk, false);
 	return true;
 }
 
 static bool
-cmd_dump_docs(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_dump_signatures(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	log_set_file(stderr);
+	OPTSTART("") {
+	}
+	OPTEND(argv[argi], "", "", NULL, 0)
+
+	workspace_init_runtime(wk);
+	workspace_init_startup_files(wk);
+	make_dummy_project(wk, true);
+
+	dump_function_signatures(wk);
+	return true;
+}
+
+static bool
+cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	log_set_file(wk, stderr);
 
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], "", "", NULL, 0)
 
-	struct workspace wk;
-	workspace_init(&wk);
+	workspace_init_runtime(wk);
+	workspace_init_startup_files(wk);
+	make_dummy_project(wk, true);
 
-	obj id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
-	if (!setup_project_options(&wk, NULL)) {
-		UNREACHABLE;
-	}
+	dump_function_docs(wk);
 
-	dump_function_docs(&wk);
-
-	workspace_destroy(&wk);
 	return true;
 }
 
 static bool
-cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct obj_compiler comp = { 0 };
 	bool set_linker = false, set_static_linker = false;
@@ -848,14 +792,10 @@ cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]
 		NULL,
 		0)
 
-	struct workspace wk;
-	workspace_init(&wk);
+	workspace_init_runtime(wk);
+	workspace_init_startup_files(wk);
 
-	obj id;
-	make_project(&wk, &id, "dummy", wk.source_root, wk.build_root);
-	if (!setup_project_options(&wk, NULL)) {
-		UNREACHABLE;
-	}
+	make_dummy_project(wk, true);
 
 	printf("compiler: %s, linker: %s, static_linker: %s\n",
 		compiler_type_name[comp.type[toolchain_component_compiler]].id,
@@ -874,14 +814,13 @@ cmd_dump_toolchains(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[]
 	}
 	printf("}\n");
 
-	toolchain_dump(&wk, &comp, &opts);
+	toolchain_dump(wk, &comp, &opts);
 
-	workspace_destroy(&wk);
 	return true;
 }
 
 static bool
-cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_internal(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	static const struct command commands[] = {
 		{ "check", cmd_check, "check if a meson file parses" },
@@ -904,19 +843,19 @@ cmd_internal(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	return commands[cmd_i].cmd(0, argc, argi, argv);
+	return commands[cmd_i].cmd(wk, argc, argi, argv);
 }
 
 static bool
-cmd_samu(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_samu(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	setup_platform_env(".", requirement_auto);
-
-	return samu_main(argc - argi, (char **)&argv[argi], 0);
+	setup_platform_env(wk, ".", requirement_required);
+	bool res = samu_main(wk, argc - argi, (char **)&argv[argi], 0);
+	return res;
 }
 
 static bool
-cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct test_options test_opts = { 0 };
 
@@ -1002,16 +941,14 @@ cmd_test(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".", requirement_auto);
-
 	test_opts.tests = &argv[argi];
 	test_opts.tests_len = argc - argi;
 
-	return tests_run(&test_opts, argv[0]);
+	return tests_run(wk, &test_opts, argv[0]);
 }
 
 static bool
-cmd_install(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_install(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct install_options opts = {
 		.destdir = os_get_env("DESTDIR"),
@@ -1032,16 +969,16 @@ cmd_install(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	return install_run(&opts);
+	return install_run(wk, &opts);
 }
 
 static void
-cmd_setup_help(void)
+cmd_setup_help(struct workspace *wk)
 {
 	log_plain(log_info, "\n");
 
 	struct list_options_opts list_opts = { 0 };
-	list_options(&list_opts);
+	list_options(wk, &list_opts);
 
 	log_plain(log_info, "To see all options, including builtin options, use `muon options -a`.\n");
 }
@@ -1056,26 +993,25 @@ make_argv0_absolute(struct workspace *wk, struct tstr *buf, char *const argv[])
 }
 
 static bool
-cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
+	workspace_init_runtime(wk);
+
 	TracyCZoneAutoS;
 	bool res = false;
 	enum workspace_do_setup_flag flags = 0;
-	struct workspace wk;
-	workspace_init_bare(&wk);
-	workspace_init_runtime(&wk);
 
 	uint32_t original_argi = argi + 1;
 
 	OPTSTART("D:b:#w") {
-	case '#': log_progress_enable(); break;
+	case '#': log_progress_enable(wk); break;
 	case 'D':
-		if (!parse_and_set_cmdline_option(&wk, optarg)) {
+		if (!parse_and_set_cmdline_option(wk, optarg)) {
 			goto ret;
 		}
 		break;
 	case 'b': {
-		vm_dbg_push_breakpoint_str(&wk, optarg);
+		vm_dbg_push_breakpoint_str(wk, optarg);
 		break;
 	}
 	case 'w': {
@@ -1090,7 +1026,7 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		"  -w - clear all caches before setup\n",
 		NULL,
 		1,
-		cmd_setup_help())
+		cmd_setup_help(wk))
 
 	const char *build = argv[argi];
 
@@ -1102,21 +1038,21 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	TSTR(new_cwd);
 	TSTR(old_cwd);
 	{
-		path_copy_cwd(&wk, &old_cwd);
+		path_copy_cwd(wk, &old_cwd);
 
 		enum build_language _lang;
-		if (!determine_build_file(&wk, path_cwd(), &_lang, true))
+		if (!determine_build_file(wk, path_cwd(), &_lang, true))
 		{
 			// fix argv0 here since if it is a relative path it will be
 			// wrong after chdir
-			make_argv0_absolute(&wk, &argv0, argv);
+			make_argv0_absolute(wk, &argv0, argv);
 
-			if (!path_chdir(build)) {
+			if (!path_chdir(wk, build)) {
 				return false;
 			}
 
-			path_copy_cwd(&wk, &new_cwd);
-			wk.source_root = new_cwd.buf;
+			path_copy_cwd(wk, &new_cwd);
+			wk->source_root = new_cwd.buf;
 			build = old_cwd.buf;
 
 			((const char **)argv)[argi] = build;
@@ -1135,14 +1071,14 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	};
 	{
 		uint32_t i;
-		for (i = 0; i < wk.option_overrides.len; ++i) {
-			struct option_override *oo = arr_get(&wk.option_overrides, i);
+		for (i = 0; i < wk->option_overrides.len; ++i) {
+			struct option_override *oo = arr_get(&wk->option_overrides, i);
 			if (oo->proj) {
 				continue;
 			}
 
-			const struct str *k = get_str(&wk, oo->name);
-			const struct str *v = get_str(&wk, oo->val);
+			const struct str *k = get_str(wk, oo->name);
+			const struct str *v = get_str(wk, oo->val);
 
 			if (str_eql(&STR("vsenv"), k)) {
 				opts.vsenv_req = str_eql(&STR("true"), v) ? requirement_required : requirement_skip;
@@ -1150,25 +1086,24 @@ cmd_setup(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 	}
 
-	if (!workspace_do_setup_prepare(&wk, build, argv[0], argc - original_argi, &argv[original_argi], flags)) {
+	if (!workspace_do_setup_prepare(wk, build, argv[0], argc - original_argi, &argv[original_argi], flags)) {
 		goto ret;
 	}
 
-	setup_platform_env(build, opts.vsenv_req);
+	setup_platform_env(wk, build, opts.vsenv_req);
 
-	if (!workspace_do_setup(&wk)) {
+	if (!workspace_do_setup(wk)) {
 		goto ret;
 	}
 
 	res = true;
 ret:
-	workspace_destroy(&wk);
 	TracyCZoneAutoE;
 	return res;
 }
 
 static bool
-cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		char *const *filenames;
@@ -1201,7 +1136,7 @@ cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	log_set_file(stderr);
+	log_set_file(wk, stderr);
 
 	opts.filenames = &argv[argi];
 	const uint32_t num_files = argc - argi;
@@ -1215,7 +1150,7 @@ cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		opened_out = false;
 
 		struct source src = { 0 };
-		if (!fs_read_entire_file(opts.filenames[i], &src)) {
+		if (!fs_read_entire_file(wk->a_scratch, opts.filenames[i], &src)) {
 			ret = false;
 			goto cont;
 		}
@@ -1232,7 +1167,10 @@ cmd_format(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 			out = stdout;
 		}
 
-		fmt_ret = fmt(&src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
+		ar_scratch_begin(wk->a_scratch);
+		fmt_ret = fmt(wk->a_scratch, &src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
+		ar_scratch_end(wk->a_scratch);
+
 		if (!fmt_ret && opts.print_failures) {
 			printf("%s\n", opts.filenames[i]);
 		}
@@ -1244,7 +1182,6 @@ cont:
 				fs_write(opts.filenames[i], (const uint8_t *)src.src, src.len);
 			}
 		}
-		fs_source_destroy(&src);
 		ret &= fmt_ret;
 	}
 
@@ -1252,13 +1189,14 @@ cont:
 }
 
 static bool
-cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	printf("muon %s%s%s\nmeson compatibility version %s\nenabled features:\n",
 		muon_version.version,
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,
 		muon_version.meson_compat);
+	printf("compiled with: %s, for platform: %s\n", muon_version.compiler, muon_version.platform);
 
 	const struct {
 		const char *name;
@@ -1269,6 +1207,12 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		{ "samurai", have_samurai },
 #ifdef TRACY_ENABLE
 		{ "tracy", true },
+#endif
+#ifdef __SANITIZE_ADDRESS__
+		{ "asan", true },
+#endif
+#ifdef __SANITIZE_UNDEFINED__
+		{ "ubsan", true },
 #endif
 	};
 
@@ -1290,18 +1234,16 @@ cmd_version(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	return true;
 }
 
-static bool cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[]);
+static bool cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[]);
 
 static bool
-cmd_meson(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_meson(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	++argi;
 
-	struct workspace wk;
 	char **new_argv;
 	uint32_t new_argc, new_argi;
-	workspace_init_bare(&wk);
-	if (!translate_meson_opts(&wk, argc, argi, (char **)argv, &new_argc, &new_argi, &new_argv)) {
+	if (!translate_meson_opts(wk, argc, argi, (char **)argv, &new_argc, &new_argi, &new_argv)) {
 		return false;
 	}
 
@@ -1309,26 +1251,21 @@ cmd_meson(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 	argc = new_argc;
 	argv = new_argv;
 
-	bool res = cmd_main(0, argc, argi, (char **)argv);
-
-	workspace_destroy(&wk);
-	z_free(new_argv);
-
-	return res;
+	return cmd_main(wk, argc, argi, (char **)argv);
 }
 
 static bool
-cmd_ui(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_ui(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], "", "", 0, 0);
 
-	return ui_main();
+	return ui_main(wk);
 }
 
 static bool
-cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_devenv(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	OPTSTART("") {
 	}
@@ -1343,23 +1280,24 @@ cmd_devenv(void *_ctx, uint32_t argc, uint32_t argi, char *const argv[])
 		return false;
 	}
 
-	setup_platform_env(".", requirement_required);
+	setup_platform_env(wk, ".", requirement_required);
 
 	const char *const *cmd = (const char *const *)&argv[argi];
 
 	struct run_cmd_ctx ctx = { 0 };
 	ctx.flags |= run_cmd_ctx_flag_dont_capture;
 
-	if (!run_cmd_argv(&ctx, (char *const *)cmd, 0, 0)) {
+	bool ok = true;
+	if (!run_cmd_argv(wk, &ctx, (char *const *)cmd, 0, 0)) {
 		LOG_E("failed to run command: %s", ctx.err_msg);
-		return false;
+		ok = false;
 	}
 
-	exit(ctx.status);
+	exit(ok ? ctx.status : 1);
 }
 
 static bool
-cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
+cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer" },
@@ -1379,8 +1317,7 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 		{ 0 },
 	};
 
-	bool res = false;
-	TSTR_manual(argv0);
+	TSTR(argv0);
 
 	OPTSTART("vqC:") {
 	case 'v': log_set_lvl(log_debug); break;
@@ -1388,9 +1325,9 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 	case 'C': {
 		// fix argv0 here since if it is a relative path it will be
 		// wrong after chdir
-		make_argv0_absolute(0, &argv0, argv);
+		make_argv0_absolute(wk, &argv0, argv);
 
-		if (!path_chdir(optarg)) {
+		if (!path_chdir(wk, optarg)) {
 			return false;
 		}
 		break;
@@ -1406,14 +1343,10 @@ cmd_main(void *_ctx, uint32_t argc, uint32_t argi, char *argv[])
 
 	uint32_t cmd_i;
 	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
-		goto ret;
+		return false;
 	}
 
-	res = commands[cmd_i].cmd(0, argc, argi, argv);
-
-ret:
-	tstr_destroy(&argv0);
-	return res;
+	return commands[cmd_i].cmd(wk, argc, argi, argv);
 }
 
 int
@@ -1421,10 +1354,19 @@ main(int argc, char *argv[])
 {
 	platform_init();
 
-	log_set_file(stdout);
+	struct arena a;
+	struct arena a_scratch;
+	arena_init(&a,);
+	arena_init(&a_scratch,);
+	struct workspace wk;
+	workspace_init_arena(&wk, &a, &a_scratch);
+
+	log_set_file(&wk, stdout);
 	log_set_lvl(log_info);
 
-	path_init();
+	workspace_init_bare(&wk, &a, &a_scratch);
+
+	path_init(&wk);
 
 	compilers_init();
 	machine_init();
@@ -1434,19 +1376,23 @@ main(int argc, char *argv[])
 
 	{
 		TSTR(basename);
-		path_basename(NULL, &basename, argv[0]);
+		path_basename(&wk, &basename, argv[0]);
 		meson_compat = strcmp(basename.buf, "meson") == 0 && (argc < 2 || strcmp(argv[1], "internal") != 0);
-		tstr_destroy(&basename);
 	}
 
 	if (meson_compat) {
-		res = cmd_meson(0, argc, 0, argv);
+		res = cmd_meson(&wk, argc, 0, argv);
 	} else {
-		res = cmd_main(0, argc, 0, argv);
+		res = cmd_main(&wk, argc, 0, argv);
 	}
 
 	int ret = res ? 0 : 1;
 
-	path_deinit();
+	ar_destroy(&a);
+	ar_destroy(&a_scratch);
+
+#ifdef TRACY_ENABLE
+	sleep(1);
+#endif
 	return ret;
 }

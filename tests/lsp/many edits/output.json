@@ -1,0 +1,227 @@
+[
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": []
+    }
+  },
+  {
+    "method": "muon/textDocument/publishDiagnostics",
+    "params": {
+      "relUri": "meson.build",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 30,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 9
+            }
+          },
+          "severity": 1,
+          "message": "undefined object xecutable"
+        }
+      ]
+    }
+  }
+]

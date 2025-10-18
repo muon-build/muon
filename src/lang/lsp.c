@@ -95,19 +95,25 @@ enum LspCompletionItemKind {
 	LspCompletionItemKindTypeParameter = 25,
 };
 
-static bool
-az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
+enum az_srv_read_result {
+	az_srv_read_result_err,
+	az_srv_read_result_ok,
+	az_srv_read_result_eof,
+};
+
+static enum az_srv_read_result
+az_srv_read_bytes(struct az_srv *srv)
 {
 	struct tstr *buf = srv->transport.in_buf;
 
 	if (buf->cap - buf->len < 16) {
-		tstr_grow(wk, buf, 1024);
+		tstr_grow(srv->wk, buf, 1024);
 	}
 
 	const uint32_t space_available = buf->cap - buf->len;
 	uint32_t bytes_available = space_available;
 	if (!fs_wait_for_input(srv->transport.in, &bytes_available)) {
-		return false;
+		return az_srv_read_result_err;
 	}
 
 	if (bytes_available > space_available) {
@@ -116,13 +122,12 @@ az_srv_read_bytes(struct workspace *wk, struct az_srv *srv)
 
 	int32_t n = fs_read(srv->transport.in, buf->buf + buf->len, bytes_available);
 	if (n <= 0) {
-		// EOF, error
-		return false;
+		return az_srv_read_result_eof;
 	}
 
 	buf->len += n;
 
-	return true;
+	return az_srv_read_result_ok;
 }
 
 static void
@@ -135,8 +140,8 @@ az_srv_buf_shift(struct az_srv *srv, uint32_t amnt)
 	memmove(buf->buf, start, buf->len);
 }
 
-static bool
-az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
+static enum az_srv_read_result
+az_srv_read(struct az_srv *srv, struct workspace *wk, obj *msg)
 {
 	TracyCZoneAutoS;
 	int64_t content_length = 0;
@@ -145,9 +150,18 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 	{
 		char *end;
 		while (!(end = memmem(buf->buf, buf->len, "\r\n\r\n", 4))) {
-			if (!az_srv_read_bytes(wk, srv)) {
-				LOG_E("failed to read entire header");
-				return false;
+			switch(az_srv_read_bytes(srv)) {
+			case az_srv_read_result_err:
+				LOG_E("error when reading message header");
+				return az_srv_read_result_err;
+			case az_srv_read_result_ok:
+				break;
+			case az_srv_read_result_eof:
+				if (buf->len) {
+					LOG_E("eof when reading message header");
+					return az_srv_read_result_err;
+				}
+				return az_srv_read_result_eof;
 			}
 		}
 
@@ -190,9 +204,15 @@ az_srv_read(struct workspace *wk, struct az_srv *srv, obj *msg)
 
 	{
 		while (buf->len < content_length) {
-			if (!az_srv_read_bytes(wk, srv)) {
-				LOG_E("Failed to read entire message");
-				return false;
+			switch (az_srv_read_bytes(srv)) {
+			case az_srv_read_result_err:
+				LOG_E("error when reading message body");
+				return az_srv_read_result_err;
+			case az_srv_read_result_eof:
+				LOG_E("eof when reading message body");
+				return az_srv_read_result_err;
+			case az_srv_read_result_ok:
+				break;
 			}
 		}
 
@@ -289,9 +309,8 @@ az_srv_position(struct workspace *wk, uint32_t line, uint32_t col)
 static obj
 az_srv_range(struct workspace *wk, const struct source *src, struct source_location loc)
 {
-	bool destroy_source = false;
 	struct source src_reopened = { 0 };
-	reopen_source(src, &src_reopened, &destroy_source);
+	reopen_source(wk->a_scratch, src, &src_reopened);
 
 	struct detailed_source_location dloc;
 	get_detailed_source_location(&src_reopened, loc, &dloc, get_detailed_source_location_flag_multiline);
@@ -303,10 +322,6 @@ az_srv_range(struct workspace *wk, const struct source *src, struct source_locat
 		make_str(wk, "end"),
 		az_srv_position(
 			wk, dloc.end_line ? dloc.end_line : dloc.line, dloc.end_col ? dloc.end_col + 1 : dloc.end_col));
-
-	if (destroy_source) {
-		fs_source_destroy(&src_reopened);
-	}
 
 	return range;
 }
@@ -326,27 +341,8 @@ az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
 	}
 
 	TSTR(res);
-
-	for (uint32_t i = 0; i < uri_s.len; ++i) {
-		if (uri_s.s[i] == '%') {
-			++i;
-			if (i + 2 >= uri_s.len) {
-				return 0;
-			}
-
-			const struct str num = { &uri_s.s[i], 2, 0 };
-			++i;
-
-			int64_t n;
-
-			if (!str_to_i_base(&num, &n, false, 16)) {
-				return 0;
-			}
-
-			tstr_push(wk, &res, n);
-		} else {
-			tstr_push(wk, &res, uri_s.s[i]);
-		}
+	if (!str_percent_decode(wk, &uri_s, &res)) {
+		return 0;
 	}
 
 	// Trim leading / from path on windows
@@ -363,8 +359,6 @@ az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
 static obj
 az_srv_path_to_uri(struct workspace *wk, const struct str *path)
 {
-	const char *uri_reserved_chars = "!#$&'()*+,:;=?@[]%";
-
 	TSTR(res);
 
 	tstr_pushs(wk, &res, "file://");
@@ -373,14 +367,7 @@ az_srv_path_to_uri(struct workspace *wk, const struct str *path)
 		tstr_push(wk, &res, '/');
 	}
 
-	uint32_t i;
-	for (i = 0; i < path->len; ++i) {
-		if (strchr(uri_reserved_chars, path->s[i])) {
-			tstr_pushf(wk, &res, "%%%02x", path->s[i]);
-		} else {
-			tstr_push(wk, &res, path->s[i]);
-		}
-	}
+	str_percent_encode(wk, path, &res);
 
 	return tstr_into_str(wk, &res);
 }
@@ -420,7 +407,7 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 		}
 	}
 
-	const struct arr *diagnostics = error_diagnostic_store_get();
+	const struct arr *diagnostics = &wk->diagnostic_store->messages;
 
 	uint32_t i;
 	struct error_diagnostic_message *msg;
@@ -496,7 +483,7 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		if (root_uri) {
 			const char *root = az_srv_uri_to_path(wk, get_str(wk, root_uri));
 			if (root) {
-				path_chdir(root);
+				path_chdir(wk, root);
 			}
 		}
 
@@ -1004,28 +991,25 @@ az_srv_dbg_break_cb(struct workspace *wk)
 }
 
 bool
-analyze_server(struct az_opts *cmdline_opts)
+analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 {
-	log_set_file(stderr);
+	log_set_file(srv_wk, stderr);
 
 	if (cmdline_opts->lsp.wait_for_debugger) {
 		LOG_I("muon lsp waiting for debugger...");
 		while (!os_is_debugger_attached()) { }
 	}
 
-	struct workspace srv_wk;
-	workspace_init_bare(&srv_wk);
-
 	FILE *debug_log = 0;
 	if (cmdline_opts->lsp.debug_log) {
 		const char *home = fs_user_home();
 		if (home) {
 			TSTR(path);
-			path_join(&srv_wk, &path, home, ".local/state/muon");
-			if (fs_mkdir_p(path.buf)) {
+			path_join(srv_wk, &path, home, ".local/state/muon");
+			if (fs_mkdir_p(srv_wk, path.buf)) {
 				char file[256];
 				snprintf(file, sizeof(file), "lsp.%d.log", os_get_pid());
-				path_push(&srv_wk, &path, file);
+				path_push(srv_wk, &path, file);
 
 				if ((debug_log = fs_fopen(path.buf, "wb"))) {
 					log_set_debug_file(debug_log);
@@ -1039,29 +1023,45 @@ analyze_server(struct az_opts *cmdline_opts)
 			.in = 0, // STDIN_FILENO
 			.out = stdout,
 		},
-		.wk = &srv_wk,
-		.diagnostics_to_clear = make_obj(&srv_wk, obj_array),
+		.wk = srv_wk,
+		.diagnostics_to_clear = make_obj(srv_wk, obj_array),
 	};
 
 	analyze_opts_init(srv.wk, &srv.opts);
 	srv.opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
 
+	struct arena a, a_scratch;
+	arena_init(&a,);
+	arena_init(&a_scratch,);
+
+	bool ok = true;
+
 	LOG_I("muon lsp listening...");
+
+	TSTR(in_buf);
+	srv.transport.in_buf = &in_buf;
 
 	while (true) {
 		TracyCFrameMark;
 
-		struct workspace wk = { 0 };
-		workspace_init_bare(&wk);
-		TSTR(in_buf);
-		srv.transport.in_buf = &in_buf;
+		struct workspace wk = { .a = &a, .a_scratch = &a_scratch };
+		workspace_init_bare(&wk, &a, &a_scratch);
+
 		srv.should_analyze = false;
 		srv.req.id = srv.req.result = srv.req.type = 0;
 
 		obj msg;
-		if (!az_srv_read(&wk, &srv, &msg)) {
+		switch (az_srv_read(&srv, &wk, &msg)) {
+		case az_srv_read_result_err:
+			ok = false;
+			goto shutdown;
+		case az_srv_read_result_eof:
+			goto shutdown;
+		case az_srv_read_result_ok:
 			break;
 		}
+
+		workspace_scratch_begin(srv_wk);
 
 		obj_lprintf(&wk, log_debug, "<<< %#o\n", msg);
 
@@ -1106,25 +1106,29 @@ analyze_server(struct az_opts *cmdline_opts)
 			} else {
 				az_srv_all_diagnostics(&srv, &wk);
 			}
-
-			error_diagnostic_store_destroy(&wk);
 		}
-
-		workspace_destroy(&wk);
 
 		if (debug_log) {
 			fflush(debug_log);
 		}
-	}
-	LOG_I("muon lsp shutting down");
 
-	analyze_opts_destroy(srv.wk, &srv.opts);
-	workspace_destroy(srv.wk);
+		workspace_scratch_end(srv_wk);
+
+		ar_clear(&a);
+		ar_clear(&a_scratch);
+	}
+
+shutdown:
+
+	LOG_I("muon lsp shutting down");
 
 	if (debug_log) {
 		fs_fclose(debug_log);
 		log_set_debug_file(0);
 	}
 
-	return true;
+	ar_destroy(&a);
+	ar_destroy(&a_scratch);
+
+	return ok;
 }

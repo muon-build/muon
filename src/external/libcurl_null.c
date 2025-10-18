@@ -11,7 +11,7 @@
 const bool have_libcurl = false;
 
 void
-mc_init(void)
+mc_init(struct arena *a)
 {
 }
 

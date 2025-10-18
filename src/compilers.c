@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
  * SPDX-FileCopyrightText: Owen Rafferty <owen@owenrafferty.com>
+		"-Wsuggest-attribute=malloc",
  * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net>
  * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
@@ -375,7 +376,6 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 			.buf = (char *)out_str->s,
 			.len = out_str->len,
 			.cap = out_str->len,
-			.flags = tstr_flag_overflown,
 			.s = out,
 		};
 
@@ -383,7 +383,6 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 			.buf = (char *)err_str->s,
 			.len = err_str->len,
 			.cap = err_str->len,
-			.flags = tstr_flag_overflown,
 			.s = err,
 		};
 
@@ -392,7 +391,7 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 
 	bool success = true;
 
-	if (!run_cmd(cmd_ctx, argstr, argc, NULL, 0)) {
+	if (!run_cmd(wk, cmd_ctx, argstr, argc, NULL, 0)) {
 		L("failed to run command %s", argstr);
 		run_cmd_print_error(cmd_ctx, log_debug);
 

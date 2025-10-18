@@ -32,7 +32,7 @@ generated_list_process_file(struct workspace *wk,
 
 	if (gl->preserve_path_from) {
 		const char *src = get_file_path(wk, val), *base = get_cstr(wk, gl->preserve_path_from);
-		assert(path_is_subpath(base, src));
+		assert(path_is_subpath(wk, base, src));
 
 		TSTR(dest_dir);
 
@@ -224,7 +224,7 @@ FUNC_IMPL(generator, process, tc_generated_list, func_impl_flag_impure)
 		obj_array_for(wk, gl->input, f) {
 			const char *src = get_file_path(wk, f), *base = get_cstr(wk, gl->preserve_path_from);
 
-			if (!path_is_subpath(base, src)) {
+			if (!path_is_subpath(wk, base, src)) {
 				vm_error_at(wk,
 					akw[kw_preserve_path_from].node,
 					"source file '%s' is not a subdir of preserve_path_from path '%s'",

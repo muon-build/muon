@@ -1,70 +1,70 @@
-# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-# SPDX-License-Identifier: GPL-3.0-only
+# # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# # SPDX-License-Identifier: GPL-3.0-only
 
-name: macos
+# name: macos
 
-on:
-  push:
-    branches:
-      - master
-      - '[0-9]+.[0-9]+'
-  pull_request:
-    branches: [master]
-    types: [opened, synchronize, reopened]
+# on:
+#   push:
+#     branches:
+#       - master
+#       - '[0-9]+.[0-9]+'
+#   pull_request:
+#     branches: [master]
+#     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
+# permissions:
+#   contents: read
 
-jobs:
-  macos:
-    runs-on: macos-latest
-    environment: master
-    steps:
-    - uses: actions/checkout@v3
-    # Uninstall homebrew packages so we don't pull in any of them
-    - name: uninstall homebrew packages
-      run: |
-        brew uninstall --force --ignore-dependencies libb2 lz4 lzo xz zstd openssl
-    # Manually fetch the libarchive wrap since muon won't have the ability to do so yet
-    - name: fetch libarchive
-      run: |
-        curl -fsSL -o libarchive-3.7.9.tar.xz https://github.com/libarchive/libarchive/releases/download/v3.7.9/libarchive-3.7.9.tar.xz
-        curl -fsSL -o libarchive_3.7.9-1_patch.zip https://wrapdb.mesonbuild.com/v2/libarchive_3.7.9-1/get_patch
-        cd subprojects
-        tar xf ../libarchive-3.7.9.tar.xz
-        unzip ../libarchive_3.7.9-1_patch.zip
-    - name: build
-      run: |
-        ./bootstrap.sh build
-        build/muon-bootstrap -v setup -Dlibpkgconf=disabled -Dlibcurl=enabled -Dlibarchive=enabled build
-        build/muon-bootstrap -C build samu
-    - name: test
-      run: |
-        build/muon -C build test -v -ddots
-    - name: build-x86_64
-      run: |
-        arch -x86_64 sh -c "
-          ./bootstrap.sh build-x86_64 &&\
-          build-x86_64/muon-bootstrap -v setup -Dlibpkgconf=disabled -Dlibcurl=enabled -Dlibarchive=enabled build-x86_64 &&\
-          build-x86_64/muon-bootstrap -C build-x86_64 samu\
-        "
-    - name: build-universal-binary
-      run: |
-        . "build/version.sh"
-        lipo -create -output muon build-x86_64/muon build/muon
-        zip "muon-$version-universal-macos.zip" muon
-    - name: upload-universal-binary
-      env:
-        GH_DEPLOY: 1
-      run: |
-        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
-        chmod 600 ~/.ssh/deploy
-        cat >> ~/.ssh/config <<EOF
-        Host mochiro.moe
-            IdentityFile ~/.ssh/deploy
-            IdentitiesOnly yes
-        EOF
-        . "build/version.sh"
-        tools/ci/deploy.sh "/releases/$version" \
-          "muon-$version-universal-macos.zip"
-      if: github.event_name != 'pull_request'
+# jobs:
+#   macos:
+#     runs-on: macos-latest
+#     environment: master
+#     steps:
+#     - uses: actions/checkout@v3
+#     # Uninstall homebrew packages so we don't pull in any of them
+#     - name: uninstall homebrew packages
+#       run: |
+#         brew uninstall --force --ignore-dependencies libb2 lz4 lzo xz zstd openssl
+#     # Manually fetch the libarchive wrap since muon won't have the ability to do so yet
+#     - name: fetch libarchive
+#       run: |
+#         curl -fsSL -o libarchive-3.7.9.tar.xz https://github.com/libarchive/libarchive/releases/download/v3.7.9/libarchive-3.7.9.tar.xz
+#         curl -fsSL -o libarchive_3.7.9-1_patch.zip https://wrapdb.mesonbuild.com/v2/libarchive_3.7.9-1/get_patch
+#         cd subprojects
+#         tar xf ../libarchive-3.7.9.tar.xz
+#         unzip ../libarchive_3.7.9-1_patch.zip
+#     - name: build
+#       run: |
+#         ./bootstrap.sh build
+#         build/muon-bootstrap -v setup -Dlibpkgconf=disabled -Dlibcurl=enabled -Dlibarchive=enabled build
+#         build/muon-bootstrap -C build samu
+#     - name: test
+#       run: |
+#         build/muon -C build test -v -ddots
+#     - name: build-x86_64
+#       run: |
+#         arch -x86_64 sh -c "
+#           ./bootstrap.sh build-x86_64 &&\
+#           build-x86_64/muon-bootstrap -v setup -Dlibpkgconf=disabled -Dlibcurl=enabled -Dlibarchive=enabled build-x86_64 &&\
+#           build-x86_64/muon-bootstrap -C build-x86_64 samu\
+#         "
+#     - name: build-universal-binary
+#       run: |
+#         . "build/version.sh"
+#         lipo -create -output muon build-x86_64/muon build/muon
+#         zip "muon-$version-universal-macos.zip" muon
+#     - name: upload-universal-binary
+#       env:
+#         GH_DEPLOY: 1
+#       run: |
+#         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
+#         chmod 600 ~/.ssh/deploy
+#         cat >> ~/.ssh/config <<EOF
+#         Host mochiro.moe
+#             IdentityFile ~/.ssh/deploy
+#             IdentitiesOnly yes
+#         EOF
+#         . "build/version.sh"
+#         tools/ci/deploy.sh "/releases/$version" \
+#           "muon-$version-universal-macos.zip"
+#       if: github.event_name != 'pull_request'

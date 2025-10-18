@@ -20,6 +20,7 @@
 #include "platform/log.h"
 #include "platform/os.h"
 #include "platform/term.h"
+#include "tracy.h"
 
 const char *log_level_clr[log_level_count] = {
 	[log_error] = STRINGIZE(c_red),
@@ -71,6 +72,7 @@ static struct {
 	uint32_t filter;
 	bool file_is_a_tty;
 	uint32_t prefix;
+	struct workspace *tstr_wk;
 	struct tstr *tstr;
 	struct log_progress progress;
 } log_cfg = {
@@ -104,7 +106,7 @@ log_progress_set_style(const struct log_progress_style *style)
 }
 
 void
-log_progress_enable(void)
+log_progress_enable(struct workspace *wk)
 {
 	if (!log_cfg.file_is_a_tty) {
 		return;
@@ -119,7 +121,7 @@ log_progress_enable(void)
 	int term_fd;
 	if (fs_fileno(log_cfg.file, &term_fd)) {
 		uint32_t _h;
-		term_winsize(term_fd, &_h, &lp->width);
+		term_winsize(wk, term_fd, &_h, &lp->width);
 	}
 
 	if (!lp->width) {
@@ -326,6 +328,8 @@ print_buffer(FILE *out, const char *s, uint32_t len, bool tty, bool progress)
 void
 log_printn(enum log_level lvl, const char *buf, uint32_t len)
 {
+	// TracyCMessage(buf, len);
+
 	if (log_cfg.debug_file) {
 		print_buffer(log_cfg.debug_file, buf, len, false, false);
 	}
@@ -341,7 +345,7 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 	}
 
 	if (log_cfg.tstr) {
-		tstr_pushn(0, log_cfg.tstr, buf, len);
+		tstr_pushn(log_cfg.tstr_wk, log_cfg.tstr, buf, len);
 	} else if (log_cfg.file) {
 		print_buffer(log_cfg.file,
 			buf,
@@ -427,11 +431,12 @@ bool_to_yn(bool v)
 }
 
 void
-log_set_file(FILE *log_file)
+log_set_file(struct workspace *wk, FILE *log_file)
 {
 	log_cfg.file = log_file;
 	log_cfg.tstr = 0;
-	log_cfg.file_is_a_tty = log_file && fs_is_a_tty(log_file);
+	log_cfg.tstr_wk = 0;
+	log_cfg.file_is_a_tty = log_file && fs_is_a_tty(wk, log_file);
 }
 
 void
@@ -441,12 +446,11 @@ log_set_debug_file(FILE *log_file)
 }
 
 void
-log_set_buffer(struct tstr *buf)
+log_set_buffer(struct workspace *wk, struct tstr *buf)
 {
-	assert(buf->flags & tstr_flag_overflow_alloc);
-
-	log_set_file(0);
+	log_set_file(wk, 0);
 	log_cfg.tstr = buf;
+	log_cfg.tstr_wk = wk;
 }
 
 void

@@ -62,6 +62,7 @@ ForEachMacros:
   - 'obj_array_for_array_'
   - 'obj_array_for'
   - 'obj_dict_for'
+  - 'sl_for'
 
 IncludeBlocks: Preserve
 IncludeCategories:

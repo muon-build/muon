@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -21,7 +22,6 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 enum fmt_frag_flag {
 	fmt_frag_flag_add_trailing_comma = 1 << 1,
@@ -82,19 +82,19 @@ struct fmt_ctx {
 static struct fmt_frag *
 fmt_frag(struct fmt_ctx *f, enum fmt_frag_type type)
 {
-	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .type = type });
+	return bucket_arr_push(f->wk->a, &f->frags, &(struct fmt_frag){ .type = type });
 }
 
 static struct fmt_frag *
 fmt_frag_s(struct fmt_ctx *f, const char *s)
 {
-	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = make_str(f->wk, s) });
+	return bucket_arr_push(f->wk->a, &f->frags, &(struct fmt_frag){ .str = make_str(f->wk, s) });
 }
 
 static struct fmt_frag *
 fmt_frag_o(struct fmt_ctx *f, obj s)
 {
-	return bucket_arr_push(&f->frags, &(struct fmt_frag){ .str = s });
+	return bucket_arr_push(f->wk->a, &f->frags, &(struct fmt_frag){ .str = s });
 }
 
 static struct fmt_frag *
@@ -354,13 +354,13 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 static void
 fmt_push_out_block(struct fmt_ctx *f)
 {
-	arr_push(&f->out_blocks,
+	arr_push(f->wk->a, &f->out_blocks,
 		&(struct fmt_out_block){
 			.str = tstr_into_str(f->wk, f->out_buf),
 		});
 
 	*f->out_buf = (struct tstr){ 0 };
-	tstr_init(f->out_buf, 0, 0, 0);
+	tstr_init(f->out_buf, 0);
 }
 
 static void
@@ -443,7 +443,7 @@ fmt_write_frag_comment(struct fmt_ctx *f, struct fmt_frag *comment)
 
 		obj raw_block;
 		raw_block = obj_array_index(f->wk, f->raw_blocks, f->raw_block_idx);
-		arr_push(&f->out_blocks,
+		arr_push(f->wk->a, &f->out_blocks,
 			&(struct fmt_out_block){
 				.str = raw_block,
 				.raw = true,
@@ -826,7 +826,7 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 		if (n->l) {
 			prev = child;
 			child = fmt_frag(f, fmt_frag_type_expr);
-			arr_push(&f->list_tmp, &child);
+			arr_push(f->wk->a, &f->list_tmp, &child);
 
 			if (n->l->type == node_type_kw) {
 				if (f->opts.kwargs_force_multiline) {
@@ -1483,13 +1483,13 @@ fmt_cfg_parse_cb(void *_ctx,
 	};
 
 	if (!k || !*k) {
-		error_messagef(src, location, log_error, "missing key");
+		error_messagef(ctx->wk, src, location, log_error, "missing key");
 		return false;
 	} else if (!v || !*v) {
-		error_messagef(src, location, log_error, "missing value");
+		error_messagef(ctx->wk, src, location, log_error, "missing value");
 		return false;
 	} else if (sect) {
-		error_messagef(src, location, log_error, "invalid section");
+		error_messagef(ctx->wk, src, location, log_error, "invalid section");
 		return false;
 	}
 
@@ -1502,7 +1502,7 @@ fmt_cfg_parse_cb(void *_ctx,
 		void *val_dest = (((uint8_t *)(&ctx->opts)) + keys[i].off);
 
 		if (keys[i].deprecated) {
-			error_messagef(src, location, log_warn, "option %s is deprecated", keys[i].name);
+			error_messagef(ctx->wk, src, location, log_warn, "option %s is deprecated", keys[i].name);
 		}
 
 		switch (keys[i].type) {
@@ -1510,10 +1510,10 @@ fmt_cfg_parse_cb(void *_ctx,
 			char *endptr = NULL;
 			long long lval = strtoll(v, &endptr, 10);
 			if (*endptr) {
-				error_messagef(src, location, log_error, "unable to parse integer");
+				error_messagef(ctx->wk, src, location, log_error, "unable to parse integer");
 				return false;
 			} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-				error_messagef(src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
+				error_messagef(ctx->wk, src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
 				return false;
 			}
 
@@ -1532,7 +1532,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			end = strrchr(v, '\'');
 
 			if (!start || !end || start == end) {
-				error_messagef(src, location, log_error, "expected single-quoted string");
+				error_messagef(ctx->wk, src, location, log_error, "expected single-quoted string");
 				return false;
 			}
 
@@ -1553,7 +1553,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			} else if (strcmp(v, "false") == 0) {
 				val = false;
 			} else {
-				error_messagef(src, location, log_error, "invalid value for bool, expected true/false");
+				error_messagef(ctx->wk, src, location, log_error, "invalid value for bool, expected true/false");
 				return false;
 			}
 
@@ -1576,7 +1576,7 @@ fmt_cfg_parse_cb(void *_ctx,
 			}
 
 			if (!keys[i].enum_tbl[j].name) {
-				error_messagef(src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
+				error_messagef(ctx->wk, src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
 				return false;
 			}
 
@@ -1592,7 +1592,7 @@ fmt_cfg_parse_cb(void *_ctx,
 	}
 
 	if (!keys[i].name) {
-		error_messagef(src, location, log_error, "unknown config key: %s", k);
+		error_messagef(ctx->wk, src, location, log_error, "unknown config key: %s", k);
 		return false;
 	}
 
@@ -1688,12 +1688,11 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 }
 
 bool
-fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
+fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
 {
-	bool ret = false;
 	struct tstr out_buf;
 	struct workspace wk = { 0 };
-	workspace_init_bare(&wk);
+	workspace_init_bare(&wk, a, 0);
 	struct fmt_ctx f = {
 		.wk = &wk,
 		.out_buf = &out_buf,
@@ -1719,19 +1718,19 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 		},
 	};
 
-	bucket_arr_init(&f.frags, 1024, sizeof(struct fmt_frag));
-	arr_init(&f.out_blocks, 64, sizeof(struct fmt_out_block));
-	arr_init(&f.list_tmp, 64, sizeof(struct fmt_frag *));
+	bucket_arr_init(f.wk->a, &f.frags, 1024, struct fmt_frag);
+	arr_init(f.wk->a, &f.out_blocks, 64, struct fmt_out_block);
+	arr_init(f.wk->a, &f.list_tmp, 64, struct fmt_frag *);
 
 	if (editorconfig) {
-		try_parse_editorconfig(src, &f.opts);
+		try_parse_editorconfig(&wk, src, &f.opts);
 	}
 
 	char *cfg_buf = NULL;
 	struct source cfg_src = { 0 };
 	if (cfg_path) {
-		if (!ini_parse(cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
-			goto ret;
+		if (!ini_parse(f.wk, cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
+			return false;
 		}
 	}
 
@@ -1742,10 +1741,10 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 
 	struct node *n;
 	if (!(n = parse_fmt(&wk, src, compile_mode, &f.raw_blocks))) {
-		goto ret;
+		return false;
 	}
 
-	tstr_init(&out_buf, 0, 0, 0);
+	tstr_init(&out_buf, 0);
 	fmt_write_block(&f, fmt_block(&f, n));
 	fmt_push_out_block(&f);
 
@@ -1757,21 +1756,11 @@ fmt(struct source *src, FILE *out, const char *cfg_path, bool check_only, bool e
 
 	if (check_only) {
 		if (src->len != out_buf.len) {
-			goto ret;
+			return false;
 		} else if (memcmp(src->src, out_buf.buf, src->len)) {
-			goto ret;
+			return false;
 		}
 	}
 
-	ret = true;
-ret:
-	workspace_destroy_bare(&wk);
-	if (cfg_buf) {
-		z_free(cfg_buf);
-	}
-	fs_source_destroy(&cfg_src);
-	bucket_arr_destroy(&f.frags);
-	arr_destroy(&f.out_blocks);
-	arr_destroy(&f.list_tmp);
-	return ret;
+	return true;
 }

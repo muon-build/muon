@@ -127,7 +127,7 @@ samu_log_open_and_write(struct samu_ctx *ctx, const char *builddir, bool write_g
 	const char *logpath;
 	if (builddir) {
 		char *path;
-		samu_xasprintf(&ctx->arena, &path, "%s/%s", builddir, samu_logname);
+		samu_xasprintf(ctx->a, &path, "%s/%s", builddir, samu_logname);
 		logpath = path;
 	} else {
 		logpath = samu_logname;
@@ -163,7 +163,7 @@ samu_loginit(struct samu_ctx *ctx, const char *builddir)
 	}
 
 	if (builddir) {
-		samu_xasprintf(&ctx->arena, &logpath, "%s/%s", builddir, samu_logname);
+		samu_xasprintf(ctx->a, &logpath, "%s/%s", builddir, samu_logname);
 	}
 
 	if (!fs_exists(logpath)) {
@@ -172,7 +172,7 @@ samu_loginit(struct samu_ctx *ctx, const char *builddir)
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(logpath, &src)) {
+	if (!fs_read_entire_file(ctx->a, logpath, &src)) {
 		samu_fatal("failed to read log file at %s", logpath);
 	}
 
@@ -182,8 +182,6 @@ samu_loginit(struct samu_ctx *ctx, const char *builddir)
 	};
 
 	each_line((char *)src.src, src.len, &samu_log_parse_ctx, samu_log_parse_cb);
-
-	fs_source_destroy(&src);
 
 	/* if (samu_log_parse_ctx.line_no <= 100 || samu_log_parse_ctx.line_no <= 3 * samu_log_parse_ctx.nentry) { */
 	/* 	return; */

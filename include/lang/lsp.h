@@ -6,5 +6,6 @@
 #define MUON_LANG_LSP_H
 #include <stdbool.h>
 struct az_opts;
-bool analyze_server(struct az_opts *opts);
+struct workspace;
+bool analyze_server(struct workspace *wk, struct az_opts *opts);
 #endif

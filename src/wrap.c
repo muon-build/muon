@@ -18,7 +18,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "sha_256.h"
@@ -135,6 +134,7 @@ lookup_wrap_str(const char *s, const char *strs[], uint32_t len, uint32_t *res)
 }
 
 struct wrap_parse_ctx {
+	struct workspace *wk;
 	struct wrap wrap;
 	struct source_location wrap_field_source_location[wrap_fields_count];
 	enum wrap_type section;
@@ -153,11 +153,11 @@ wrap_parse_cb(void *_ctx,
 	struct wrap_parse_ctx *ctx = _ctx;
 
 	if (!sect) {
-		error_messagef(src, location, log_error, "key not under wrap section");
+		error_messagef(ctx->wk, src, location, log_error, "key not under wrap section");
 		return false;
 	} else if (!k) {
 		if (!lookup_wrap_str(sect, wrap_type_section_header, wrap_type_count, &res)) {
-			error_messagef(src, location, log_error, "invalid section '%s'", sect);
+			error_messagef(ctx->wk, src, location, log_error, "invalid section '%s'", sect);
 			return false;
 		}
 
@@ -169,7 +169,7 @@ wrap_parse_cb(void *_ctx,
 		}
 
 		if (ctx->have_type) {
-			error_messagef(src, location, log_error, "conflicting wrap types");
+			error_messagef(ctx->wk, src, location, log_error, "conflicting wrap types");
 			return false;
 		}
 
@@ -183,10 +183,10 @@ wrap_parse_cb(void *_ctx,
 	assert(k && v);
 
 	if (!lookup_wrap_str(k, wrap_field_names, wrap_fields_count, &res)) {
-		error_messagef(src, location, log_error, "invalid key \"%s\"", k);
+		error_messagef(ctx->wk, src, location, log_error, "invalid key \"%s\"", k);
 		return false;
 	} else if (ctx->wrap.fields[res]) {
-		error_messagef(src, location, log_error, "duplicate key \"%s\"", k);
+		error_messagef(ctx->wk, src, location, log_error, "duplicate key \"%s\"", k);
 		return false;
 	}
 
@@ -221,7 +221,7 @@ wrap_check_provide_duplication(struct workspace *wk, struct wrap_parse_provides_
 			oldval,
 			val);
 
-		error_message(ctx->src, ctx->location, log_warn, 0, buf);
+		error_message(wk, ctx->src, ctx->location, log_warn, 0, buf);
 	}
 }
 
@@ -267,10 +267,10 @@ wrap_parse_provides_cb(void *_ctx,
 	}
 
 	if (!*k) {
-		error_messagef(src, location, log_error, "empty provides key \"%s\"", k);
+		error_messagef(ctx->wk, src, location, log_error, "empty provides key \"%s\"", k);
 		return false;
 	} else if (!*v) {
-		error_messagef(src, location, log_warn, "empty provides value \"%s\"", v);
+		error_messagef(ctx->wk, src, location, log_warn, "empty provides value \"%s\"", v);
 		return true;
 	}
 
@@ -355,7 +355,7 @@ wrap_copy_packagefiles_dir(struct workspace *wk, const char *src_base, const cha
 		.force = true,
 	};
 
-	return fs_copy_dir_ctx(&ctx);
+	return fs_copy_dir_ctx(wk, &ctx);
 }
 
 enum wrap_checksum_extract_local_file_result {
@@ -373,14 +373,12 @@ wrap_checksum_extract_local_file(struct workspace *wk,
 	bool ignore_if_hash_mismatch)
 {
 	struct source src = { 0 };
-	if (!fs_read_entire_file(source_path, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, source_path, &src)) {
 		return wrap_checksum_extract_local_file_result_failed;
 	}
 
 	if (hash) {
 		if (!wrap_checksum(wk, ctx, (const uint8_t *)src.src, src.len, hash)) {
-			fs_source_destroy(&src);
-
 			if (ignore_if_hash_mismatch) {
 				return wrap_checksum_extract_local_file_result_checksum_mismatch;
 			}
@@ -388,8 +386,7 @@ wrap_checksum_extract_local_file(struct workspace *wk,
 		}
 	}
 
-	bool ok = muon_archive_extract(src.src, src.len, dest_dir);
-	fs_source_destroy(&src);
+	bool ok = muon_archive_extract(wk, src.src, src.len, dest_dir);
 	return ok ? wrap_checksum_extract_local_file_result_ok : wrap_checksum_extract_local_file_result_failed;
 }
 
@@ -523,7 +520,7 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 		case optional: break;
 		case required:
 			if (!ctx->wrap.fields[i]) {
-				error_messagef(&ctx->wrap.src,
+				error_messagef(ctx->wk, &ctx->wrap.src,
 					(struct source_location){ 1, 1 },
 					log_error,
 					"missing field '%s'",
@@ -533,7 +530,7 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 			break;
 		case invalid:
 			if (ctx->wrap.fields[i]) {
-				error_messagef(
+				error_messagef(ctx->wk,
 					&ctx->wrap.src, ctx->wrap_field_source_location[i], log_error, "invalid field");
 				valid = false;
 			}
@@ -544,34 +541,23 @@ validate_wrap(struct wrap_parse_ctx *ctx, const char *file)
 	return valid;
 }
 
-void
-wrap_destroy(struct wrap *wrap)
-{
-	fs_source_destroy(&wrap->src);
-	if (wrap->buf) {
-		z_free(wrap->buf);
-		wrap->buf = NULL;
-	}
-}
-
 bool
 wrap_parse(struct workspace *wk, const char *subprojects, const char *wrap_file, struct wrap *wrap)
 {
-	bool res = false;
-	struct wrap_parse_ctx ctx = { 0 };
+	struct wrap_parse_ctx ctx = { .wk = wk };
 
-	if (!ini_parse(wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
-		goto ret;
+	if (!ini_parse(wk, wrap_file, &ctx.wrap.src, &ctx.wrap.buf, wrap_parse_cb, &ctx)) {
+		return false;
 	}
 
 	if (!validate_wrap(&ctx, wrap_file)) {
-		goto ret;
+		return false;
 	}
 
 	*wrap = ctx.wrap;
 
-	tstr_init(&wrap->dest_dir, wrap->dest_dir_buf, ARRAY_LEN(wrap->dest_dir_buf), 0);
-	tstr_init(&wrap->name, wrap->name_buf, ARRAY_LEN(wrap->name_buf), 0);
+	tstr_init(&wrap->dest_dir, 0);
+	tstr_init(&wrap->name, 0);
 
 	path_basename(wk, &wrap->name, wrap_file);
 
@@ -590,12 +576,7 @@ wrap_parse(struct workspace *wk, const char *subprojects, const char *wrap_file,
 
 	path_join(wk, &wrap->dest_dir, subprojects, dir);
 
-	res = true;
-ret:
-	if (!res) {
-		wrap_destroy(&ctx.wrap);
-	}
-	return res;
+	return true;
 }
 
 enum wrap_run_cmd_flag {
@@ -669,7 +650,7 @@ wrap_run_cmd_status(struct workspace *wk,
 		}
 	}
 
-	if (!run_cmd_argv(&ctx->cmd_ctx, argv, 0, 0)) {
+	if (!run_cmd_argv(wk, &ctx->cmd_ctx, argv, 0, 0)) {
 		if (!(ctx->run_cmd_opts.allow_failure)) {
 			wrap_log(ctx,
 				log_error,
@@ -728,7 +709,11 @@ wrap_apply_diff_files(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	char *p = (char *)ctx->wrap.fields[wf_diff_files];
 	const char *diff_file = p;
 
-	bool patch_cmd_found = fs_has_cmd("patch");
+	bool patch_cmd_found;
+	{
+		TSTR(_buf)
+		patch_cmd_found = fs_find_cmd(wk, &_buf, "patch");
+	}
 
 	while (true) {
 		if (p[1] == ',' || !p[1]) {
@@ -853,17 +838,16 @@ wrap_handle_file(struct workspace *wk, struct wrap_handle_ctx *ctx)
 }
 
 static bool
-wrap_hash(const char *wrap_file, char buf[65])
+wrap_hash(struct workspace *wk, const char *wrap_file, char buf[65])
 {
 	struct source src;
-	if (!fs_read_entire_file(wrap_file, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, wrap_file, &src)) {
 		return false;
 	}
 
 	uint8_t hash[32];
 	calc_sha_256(hash, src.src, src.len);
 	sha256_to_str(hash, buf);
-	fs_source_destroy(&src);
 
 	return true;
 }
@@ -890,7 +874,7 @@ git_fetch_revision(struct workspace *wk, struct wrap_handle_ctx *ctx, const char
 static bool
 wrap_git_init(struct workspace *wk, struct wrap_handle_ctx *ctx)
 {
-	if (!fs_mkdir_p(ctx->wrap.dest_dir.buf)) {
+	if (!fs_mkdir_p(wk, ctx->wrap.dest_dir.buf)) {
 		return false;
 	} else if (!wrap_run_cmd(wk, ctx, ARGV("git", "init", "-q"), ctx->wrap.dest_dir.buf, 0)) {
 		return false;
@@ -1083,7 +1067,7 @@ wrap_handle_check_dirty_next_state(struct workspace *wk, struct wrap_handle_ctx 
 void
 wrap_handle_async_start(struct workspace *wk)
 {
-	mc_init();
+	mc_init(wk->a_scratch);
 }
 
 void
@@ -1098,7 +1082,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	if (ctx->sub_state == wrap_handle_sub_state_running_cmd) {
 		bool error = false;
 
-		switch (run_cmd_collect(&ctx->cmd_ctx)) {
+		switch (run_cmd_collect(wk, &ctx->cmd_ctx)) {
 		case run_cmd_running: return true;
 		case run_cmd_error: {
 			error = true;
@@ -1126,9 +1110,6 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			return true;
 		}
 		case mc_fetch_collect_result_error:
-			if (ctx->fetch_ctx.buf) {
-				z_free(ctx->fetch_ctx.buf);
-			}
 			return false;
 		case mc_fetch_collect_result_done: {
 			ctx->sub_state = wrap_handle_sub_state_extracting;
@@ -1144,7 +1125,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 				TSTR(cache_path);
 				path_join(wk, &cache_path, ctx->opts.subprojects, "packagecache");
-				if (!fs_mkdir_p(cache_path.buf)) {
+				if (!fs_mkdir_p(wk,cache_path.buf)) {
 					return false;
 				}
 				path_push(wk, &cache_path, ctx->fetch_ctx.filename);
@@ -1158,7 +1139,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		}
 		}
 	} else if (ctx->sub_state == wrap_handle_sub_state_extracting) {
-		if (!muon_archive_extract(
+		if (!muon_archive_extract(wk,
 			    (const char *)ctx->fetch_ctx.buf, ctx->fetch_ctx.len, ctx->fetch_ctx.dest_dir)) {
 			return false;
 		}
@@ -1176,7 +1157,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(ctx->bufs); ++i) {
-			tstr_init(&ctx->bufs[i], ctx->tstr_buf[i], ARRAY_LEN(ctx->tstr_buf[0]), 0);
+			tstr_init(&ctx->bufs[i], 0);
 		}
 
 		return wrap_handle_default(wk, ctx);
@@ -1198,12 +1179,12 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 				if (fs_file_exists(hash_path.buf)) {
 					char buf[65] = { 0 };
-					if (!wrap_hash(wrap_file, buf)) {
+					if (!wrap_hash(wk, wrap_file, buf)) {
 						return false;
 					}
 
 					struct source src;
-					if (fs_read_entire_file(hash_path.buf, &src)) {
+					if (fs_read_entire_file(wk->a_scratch, hash_path.buf, &src)) {
 						if (src.len >= 64 && memcmp(buf, src.src, 64) == 0) {
 							ctx->wrap.outdated = false;
 						}
@@ -1311,7 +1292,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 		if (ctx->wrap.updated && ctx->wrap.type == wrap_type_file) {
 			char buf[66] = { 0 };
-			if (!wrap_hash(wrap_file, buf)) {
+			if (!wrap_hash(wk, wrap_file, buf)) {
 				return false;
 			}
 
@@ -1386,11 +1367,8 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	// Add this wrap file as a regenerate dependency
 	workspace_add_regenerate_dep(ctx->wk, make_str(ctx->wk, ctx->path->buf));
 
-	enum iteration_result ret = ir_err;
-
 	if (!wrap.has_provides) {
-		ret = ir_cont;
-		goto ret;
+		return ir_cont;
 	}
 
 	struct wrap_parse_provides_ctx wp_ctx = {
@@ -1402,14 +1380,11 @@ wrap_load_all_iter(void *_ctx, const char *file)
 	wp_ctx.wrap_name_arr = make_obj(ctx->wk, obj_array);
 	obj_array_push(ctx->wk, wp_ctx.wrap_name_arr, wp_ctx.wrap_name);
 
-	if (!ini_reparse(ctx->path->buf, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {
-		goto ret;
+	if (!ini_reparse(ctx->wk, ctx->path->buf, &wrap.src, wrap.buf, wrap_parse_provides_cb, &wp_ctx)) {
+		return ir_err;
 	}
 
-	ret = ir_cont;
-ret:
-	wrap_destroy(&wrap);
-	return ret;
+	return ir_cont;
 }
 
 bool
@@ -1427,7 +1402,7 @@ wrap_load_all_provides(struct workspace *wk, const char *subprojects)
 		return true;
 	}
 
-	if (!fs_dir_foreach(subprojects, &ctx, wrap_load_all_iter)) {
+	if (!fs_dir_foreach(wk, subprojects, &ctx, wrap_load_all_iter)) {
 		return false;
 	}
 

@@ -52,7 +52,7 @@ samu_mkenv(struct samu_ctx *ctx, struct samu_environment *parent)
 {
 	struct samu_environment *env;
 
-	env = samu_xmalloc(&ctx->arena, sizeof(*env));
+	env = samu_xmalloc(ctx->a, sizeof(*env));
 	env->parent = parent;
 	env->bindings = NULL;
 	env->rules = NULL;
@@ -90,7 +90,7 @@ samu_merge(struct samu_ctx *ctx, struct samu_evalstring *str, size_t n)
 	struct samu_evalstring *p;
 	char *s;
 
-	result = samu_mkstr(&ctx->arena, n);
+	result = samu_mkstr(ctx->a, n);
 	s = result->s;
 	for (p = str; p; p = p->next) {
 		if (!p->str)
@@ -157,7 +157,7 @@ samu_pathlist(struct samu_ctx *ctx, struct samu_node **nodes, size_t n, char sep
 		return samu_nodepath(ctx, nodes[0], escape);
 	for (i = 0, len = 0; i < n; ++i)
 		len += samu_nodepath(ctx, nodes[i], escape)->n;
-	result = samu_mkstr(&ctx->arena, len + n - 1);
+	result = samu_mkstr(ctx->a, len + n - 1);
 	s = result->s;
 	for (i = 0; i < n; ++i) {
 		path = samu_nodepath(ctx, nodes[i], escape);
@@ -175,7 +175,7 @@ samu_mkrule(struct samu_ctx *ctx, char *name)
 {
 	struct samu_rule *r;
 
-	r = samu_xmalloc(&ctx->arena, sizeof(*r));
+	r = samu_xmalloc(ctx->a, sizeof(*r));
 	r->name = name;
 	r->bindings = NULL;
 
@@ -235,7 +235,7 @@ samu_mkpool(struct samu_ctx *ctx, char *name)
 {
 	struct samu_pool *p;
 
-	p = samu_xmalloc(&ctx->arena, sizeof(*p));
+	p = samu_xmalloc(ctx->a, sizeof(*p));
 	p->name = name;
 	p->numjobs = 0;
 	p->maxjobs = 0;

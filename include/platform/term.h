@@ -8,5 +8,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-bool term_winsize(int fd, uint32_t *height, uint32_t *width);
+struct workspace;
+bool term_winsize(struct workspace *wk, int fd, uint32_t *height, uint32_t *width);
 #endif

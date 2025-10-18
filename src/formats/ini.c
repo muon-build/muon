@@ -12,10 +12,11 @@
 #include "formats/ini.h"
 #include "formats/lines.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 
 struct ini_parse_ctx {
+	struct workspace *wk;
 	struct source src;
 	struct source_location location;
 	const char *comment_chars;
@@ -48,7 +49,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 		goto done_with_line;
 	} else if (!ctx->keyval && *line == '[') {
 		if (!(ptr = strchr(line, ']'))) {
-			error_messagef(&ctx->src, ctx->location, log_error, "expected matching ']'");
+			error_messagef(ctx->wk, &ctx->src, ctx->location, log_error, "expected matching ']'");
 			ctx->success = false;
 			goto done_with_line;
 		}
@@ -66,7 +67,7 @@ ini_parse_line_cb(void *_ctx, char *line, size_t len)
 	if (!(ptr = strchr(line, '='))) {
 		if (!ctx->keyval) {
 			ctx->location.len = len;
-			error_messagef(&ctx->src, ctx->location, log_error, "expected '=' in line");
+			error_messagef(ctx->wk, &ctx->src, ctx->location, log_error, "expected '=' in line");
 			ctx->success = false;
 		}
 		goto done_with_line;
@@ -107,9 +108,10 @@ done_with_line:
 }
 
 bool
-ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, void *octx)
+ini_reparse(struct workspace *wk, const char *path, const struct source *src, char *buf, inihcb cb, void *octx)
 {
 	struct ini_parse_ctx ctx = {
+		.wk = wk,
 		.comment_chars = ";#",
 		.octx = octx,
 		.cb = cb,
@@ -125,27 +127,28 @@ ini_reparse(const char *path, const struct source *src, char *buf, inihcb cb, vo
 }
 
 bool
-ini_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx)
+ini_parse(struct workspace *wk, const char *path, struct source *src, char **buf, inihcb cb, void *octx)
 {
-	if (!fs_read_entire_file(path, src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path, src)) {
 		return false;
 	}
 
-	*buf = z_calloc(src->len + 1, 1);
+	*buf = ar_alloc(wk->a_scratch, 1, src->len + 1, 1);
 
-	return ini_reparse(path, src, *buf, cb, octx);
+	return ini_reparse(wk, path, src, *buf, cb, octx);
 }
 
 bool
-keyval_parse(const char *path, struct source *src, char **buf, inihcb cb, void *octx)
+keyval_parse(struct workspace *wk, const char *path, struct source *src, char **buf, inihcb cb, void *octx)
 {
-	if (!fs_read_entire_file(path, src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path, src)) {
 		return false;
 	}
 
-	*buf = z_calloc(src->len + 1, 1);
+	*buf = ar_alloc(wk->a_scratch, 1, src->len + 1, 1);
 
 	struct ini_parse_ctx ctx = {
+		.wk = wk,
 		.comment_chars = "#",
 		.keyval = true,
 		.octx = octx,

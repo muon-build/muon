@@ -17,6 +17,7 @@ void
 find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argument, obj *ver)
 {
 	*ver = 0;
+
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	obj args;
 	obj_array_dup(wk, cmd_array, &args);
@@ -26,7 +27,7 @@ find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argu
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, args);
 
-	if (run_cmd(&cmd_ctx, argstr, argc, NULL, 0) && cmd_ctx.status == 0) {
+	if (run_cmd(wk, &cmd_ctx, argstr, argc, NULL, 0) && cmd_ctx.status == 0) {
 		if (!guess_version(wk, cmd_ctx.out.buf, ver)) {
 			*ver = make_str(wk, "unknown");
 		}
@@ -52,6 +53,12 @@ FUNC_IMPL(external_program, full_path, tc_string, func_impl_flag_impure)
 	}
 
 	struct obj_external_program *ep = get_obj_external_program(wk, self);
+
+	if (ep->original_argv0) {
+		*res = ep->original_argv0;
+		return true;
+	}
+
 	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
 		vm_error(wk,
 			"cannot return the full_path() of an external program with multiple elements (have: %o)\n",

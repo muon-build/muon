@@ -11,9 +11,11 @@
 
 #include "buf_size.h"
 #include "external/samurai/ctx.h"
+#include "lang/workspace.h"
 #include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 #include "external/samurai.h"
 #include "external/samurai/arg.h"
@@ -44,7 +46,7 @@ samu_getbuilddir(struct samu_ctx *ctx)
 	builddir = samu_envvar(ctx->env.rootenv, "builddir");
 	if (!builddir)
 		return NULL;
-	if (samu_makedirs(builddir, false) < 0)
+	if (samu_makedirs(ctx, builddir, false) < 0)
 		exit(1);
 	return builddir->s;
 }
@@ -93,7 +95,7 @@ samu_parseenvargs(struct samu_ctx *ctx, const char *_env)
 
 	if (!_env)
 		return;
-	char *env = samu_xmemdup(&ctx->arena, _env, strlen(_env) + 1);
+	char *env = samu_xmemdup(ctx->a, _env, strlen(_env) + 1);
 	argc = 1;
 	argv[0] = NULL;
 	arg = strtok(env, " ");
@@ -118,8 +120,10 @@ samu_parseenvargs(struct samu_ctx *ctx, const char *_env)
 }
 
 static void
-samu_init_ctx(struct samu_ctx *ctx, struct samu_opts *opts) {
+samu_init_ctx(struct workspace *wk, struct samu_ctx *ctx, struct samu_opts *opts) {
 	*ctx = (struct samu_ctx){
+		.wk = wk,
+		.a = wk->a_scratch,
 		.buildopts = {.maxfail = 1},
 		.phonyrule = {.name = "phony"},
 		.consolepool = {.name = "console", .maxjobs = 1},
@@ -133,13 +137,13 @@ samu_init_ctx(struct samu_ctx *ctx, struct samu_opts *opts) {
 	}
 
 	ctx->argv0 = "<muon samu>";
-
-	samu_arena_init(&ctx->arena);
 }
 
 bool
-samu_main(int argc, char *argv[], struct samu_opts *opts)
+samu_main(struct workspace *wk, int argc, char *argv[], struct samu_opts *opts)
 {
+	TracyCZoneAutoS;
+
 	char *builddir, *manifest = "build.ninja", *end, *arg;
 	const struct samu_tool *tool = NULL;
 	struct samu_node *n;
@@ -147,7 +151,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 	int tries;
 
 	struct samu_ctx _ctx, *ctx = &_ctx;
-	samu_init_ctx(ctx, opts);
+	samu_init_ctx(wk, ctx, opts);
 
 	samu_parseenvargs(ctx, os_get_env("SAMUFLAGS"));
 	SAMU_ARGBEGIN {
@@ -155,6 +159,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 		arg = SAMU_EARGF(samu_usage(ctx));
 		if (strcmp(arg, "version") == 0) {
 			samu_printf(ctx, "%d.%d.0\n", samu_ninjamajor, samu_ninjaminor);
+			TracyCZoneAutoE;
 			return true;
 		} else if (strcmp(arg, "verbose") == 0) {
 			ctx->buildopts.verbose = true;
@@ -165,7 +170,7 @@ samu_main(int argc, char *argv[], struct samu_opts *opts)
 	case 'C':
 		arg = SAMU_EARGF(samu_usage(ctx));
 		/* samu_warn("entering directory '%s'", arg); */
-		if (!path_chdir(arg))
+		if (!path_chdir(wk, arg))
 			samu_fatal("chdir:");
 		break;
 	case 'd':
@@ -219,7 +224,7 @@ retry:
 
 	if (tool) {
 		int r = tool->run(ctx, argc, argv);
-		samu_arena_destroy(&ctx->arena);
+		TracyCZoneAutoE;
 		return r == 0;
 	}
 
@@ -260,6 +265,6 @@ retry:
 	samu_logclose(ctx);
 	samu_depsclose(ctx);
 
-	samu_arena_destroy(&ctx->arena);
+	TracyCZoneAutoE;
 	return true;
 }

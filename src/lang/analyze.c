@@ -15,7 +15,6 @@
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 #include "tracy.h"
@@ -111,11 +110,11 @@ obj_tainted_by_typeinfo(struct workspace *wk, obj o, struct obj_tainted_by_typei
 }
 
 static void
-copy_az_entrypoint_stack(uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
+copy_az_entrypoint_stack(struct workspace *wk, uint32_t *ep_stacks_i, uint32_t *ep_stack_len)
 {
 	if (az_entrypoint_stack.len) {
 		*ep_stacks_i = az_entrypoint_stacks.len;
-		arr_grow_by(&az_entrypoint_stacks, az_entrypoint_stack.len);
+		arr_grow_by(wk->a, &az_entrypoint_stacks, az_entrypoint_stack.len);
 		*ep_stack_len = az_entrypoint_stack.len;
 
 		memcpy(arr_get(&az_entrypoint_stacks, *ep_stacks_i),
@@ -355,7 +354,7 @@ check_reassign_to_different_type(struct workspace *wk,
 			typechecking_type_to_s(wk, t2));
 
 		if (new_a) {
-			error_diagnostic_store_push(new_a->src_idx, new_a->location, log_warn, buf);
+			error_diagnostic_store_push(wk, new_a->src_idx, new_a->location, log_warn, buf);
 		} else {
 			vm_warning_at(wk, n_id, "%s", buf);
 		}
@@ -368,7 +367,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// initialize source location to 0 since some variables don't have
 	// anything to put there, like builtin variables
 	uint32_t src_idx, ep_stack_len = 0, ep_stacks_i = 0;
-	copy_az_entrypoint_stack(&ep_stacks_i, &ep_stack_len);
+	copy_az_entrypoint_stack(wk, &ep_stacks_i, &ep_stack_len);
 
 	struct source_location loc;
 	vm_lookup_inst_location_src_idx(&wk->vm, ip, &loc, &src_idx);
@@ -376,7 +375,7 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 	// Add the new assignment to the current scope and return its index as
 	// an obj (for storage in the scope dict)
 	obj v = assignments.len;
-	bucket_arr_push(&assignments,
+	bucket_arr_push(wk->a, &assignments,
 		&(struct az_assignment){
 			.name = name,
 			.o = o,
@@ -679,7 +678,7 @@ az_jmp_if_cond_matches(struct workspace *wk, bool cond)
 	{
 		uint32_t ip = wk->vm.ip - 1;
 		if (!(map = (union branch_map *)hash_get(&analyzer.branch_map, &ip))) {
-			hash_set(&analyzer.branch_map, &ip, 0);
+			hash_set(wk->a, wk->a_scratch, &analyzer.branch_map, &ip, 0);
 			map = (union branch_map *)hash_get(&analyzer.branch_map, &ip);
 		}
 	}
@@ -837,7 +836,6 @@ az_eval_project_file(struct workspace *wk,
 		const struct source *src = arr_get(&analyzer.opts->file_override_src, override);
 
 		struct source weak_src = *src;
-		weak_src.is_weak_reference = true;
 
 		return eval(wk, &weak_src, lang, eval_mode, res);
 	} else {
@@ -856,7 +854,7 @@ az_eval_project_file(struct workspace *wk,
 static void
 az_execute_loop(struct workspace *wk)
 {
-	arr_grow_to(&analyzer.visited_ops, wk->vm.code.len);
+	arr_grow_to(wk->a, &analyzer.visited_ops, wk->vm.code.len);
 
 	uint32_t cip;
 	while (wk->vm.run) {
@@ -1199,7 +1197,7 @@ az_op_constant_dict(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_constant_dict](wk);
 
 	obj dict = object_stack_peek(&wk->vm.stack, 1);
-	hash_set(&analyzer.dict_locations, &dict, b);
+	hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &dict, b);
 }
 
 static void
@@ -1215,7 +1213,7 @@ az_dict_locations_merge(struct workspace *wk, obj a, obj b, obj tgt)
 	obj merged;
 	obj_dict_merge(wk, *la, *lb, &merged);
 
-	hash_set(&analyzer.dict_locations, &tgt, merged);
+	hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &tgt, merged);
 }
 
 static void
@@ -1253,7 +1251,7 @@ az_op_store(struct workspace *wk)
 
 			uint64_t *hv;
 			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-				hash_set(&analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
+				hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
 				hv = hash_get(&analyzer.dict_locations, &tgt);
 			}
 
@@ -1282,7 +1280,7 @@ az_op_store(struct workspace *wk)
 
 	if (dup) {
 		obj tgt = object_stack_peek(&wk->vm.stack, 1);
-		hash_set(&analyzer.dict_locations, &tgt, dup);
+		hash_set(wk->a, wk->a_scratch, &analyzer.dict_locations, &tgt, dup);
 	}
 }
 
@@ -1433,7 +1431,7 @@ az_warn_dead_code(struct workspace *wk,
 		= { .off = start_loc->off, .len = (end_loc->off - start_loc->off) + end_loc->len };
 	struct source *src = arr_get(&wk->vm.src, src_idx);
 
-	error_message(src, merged, log_warn, 0, "dead code");
+	error_message(wk, src, merged, log_warn, 0, "dead code");
 }
 
 void
@@ -1441,21 +1439,7 @@ analyze_opts_init(struct workspace *wk, struct az_opts *opts)
 {
 	*opts = (struct az_opts){ 0 };
 	opts->file_override = make_obj(wk, obj_dict);
-	arr_init(&opts->file_override_src, 8, sizeof(struct source));
-}
-
-void
-analyze_opts_destroy(struct workspace *wk, struct az_opts *opts)
-{
-	TracyCZoneAutoS;
-	uint32_t i;
-	for (i = 0; i < opts->file_override_src.len; ++i) {
-		struct source *src = arr_get(&opts->file_override_src, i);
-		fs_source_destroy(src);
-	}
-
-	arr_destroy(&opts->file_override_src);
-	TracyCZoneAutoE;
+	arr_init(wk->a, &opts->file_override_src, 8, struct source);
 }
 
 bool
@@ -1473,11 +1457,6 @@ analyze_opts_push_override(struct workspace *wk,
 	path_make_absolute(wk, &abs, override);
 	obj path = tstr_into_str(wk, &abs);
 
-	if (obj_dict_index(wk, opts->file_override, path, &idx)) {
-		src = arr_get(&opts->file_override_src, idx);
-		fs_source_destroy(src);
-	}
-
 	if (!content && !content_path) {
 		obj_dict_del(wk, opts->file_override, path);
 		TracyCZoneAutoE;
@@ -1486,7 +1465,7 @@ analyze_opts_push_override(struct workspace *wk,
 
 	if (!src) {
 		idx = opts->file_override_src.len;
-		arr_push(&opts->file_override_src, &(struct source){ 0 });
+		arr_push(wk->a, &opts->file_override_src, &(struct source){ 0 });
 		src = arr_peek(&opts->file_override_src, 1);
 		obj_dict_set(wk, opts->file_override, path, idx);
 	}
@@ -1495,7 +1474,7 @@ analyze_opts_push_override(struct workspace *wk,
 	assert(!src->len);
 
 	if (content) {
-		void *buf = z_calloc(content->len + 1, 1);
+		void *buf = ar_alloc(wk->a, content->len + 1, 1, 1);
 		memcpy(buf, content->s, content->len);
 		*src = (struct source){
 			.type = source_type_file,
@@ -1503,7 +1482,7 @@ analyze_opts_push_override(struct workspace *wk,
 			.src = buf,
 		};
 	} else {
-		if (!fs_read_entire_file(content_path, src)) {
+		if (!fs_read_entire_file(wk->a, content_path, src)) {
 			TracyCZoneAutoE;
 			return false;
 		}
@@ -1527,10 +1506,10 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	bool res = false;
 	analyzer.opts = opts;
 
-	bucket_arr_init(&assignments, 512, sizeof(struct az_assignment));
-	hash_init(&analyzer.branch_map, 1024, sizeof(uint32_t));
-	hash_init(&analyzer.dict_locations, 1024, sizeof(obj));
-	arr_init_flags(&analyzer.visited_ops, 1024, 1, arr_flag_zero_memory);
+	bucket_arr_init(wk->a, &assignments, 512, struct az_assignment);
+	hash_init(wk->a, &analyzer.branch_map, 1024, uint32_t);
+	hash_init(wk->a, &analyzer.dict_locations, 1024, obj);
+	arr_init(wk->a, &analyzer.visited_ops, 1024, char);
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
@@ -1581,8 +1560,8 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	error_diagnostic_store_init(wk);
 
-	arr_init(&az_entrypoint_stack, 32, sizeof(struct az_file_entrypoint));
-	arr_init(&az_entrypoint_stacks, 32, sizeof(struct az_file_entrypoint));
+	arr_init(wk->a, &az_entrypoint_stack, 32, struct az_file_entrypoint);
+	arr_init(wk->a, &az_entrypoint_stacks, 32, struct az_file_entrypoint);
 
 	if (analyzer.opts->eval_trace) {
 		wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
@@ -1605,7 +1584,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 				path_copy_cwd(wk, &cwd);
 
 				if (strcmp(cwd.buf, root) != 0) {
-					path_chdir(root);
+					path_chdir(wk, root);
 					wk->source_root = root;
 				}
 			}
@@ -1631,7 +1610,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	if (opts->single_file) {
 		struct source src;
-		if (!fs_read_entire_file(opts->single_file, &src)) {
+		if (!fs_read_entire_file(wk->a, opts->single_file, &src)) {
 			res = false;
 		} else {
 			obj _v;
@@ -1650,7 +1629,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(wk, make_strf(wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
-				error_diagnostic_store_push(a->src_idx, a->location, lvl, msg);
+				error_diagnostic_store_push(wk, a->src_idx, a->location, lvl, msg);
 
 				if (analyzer.opts->subdir_error && a->ep_stack_len) {
 					mark_az_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
@@ -1662,7 +1641,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	if (az_diagnostic_enabled(az_diagnostic_dead_code)) {
 		uint32_t i, *ip;
 		for (i = 0; i < analyzer.branch_map.keys.len; ++i) {
-			ip = arr_get(&analyzer.branch_map.keys, i);
+			ip = sl_get_(sl_cast(&analyzer.branch_map.keys), i, analyzer.branch_map.key_size);
 			const union branch_map *map = (union branch_map *)hash_get(&analyzer.branch_map, ip);
 			if (!map->data.impure) {
 				if (!map->data.taken && map->data.not_taken) {
@@ -1727,7 +1706,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			enum log_level lvl = ep_stack->lvl;
 
 			for (j = 0; j < len; ++j) {
-				error_diagnostic_store_push(
+				error_diagnostic_store_push(wk,
 					ep_stack[j].src_idx, ep_stack[j].location, lvl, "errors in subdir");
 			}
 		}
@@ -1746,12 +1725,6 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		}
 	}
 
-	bucket_arr_destroy(&assignments);
-	arr_destroy(&az_entrypoint_stack);
-	arr_destroy(&az_entrypoint_stacks);
-	arr_destroy(&analyzer.visited_ops);
-	hash_destroy(&analyzer.branch_map);
-	hash_destroy(&analyzer.dict_locations);
 	TracyCZoneAutoE;
 	return res;
 }
@@ -1764,7 +1737,10 @@ analyze_project_call(struct workspace *wk)
 		.analyze_project_call_only = true,
 	};
 
-	workspace_init_bare(wk);
+	assert(wk->init_flags & workspace_init_flag_bare);
 
-	return do_analyze(wk, &opts);
+	workspace_scratch_begin(wk);
+	bool ok = do_analyze(wk, &opts);
+	workspace_scratch_end(wk);
+	return ok;
 }

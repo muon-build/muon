@@ -20,7 +20,6 @@
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 #include "tracy.h"
 
 static bool making_default_objects = false;
@@ -308,13 +307,13 @@ make_obj(struct workspace *wk, enum obj_type type)
 	case obj_capture: {
 		struct bucket_arr *ba = &wk->vm.objects.obj_aos[type - _obj_aos_start];
 		val = ba->len;
-		bucket_arr_pushn(ba, NULL, 0, 1);
+		bucket_arr_pushn(wk->a, ba, NULL, 0, 1);
 		break;
 	}
 	default: assert(false && "tried to make invalid object type");
 	}
 
-	bucket_arr_push(&wk->vm.objects.objs, &(struct obj_internal){ .t = type, .val = val });
+	bucket_arr_push(wk->a, &wk->vm.objects.objs, &(struct obj_internal){ .t = type, .val = val });
 #ifdef TRACY_ENABLE
 	if (wk->tracy.is_master_workspace) {
 		uint64_t mem = 0;
@@ -338,36 +337,34 @@ void
 obj_set_clear_mark(struct workspace *wk, struct obj_clear_mark *mk)
 {
 	wk->vm.objects.obj_clear_mark_set = true;
-	mk->obji = wk->vm.objects.objs.len;
 
 	bucket_arr_save(&wk->vm.objects.chrs, &mk->chrs);
 	bucket_arr_save(&wk->vm.objects.objs, &mk->objs);
+	bucket_arr_save(&wk->vm.objects.dict_elems, &mk->dict_elems);
+	bucket_arr_save(&wk->vm.objects.dict_hashes, &mk->dict_hashes);
+	bucket_arr_save(&wk->vm.objects.array_elems, &mk->array_elems);
 	uint32_t i;
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 		bucket_arr_save(&wk->vm.objects.obj_aos[i], &mk->obj_aos[i]);
 	}
+
+	workspace_scratch_begin(wk);
+	//mk->arena_pos = wk->a->pos;
 }
 
 void
 obj_clear(struct workspace *wk, const struct obj_clear_mark *mk)
 {
-	struct obj_internal *o;
-	struct str *ss;
-	uint32_t i;
-	for (i = mk->obji; i < wk->vm.objects.objs.len; ++i) {
-		o = bucket_arr_get(&wk->vm.objects.objs, i);
-		if (o->t == obj_string) {
-			ss = bucket_arr_get(&wk->vm.objects.obj_aos[obj_string - _obj_aos_start], o->val);
-
-			if (ss->flags & str_flag_big) {
-				z_free((void *)ss->s);
-			}
-		}
-	}
+	//ar_pop_to(wk->a, mk->arena_pos);
+	workspace_scratch_end(wk);
 
 	bucket_arr_restore(&wk->vm.objects.objs, &mk->objs);
 	bucket_arr_restore(&wk->vm.objects.chrs, &mk->chrs);
+	bucket_arr_restore(&wk->vm.objects.dict_elems, &mk->dict_elems);
+	bucket_arr_restore(&wk->vm.objects.dict_hashes, &mk->dict_hashes);
+	bucket_arr_restore(&wk->vm.objects.array_elems, &mk->array_elems);
 
+	uint32_t i;
 	for (i = 0; i < obj_type_count - _obj_aos_start; ++i) {
 		bucket_arr_restore(&wk->vm.objects.obj_aos[i], &mk->obj_aos[i]);
 	}
@@ -674,7 +671,7 @@ obj_array_push(struct workspace *wk, obj arr, obj child)
 		a->head = next;
 	}
 
-	bucket_arr_push(&wk->vm.objects.array_elems, &(struct obj_array_elem){ .val = child });
+	bucket_arr_push(wk->a, &wk->vm.objects.array_elems, &(struct obj_array_elem){ .val = child });
 
 	if (a->len) {
 		e = bucket_arr_get(&wk->vm.objects.array_elems, a->tail);
@@ -810,9 +807,11 @@ obj_array_extend_nodup(struct workspace *wk, obj arr, obj arr2)
 	struct obj_array *a, *b;
 	struct obj_array_elem *tail;
 
-	if (!(b = get_obj_array(wk, arr2))->len) {
+	b = get_obj_array(wk, arr2);
+	if (!b->len) {
 		return;
 	}
+	obj_array_copy_on_write(wk, b, arr2);
 
 	a = get_obj_array(wk, arr);
 	obj_array_copy_on_write(wk, a, arr);
@@ -839,71 +838,74 @@ obj_array_extend(struct workspace *wk, obj arr, obj arr2)
 	obj_array_extend_nodup(wk, arr, dup);
 }
 
-struct obj_array_join_ctx {
-	obj *res;
-	const struct str *join;
-	uint32_t i, len;
-};
-
-static enum iteration_result
-obj_array_join_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct obj_array_join_ctx *ctx = _ctx;
-
-	if (!typecheck_simple_err(wk, val, obj_string)) {
-		return ir_err;
-	}
-
-	const struct str *ss = get_str(wk, val);
-
-	str_appn(wk, ctx->res, ss->s, ss->len);
-
-	if (ctx->i < ctx->len - 1) {
-		str_appn(wk, ctx->res, ctx->join->s, ctx->join->len);
-	}
-
-	++ctx->i;
-
-	return ir_cont;
-}
-
-static enum iteration_result
-obj_array_flat_len_iter(struct workspace *wk, void *_ctx, obj _)
-{
-	uint32_t *len = _ctx;
-	++(*len);
-	return ir_cont;
-}
-
-static uint32_t
-obj_array_flat_len(struct workspace *wk, obj arr)
-{
-	uint32_t len = 0;
-	obj_array_foreach_flat(wk, arr, &len, obj_array_flat_len_iter);
-	return len;
-}
-
 bool
 obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res)
 {
-	*res = make_str(wk, "");
-
 	if (!typecheck_simple_err(wk, join, obj_string)) {
 		return false;
 	}
 
-	struct obj_array_join_ctx ctx = {
-		.join = get_str(wk, join),
-		.res = res,
-	};
+	const struct str *join_str = get_str(wk, join);
+	uint32_t res_len = 0;
 
-	if (flat) {
-		ctx.len = obj_array_flat_len(wk, arr);
-		return obj_array_foreach_flat(wk, arr, &ctx, obj_array_join_iter);
-	} else {
-		ctx.len = get_obj_array(wk, arr)->len;
-		return obj_array_foreach(wk, arr, &ctx, obj_array_join_iter);
+	obj v, prev = 0;
+	obj_array_flat_for_(wk, arr, v, iter) {
+		if (!typecheck_simple_err(wk, v, obj_string)) {
+			obj_array_flat_iter_end(wk, &iter);
+			return false;
+		}
+
+		if (prev) {
+			const struct str *s = get_str(wk, prev);
+			res_len += s->len;
+			res_len += join_str->len;
+		}
+
+		prev = v;
 	}
+
+	if (prev) {
+		const struct str *s = get_str(wk, prev);
+		res_len += s->len;
+	}
+
+	if (!res_len) {
+		*res = make_str(wk, "");
+		return true;
+	}
+
+	struct str *dest_str = reserve_str(wk, res, res_len);
+	char *dest = (char *)dest_str->s;
+	uint32_t i = 0;
+	prev = 0;
+	obj_array_flat_for(wk, arr, v) {
+		if (prev) {
+			const struct str *s = get_str(wk, prev);
+			if (s->len) {
+				memmove(dest + i, s->s, s->len);
+				i += s->len;
+				assert(i < res_len);
+			}
+			if (join_str->len) {
+				memmove(dest + i, join_str->s, join_str->len);
+				i += join_str->len;
+				assert(i < res_len);
+			}
+		}
+		prev = v;
+	}
+
+	if (prev) {
+		const struct str *s = get_str(wk, prev);
+		if (s->len) {
+			memmove(dest + i, s->s, s->len);
+			i += s->len;
+		}
+	}
+	assert(i == res_len);
+	dest[i] = 0;
+
+	return true;
 }
 
 void
@@ -999,8 +1001,9 @@ obj_array_clear(struct workspace *wk, obj arr)
 void
 obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 {
-	hash_clear(&wk->vm.objects.obj_hash);
-	hash_clear(&wk->vm.objects.dedup_str_hash);
+	struct hash objs, strs;
+	hash_init(wk->a_scratch, &objs, 128, obj);
+	hash_init_str(wk->a_scratch, &strs, 128);
 
 	*res = make_obj(wk, obj_array);
 
@@ -1013,19 +1016,19 @@ obj_array_dedup(struct workspace *wk, obj arr, obj *res)
 			/* fallthrough */
 		case obj_string: {
 			const struct str *s = get_str(wk, val);
-			if (hash_get_strn(&wk->vm.objects.dedup_str_hash, s->s, s->len)) {
+			if (hash_get_strn(&strs, s->s, s->len)) {
 				continue;
 			}
-			hash_set_strn(&wk->vm.objects.dedup_str_hash, s->s, s->len, true);
+			hash_set_strn(wk->a_scratch, wk->a_scratch, &strs, s->s, s->len, true);
 
 			obj_array_push(wk, *res, oval);
 			break;
 		}
 		default: {
-			if (hash_get(&wk->vm.objects.obj_hash, &val)) {
+			if (hash_get(&objs, &val)) {
 				continue;
 			}
-			hash_set(&wk->vm.objects.obj_hash, &val, true);
+			hash_set(wk->a_scratch, wk->a_scratch, &objs, &val, true);
 
 			if (!obj_array_in(wk, *res, val)) {
 				obj_array_push(wk, *res, val);
@@ -1082,7 +1085,7 @@ static enum iteration_result
 obj_array_sort_push_to_da_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct arr *da = _ctx;
-	arr_push(da, &v);
+	arr_push(wk->a, da, &v);
 	return ir_cont;
 }
 
@@ -1103,6 +1106,8 @@ obj_array_sort_wrapper(const void *a, const void *b, void *_ctx)
 void
 obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res)
 {
+	ar_scratch_begin(wk->a);
+
 	uint32_t len = get_obj_array(wk, arr)->len;
 
 	if (!len) {
@@ -1111,7 +1116,7 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 	}
 
 	struct arr da;
-	arr_init(&da, len, sizeof(obj));
+	arr_init(wk->a, &da, len, obj);
 	obj_array_foreach(wk, arr, &da, obj_array_sort_push_to_da_iter);
 
 	struct obj_array_sort_ctx ctx = {
@@ -1129,7 +1134,7 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 		obj_array_push(wk, *res, *(obj *)arr_get(&da, i));
 	}
 
-	arr_destroy(&da);
+	ar_scratch_end(wk->a);
 }
 
 obj
@@ -1396,7 +1401,7 @@ obj_dict_set_impl(struct workspace *wk,
 	/* empty dict */
 	if (!d->len) {
 		uint32_t e_idx = wk->vm.objects.dict_elems.len;
-		bucket_arr_push(&wk->vm.objects.dict_elems, &(struct obj_dict_elem){ .key = key, .val = val });
+		bucket_arr_push(wk->a, &wk->vm.objects.dict_elems, &(struct obj_dict_elem){ .key = key, .val = val });
 		d->data = e_idx;
 		d->tail = e_idx;
 		++d->len;
@@ -1406,11 +1411,11 @@ obj_dict_set_impl(struct workspace *wk,
 	if (!(d->flags & obj_dict_flag_dont_expand) && !(d->flags & obj_dict_flag_big) && d->len >= 15) {
 		struct obj_dict_elem *e = bucket_arr_get(&wk->vm.objects.dict_elems, d->data);
 		uint32_t h_idx = wk->vm.objects.dict_hashes.len;
-		struct hash *h = bucket_arr_push(&wk->vm.objects.dict_hashes, &(struct hash){ 0 });
+		struct hash *h = bucket_arr_push(wk->a, &wk->vm.objects.dict_hashes, &(struct hash){ 0 });
 		if (d->flags & obj_dict_flag_int_key) {
-			hash_init(h, 16, sizeof(obj));
+			hash_init(wk->a, h, 16, obj);
 		} else {
-			hash_init_str(h, 16);
+			hash_init_str(wk->a, h, 16);
 		}
 		d->data = h_idx;
 		d->tail = 0; // unnecessary but nice
@@ -1419,10 +1424,10 @@ obj_dict_set_impl(struct workspace *wk,
 			union obj_dict_big_dict_value val = { .val = { .key = e->key, .val = e->val } };
 
 			if (d->flags & obj_dict_flag_int_key) {
-				hash_set(h, &e->key, val.u64);
+				hash_set(wk->a, wk->a_scratch, h, &e->key, val.u64);
 			} else {
 				const struct str *ss = get_str(wk, e->key);
-				hash_set_strn(h, ss->s, ss->len, val.u64);
+				hash_set_strn(wk->a, wk->a_scratch, h, ss->s, ss->len, val.u64);
 			}
 
 			if (!e->next) {
@@ -1445,15 +1450,15 @@ obj_dict_set_impl(struct workspace *wk,
 		union obj_dict_big_dict_value big_val = { .val = { .key = key, .val = val } };
 
 		if (d->flags & obj_dict_flag_int_key) {
-			hash_set(h, &key, big_val.u64);
+			hash_set(wk->a, wk->a_scratch, h, &key, big_val.u64);
 		} else {
 			const struct str *ss = get_str(wk, key);
-			hash_set_strn(h, ss->s, ss->len, big_val.u64);
+			hash_set_strn(wk->a, wk->a_scratch, h, ss->s, ss->len, big_val.u64);
 		}
 		d->len = h->len;
 	} else {
 		uint32_t e_idx = wk->vm.objects.dict_elems.len;
-		bucket_arr_push(&wk->vm.objects.dict_elems,
+		bucket_arr_push(wk->a, &wk->vm.objects.dict_elems,
 			&(struct obj_dict_elem){
 				.key = key,
 				.val = val,
@@ -1667,7 +1672,7 @@ obj_iterable_foreach(struct workspace *wk, obj dict_or_array, void *ctx, obj_dic
 /* */
 
 static bool
-obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
+obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, struct hash *objs, obj val, obj *ret)
 {
 	*ret = 0;
 
@@ -1678,7 +1683,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 
 	{
 		uint64_t *hv;
-		if ((hv = hash_get(&wk_src->vm.objects.obj_hash, &val))) {
+		if ((hv = hash_get(objs, &val))) {
 			*ret = *hv;
 			return true;
 		}
@@ -1708,7 +1713,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		obj v;
 		obj_array_for(wk_src, val, v) {
 			obj cloned;
-			if (!obj_clone_impl(wk_src, wk_dest, v, &cloned)) {
+			if (!obj_clone_impl(wk_src, wk_dest, objs, v, &cloned)) {
 				return false;
 			}
 
@@ -1723,9 +1728,9 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 		obj k, v;
 		obj_dict_for(wk_src, val, k, v) {
 			obj dest_key, dest_val;
-			if (!obj_clone_impl(wk_src, wk_dest, k, &dest_key)) {
+			if (!obj_clone_impl(wk_src, wk_dest, objs, k, &dest_key)) {
 				return false;
-			} else if (!obj_clone_impl(wk_src, wk_dest, v, &dest_val)) {
+			} else if (!obj_clone_impl(wk_src, wk_dest, objs, v, &dest_val)) {
 				return false;
 			}
 
@@ -1753,7 +1758,7 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 			void *dest_field = dest + f->off;
 
 			if (strcmp(f->type, "obj") == 0) {
-				if (!obj_clone_impl(wk_src, wk_dest, *(obj *)src_field, (obj *)dest_field)) {
+				if (!obj_clone_impl(wk_src, wk_dest, objs, *(obj *)src_field, (obj *)dest_field)) {
 					return false;
 				}
 			} else {
@@ -1764,15 +1769,16 @@ obj_clone_impl(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj
 	}
 	}
 
-	hash_set(&wk_src->vm.objects.obj_hash, &val, *ret);
+	hash_set(wk_src->a_scratch, wk_src->a_scratch, objs, &val, *ret);
 	return true;
 }
 
 bool
 obj_clone(struct workspace *wk_src, struct workspace *wk_dest, obj val, obj *ret)
 {
-	hash_clear(&wk_src->vm.objects.obj_hash);
-	bool ok = obj_clone_impl(wk_src, wk_dest, val, ret);
+	struct hash objs;
+	hash_init(wk_src->a_scratch, &objs, 128, obj);
+	bool ok = obj_clone_impl(wk_src, wk_dest, &objs, val, ret);
 	return ok;
 }
 
@@ -2420,6 +2426,7 @@ obj_inspect(struct workspace *wk, obj val)
 bool
 obj_to_json(struct workspace *wk, obj o, struct tstr *sb)
 {
+	TracyCZoneAutoS;
 	switch (get_obj_type(wk, o)) {
 	case obj_array: {
 		tstr_push(wk, sb, '[');
@@ -2485,5 +2492,6 @@ obj_to_json(struct workspace *wk, obj o, struct tstr *sb)
 	default: vm_error(wk, "unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o))); return false;
 	}
 
+	TracyCZoneAutoE;
 	return true;
 }

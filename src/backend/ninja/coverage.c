@@ -21,7 +21,7 @@ ninja_coverage_detect_gcovr(struct workspace *wk)
 	char *const gcovr_args[] = { "gcovr", "--version", NULL };
 
 	// TODO: This should be find_program(), but that interface needs to be refactored first.
-	if (!run_cmd_argv(&gcovr_ctx, gcovr_args, NULL, 0) || (gcovr_ctx.status != 0)) {
+	if (!run_cmd_argv(wk, &gcovr_ctx, gcovr_args, NULL, 0) || (gcovr_ctx.status != 0)) {
 		goto cleanup;
 	}
 

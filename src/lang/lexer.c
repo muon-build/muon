@@ -14,6 +14,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/lexer.h"
+#include "lang/workspace.h"
 #include "platform/assert.h"
 
 /******************************************************************************
@@ -817,17 +818,11 @@ lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, 
 		lexer->mode |= lexer_mode_bom_error;
 	}
 
-	stack_init(&lexer->stack, 2048);
+	stack_init(lexer->wk->a_scratch, &lexer->stack, 2048);
 
 	if (lexer->mode & lexer_mode_fmt) {
 		lexer->fmt.raw_blocks = make_obj(lexer->wk, obj_array);
 	}
-}
-
-void
-lexer_destroy(struct lexer *lexer)
-{
-	stack_destroy(&lexer->stack);
 }
 
 /******************************************************************************

@@ -7,34 +7,32 @@
 
 #include <string.h>
 
+#include "arena.h"
 #include "datastructures/stack.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/mem.h"
 
 /******************************************************************************
  * stack
  ******************************************************************************/
 
-void
-stack_init(struct stack *stack, uint32_t cap)
-{
-	*stack = (struct stack){
-		.mem = z_malloc(cap),
-		.cap = cap,
-	};
-}
+#define STACK_DEBUG 0
 
-void
-stack_destroy(struct stack *stack)
-{
-	z_free(stack->mem);
-}
-
+#if STACK_DEBUG
 struct stack_tag {
 	const char *name;
 	uint32_t size;
 };
+#endif
+
+void
+stack_init(struct arena *a, struct stack *stack, uint32_t cap)
+{
+	*stack = (struct stack){
+		.mem = ar_alloc(a, cap, 1, 1),
+		.cap = cap,
+	};
+}
 
 static void
 stack_push_raw(struct stack *stack, const void *mem, uint32_t size)
@@ -63,6 +61,7 @@ stack_peek_raw(struct stack *stack, void *mem, uint32_t size, uint32_t *off)
 void
 stack_print(struct stack *_stack)
 {
+#if STACK_DEBUG
 	struct stack_tag tag;
 	struct stack stack = *_stack;
 	while (stack.len) {
@@ -78,13 +77,18 @@ stack_print(struct stack *_stack)
 
 		printf("\n");
 	}
+#else
+	LOG_W("please enable STACK_DEBUG\n");
+#endif
 }
 
 void
 stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name)
 {
 	stack_push_raw(stack, mem, size);
+#if STACK_DEBUG
 	stack_push_raw(stack, &(struct stack_tag){ name, size }, sizeof(struct stack_tag));
+#endif
 
 	/* L("\033[33mstack\033[0m %05d pushed %s (%d)", stack->len, name, size); */
 }
@@ -92,10 +96,11 @@ stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char
 void
 stack_pop_sized(struct stack *stack, void *mem, uint32_t size)
 {
+#if STACK_DEBUG
 	struct stack_tag tag;
 	stack_pop_raw(stack, &tag, sizeof(tag));
-
 	assert(size == tag.size);
+#endif
 
 	stack_pop_raw(stack, mem, size);
 
@@ -106,10 +111,12 @@ void
 stack_peek_sized(struct stack *stack, void *mem, uint32_t size)
 {
 	uint32_t off = stack->len;
+
+#if STACK_DEBUG
 	struct stack_tag tag;
 	stack_peek_raw(stack, &tag, sizeof(tag), &off);
-
 	assert(size == tag.size);
+#endif
 
 	stack_peek_raw(stack, mem, size, &off);
 }

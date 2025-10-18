@@ -253,7 +253,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		L("compiling: '%s'", get_cstr(wk, source_path));
 	}
 
-	if (!run_cmd(&cmd_ctx, argstr, argc, NULL, 0)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, NULL, 0)) {
 		vm_error_at(wk, err_node, "error: %s", cmd_ctx.err_msg);
 		goto ret;
 	}
@@ -273,7 +273,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 			}
 		}
 
-		if (!run_cmd_argv(&opts->cmd_ctx, (char *const[]){ (char *)output_path, NULL }, NULL, 0)) {
+		if (!run_cmd_argv(wk, &opts->cmd_ctx, (char *const[]){ (char *)output_path, NULL }, NULL, 0)) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;
@@ -2285,7 +2285,7 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 	tstr_pushs(wk, &output_dir, get_cstr(wk, current_project(wk)->build_dir));
 	path_push(wk, &output_dir, "preprocess.p");
 
-	if (!fs_mkdir_p(output_dir.buf)) {
+	if (!fs_mkdir_p(wk, output_dir.buf)) {
 		return false;
 	}
 

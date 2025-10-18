@@ -16,10 +16,10 @@
 #include <winioctl.h>
 
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 #include "platform/windows/log.h"
@@ -104,7 +104,7 @@ typedef struct _REPARSE_DATA_BUFFER {
 } REPARSE_DATA_BUFFER;
 
 static char *
-fs_resolve_reparse_point(const char *path)
+fs_resolve_reparse_point(struct workspace *wk, const char *path)
 {
 	HANDLE h = INVALID_HANDLE_VALUE;
 	REPARSE_DATA_BUFFER *buf = 0;
@@ -129,7 +129,7 @@ fs_resolve_reparse_point(const char *path)
 	resolved = 0;
 
 	size = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
-	buf = z_malloc(size);
+	buf = ar_alloc(wk->a_scratch, size, 1, 1);
 
 	if (!DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, 0, 0, buf, size, &size, 0)) {
 		LOG_E("DeviceIoControl failed to get reparse point: %s", win32_error());
@@ -157,7 +157,7 @@ fs_resolve_reparse_point(const char *path)
 
 	if (wide_path) {
 		resolved_size = size + 1;
-		resolved = z_malloc(resolved_size);
+		resolved = ar_alloc(wk->a_scratch, resolved_size, 1, 1);
 
 convert:
 		if (!resolved) {
@@ -166,8 +166,9 @@ convert:
 
 		if (!(wide_ret = WideCharToMultiByte(CP_UTF8, 0, wide_path, size, resolved, resolved_size, 0, 0))) {
 			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-				resolved_size *= 2;
-				resolved = z_realloc(resolved, resolved_size);
+				DWORD new_resolved_size = resolved_size * 2;
+				resolved = ar_realloc(wk->a_scratch, resolved, resolved_size, new_resolved_size, 1);
+				resolved_size = new_resolved_size;
 				goto convert;
 			}
 			goto done;
@@ -177,9 +178,6 @@ convert:
 	}
 
 done:
-	if (buf) {
-		z_free(buf);
-	}
 	if (h != INVALID_HANDLE_VALUE) {
 		CloseHandle(h);
 	}
@@ -187,7 +185,7 @@ done:
 }
 
 bool
-fs_exe_exists(const char *path)
+fs_exe_exists(struct workspace *wk, const char *path)
 {
 	HANDLE h;
 	HANDLE fm;
@@ -203,10 +201,8 @@ fs_exe_exists(const char *path)
 open_file:
 	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (h == INVALID_HANDLE_VALUE) {
-		if (is_reparse) {
-			z_free((void *)path);
-		} else if (GetLastError() == ERROR_CANT_ACCESS_FILE) {
-			path = fs_resolve_reparse_point(path);
+		if (!is_reparse && GetLastError() == ERROR_CANT_ACCESS_FILE) {
+			path = fs_resolve_reparse_point(wk, path);
 
 			if (path) {
 				is_reparse = true;
@@ -283,10 +279,6 @@ close_fm:
 close_file:
 	CloseHandle(h);
 
-	if (is_reparse) {
-		free((void *)path);
-	}
-
 	return ret;
 }
 
@@ -340,7 +332,7 @@ fs_rmdir(const char *path, bool force)
 }
 
 bool
-fs_copy_file(const char *src, const char *dest, bool force)
+fs_copy_file(struct workspace *wk, const char *src, const char *dest, bool force)
 {
 	if (force) {
 		fs_make_writeable_if_exists(dest);
@@ -355,7 +347,7 @@ fs_copy_file(const char *src, const char *dest, bool force)
 }
 
 bool
-fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
+fs_dir_foreach(struct workspace *wk, const char *path, void *_ctx, fs_dir_foreach_cb cb)
 {
 	HANDLE h;
 	char *filter;
@@ -372,7 +364,7 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 		len--;
 	}
 
-	filter = (char *)z_malloc(len + 3);
+	filter = ar_alloc(wk->a_scratch, len + 3, 1, 1);
 
 	CopyMemory(filter, path, len);
 	filter[len] = '\\';
@@ -382,8 +374,7 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 	h = FindFirstFileEx(filter, FindExInfoBasic, &fd, FindExSearchNameMatch, NULL, 0);
 	if (h == INVALID_HANDLE_VALUE) {
 		LOG_E("failed to open directory %s: %s", path, win32_error());
-		res = false;
-		goto free_filter;
+		return false;
 	}
 
 	do {
@@ -412,9 +403,6 @@ fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
 		res = false;
 	}
 
-free_filter:
-	z_free(filter);
-
 	return res;
 }
 
@@ -442,7 +430,7 @@ _is_wprefix(const WCHAR *s, const WCHAR *prefix, uint32_t n)
 #define is_wprefix(__s, __p) _is_wprefix(__s, __p, sizeof(__p) / sizeof(WCHAR) - 1)
 
 bool
-fs_is_a_tty_from_fd(int fd)
+fs_is_a_tty_from_fd(struct workspace *wk, int fd)
 {
 	HANDLE h;
 	DWORD mode;
@@ -489,7 +477,7 @@ fs_is_a_tty_from_fd(int fd)
 			size_t l;
 
 			size = sizeof(FILE_NAME_INFO) + sizeof(WCHAR) * (MAX_PATH - 1);
-			fni = z_malloc(size + sizeof(WCHAR));
+			fni = ar_alloc(wk->a_scratch, size + sizeof(WCHAR), 1, 1);
 
 			if (GetFileInformationByHandleEx(h, FileNameInfo, fni, size)) {
 				fni->FileName[fni->FileNameLength / sizeof(WCHAR)] = L'\0';
@@ -539,7 +527,6 @@ fs_is_a_tty_from_fd(int fd)
 					}
 				}
 			}
-			z_free(fni);
 			if (p) {
 				tty_is_pty = true;
 				return true;
@@ -600,13 +587,13 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
 
-		if (fs_exe_exists(buf->buf)) {
+		if (fs_exe_exists(wk, buf->buf)) {
 			return true;
 		}
 
 		if (!fs_has_extension(buf->buf, ".exe")) {
 			tstr_pushs(wk, buf, ".exe");
-			if (fs_exe_exists(buf->buf)) {
+			if (fs_exe_exists(wk, buf->buf)) {
 				return true;
 			}
 		}
@@ -636,11 +623,11 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 
 			path_push(wk, buf, cmd);
 
-			if (fs_exe_exists(buf->buf)) {
+			if (fs_exe_exists(wk, buf->buf)) {
 				return true;
 			} else if (!fs_has_extension(buf->buf, ".exe")) {
 				tstr_pushs(wk, buf, ".exe");
-				if (fs_exe_exists(buf->buf)) {
+				if (fs_exe_exists(wk, buf->buf)) {
 					return true;
 				}
 			}
@@ -719,23 +706,34 @@ fs_wait_for_input(int fd, uint32_t *bytes_available)
 		return false;
 	}
 	HANDLE h = (HANDLE)_h;
+	switch (GetFileType(h)) {
+	case FILE_TYPE_CHAR: {
+		LOG_E("FILE_TYPE_CHAR not supported");
+		return false;
+	}
+	case FILE_TYPE_PIPE: {
+		while (true) {
+			DWORD dwBytesAvailable;
+			if (!PeekNamedPipe(h, NULL, 0, NULL, &dwBytesAvailable, NULL)) {
+				LOG_E("PeekNamedPipe: %s", win32_error());
+				return false;
+			}
 
-	while (true) {
-		DWORD dwBytesAvailable;
-		if (!PeekNamedPipe(h, NULL, 0, NULL, &dwBytesAvailable, NULL)) {
-			LOG_E("PeekNamedPipe: %s", win32_error());
-			return false;
-		}
+			if (dwBytesAvailable) {
+				*bytes_available = dwBytesAvailable;
+				break;
+			}
 
-		if (dwBytesAvailable) {
-			*bytes_available = dwBytesAvailable;
-			break;
+			if (WaitForSingleObject(h, INFINITE) != WAIT_OBJECT_0) {
+				LOG_E("failed WaitForSingleObject(0x%p): %s", h, win32_error());
+				return false;
+			}
 		}
-
-		if (WaitForSingleObject(h, INFINITE) != WAIT_OBJECT_0) {
-			LOG_E("failed WaitForSingleObject(0x%p): %s", h, win32_error());
-			return false;
-		}
+		break;
+	}
+	case FILE_TYPE_DISK: {
+		return true;
+	}
 	}
 
 	return true;

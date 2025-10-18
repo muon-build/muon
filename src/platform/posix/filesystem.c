@@ -17,10 +17,10 @@
 
 #include "buf_size.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 
@@ -100,7 +100,7 @@ fs_file_exists(const char *path)
 }
 
 bool
-fs_exe_exists(const char *path)
+fs_exe_exists(struct workspace *wk, const char *path)
 {
 	struct stat sb;
 	if (access(path, X_OK) != 0) {
@@ -160,9 +160,8 @@ fs_rmdir(const char *path, bool force)
 }
 
 static bool
-fs_copy_link(const char *src, const char *dest)
+fs_copy_link(struct workspace *wk, const char *src, const char *dest)
 {
-	bool res = false;
 	ssize_t n;
 	char *buf;
 
@@ -178,18 +177,15 @@ fs_copy_link(const char *src, const char *dest)
 	// TODO: allow pseudo-files?
 	assert(st.st_size > 0);
 
-	buf = z_malloc(st.st_size + 1);
+	buf = ar_alloc(wk->a_scratch, st.st_size + 1, 1, 1);
 	n = readlink(src, buf, st.st_size);
 	if (n == -1) {
 		LOG_E("readlink('%s') failed: %s", src, strerror(errno));
-		goto ret;
+		return false;
 	}
 
 	buf[n] = '\0';
-	res = fs_make_symlink(buf, dest, true);
-ret:
-	z_free(buf);
-	return res;
+	return fs_make_symlink(buf, dest, true);
 }
 
 static bool
@@ -224,22 +220,21 @@ fs_write_fd(int fd, const void *buf_v, size_t len)
 // NOTE: better to also return the dirfd, so that it can use renameat()
 // instead of rename(). but path_dirname needs a workspace, we don't have one.
 static int
-fs_maketmp(const char *file, char **out_tmpname)
+fs_maketmp(struct workspace *wk, const char *file, char **out_tmpname)
 {
 	char suffix[] = "-XXXXXX";
 	size_t l = strlen(file) + sizeof(suffix);
-	char *s = *out_tmpname = z_malloc(l);
+	char *s = *out_tmpname = ar_alloc(wk->a_scratch, l, 1, 1);
 	snprintf(s, l, "%s%s", file, suffix);
 	int fd = mkstemp(s);
 	if (fd < 0) {
 		*out_tmpname = NULL;
-		z_free(s);
 	}
 	return fd;
 }
 
 bool
-fs_copy_file(const char *src, const char *dest, bool force)
+fs_copy_file(struct workspace *wk, const char *src, const char *dest, bool force)
 {
 	bool res = false;
 	FILE *f_src = NULL;
@@ -252,7 +247,7 @@ fs_copy_file(const char *src, const char *dest, bool force)
 	}
 
 	if (S_ISLNK(st.st_mode)) {
-		return fs_copy_link(src, dest);
+		return fs_copy_link(wk, src, dest);
 	} else if (!S_ISREG(st.st_mode)) {
 		LOG_E("unhandled file type");
 		goto ret;
@@ -266,7 +261,7 @@ fs_copy_file(const char *src, const char *dest, bool force)
 		goto ret;
 	}
 
-	if ((f_dest = fs_maketmp(dest, &f_dest_tmpname)) < 0) {
+	if ((f_dest = fs_maketmp(wk, dest, &f_dest_tmpname)) < 0) {
 		LOG_E("failed to create temp destination file %s: %s", dest, strerror(errno));
 		goto ret;
 	}
@@ -322,7 +317,6 @@ ret:
 		if (!res) {
 			unlink(f_dest_tmpname);
 		}
-		z_free(f_dest_tmpname);
 	}
 
 	if (f_src) {
@@ -341,7 +335,7 @@ ret:
 }
 
 bool
-fs_dir_foreach(const char *path, void *_ctx, fs_dir_foreach_cb cb)
+fs_dir_foreach(struct workspace *wk, const char *path, void *_ctx, fs_dir_foreach_cb cb)
 {
 	DIR *d;
 	struct dirent *ent;
@@ -410,7 +404,7 @@ fs_user_home(void)
 }
 
 bool
-fs_is_a_tty_from_fd(int fd)
+fs_is_a_tty_from_fd(struct workspace *wk, int fd)
 {
 	errno = 0;
 	if (isatty(fd) == 1) {
@@ -468,7 +462,7 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 	if (!path_is_basename(cmd)) {
 		path_make_absolute(wk, buf, cmd);
 
-		if (fs_exe_exists(buf->buf)) {
+		if (fs_exe_exists(wk, buf->buf)) {
 			return true;
 		} else {
 			return false;
@@ -492,7 +486,7 @@ fs_find_cmd(struct workspace *wk, struct tstr *buf, const char *cmd)
 
 			path_push(wk, buf, cmd);
 
-			if (fs_exe_exists(buf->buf)) {
+			if (fs_exe_exists(wk, buf->buf)) {
 				return true;
 			}
 

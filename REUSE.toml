@@ -22,6 +22,12 @@ SPDX-FileCopyrightText = "Stone Tickle <lattis@mochiro.moe>"
 SPDX-License-Identifier = "GPL-3.0-only"
 
 [[annotations]]
+path = "tests/lsp/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Stone Tickle <lattis@mochiro.moe>"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+[[annotations]]
 path = "doc/book/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Stone Tickle <lattis@mochiro.moe>"

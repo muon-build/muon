@@ -17,7 +17,7 @@
 #include <windows.h>
 
 bool
-term_winsize(int fd, uint32_t *height, uint32_t *width)
+term_winsize(struct workspace *wk, int fd, uint32_t *height, uint32_t *width)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	HANDLE h;

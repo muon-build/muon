@@ -26,7 +26,7 @@
 struct project *
 make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, const char *cwd, const char *build_dir)
 {
-	*id = arr_push(&wk->projects, &(struct project){ 0 });
+	*id = arr_push(wk->a, &wk->projects, &(struct project){ 0 });
 	struct project *proj = arr_get(&wk->projects, *id);
 
 	proj->opts = make_obj(wk, obj_dict);
@@ -65,6 +65,16 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	return proj;
 }
 
+void
+make_dummy_project(struct workspace *wk, bool setup_options)
+{
+	obj id;
+	make_project(wk, &id, "dummy", wk->source_root, wk->build_root);
+	if (setup_options && !setup_project_options(wk, 0)) {
+		UNREACHABLE;
+	}
+}
+
 struct project *
 current_project(struct workspace *wk)
 {
@@ -72,11 +82,22 @@ current_project(struct workspace *wk)
 }
 
 void
-workspace_init_bare(struct workspace *wk)
+workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 {
 	*wk = (struct workspace){ 0 };
+	assert(a);
+	wk->a = a;
+	wk->a_scratch = a_scratch ? a_scratch : a;
+	wk->init_flags = workspace_init_flag_arena;
+}
+
+void
+workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scratch)
+{
+	workspace_init_arena(wk, a, a_scratch);
 	vm_init(wk);
-	stack_init(&wk->stack, 4096);
+	stack_init(wk->a, &wk->stack, 4096);
+	wk->init_flags |= workspace_init_flag_bare;
 
 	{
 #ifdef TRACY_ENABLE
@@ -96,7 +117,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 	bool ret;
 	struct source src;
 
-	if (!embedded_get(script, &src)) {
+	if (!embedded_get(wk, script, &src)) {
 		LOG_E("embedded script %s not found", script);
 		return false;
 	}
@@ -121,8 +142,8 @@ workspace_init_runtime(struct workspace *wk)
 	path_copy_cwd(wk, &source_root);
 	wk->source_root = get_cstr(wk, tstr_into_str(wk, &source_root));
 
-	arr_init(&wk->projects, 16, sizeof(struct project));
-	arr_init(&wk->option_overrides, 32, sizeof(struct option_override));
+	arr_init(wk->a, &wk->projects, 16, struct project);
+	arr_init(wk->a, &wk->option_overrides, 32, struct option_override);
 
 	wk->binaries = make_obj(wk, obj_dict);
 	wk->host_machine = make_obj(wk, obj_dict);
@@ -145,6 +166,8 @@ workspace_init_runtime(struct workspace *wk)
 		wk->find_program_overrides[i] = make_obj(wk, obj_dict);
 		wk->machine_properties[i] = make_obj(wk, obj_dict);
 	}
+
+	wk->init_flags |= workspace_init_flag_runtime;
 }
 
 void
@@ -163,31 +186,16 @@ workspace_init_startup_files(struct workspace *wk)
 			LOG_W("script %s failed to load", startup_files[i]);
 		}
 	}
+
+	wk->init_flags |= workspace_init_flag_startup_files;
 }
 
 void
-workspace_init(struct workspace *wk)
+workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch)
 {
-	workspace_init_bare(wk);
+	workspace_init_bare(wk, a, a_scratch);
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
-}
-
-void
-workspace_destroy_bare(struct workspace *wk)
-{
-	vm_destroy(wk);
-	stack_destroy(&wk->stack);
-}
-
-void
-workspace_destroy(struct workspace *wk)
-{
-	TracyCZoneAutoS;
-	arr_destroy(&wk->projects);
-	arr_destroy(&wk->option_overrides);
-	workspace_destroy_bare(wk);
-	TracyCZoneAutoE;
 }
 
 void
@@ -215,7 +223,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 static bool
 workspace_create_build_dir(struct workspace *wk)
 {
-	if (!fs_mkdir_p(wk->muon_private)) {
+	if (!fs_mkdir_p(wk, wk->muon_private)) {
 		return false;
 	}
 
@@ -280,7 +288,7 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 	}
 
 	FILE *old_log_file = _log_file();
-	log_set_file(out);
+	log_set_file(wk, out);
 
 	uint32_t i;
 	struct project *proj;
@@ -359,7 +367,7 @@ workspace_print_summaries(struct workspace *wk, FILE *out)
 		}
 	}
 
-	log_set_file(old_log_file);
+	log_set_file(wk, old_log_file);
 }
 
 static obj
@@ -398,7 +406,7 @@ workspace_add_regenerate_dep(struct workspace *wk, obj v)
 
 	if (obj_array_in(wk, wk->exclude_regenerate_deps, v)) {
 		return;
-	} else if (path_is_subpath(wk->build_root, s)) {
+	} else if (path_is_subpath(wk, wk->build_root, s)) {
 		return;
 	} else if (!fs_file_exists(s)) {
 		return;
@@ -440,9 +448,13 @@ workspace_build_dir(struct workspace *wk)
 	}
 }
 
-
 bool
-workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags)
+workspace_do_setup_prepare(struct workspace *wk,
+	const char *build,
+	const char *argv0,
+	uint32_t argc,
+	char *const argv[],
+	enum workspace_do_setup_flag flags)
 {
 	workspace_setup_paths(wk, build, argv0, argc, argv);
 
@@ -467,7 +479,6 @@ workspace_do_setup(struct workspace *wk)
 
 	bool progress = log_is_progress_bar_enabled();
 	log_progress_disable();
-
 
 	{
 		TSTR(path);
@@ -499,8 +510,8 @@ workspace_do_setup(struct workspace *wk)
 	LOG_I("muon %s%s%s", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
 	if (progress) {
-		log_progress_enable();
-		log_progress_set_style(&(struct log_progress_style) { .rate_limit = 64, .name_pad = 20 });
+		log_progress_enable(wk);
+		log_progress_set_style(&(struct log_progress_style){ .rate_limit = 64, .name_pad = 20 });
 	}
 
 	uint32_t project_id;
@@ -530,4 +541,30 @@ ret:
 	}
 
 	return res;
+}
+
+void
+workspace_scratch_begin(struct workspace *wk)
+{
+	stack_push(&wk->stack, wk->a_scratch_pos, wk->a_scratch->pos);
+}
+
+void
+workspace_scratch_end(struct workspace *wk)
+{
+	ar_pop_to(wk->a_scratch, wk->a_scratch_pos);
+	stack_pop(&wk->stack, wk->a_scratch_pos);
+}
+
+void
+workspace_perm_begin(struct workspace *wk)
+{
+	stack_push(&wk->stack, wk->a_pos, wk->a->pos);
+}
+
+void
+workspace_perm_end(struct workspace *wk)
+{
+	ar_pop_to(wk->a, wk->a_pos);
+	stack_pop(&wk->stack, wk->a_pos);
 }

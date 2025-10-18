@@ -14,9 +14,11 @@
 #include "functions/both_libs.h"
 #include "functions/environment.h"
 #include "lang/workspace.h"
+#include "lang/object_iterators.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "tracy.h"
 
 void
 push_args(struct workspace *wk, obj arr, const struct args *args)
@@ -188,12 +190,9 @@ ninja_escape(struct workspace *wk, struct tstr *sb, const char *str)
 static void
 shell_ninja_escape(struct workspace *wk, struct tstr *sb, const char *str)
 {
-	TSTR_manual(tmp);
-
+	TSTR(tmp);
 	shell_escape(wk, &tmp, str);
 	simple_escape(wk, sb, tmp.buf, "$\n", '$');
-
-	tstr_destroy(&tmp);
 }
 
 void
@@ -204,46 +203,27 @@ pkgconf_escape(struct workspace *wk, struct tstr *sb, const char *str)
 
 typedef void((*escape_func)(struct workspace *wk, struct tstr *sb, const char *str));
 
-struct join_args_iter_ctx {
-	uint32_t i, len;
-	uint32_t *obj;
-	escape_func escape;
-};
-
-static enum iteration_result
-join_args_iter(struct workspace *wk, void *_ctx, obj val)
-{
-	struct join_args_iter_ctx *ctx = _ctx;
-
-	const char *s = get_cstr(wk, val);
-
-	TSTR(esc);
-	if (ctx->escape) {
-		ctx->escape(wk, &esc, s);
-
-		s = esc.buf;
-	}
-
-	str_app(wk, ctx->obj, s);
-
-	if (ctx->i < ctx->len - 1) {
-		str_app(wk, ctx->obj, " ");
-	}
-
-	++ctx->i;
-
-	return ir_cont;
-}
-
 static obj
 join_args(struct workspace *wk, obj arr, escape_func escape)
 {
-	obj o = make_str(wk, "");
+	TracyCZoneAutoS;
+	TSTR(res);
 
-	struct join_args_iter_ctx ctx = { .obj = &o, .len = get_obj_array(wk, arr)->len, .escape = escape };
+	obj val;
+	obj_array_for_(wk, arr, val, iter) {
+		const struct str *s = get_str(wk, val);
+		if (escape) {
+			escape(wk, &res, s->s);
+		} else {
+			tstr_pushn(wk, &res, s->s, s->len);
+		}
+		if (iter.i < iter.len - 1) {
+			tstr_push(wk, &res, ' ');
+		}
+	}
 
-	obj_array_foreach(wk, arr, &ctx, join_args_iter);
-	return o;
+	TracyCZoneAutoE;
+	return tstr_into_str(wk, &res);
 }
 
 obj
@@ -279,6 +259,7 @@ join_args_pkgconf(struct workspace *wk, obj arr)
 struct arr_to_args_ctx {
 	enum arr_to_args_flags mode;
 	obj res;
+	uint32_t i;
 };
 
 static enum iteration_result
@@ -337,13 +318,13 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		// the target's name and continue.
 		if (!get_obj_type(wk, output_arr)) {
 			obj_array_push(wk, ctx->res, custom_tgt->name);
-			return ir_cont;
+			goto cont;
 		}
 
 		if (!obj_array_foreach(wk, output_arr, ctx, arr_to_args_iter)) {
 			return ir_err;
 		}
-		return ir_cont;
+		goto cont;
 	}
 	case obj_external_program:
 	case obj_python_installation:
@@ -351,11 +332,16 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 			goto type_err;
 		}
 
-		obj_array_extend(wk, ctx->res, get_obj_external_program(wk, src)->cmd_array);
-		return ir_cont;
+		struct obj_external_program *ep = get_obj_external_program(wk, src);
+		if (ctx->i > 0 && ep->original_argv0) {
+			obj_array_push(wk, ctx->res, ep->original_argv0);
+		} else {
+			obj_array_extend(wk, ctx->res, ep->cmd_array);
+		}
+		goto cont;
 	case obj_compiler:
 		obj_array_extend(wk, ctx->res, get_obj_compiler(wk, src)->cmd_arr[toolchain_component_compiler]);
-		return ir_cont;
+		goto cont;
 	default:
 type_err:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(t));
@@ -363,6 +349,8 @@ type_err:
 	}
 
 	obj_array_push(wk, ctx->res, str);
+cont:
+	++ctx->i;
 	return ir_cont;
 }
 

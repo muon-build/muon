@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include <stdarg.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "buf_size.h"
@@ -22,7 +23,6 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/init.h"
-#include "platform/mem.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -54,9 +54,9 @@ const uint32_t op_operand_size = 3;
 enum { object_stack_page_size = 1024 / sizeof(struct obj_stack_entry) };
 
 static void
-object_stack_alloc_page(struct object_stack *s)
+object_stack_alloc_page(struct arena *a, struct object_stack *s)
 {
-	bucket_arr_pushn(&s->ba, 0, 0, object_stack_page_size);
+	bucket_arr_pushn(a, &s->ba, 0, 0, object_stack_page_size);
 	s->ba.len -= object_stack_page_size;
 	++s->bucket;
 	s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[s->bucket].mem;
@@ -65,9 +65,9 @@ object_stack_alloc_page(struct object_stack *s)
 }
 
 static void
-object_stack_init(struct object_stack *s)
+object_stack_init(struct arena *a, struct object_stack *s)
 {
-	bucket_arr_init(&s->ba, object_stack_page_size, sizeof(struct obj_stack_entry));
+	bucket_arr_init(a, &s->ba, object_stack_page_size, struct obj_stack_entry);
 	s->page = (struct obj_stack_entry *)((struct bucket *)s->ba.buckets.e)[0].mem;
 	((struct bucket *)s->ba.buckets.e)[0].len = object_stack_page_size;
 }
@@ -76,7 +76,7 @@ static void
 object_stack_push_ip(struct workspace *wk, obj o, uint32_t ip)
 {
 	if (wk->vm.stack.i >= object_stack_page_size) {
-		object_stack_alloc_page(&wk->vm.stack);
+		object_stack_alloc_page(wk->a, &wk->vm.stack);
 	}
 
 	wk->vm.stack.page[wk->vm.stack.i] = (struct obj_stack_entry){ .o = o, .ip = ip };
@@ -286,7 +286,7 @@ vm_diagnostic_v(struct workspace *wk,
 		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
 	}
 
-	error_message(src, loc, lvl, flags, buf);
+	error_message(wk, src, loc, lvl, flags, buf);
 
 	if (lvl == log_error) {
 		vm_trigger_error(wk);
@@ -696,6 +696,61 @@ vm_get_constant(uint8_t *code, uint32_t *ip)
  * disassembler
  ******************************************************************************/
 
+static const char *
+vm_op_to_s(uint8_t op)
+{
+#define op_case(__op) \
+	case __op: return #__op;
+
+	// clang-format off
+	switch (op) {
+	op_case(op_pop)
+	op_case(op_dup)
+	op_case(op_swap)
+	op_case(op_stringify)
+	op_case(op_index)
+	op_case(op_add)
+	op_case(op_sub)
+	op_case(op_mul)
+	op_case(op_div)
+	op_case(op_mod)
+	op_case(op_eq)
+	op_case(op_in)
+	op_case(op_gt)
+	op_case(op_lt)
+	op_case(op_not)
+	op_case(op_negate)
+	op_case(op_return)
+	op_case(op_return_end)
+	op_case(op_try_load)
+	op_case(op_load)
+	op_case(op_store)
+	op_case(op_iterator)
+	op_case(op_iterator_next)
+	op_case(op_constant)
+	op_case(op_constant_list)
+	op_case(op_constant_dict)
+	op_case(op_constant_func)
+	op_case(op_call)
+	op_case(op_member)
+	op_case(op_call_native)
+	op_case(op_jmp_if_true)
+	op_case(op_jmp_if_false)
+	op_case(op_jmp_if_disabler)
+	op_case(op_jmp_if_disabler_keep)
+	op_case(op_jmp)
+	op_case(op_typecheck)
+	op_case(op_az_branch)
+	op_case(op_az_merge)
+	op_case(op_dbg_break)
+	case op_count: UNREACHABLE;
+	}
+	// clang-format on
+#undef op_case
+
+	UNREACHABLE_RETURN;
+}
+
 const char *
 vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 {
@@ -703,8 +758,6 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	static char buf[2048];
 	buf[0] = 0;
 #define buf_push(...) i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, __VA_ARGS__);
-#define op_case(__op) \
-	case __op: buf_push(#__op);
 
 	uint32_t ip = base_ip;
 	buf_push("%04x ", ip);
@@ -718,30 +771,31 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		}
 	}
 
-	// clang-format off
-	switch (op) {
-	op_case(op_pop) break;
-	op_case(op_dup) break;
-	op_case(op_swap) break;
-	op_case(op_stringify) break;
-	op_case(op_index) break;
-	op_case(op_add) break;
-	op_case(op_sub) break;
-	op_case(op_mul) break;
-	op_case(op_div) break;
-	op_case(op_mod) break;
-	op_case(op_eq) break;
-	op_case(op_in) break;
-	op_case(op_gt) break;
-	op_case(op_lt) break;
-	op_case(op_not) break;
-	op_case(op_negate) break;
-	op_case(op_return) break;
-	op_case(op_return_end) break;
-	op_case(op_try_load) break;
-	op_case(op_load) break;
+	buf_push("%s", vm_op_to_s(op));
 
-	op_case(op_store) {
+	switch (op) {
+	case op_pop: break;
+	case op_dup: break;
+	case op_swap: break;
+	case op_stringify: break;
+	case op_index: break;
+	case op_add: break;
+	case op_sub: break;
+	case op_mul: break;
+	case op_div: break;
+	case op_mod: break;
+	case op_eq: break;
+	case op_in: break;
+	case op_gt: break;
+	case op_lt: break;
+	case op_not: break;
+	case op_negate: break;
+	case op_return: break;
+	case op_return_end: break;
+	case op_try_load: break;
+	case op_load: break;
+
+	case op_store: {
 		buf_push(":%04x:", constants[0]);
 		if (constants[0] & op_store_flag_member) {
 			buf_push("member");
@@ -751,69 +805,40 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 		}
 		break;
 	}
-	op_case(op_iterator)
-		buf_push(":%d", constants[0]);
-		break;
-	op_case(op_iterator_next)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_constant)
-		buf_push(":%o", constants[0]);
-		break;
-	op_case(op_constant_list)
-		buf_push(":len:%d", constants[0]);
-		break;
-	op_case(op_constant_dict)
-		buf_push(":len:%d", constants[0]);
-		break;
-	op_case(op_constant_func)
-		buf_push(":%d", constants[0]);
-		break;
-	op_case(op_call)
-		buf_push(":%d,%d", constants[0], constants[1]);
-		break;
-	op_case(op_member) {
+	case op_iterator: buf_push(":%d", constants[0]); break;
+	case op_iterator_next: buf_push(":%04x", constants[0]); break;
+	case op_constant: buf_push(":%o", constants[0]); break;
+	case op_constant_list: buf_push(":len:%d", constants[0]); break;
+	case op_constant_dict: buf_push(":len:%d", constants[0]); break;
+	case op_constant_func: buf_push(":%d", constants[0]); break;
+	case op_call: buf_push(":%d,%d", constants[0], constants[1]); break;
+	case op_member: {
 		uint32_t a;
 		a = constants[0];
 		buf_push(":%o", a);
 		break;
 	}
-	op_case(op_call_native)
+	case op_call_native:
 		buf_push(":");
 		buf_push("%d,%d,", constants[0], constants[1]);
 		uint32_t id = constants[2];
 		buf_push("%s", native_funcs[id].name);
 		break;
-	op_case(op_jmp_if_true)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp_if_false)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp_if_disabler)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp_if_disabler_keep)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_jmp)
-		buf_push(":%04x", constants[0]);
-		break;
-	op_case(op_typecheck)
-		buf_push(":%s", obj_type_to_s(constants[0]));
-		break;
+	case op_jmp_if_true: buf_push(":%04x", constants[0]); break;
+	case op_jmp_if_false: buf_push(":%04x", constants[0]); break;
+	case op_jmp_if_disabler: buf_push(":%04x", constants[0]); break;
+	case op_jmp_if_disabler_keep: buf_push(":%04x", constants[0]); break;
+	case op_jmp: buf_push(":%04x", constants[0]); break;
+	case op_typecheck: buf_push(":%s", obj_type_to_s(constants[0])); break;
 
-	op_case(op_az_branch)
+	case op_az_branch:
 		buf_push(":%d", constants[0]);
 		buf_push(", obj:%d, %d", constants[1], constants[2]);
 		break;
-	op_case(op_az_merge)
-		break;
-	op_case(op_dbg_break)
-		break;
+	case op_az_merge: break;
+	case op_dbg_break: break;
 	case op_count: UNREACHABLE;
 	}
-	// clang-format on
 
 #undef buf_push
 
@@ -861,7 +886,7 @@ vm_dis(struct workspace *wk)
 void
 vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
 {
-	arr_push(&wk->vm.call_stack, frame);
+	arr_push(wk->a, &wk->vm.call_stack, frame);
 }
 
 struct call_frame *
@@ -1274,9 +1299,11 @@ vm_op_div(struct workspace *wk)
 			return;
 		}
 
+		workspace_scratch_begin(wk);
 		TSTR(buf);
 		path_join(wk, &buf, ss1->s, ss2->s);
 		res = tstr_into_str(wk, &buf);
+		workspace_scratch_end(wk);
 		break;
 	}
 	case obj_typeinfo: {
@@ -1954,7 +1981,7 @@ vm_op_member(struct workspace *wk)
 		return;
 	}
 
-	obj  res = make_obj(wk, obj_capture);
+	obj res = make_obj(wk, obj_capture);
 	struct obj_capture *c = get_obj_capture(wk, res);
 
 	if (f) {
@@ -2003,11 +2030,13 @@ vm_op_call(struct workspace *wk)
 	}
 
 	struct obj_capture *c = get_obj_capture(wk, f);
+	workspace_scratch_begin(wk);
 	if (c->func) {
 		vm_execute_capture(wk, f);
 	} else {
 		vm_execute_native(wk, c->native_func, c->self);
 	}
+	workspace_scratch_end(wk);
 }
 
 static void
@@ -2017,7 +2046,9 @@ vm_op_call_native(struct workspace *wk)
 	wk->vm.nkwargs = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	uint32_t idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	workspace_scratch_begin(wk);
 	vm_execute_native(wk, idx, 0);
+	workspace_scratch_end(wk);
 }
 
 static void
@@ -2191,7 +2222,9 @@ vm_op_iterator_next(struct workspace *wk)
 			should_break = true;
 		} else {
 			push_key = true;
-			void *k = arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
+			void *k = sl_get_(sl_cast(&iterator->data.dict_big.h->keys),
+				iterator->data.dict_big.i,
+				iterator->data.dict_big.h->key_size);
 			union obj_dict_big_dict_value *uv
 				= (union obj_dict_big_dict_value *)hash_get(iterator->data.dict_big.h, k);
 			key = uv->val.key;
@@ -2449,7 +2482,7 @@ vm_unwind_call_stack(struct workspace *wk)
 
 		switch (frame->type) {
 		case call_frame_type_eval: {
-			error_message_flush_coalesced_message();
+			error_message_flush_coalesced_message(wk);
 			wk->vm.ip = frame->return_ip;
 			// TODO: this is a little hacky?  We need to make sure that
 			// execution can continue even if we emitted errors.
@@ -2461,15 +2494,21 @@ vm_unwind_call_stack(struct workspace *wk)
 
 		const char *fmt = frame->func->name ? "in function '%s'" : "in %s";
 		const char *fname = frame->func->name ? frame->func->name : "anonymous function";
-		vm_diagnostic(wk, frame->return_ip - 1, log_error, error_message_flag_no_source | error_message_flag_coalesce, fmt, fname);
+		vm_diagnostic(wk,
+			frame->return_ip - 1,
+			log_error,
+			error_message_flag_no_source | error_message_flag_coalesce,
+			fmt,
+			fname);
 	}
 
-	error_message_flush_coalesced_message();
+	error_message_flush_coalesced_message(wk);
 }
 
 obj
 vm_execute(struct workspace *wk)
 {
+	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
 
 	platform_set_abort_handler(vm_abort_handler, wk);
@@ -2484,8 +2523,10 @@ vm_execute(struct workspace *wk)
 		vm_unwind_call_stack(wk);
 		assert(wk->vm.stack.ba.len >= object_stack_base);
 		object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - object_stack_base);
+		TracyCZoneAutoE;
 		return 0;
 	} else {
+		TracyCZoneAutoE;
 		return object_stack_pop(&wk->vm.stack);
 	}
 }
@@ -2749,7 +2790,16 @@ vm_execute_loop(struct workspace *wk)
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
+
+		// TracyCZoneN(tctx, "op", true);
+		// {
+		// 	const char *op_name = vm_op_to_s(wk->vm.code.e[cip]);
+		// 	TracyCZoneName(tctx, op_name, strlen(op_name));
+		// }
+
 		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
+
+		// TracyCZoneEnd(tctx);
 
 		++wk->vm.dbg_state.icount;
 	}
@@ -2830,7 +2880,8 @@ vm_struct_(struct workspace *wk, const char *name)
 }
 
 const char *
-vm_enum_docs_def(struct workspace *wk, obj def) {
+vm_enum_docs_def(struct workspace *wk, obj def)
+{
 	obj doc;
 	if (obj_dict_geti(wk, wk->vm.types.docs, def, &doc)) {
 		return get_str(wk, doc)->s;
@@ -2849,7 +2900,8 @@ vm_enum_docs_def(struct workspace *wk, obj def) {
 }
 
 const char *
-vm_struct_docs_def(struct workspace *wk, obj def) {
+vm_struct_docs_def(struct workspace *wk, obj def)
+{
 	obj doc;
 	if (obj_dict_geti(wk, wk->vm.types.docs, def, &doc)) {
 		return get_str(wk, doc)->s;
@@ -2864,21 +2916,11 @@ vm_struct_docs_def(struct workspace *wk, obj def) {
 		const char *type_str = 0;
 
 		switch (type) {
-		case vm_struct_type_struct_:
-			type_str = vm_struct_docs_def(wk, t >> vm_struct_type_shift);
-			break;
-		case vm_struct_type_enum_:
-			type_str = vm_enum_docs_def(wk, t >> vm_struct_type_shift);
-			break;
-		case vm_struct_type_bool:
-			type_str = "bool";
-			break;
-		case vm_struct_type_str:
-			type_str = "str";
-			break;
-		case vm_struct_type_obj:
-			type_str = "any";
-			break;
+		case vm_struct_type_struct_: type_str = vm_struct_docs_def(wk, t >> vm_struct_type_shift); break;
+		case vm_struct_type_enum_: type_str = vm_enum_docs_def(wk, t >> vm_struct_type_shift); break;
+		case vm_struct_type_bool: type_str = "bool"; break;
+		case vm_struct_type_str: type_str = "str"; break;
+		case vm_struct_type_obj: type_str = "any"; break;
 		}
 
 		assert(type_str);
@@ -2898,7 +2940,8 @@ vm_struct_docs_def(struct workspace *wk, obj def) {
 }
 
 const char *
-vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt) {
+vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt)
+{
 	vm_types_init(wk);
 
 	obj doc;
@@ -2922,7 +2965,8 @@ vm_struct_docs_(struct workspace *wk, const char *name, const char *fmt) {
 }
 
 void
-vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t) {
+vm_struct_member_(struct workspace *wk, const char *name, const char *member, uint32_t offset, enum vm_struct_type t)
+{
 	obj def;
 	if (!obj_dict_index_str(wk, wk->vm.types.structs, name, &def)) {
 		error_unrecoverable("struct %s is not registered", name);
@@ -3061,7 +3105,7 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 	}
 
 	int64_t i = wk->vm.objects.reflected.fields.len;
-	bucket_arr_push(&wk->vm.objects.reflected.fields, f);
+	bucket_arr_push(wk->a, &wk->vm.objects.reflected.fields, f);
 	obj n = make_obj(wk, obj_number);
 	set_obj_number(wk, n, i);
 	obj_array_push(wk, wk->vm.objects.reflected.objs[t], n);
@@ -3069,13 +3113,21 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 
 #define vm_reflect_obj_singleton(__type)
 
-#define vm_reflect_obj_field(__type, __field_type, __name) \
-	vm_reflect_obj_field_(wk, __type,                      \
-		&(struct vm_reflected_field){ .name = #__name, .type = #__field_type, .off = offsetof(struct __type, __name), .size = sizeof(__field_type) })
+#define vm_reflect_obj_field(__type, __field_type, __name)      \
+	vm_reflect_obj_field_(wk,                               \
+		__type,                                         \
+		&(struct vm_reflected_field){ .name = #__name,  \
+			.type = #__field_type,                  \
+			.off = offsetof(struct __type, __name), \
+			.size = sizeof(__field_type) })
 
-#define vm_reflect_obj_field_simple(__type, __field_type) \
-	vm_reflect_obj_field_(wk, __type,                      \
-		&(struct vm_reflected_field){ .name = 0, .type = #__field_type, .off = offsetof(struct obj_internal, val), .size = sizeof(__field_type) })
+#define vm_reflect_obj_field_simple(__type, __field_type)          \
+	vm_reflect_obj_field_(wk,                                  \
+		__type,                                            \
+		&(struct vm_reflected_field){ .name = 0,           \
+			.type = #__field_type,                     \
+			.off = offsetof(struct obj_internal, val), \
+			.size = sizeof(__field_type) })
 
 #define vm_reflect_obj_field_for_each_toolchain_component(__type, __field_type, __name)   \
 	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_compiler]); \
@@ -3167,60 +3219,65 @@ vm_reflect_objects(struct workspace *wk)
 void
 vm_init_objects(struct workspace *wk)
 {
-	bucket_arr_init(&wk->vm.objects.chrs, 4096, 1);
-	bucket_arr_init(&wk->vm.objects.objs, 1024, sizeof(struct obj_internal));
-	bucket_arr_init(&wk->vm.objects.dict_elems, 1024, sizeof(struct obj_dict_elem));
-	bucket_arr_init(&wk->vm.objects.dict_hashes, 16, sizeof(struct hash));
-	bucket_arr_init(&wk->vm.objects.array_elems, 1024, sizeof(struct obj_array_elem));
-	bucket_arr_init(&wk->vm.objects.reflected.fields, 128, sizeof(struct vm_reflected_field));
+	bucket_arr_init(wk->a, &wk->vm.objects.chrs, 4096, char);
+	bucket_arr_init(wk->a, &wk->vm.objects.objs, 1024, struct obj_internal);
+	bucket_arr_init(wk->a, &wk->vm.objects.dict_elems, 1024, struct obj_dict_elem);
+	bucket_arr_init(wk->a, &wk->vm.objects.dict_hashes, 16, struct hash);
+	bucket_arr_init(wk->a, &wk->vm.objects.array_elems, 1024, struct obj_array_elem);
+	bucket_arr_init(wk->a, &wk->vm.objects.reflected.fields, 128, struct vm_reflected_field);
 
+#define P(__type) sizeof(__type), ar_alignof(__type)
 	const struct {
 		uint32_t item_size;
+		uint32_t item_align;
 		uint32_t bucket_size;
 	} sizes[] = {
-		[obj_number] = { sizeof(int64_t), 1024 },
-		[obj_string] = { sizeof(struct str), 1024 },
-		[obj_compiler] = { sizeof(struct obj_compiler), 4 },
-		[obj_array] = { sizeof(struct obj_array), 2048 },
-		[obj_dict] = { sizeof(struct obj_dict), 512 },
-		[obj_build_target] = { sizeof(struct obj_build_target), 16 },
-		[obj_custom_target] = { sizeof(struct obj_custom_target), 16 },
-		[obj_subproject] = { sizeof(struct obj_subproject), 16 },
-		[obj_dependency] = { sizeof(struct obj_dependency), 16 },
-		[obj_external_program] = { sizeof(struct obj_external_program), 32 },
-		[obj_python_installation] = { sizeof(struct obj_python_installation), 32 },
-		[obj_run_result] = { sizeof(struct obj_run_result), 32 },
-		[obj_configuration_data] = { sizeof(struct obj_configuration_data), 16 },
-		[obj_test] = { sizeof(struct obj_test), 64 },
-		[obj_module] = { sizeof(struct obj_module), 16 },
-		[obj_install_target] = { sizeof(struct obj_install_target), 128 },
-		[obj_environment] = { sizeof(struct obj_environment), 4 },
-		[obj_include_directory] = { sizeof(struct obj_include_directory), 16 },
-		[obj_option] = { sizeof(struct obj_option), 32 },
-		[obj_generator] = { sizeof(struct obj_generator), 16 },
-		[obj_generated_list] = { sizeof(struct obj_generated_list), 16 },
-		[obj_alias_target] = { sizeof(struct obj_alias_target), 4 },
-		[obj_both_libs] = { sizeof(struct obj_both_libs), 4 },
-		[obj_typeinfo] = { sizeof(struct obj_typeinfo), 32 },
-		[obj_func] = { sizeof(struct obj_func), 32 },
-		[obj_capture] = { sizeof(struct obj_func), 64 },
-		[obj_source_set] = { sizeof(struct obj_source_set), 4 },
-		[obj_source_configuration] = { sizeof(struct obj_source_configuration), 4 },
-		[obj_iterator] = { sizeof(struct obj_iterator), 32 },
+		[obj_number] = { P(int64_t), 1024 },
+		[obj_string] = { P(struct str), 1024 },
+		[obj_compiler] = { P(struct obj_compiler), 4 },
+		[obj_array] = { P(struct obj_array), 2048 },
+		[obj_dict] = { P(struct obj_dict), 512 },
+		[obj_build_target] = { P(struct obj_build_target), 16 },
+		[obj_custom_target] = { P(struct obj_custom_target), 16 },
+		[obj_subproject] = { P(struct obj_subproject), 16 },
+		[obj_dependency] = { P(struct obj_dependency), 16 },
+		[obj_external_program] = { P(struct obj_external_program), 32 },
+		[obj_python_installation] = { P(struct obj_python_installation), 32 },
+		[obj_run_result] = { P(struct obj_run_result), 32 },
+		[obj_configuration_data] = { P(struct obj_configuration_data), 16 },
+		[obj_test] = { P(struct obj_test), 64 },
+		[obj_module] = { P(struct obj_module), 16 },
+		[obj_install_target] = { P(struct obj_install_target), 128 },
+		[obj_environment] = { P(struct obj_environment), 4 },
+		[obj_include_directory] = { P(struct obj_include_directory), 16 },
+		[obj_option] = { P(struct obj_option), 32 },
+		[obj_generator] = { P(struct obj_generator), 16 },
+		[obj_generated_list] = { P(struct obj_generated_list), 16 },
+		[obj_alias_target] = { P(struct obj_alias_target), 4 },
+		[obj_both_libs] = { P(struct obj_both_libs), 4 },
+		[obj_typeinfo] = { P(struct obj_typeinfo), 32 },
+		[obj_func] = { P(struct obj_func), 32 },
+		[obj_capture] = { P(struct obj_func), 64 },
+		[obj_source_set] = { P(struct obj_source_set), 4 },
+		[obj_source_configuration] = { P(struct obj_source_configuration), 4 },
+		[obj_iterator] = { P(struct obj_iterator), 32 },
 	};
+#undef P
 
 	uint32_t i;
 	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_arr_init(&wk->vm.objects.obj_aos[i - _obj_aos_start], sizes[i].bucket_size, sizes[i].item_size);
+		bucket_arr_init_(wk->a,
+			&wk->vm.objects.obj_aos[i - _obj_aos_start],
+			sizes[i].bucket_size,
+			sizes[i].item_size,
+			sizes[i].item_align);
 	}
 
 	// reserve dict_elem 0 and array_elem as a null element
-	bucket_arr_pushn(&wk->vm.objects.dict_elems, 0, 0, 1);
-	bucket_arr_pushn(&wk->vm.objects.array_elems, 0, 0, 1);
+	bucket_arr_pushn(wk->a, &wk->vm.objects.dict_elems, 0, 0, 1);
+	bucket_arr_pushn(wk->a, &wk->vm.objects.array_elems, 0, 0, 1);
 
-	hash_init(&wk->vm.objects.obj_hash, 128, sizeof(obj));
-	hash_init_str(&wk->vm.objects.str_hash, 128);
-	hash_init_str(&wk->vm.objects.dedup_str_hash, 128);
+	hash_init_str(wk->a, &wk->vm.objects.str_hash, 128);
 
 	make_default_objects(wk);
 }
@@ -3231,17 +3288,17 @@ vm_init(struct workspace *wk)
 	wk->vm = (struct vm){ 0 };
 
 	/* core vm runtime */
-	object_stack_init(&wk->vm.stack);
-	arr_init(&wk->vm.call_stack, 64, sizeof(struct call_frame));
-	arr_init(&wk->vm.code, 4 * 1024, 1);
-	arr_init(&wk->vm.src, 64, sizeof(struct source));
-	arr_init(&wk->vm.locations, 1024, sizeof(struct source_location_mapping));
+	object_stack_init(wk->a, &wk->vm.stack);
+	arr_init(wk->a, &wk->vm.call_stack, 64, struct call_frame);
+	arr_init(wk->a, &wk->vm.code, 4 * 1024, char);
+	arr_init(wk->a, &wk->vm.src, 64, struct source);
+	arr_init(wk->a, &wk->vm.locations, 1024, struct source_location_mapping);
 
 	/* compiler state */
-	arr_init(&wk->vm.compiler_state.node_stack, 4096, sizeof(struct node *));
-	arr_init(&wk->vm.compiler_state.if_jmp_stack, 64, sizeof(uint32_t));
-	arr_init(&wk->vm.compiler_state.loop_jmp_stack, 64, sizeof(uint32_t));
-	bucket_arr_init(&wk->vm.compiler_state.nodes, 2048, sizeof(struct node));
+	arr_init(wk->a, &wk->vm.compiler_state.node_stack, 4096, struct node *);
+	arr_init(wk->a, &wk->vm.compiler_state.if_jmp_stack, 64, uint32_t);
+	arr_init(wk->a, &wk->vm.compiler_state.loop_jmp_stack, 64, uint32_t);
+	bucket_arr_init(wk->a, &wk->vm.compiler_state.nodes, 2048, struct node);
 
 	/* behavior pointers */
 	wk->vm.behavior = (struct vm_behavior){
@@ -3339,62 +3396,6 @@ vm_init(struct workspace *wk)
 
 	/* initial code segment */
 	vm_compile_initial_code_segment(wk);
-}
-
-void
-vm_destroy_objects(struct workspace *wk)
-{
-	uint32_t i;
-	struct bucket_arr *ba = &wk->vm.objects.obj_aos[obj_string - _obj_aos_start];
-	for (i = 0; i < ba->len; ++i) {
-		struct str *s = bucket_arr_get(ba, i);
-		if (s->flags & str_flag_big) {
-			z_free((void *)s->s);
-		}
-	}
-
-	for (i = _obj_aos_start; i < obj_type_count; ++i) {
-		bucket_arr_destroy(&wk->vm.objects.obj_aos[i - _obj_aos_start]);
-	}
-
-	for (i = 0; i < wk->vm.objects.dict_hashes.len; ++i) {
-		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, i);
-		hash_destroy(h);
-	}
-
-	bucket_arr_destroy(&wk->vm.objects.chrs);
-	bucket_arr_destroy(&wk->vm.objects.objs);
-	bucket_arr_destroy(&wk->vm.objects.dict_elems);
-	bucket_arr_destroy(&wk->vm.objects.dict_hashes);
-	bucket_arr_destroy(&wk->vm.objects.array_elems);
-	bucket_arr_destroy(&wk->vm.objects.reflected.fields);
-
-	hash_destroy(&wk->vm.objects.obj_hash);
-	hash_destroy(&wk->vm.objects.str_hash);
-	hash_destroy(&wk->vm.objects.dedup_str_hash);
-}
-
-void
-vm_destroy(struct workspace *wk)
-{
-	vm_destroy_objects(wk);
-
-	bucket_arr_destroy(&wk->vm.stack.ba);
-	arr_destroy(&wk->vm.call_stack);
-	arr_destroy(&wk->vm.code);
-	for (uint32_t i = 0; i < wk->vm.src.len; ++i) {
-		struct source *src = arr_get(&wk->vm.src, i);
-		if (src->type == source_type_file) {
-			fs_source_destroy(src);
-		}
-	}
-	arr_destroy(&wk->vm.src);
-	arr_destroy(&wk->vm.locations);
-
-	arr_destroy(&wk->vm.compiler_state.node_stack);
-	arr_destroy(&wk->vm.compiler_state.if_jmp_stack);
-	arr_destroy(&wk->vm.compiler_state.loop_jmp_stack);
-	bucket_arr_destroy(&wk->vm.compiler_state.nodes);
 }
 
 void

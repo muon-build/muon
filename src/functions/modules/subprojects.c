@@ -93,7 +93,7 @@ subprojects_foreach(struct workspace *wk, obj list, struct subprojects_common_ct
 			.wk = wk,
 		};
 
-		return fs_dir_foreach(subprojects_dir(wk), &ctx, subprojects_foreach_iter);
+		return fs_dir_foreach(wk, subprojects_dir(wk), &ctx, subprojects_foreach_iter);
 	}
 
 	return true;
@@ -106,7 +106,7 @@ subprojects_gather_iter(struct workspace *wk, struct subprojects_common_ctx *ctx
 		.path = get_str(wk, make_str(wk, path))->s,
 	};
 
-	arr_push(&ctx->handlers, &wrap_ctx);
+	arr_push(wk->a_scratch, &ctx->handlers, &wrap_ctx);
 
 	return ir_cont;
 }
@@ -276,7 +276,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 {
 	// Init ctx
 	struct subprojects_common_ctx ctx = { .res = opts->res };
-	arr_init(&ctx.handlers, 8, sizeof(struct wrap_handle_ctx));
+	arr_init(wk->a_scratch, &ctx.handlers, 8, struct wrap_handle_ctx);
 	*ctx.res = make_obj(wk, obj_array);
 
 	// Gather subprojects
@@ -284,7 +284,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		struct wrap_handle_ctx wrap_ctx = {
 			.path = get_str(wk, list)->s,
 		};
-		arr_push(&ctx.handlers, &wrap_ctx);
+		arr_push(wk->a_scratch, &ctx.handlers, &wrap_ctx);
 	} else {
 		subprojects_foreach(wk, list, &ctx, subprojects_gather_iter);
 	}
@@ -292,7 +292,7 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 	// Progress bar setup
 	log_progress_push_state(wk);
 	if (opts->progress_bar) {
-		log_progress_enable();
+		log_progress_enable(wk);
 		log_progress_push_level(0, ctx.handlers.len);
 	}
 	struct subprojects_process_progress_decorate_ctx decorate_ctx = { .ctx = &ctx };
@@ -392,13 +392,9 @@ subprojects_process(struct workspace *wk, obj list, struct subprojects_process_o
 		}
 
 		obj_array_push(wk, *opts->res, d);
-
-		wrap_destroy(&wrap_ctx->wrap);
 	}
 
 	wrap_handle_async_end(wk);
-
-	arr_destroy(&ctx.handlers);
 
 	if (opts->progress_bar) {
 		log_progress_disable();
@@ -521,22 +517,22 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 {
 	struct wrap wrap = { 0 };
 	if (!wrap_parse(wk, subprojects_dir(wk), path, &wrap)) {
-		goto cont;
+		return ir_cont;
 	}
 
 	bool can_clean = wrap.type == wrap_type_git || (wrap.type == wrap_type_file && wrap.fields[wf_source_url]);
 
 	if (!can_clean) {
-		goto cont;
+		return ir_cont;
 	}
 
 	if (!fs_dir_exists(wrap.dest_dir.buf)) {
-		goto cont;
+		return ir_cont;
 	}
 
 	if (ctx->force) {
 		LOG_I("removing %s", wrap.dest_dir.buf);
-		fs_rmdir_recursive(wrap.dest_dir.buf, true);
+		fs_rmdir_recursive(wk, wrap.dest_dir.buf, true);
 		fs_rmdir(wrap.dest_dir.buf, true);
 
 		obj_array_push(wk, *ctx->res, make_str(wk, wrap.name.buf));
@@ -544,9 +540,6 @@ subprojects_clean_iter(struct workspace *wk, struct subprojects_common_ctx *ctx,
 		LOG_I("would remove %s", wrap.dest_dir.buf);
 	}
 
-	wrap_destroy(&wrap);
-
-cont:
 	return ir_cont;
 }
 
@@ -625,7 +618,6 @@ FUNC_IMPL(module_subprojects, load_wrap, 0, func_impl_flag_impure | func_impl_fl
 
 	*res = wrap_to_obj(wk, &wrap);
 
-	wrap_destroy(&wrap);
 	return true;
 }
 

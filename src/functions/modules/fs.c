@@ -204,13 +204,11 @@ FUNC_IMPL(module_fs, read, tc_string, func_impl_flag_impure, .desc = "Read a fil
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path.buf, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 		return false;
 	}
 
 	*res = make_strn(wk, src.src, src.len);
-
-	fs_source_destroy(&src);
 	return true;
 }
 
@@ -352,7 +350,7 @@ FUNC_IMPL(module_fs, hash, tc_string, func_impl_flag_impure, .desc = "Calculate 
 	}
 
 	struct source src = { 0 };
-	if (!fs_read_entire_file(path.buf, &src)) {
+	if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 		return false;
 	}
 
@@ -364,7 +362,6 @@ FUNC_IMPL(module_fs, hash, tc_string, func_impl_flag_impure, .desc = "Calculate 
 
 	*res = make_str(wk, buf);
 
-	fs_source_destroy(&src);
 	return true;
 }
 
@@ -571,7 +568,7 @@ FUNC_IMPL(module_fs, copy, 0, func_impl_flag_impure | func_impl_flag_sandbox_dis
 		return false;
 	}
 
-	if (!fs_copy_file(path.buf, get_cstr(wk, an[1].val), force)) {
+	if (!fs_copy_file(wk, path.buf, get_cstr(wk, an[1].val), force)) {
 		return false;
 	}
 	return true;
@@ -615,7 +612,7 @@ FUNC_IMPL(module_fs, mkdir, 0, func_impl_flag_impure | func_impl_flag_sandbox_di
 	}
 
 	if (akw[kw_make_parents].set && get_obj_bool(wk, akw[kw_make_parents].val)) {
-		return fs_mkdir_p(get_cstr(wk, an[0].val));
+		return fs_mkdir_p(wk, get_cstr(wk, an[0].val));
 	} else {
 		return fs_mkdir(get_cstr(wk, an[0].val), true);
 	}
@@ -642,7 +639,7 @@ FUNC_IMPL(module_fs, rmdir, func_impl_flag_impure | func_impl_flag_sandbox_disab
 	bool force = akw[kw_force].set ? get_obj_bool(wk, akw[kw_force].val) : false;
 
 	if (recursive) {
-		return fs_rmdir_recursive(get_cstr(wk, an[0].val), force);
+		return fs_rmdir_recursive(wk, get_cstr(wk, an[0].val), force);
 	} else {
 		return fs_rmdir(get_cstr(wk, an[0].val), force);
 	}
@@ -679,7 +676,7 @@ FUNC_IMPL(module_fs, is_subpath, tc_bool, .desc = "Check if a path is a subpath 
 		return false;
 	}
 
-	*res = make_obj_bool(wk, path_is_subpath(get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
+	*res = make_obj_bool(wk, path_is_subpath(wk, get_cstr(wk, an[0].val), get_cstr(wk, an[1].val)));
 	return true;
 }
 
@@ -758,7 +755,7 @@ func_module_fs_glob_cb(void *_ctx, const char *name)
 		} else {
 			++subctx.pat;
 			if (fs_dir_exists(path.buf)) {
-				if (!fs_dir_foreach(path.buf, &subctx, func_module_fs_glob_cb)) {
+				if (!fs_dir_foreach(wk, path.buf, &subctx, func_module_fs_glob_cb)) {
 					return ir_err;
 				}
 			}
@@ -782,7 +779,7 @@ recurse_all_mode: {
 	}
 
 	if (fs_dir_exists(full_path.buf)) {
-		if (!fs_dir_foreach(full_path.buf, &subctx, func_module_fs_glob_cb)) {
+		if (!fs_dir_foreach(wk, full_path.buf, &subctx, func_module_fs_glob_cb)) {
 			return ir_err;
 		}
 	}
@@ -850,10 +847,11 @@ FUNC_IMPL(module_fs, glob, tc_array, func_impl_flag_impure, .desc = "Gather a li
 		.res = *res,
 	};
 
-	return fs_dir_foreach(prefix.buf, &ctx, func_module_fs_glob_cb);
+	return fs_dir_foreach(wk, prefix.buf, &ctx, func_module_fs_glob_cb);
 }
 
 struct delete_suffixes_ctx {
+	struct workspace *wk;
 	const char *base_dir;
 	const char *suffix;
 };
@@ -867,14 +865,13 @@ delete_suffix_recursive(void *_ctx, const char *path)
 
 	TSTR(name);
 
-	path_join(NULL, &name, ctx->base_dir, path);
+	path_join(ctx->wk, &name, ctx->base_dir, path);
 
 	// Check for existence first, before doing a stat. It's possible that
 	// another process has deleted this file in the time since the iteration
 	// machinery found this file. In this case, the file no longer exists, so
 	// just continue.
 	if (!fs_exists(name.buf)) {
-		tstr_destroy(&name);
 		return ir_cont;
 	}
 
@@ -886,7 +883,7 @@ delete_suffix_recursive(void *_ctx, const char *path)
 		struct delete_suffixes_ctx new_ctx = *ctx;
 		new_ctx.base_dir = name.buf;
 
-		if (!fs_dir_foreach(new_ctx.base_dir, &new_ctx, delete_suffix_recursive)) {
+		if (!fs_dir_foreach(ctx->wk, new_ctx.base_dir, &new_ctx, delete_suffix_recursive)) {
 			goto ret;
 		}
 
@@ -903,7 +900,6 @@ delete_suffix_recursive(void *_ctx, const char *path)
 	ir_res = ir_cont;
 
 ret:
-	tstr_destroy(&name);
 	return ir_res;
 }
 
@@ -916,11 +912,12 @@ FUNC_IMPL(module_fs, delete_with_suffix, func_impl_flag_impure | func_impl_flag_
 
 	const char *base_dir = get_cstr(wk, an[0].val);
 	struct delete_suffixes_ctx ctx = {
+		.wk = wk,
 		.base_dir = base_dir,
 		.suffix = get_cstr(wk, an[1].val),
 	};
 
-	return fs_dir_foreach(base_dir, &ctx, delete_suffix_recursive);
+	return fs_dir_foreach(wk, base_dir, &ctx, delete_suffix_recursive);
 }
 
 FUNC_IMPL(module_fs, canonicalize, tc_string, .desc = "Make a path absolute and replace .."  )

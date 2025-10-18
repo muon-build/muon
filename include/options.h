@@ -65,5 +65,5 @@ struct list_options_opts {
 	bool list_all, only_modified;
 	bool list_subprojects;
 };
-bool list_options(const struct list_options_opts *list_opts);
+bool list_options(struct workspace *wk, const struct list_options_opts *list_opts);
 #endif

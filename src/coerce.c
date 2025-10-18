@@ -291,10 +291,11 @@ coerce_string_array(struct workspace *wk, uint32_t node, obj arr, obj *res)
 }
 
 bool
-coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *args)
+coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *args, obj *original_argv0)
 {
 	obj str = 0;
 	*args = 0;
+	*original_argv0 = 0;
 
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
@@ -326,6 +327,8 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		if (cmd_array_len > 1) {
 			*args = obj_array_slice(wk, o->cmd_array, 1, cmd_array_len);
 		}
+
+		*original_argv0 = o->original_argv0;
 		break;
 	}
 	case obj_custom_target: {
@@ -642,7 +645,7 @@ include_directories_iter(struct workspace *wk, void *_ctx, obj v)
 	obj inc;
 	struct obj_include_directory *d;
 
-	if (path_is_subpath(wk->source_root, p)) {
+	if (path_is_subpath(wk, wk->source_root, p)) {
 		path_relative_to(wk, &buf1, wk->source_root, p);
 		path_join(wk, &buf2, wk->build_root, buf1.buf);
 

@@ -6,12 +6,10 @@
 
 #include "compat.h"
 
-#include <stdlib.h>
-#include <string.h>
-
 #include "args.h"
 #include "backend/output.h"
 #include "cmd_install.h"
+#include "error.h"
 #include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
@@ -68,7 +66,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 			.wk = ctx->wk,
 		};
 
-		if (!fs_dir_foreach(src.buf, &new_ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(ctx->wk, src.buf, &new_ctx, copy_subdir_iter)) {
 			return ir_err;
 		}
 	} else if (fs_symlink_exists(src.buf) || fs_file_exists(src.buf)) {
@@ -79,7 +77,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 
 		LOG_I("install '%s' -> '%s'", src.buf, dest.buf);
 
-		if (!fs_copy_file(src.buf, dest.buf, 0)) {
+		if (!fs_copy_file(ctx->wk, src.buf, dest.buf, 0)) {
 			return ir_err;
 		}
 	} else {
@@ -99,6 +97,7 @@ struct install_ctx {
 	obj prefix;
 	obj full_prefix;
 	obj destdir;
+	obj env;
 };
 
 static enum iteration_result
@@ -118,12 +117,23 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		dest = full_dest_dir.buf;
 	}
 
+	// meson creates empty directories for dirs that don't exist in the source
+	// tree
+	if (in->type == install_target_subdir && !fs_dir_exists(src)) {
+		in->type = install_target_emptydir;
+	}
+
+	if ((in->type == install_target_default || in->type == install_target_symlink) && !fs_exists(src)) {
+		LOG_W("src '%s' does not exist, skipping", src);
+		return ir_cont;
+	}
+
 	switch (in->type) {
 	case install_target_default: LOG_I("install '%s' -> '%s'", src, dest); break;
 	case install_target_subdir: LOG_I("install subdir '%s' -> '%s'", src, dest); break;
 	case install_target_symlink: LOG_I("install symlink '%s' -> '%s'", dest, src); break;
 	case install_target_emptydir: LOG_I("install emptydir '%s'", dest); break;
-	default: abort();
+	default: UNREACHABLE_RETURN;
 	}
 
 	if (ctx->opts->dry_run) {
@@ -140,23 +150,23 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			return ir_err;
 		}
 
-		if (!fs_mkdir_p(dest_dirname.buf)) {
+		if (!fs_mkdir_p(wk, dest_dirname.buf)) {
 			return ir_err;
 		}
 
 		if (in->type == install_target_default) {
 			if (fs_dir_exists(src)) {
-				if (!fs_copy_dir(src, dest, true)) {
+				if (!fs_copy_dir(wk, src, dest, true)) {
 					return ir_err;
 				}
 			} else {
-				if (!fs_copy_file(src, dest, true)) {
+				if (!fs_copy_file(wk, src, dest, true)) {
 					return ir_err;
 				}
 			}
 
 			if (in->build_target) {
-				if (!fix_rpaths(dest, wk->build_root)) {
+				if (!fix_rpaths(wk, dest, wk->build_root)) {
 					return ir_err;
 				}
 			}
@@ -167,7 +177,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		}
 		break;
 	case install_target_subdir:
-		if (!fs_mkdir_p(dest)) {
+		if (!fs_mkdir_p(wk, dest)) {
 			return ir_err;
 		}
 
@@ -182,16 +192,16 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			.wk = wk,
 		};
 
-		if (!fs_dir_foreach(src, &ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(wk, src, &ctx, copy_subdir_iter)) {
 			return ir_err;
 		}
 		break;
 	case install_target_emptydir:
-		if (!fs_mkdir_p(dest)) {
+		if (!fs_mkdir_p(wk, dest)) {
 			return ir_err;
 		}
 		break;
-	default: abort();
+	default: UNREACHABLE_RETURN;
 	}
 
 	if (in->has_perm && !fs_chmod(dest, in->perm)) {
@@ -199,6 +209,14 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 	}
 
 	return ir_cont;
+}
+
+static void
+install_script_env_set(struct workspace *wk, obj env, const char *k, obj v)
+{
+	if (!environment_set(wk, env, environment_set_mode_set, make_str(wk, k), v, 0)) {
+		UNREACHABLE;
+	}
 }
 
 static enum iteration_result
@@ -215,16 +233,20 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	bool script_can_dry_run = get_obj_bool(wk, install_script_dry_run);
 
 	obj env;
-	env = make_obj(wk, obj_dict);
-	if (ctx->destdir) {
-		obj_dict_set(wk, env, make_str(wk, "DESTDIR"), ctx->destdir);
+	{
+		env = make_obj_environment(wk, 0);
+
+		environment_extend(wk, env, ctx->env);
+
+		if (ctx->destdir) {
+			install_script_env_set(wk, env, "DESTDIR", ctx->destdir);
+		}
+		install_script_env_set(wk, env, "MESON_INSTALL_PREFIX", ctx->prefix);
+		install_script_env_set(wk, env, "MESON_INSTALL_DESTDIR_PREFIX", ctx->full_prefix);
+		if (ctx->opts->dry_run && script_can_dry_run) {
+			install_script_env_set(wk, env, "MESON_INSTALL_DRY_RUN", make_str(wk, "1"));
+		}
 	}
-	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_PREFIX"), ctx->prefix);
-	obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DESTDIR_PREFIX"), ctx->full_prefix);
-	if (ctx->opts->dry_run && script_can_dry_run) {
-		obj_dict_set(wk, env, make_str(wk, "MESON_INSTALL_DRY_RUN"), make_str(wk, "1"));
-	}
-	set_default_environment_vars(wk, env, false);
 
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
@@ -243,7 +265,7 @@ install_scripts_iter(struct workspace *wk, void *_ctx, obj install_script)
 	}
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	if (!run_cmd(&cmd_ctx, argstr, argc, envstr, envc)) {
+	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		LOG_E("failed to run install script: %s", cmd_ctx.err_msg);
 		goto err;
 	}
@@ -263,25 +285,21 @@ err:
 }
 
 bool
-install_run(struct install_options *opts)
+install_run(struct workspace *wk, struct install_options *opts)
 {
-	bool ret = true;
-	TSTR_manual(install_src);
-	path_join(NULL, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
+	bool ret = false;
+	TSTR(install_src);
+	path_join(wk, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
 
 	FILE *f;
 	f = fs_fopen(install_src.buf, "rb");
-	tstr_destroy(&install_src);
 
 	if (!f) {
-		return false;
+		goto ret;
 	}
 
-	struct workspace wk;
-	workspace_init_bare(&wk);
-
 	obj install;
-	if (!serial_load(&wk, &install, f)) {
+	if (!serial_load(wk, &install, f)) {
 		LOG_E("failed to load %s", output_path.paths[output_path_install].path);
 		goto ret;
 	} else if (!fs_fclose(f)) {
@@ -293,33 +311,38 @@ install_run(struct install_options *opts)
 	};
 
 	obj install_targets, install_scripts, source_root;
-	install_targets = obj_array_index(&wk, install, 0);
-	install_scripts = obj_array_index(&wk, install, 1);
-	source_root = obj_array_index(&wk, install, 2);
-	ctx.prefix = obj_array_index(&wk, install, 3);
+	install_targets = obj_array_index(wk, install, 0);
+	install_scripts = obj_array_index(wk, install, 1);
+	source_root = obj_array_index(wk, install, 2);
+	ctx.prefix = obj_array_index(wk, install, 3);
+	ctx.env = obj_array_index(wk, install, 4);
 
 	TSTR(build_root);
-	path_copy_cwd(&wk, &build_root);
-	wk.build_root = get_cstr(&wk, tstr_into_str(&wk, &build_root));
-	wk.source_root = get_cstr(&wk, source_root);
+	path_copy_cwd(wk, &build_root);
+	wk->build_root = get_cstr(wk, tstr_into_str(wk, &build_root));
+	wk->source_root = get_cstr(wk, source_root);
 
 	if ((opts->destdir)) {
 		TSTR(full_prefix);
 		TSTR(abs_destdir);
-		path_make_absolute(&wk, &abs_destdir, opts->destdir);
-		path_join_absolute(&wk, &full_prefix, abs_destdir.buf, get_cstr(&wk, ctx.prefix));
+		path_make_absolute(wk, &abs_destdir, opts->destdir);
+		path_join_absolute(wk, &full_prefix, abs_destdir.buf, get_cstr(wk, ctx.prefix));
 
-		ctx.full_prefix = tstr_into_str(&wk, &full_prefix);
-		ctx.destdir = tstr_into_str(&wk, &abs_destdir);
+		ctx.full_prefix = tstr_into_str(wk, &full_prefix);
+		ctx.destdir = tstr_into_str(wk, &abs_destdir);
 	} else {
 		ctx.full_prefix = ctx.prefix;
 	}
 
-	obj_array_foreach(&wk, install_targets, &ctx, install_iter);
-	obj_array_foreach(&wk, install_scripts, &ctx, install_scripts_iter);
+	if (!obj_array_foreach(wk, install_targets, &ctx, install_iter)) {
+		goto ret;
+	}
+
+	if (!obj_array_foreach(wk, install_scripts, &ctx, install_scripts_iter)) {
+		goto ret;
+	}
 
 	ret = true;
 ret:
-	workspace_destroy_bare(&wk);
 	return ret;
 }

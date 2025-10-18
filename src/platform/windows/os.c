@@ -224,14 +224,14 @@ os_ncpus(void)
 }
 
 void
-os_set_env(const struct str *k, const struct str *v)
+os_set_env(struct workspace *wk, const struct str *k, const struct str *v)
 {
-	TSTR_manual(buf_kv);
+	TSTR(buf_kv);
 
-	tstr_pushn(0, &buf_kv, k->s, k->len);
-	tstr_push(0, &buf_kv, '=');
-	tstr_pushn(0, &buf_kv, v->s, v->len);
-	tstr_push(0, &buf_kv, 0);
+	tstr_pushn(wk, &buf_kv, k->s, k->len);
+	tstr_push(wk, &buf_kv, '=');
+	tstr_pushn(wk, &buf_kv, v->s, v->len);
+	tstr_push(wk, &buf_kv, 0);
 
 	putenv(buf_kv.buf);
 }

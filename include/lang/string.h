@@ -32,36 +32,21 @@ struct workspace;
 /* tstr - Temporary STRing
  *
  * tstrs should almost always be created using the TSTR macro.  This creates a
- * tstr struct as well as allocating a buffer for it on the stack.
+ * tstr struct and calls tstr_init.
  *
- * The tstr_ family of functions will use this temporary buffer until if
- * overflows.  If it overflows it will become an obj_str unless it has the flag
- * tstr_flag_overflow_alloc (e.g. from TSTR_manual) which will cause it to
- * overflow by allocating directly with malloc.
- *
- * A TSTR must be freed if and only if it has the flag
- * tstr_flag_overflow_alloc, if it overflows without this flag then the
- * workspace manages its memory.
- *
- * Conversion of a TSTR to a string should be done with tstr_into_str which
- * reuses the underlying string object if it has already been created.
+ * The tstr_ family of functions will always use the workspace's scratch arena
+ * for allocation.  If the string needs to survive longer, it must be converted
+ * into a struct str using tstr_into_str.
  */
 
 enum tstr_flags {
-	tstr_flag_overflown = 1 << 0,
-	tstr_flag_overflow_obj_str = 0 << 1, // the default
-	tstr_flag_overflow_alloc = 1 << 1,
-	tstr_flag_overflow_error = 1 << 2,
-	tstr_flag_write = 1 << 3,
-	tstr_flag_string_exposed = 1 << 4,
+	tstr_flag_write = 1 << 1,
 };
 
 #define TSTR_CUSTOM(name, static_len, flags)     \
 	struct tstr name;                        \
-	char tstr_static_buf_##name[static_len]; \
-	tstr_init(&name, tstr_static_buf_##name, static_len, (enum tstr_flags)flags);
-#define TSTR(name) TSTR_CUSTOM(name, 1024, 0)
-#define TSTR_manual(name) TSTR_CUSTOM(name, 1024, tstr_flag_overflow_alloc)
+	tstr_init(&name, (enum tstr_flags)(flags));
+#define TSTR(name) TSTR_CUSTOM(name, 0, 0)
 #define TSTR_FILE(__name, __f) struct tstr __name = { .flags = tstr_flag_write, .buf = (void *)__f };
 #define TSTR_STR(__s) (struct str) { .s = (__s)->buf, .len = (__s)->len }
 
@@ -72,8 +57,7 @@ struct tstr {
 	obj s;
 };
 
-void tstr_init(struct tstr *sb, char *initial_buffer, uint32_t initial_buffer_cap, enum tstr_flags flags);
-void tstr_destroy(struct tstr *sb);
+void tstr_init(struct tstr *sb, enum tstr_flags flags);
 void tstr_clear(struct tstr *sb);
 void tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc);
 void tstr_push(struct workspace *wk, struct tstr *sb, char s);
@@ -85,6 +69,9 @@ void tstr_push_json_escaped(struct workspace *wk, struct tstr *buf, const char *
 void tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const struct str *str);
 void tstr_trim_trailing_newline(struct tstr *sb);
 obj tstr_into_str(struct workspace *wk, struct tstr *sb);
+
+void str_percent_encode(struct workspace *wk, const struct str *s, struct tstr *res);
+bool str_percent_decode(struct workspace *wk, const struct str *s, struct tstr *res);
 
 /* str - strings
  *
@@ -107,6 +94,7 @@ obj make_str(struct workspace *wk, const char *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);
 obj make_strf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 obj make_strfv(struct workspace *wk, const char *fmt, va_list args);
+struct str *reserve_str(struct workspace *wk, obj *s, uint32_t len);
 
 obj make_str_enum(struct workspace *wk, const char *str, obj values);
 obj mark_typeinfo_as_enum(struct workspace *wk, obj ti, obj values);

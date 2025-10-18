@@ -14,10 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/run_cmd.h"
 
 void
@@ -53,7 +53,7 @@ argstr_pushall(const char *argstr, uint32_t argc, const char **argv, uint32_t *a
 }
 
 uint32_t
-argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *const **res)
+argstr_to_argv(struct workspace *wk, const char *argstr, uint32_t argc, const char *prepend, char *const **res)
 {
 	uint32_t argi = 0, max = argc;
 
@@ -61,7 +61,7 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 		max += 1;
 	}
 
-	const char **new_argv = z_calloc(max + 1, sizeof(const char *));
+	const char **new_argv = ar_maken(wk->a_scratch, const char *, max + 1);
 
 	if (prepend) {
 		push_argv_single(new_argv, &argi, max, prepend);
@@ -73,22 +73,30 @@ argstr_to_argv(const char *argstr, uint32_t argc, const char *prepend, char *con
 	return argi;
 }
 
+enum run_cmd_determine_interpreter_skip_mode {
+	run_cmd_determine_interpreter_skip_mode_whitespace,
+	run_cmd_determine_interpreter_skip_mode_non_whitespace,
+};
+
 static bool
-run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
+run_cmd_determine_interpreter_skip_chars(char **p, enum run_cmd_determine_interpreter_skip_mode mode)
 {
-	bool char_found;
+	bool is_whitespace;
 
 	while (**p) {
-		char_found = is_whitespace_except_newline(**p);
+		is_whitespace = is_whitespace_except_newline(**p);
 
-		if (invert) {
-			if (char_found) {
+		switch (mode) {
+		case run_cmd_determine_interpreter_skip_mode_whitespace:
+			if (!is_whitespace) {
 				return true;
 			}
-		} else {
-			if (!char_found) {
+			break;
+		case run_cmd_determine_interpreter_skip_mode_non_whitespace:
+			if (is_whitespace) {
 				return true;
 			}
+			break;
 		}
 
 		++*p;
@@ -97,35 +105,53 @@ run_cmd_determine_interpreter_skip_whitespace(char **p, bool invert)
 	return false;
 }
 
-bool
-run_cmd_determine_interpreter(struct source *src,
+static bool
+run_cmd_determine_interpreter_from_file(struct workspace *wk,
 	const char *path,
 	const char **err_msg,
 	const char **new_argv0,
 	const char **new_argv1)
 {
-	if (!fs_read_entire_file(path, src)) {
+	uint64_t buf_size = 2048;
+
+	FILE *f;
+	char *buf = ar_alloc(wk->a_scratch, buf_size, 1, 1);
+	if (!(f = fs_fopen(path, "rb"))) {
 		*err_msg = "error determining command interpreter: failed to read file";
 		return false;
 	}
 
-	if (strncmp(src->src, "#!", 2) != 0) {
+	fread(buf, 1, buf_size - 1, f);
+
+	if (!fs_fclose(f)) {
+		*err_msg = "error determining command interpreter: failed to close file";
+		return false;
+	}
+
+	if (strncmp(buf, "#!", 2) != 0) {
 		*err_msg = "error determining command interpreter: missing #!";
 		return false;
 	}
 
 	char *p, *q;
-	p = (char *)&src->src[2];
+	p = (char *)&buf[2];
 
+	bool found_line_end = false;
 	for (q = p; *q; ++q) {
 		if (*q == '\n' || *q == '\r') {
 			*q = 0;
+			found_line_end = true;
 			break;
 		}
 	}
 
+	if (!found_line_end) {
+		*err_msg = "error determining command interpreter: #! line too long";
+		return false;
+	}
+
 	// skip over all whitespace characters before the next token
-	if (!run_cmd_determine_interpreter_skip_whitespace(&p, false)) {
+	if (!run_cmd_determine_interpreter_skip_chars(&p, run_cmd_determine_interpreter_skip_mode_whitespace)) {
 		*err_msg = "error determining command interpreter: no interpreter specified after #!";
 		return false;
 	}
@@ -134,7 +160,7 @@ run_cmd_determine_interpreter(struct source *src,
 	*new_argv1 = 0;
 
 	// skip over all non-whitespace characters
-	if (!run_cmd_determine_interpreter_skip_whitespace(&p, true)) {
+	if (!run_cmd_determine_interpreter_skip_chars(&p, run_cmd_determine_interpreter_skip_mode_non_whitespace)) {
 		return true;
 	}
 
@@ -142,11 +168,39 @@ run_cmd_determine_interpreter(struct source *src,
 	++p;
 
 	// skip over all whitespace characters before the next token
-	if (!run_cmd_determine_interpreter_skip_whitespace(&p, false)) {
+	if (!run_cmd_determine_interpreter_skip_chars(&p, run_cmd_determine_interpreter_skip_mode_whitespace)) {
 		return true;
 	}
 
 	*new_argv1 = p;
+
+	return true;
+}
+
+bool
+run_cmd_determine_interpreter(struct workspace *wk,
+	const char *path,
+	const char **err_msg,
+	const char **new_argv0,
+	const char **new_argv1)
+{
+	if (host_machine.is_windows) {
+		if (fs_has_extension(path, ".bat")) {
+			*new_argv0 = "cmd.exe";
+			*new_argv1 = "/c";
+			return true;
+		}
+	}
+
+	if (!run_cmd_determine_interpreter_from_file(wk, path, err_msg, new_argv0, new_argv1)) {
+		return false;
+	}
+
+	// skip /usr/bin/env on windows
+	if (host_machine.is_windows && *new_argv1 && strcmp(*new_argv0, "/usr/bin/env") == 0) {
+		*new_argv0 = *new_argv1;
+		*new_argv1 = 0;
+	}
 
 	return true;
 }
@@ -168,9 +222,14 @@ run_cmd_print_error(struct run_cmd_ctx *ctx, enum log_level lvl)
 }
 
 bool
-run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, const char *envstr, uint32_t envc)
+run_cmd_checked(struct workspace *wk,
+	struct run_cmd_ctx *ctx,
+	const char *argstr,
+	uint32_t argc,
+	const char *envstr,
+	uint32_t envc)
 {
-	if (!run_cmd(ctx, argstr, argc, envstr, envc) || ctx->status != 0) {
+	if (!run_cmd(wk, ctx, argstr, argc, envstr, envc) || ctx->status != 0) {
 		run_cmd_print_error(ctx, log_error);
 		run_cmd_ctx_destroy(ctx);
 		return false;
@@ -180,9 +239,9 @@ run_cmd_checked(struct run_cmd_ctx *ctx, const char *argstr, uint32_t argc, cons
 }
 
 bool
-run_cmd_argv_checked(struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
+run_cmd_argv_checked(struct workspace *wk, struct run_cmd_ctx *ctx, char *const *argv, const char *envstr, uint32_t envc)
 {
-	if (!run_cmd_argv(ctx, argv, envstr, envc) || ctx->status != 0) {
+	if (!run_cmd_argv(wk, ctx, argv, envstr, envc) || ctx->status != 0) {
 		run_cmd_print_error(ctx, log_error);
 		run_cmd_ctx_destroy(ctx);
 		return false;
