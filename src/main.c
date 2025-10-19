@@ -849,7 +849,7 @@ cmd_internal(struct workspace *wk, uint32_t argc, uint32_t argi, char *const arg
 static bool
 cmd_samu(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	setup_platform_env(wk, ".", requirement_required);
+	setup_platform_env(wk, ".", setup_platform_env_requirement_from_cache);
 	bool res = samu_main(wk, argc - argi, (char **)&argv[argi], 0);
 	return res;
 }
@@ -1065,9 +1065,9 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	// Currently this is only vsenv.  These haven't been added to any options
 	// dict yet so we need to manually scan the option_overrides array.
 	struct {
-		enum requirement_type vsenv_req;
+		enum setup_platform_env_requirement vsenv_req;
 	} opts = {
-		.vsenv_req = requirement_auto,
+		.vsenv_req = setup_platform_env_requirement_auto,
 	};
 	{
 		uint32_t i;
@@ -1081,7 +1081,7 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 			const struct str *v = get_str(wk, oo->val);
 
 			if (str_eql(&STR("vsenv"), k)) {
-				opts.vsenv_req = str_eql(&STR("true"), v) ? requirement_required : requirement_skip;
+				opts.vsenv_req = str_eql(&STR("true"), v) ? setup_platform_env_requirement_required : setup_platform_env_requirement_skip ;
 			}
 		}
 	}
@@ -1280,7 +1280,7 @@ cmd_devenv(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 		return false;
 	}
 
-	setup_platform_env(wk, ".", requirement_required);
+	setup_platform_env(wk, ".", setup_platform_env_requirement_from_cache);
 
 	const char *const *cmd = (const char *const *)&argv[argi];
 

@@ -8,5 +8,12 @@
 #include <stdbool.h>
 #include "lang/types.h"
 struct workspace;
-void setup_platform_env(struct workspace *wk, const char *build_dir, enum requirement_type req);
+enum setup_platform_env_requirement {
+	setup_platform_env_requirement_skip,
+	setup_platform_env_requirement_required,
+	setup_platform_env_requirement_auto,
+	setup_platform_env_requirement_from_cache,
+};
+
+void setup_platform_env(struct workspace *wk, const char *build_dir, enum setup_platform_env_requirement req);
 #endif

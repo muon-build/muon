@@ -1150,7 +1150,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	wk->vm.lang_mode = language_internal;
 	wk->argv0 = argv0;
 
-	setup_platform_env(wk, ".", requirement_required);
+	setup_platform_env(wk, ".", setup_platform_env_requirement_from_cache);
 
 	if (!opts->jobs) {
 		opts->jobs = os_parallel_job_count();

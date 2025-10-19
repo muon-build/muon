@@ -46,15 +46,9 @@ vsenv_set_vars(struct workspace *wk, const char *vars, uint32_t len)
 }
 
 static bool
-vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type req)
+vsenv_setup(struct workspace *wk, const char *cache_path, enum setup_platform_env_requirement req)
 {
 	TSTR(_buf);
-
-	if (os_get_env("VSINSTALLDIR")) {
-		return true;
-	} else if (fs_find_cmd(wk, &_buf, "cl.exe")) {
-		return true;
-	}
 
 	if (cache_path && fs_file_exists(cache_path)) {
 		struct source src;
@@ -64,7 +58,17 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum requirement_type 
 		}
 	}
 
-	if (req != requirement_required) {
+	if (req == setup_platform_env_requirement_from_cache) {
+		return true;
+	}
+
+	if (os_get_env("VSINSTALLDIR")) {
+		return true;
+	} else if (fs_find_cmd(wk, &_buf, "cl.exe")) {
+		return true;
+	}
+
+	if (req != setup_platform_env_requirement_required) {
 		const char *comps[] = {
 			"cc",
 			"gcc",
@@ -230,9 +234,9 @@ ret:
 }
 
 void
-setup_platform_env(struct workspace *wk, const char *build_dir, enum requirement_type req)
+setup_platform_env(struct workspace *wk, const char *build_dir, enum setup_platform_env_requirement req)
 {
-	if (req == requirement_skip) {
+	if (req == setup_platform_env_requirement_skip) {
 		return;
 	}
 
