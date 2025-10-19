@@ -23,6 +23,7 @@ enum test_display {
 };
 
 enum test_output {
+	test_output_all,
 	test_output_term,
 	test_output_html,
 	test_output_json,

@@ -1092,6 +1092,11 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct tstr *data)
 static bool
 tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 {
+#ifndef MUON_BOOTSTRAPPED
+	LOG_E("html test output requires a fully bootstrapped muon");
+	return false;
+#endif
+
 	TSTR(data);
 
 	tests_as_json(wk, ctx, &data);
@@ -1108,7 +1113,7 @@ tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 
 	struct source src;
 	if (!embedded_get(wk, "html/test_out.html", &src)) {
-		UNREACHABLE;
+		return false;
 	}
 
 	fprintf(f, src.src, data.buf);
@@ -1238,6 +1243,11 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	}
 
 	switch (opts->output) {
+	case test_output_all:
+		ret = tests_output_term(wk, &ctx);
+		ret &= tests_output_json(wk, &ctx);
+		ret &= tests_output_html(wk, &ctx);
+		break;
 	case test_output_term: ret = tests_output_term(wk, &ctx); break;
 	case test_output_html: ret = tests_output_html(wk, &ctx); break;
 	case test_output_json: ret = tests_output_json(wk, &ctx); break;

@@ -899,7 +899,7 @@ cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		} else if (strcmp(optarg, "json") == 0) {
 			test_opts.output = test_output_json;
 		} else {
-			LOG_E("invalid progress display mode '%s'", optarg);
+			LOG_E("invalid test output mode '%s'", optarg);
 			return false;
 		}
 		break;
