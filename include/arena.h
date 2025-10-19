@@ -46,7 +46,4 @@ void *ar_realloc(struct arena *a, void *ptr, int64_t original_size, int64_t new_
 #define ar_maken(__a, __type, __n) (__type *)ar_alloc(__a, __n, sizeof(__type), ar_alignof(__type))
 #define ar_make(__a, __type) ar_maken(__a, __type, 1)
 
-#define ar_scratch_begin(__a) int64_t ar_scratch_pos = (__a)->pos;
-#define ar_scratch_end(__a) ar_pop_to(__a, ar_scratch_pos);
-
 #endif

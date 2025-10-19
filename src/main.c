@@ -1167,9 +1167,9 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 			out = stdout;
 		}
 
-		ar_scratch_begin(wk->a_scratch);
+		workspace_scratch_begin(wk);
 		fmt_ret = fmt(wk->a_scratch, &src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
-		ar_scratch_end(wk->a_scratch);
+		workspace_scratch_end(wk);
 
 		if (!fmt_ret && opts.print_failures) {
 			printf("%s\n", opts.filenames[i]);

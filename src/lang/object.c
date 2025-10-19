@@ -1085,7 +1085,7 @@ static enum iteration_result
 obj_array_sort_push_to_da_iter(struct workspace *wk, void *_ctx, obj v)
 {
 	struct arr *da = _ctx;
-	arr_push(wk->a, da, &v);
+	arr_push(wk->a_scratch, da, &v);
 	return ir_cont;
 }
 
@@ -1106,7 +1106,7 @@ obj_array_sort_wrapper(const void *a, const void *b, void *_ctx)
 void
 obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res)
 {
-	ar_scratch_begin(wk->a);
+	workspace_scratch_begin(wk);
 
 	uint32_t len = get_obj_array(wk, arr)->len;
 
@@ -1116,7 +1116,7 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 	}
 
 	struct arr da;
-	arr_init(wk->a, &da, len, obj);
+	arr_init(wk->a_scratch, &da, len, obj);
 	obj_array_foreach(wk, arr, &da, obj_array_sort_push_to_da_iter);
 
 	struct obj_array_sort_ctx ctx = {
@@ -1134,7 +1134,7 @@ obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func
 		obj_array_push(wk, *res, *(obj *)arr_get(&da, i));
 	}
 
-	ar_scratch_end(wk->a);
+	workspace_scratch_end(wk);
 }
 
 obj

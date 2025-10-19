@@ -466,7 +466,6 @@ dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct
 	}
 
 	if (kwargs) {
-		ar_scratch_begin(wk->a_scratch);
 		struct arr kwargs_list;
 		arr_init(wk->a_scratch, &kwargs_list, 8, char *);
 
@@ -483,7 +482,6 @@ dump_function_signature(struct workspace *wk, struct args_norm posargs[], struct
 			str_app(wk, &s, *(const char **)arr_get(&kwargs_list, i));
 		}
 		sig->kwargs = get_cstr(wk, s);
-		ar_scratch_end(wk->a_scratch);
 	}
 
 	return false;
@@ -856,14 +854,12 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 	}
 
 	stack_push(&wk->stack, wk->vm.behavior.pop_args, dump_function_args_cb);
-	ar_scratch_begin(wk->a_scratch);
 	if (opts->impl->func) {
 		opts->impl->func(wk, 0, 0);
 	} else {
 		obj _res;
 		vm_eval_capture(wk, opts->capture, 0, 0, &_res);
 	}
-	ar_scratch_end(wk->a_scratch);
 	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
 
 	return res;
@@ -876,6 +872,7 @@ dump_function_native(struct workspace *wk, enum obj_type t, const struct func_im
 		function_sig_dump.meson_doc_entry = meson_doc_lookup_function(t, impl->name);
 	}
 
+	L("%s", impl->name);
 	if (strcmp(impl->name, "executable") || strcmp(impl->name, "build_target")
 		|| strcmp(impl->name, "shared_library") || strcmp(impl->name, "static_library")
 		|| strcmp(impl->name, "both_libraries")) {
@@ -944,6 +941,8 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 
 	struct func_impl_group *g;
 
+	L("-----------");
+
 	uint32_t i;
 	{
 		enum obj_type t;
@@ -954,7 +953,9 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 			}
 
 			for (i = 0; i < g->len; ++i) {
+				workspace_scratch_begin(wk);
 				obj_array_push(wk, doc, dump_function_native(wk, t, &g->impls[i]));
+				workspace_scratch_end(wk);
 			}
 		}
 	}
@@ -967,7 +968,9 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 
 		uint32_t j;
 		for (j = 0; j < g->len; ++j) {
+			workspace_scratch_begin(wk);
 			obj_array_push(wk, doc, dump_module_function_native(wk, i, &g->impls[j]));
+			workspace_scratch_end(wk);
 		}
 	}
 
@@ -1005,7 +1008,9 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 
 			obj k, v;
 			obj_dict_for(wk, m->exports, k, v) {
+				workspace_scratch_begin(wk);
 				obj_array_push(wk, doc, dump_module_function_capture(wk, mod_path.buf, k, v));
+				workspace_scratch_end(wk);
 			}
 		}
 	}
