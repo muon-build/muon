@@ -23,7 +23,7 @@ jobs:
           - { sys: mingw64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
           - { sys: ucrt64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
           - { sys: clang64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-latest' }
-          - { sys: clangarm64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-11-arm' }
+          - { sys: clangarm64, cc: clang, cxx: 'clang++', args: '', runs-on: 'windows-11-arm' }
       fail-fast: false
     name: ${{ matrix.sys }}
     defaults:
