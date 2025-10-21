@@ -1013,6 +1013,7 @@ cmd_setup_common(struct workspace *wk,
 	TracyCZoneAutoS;
 	bool res = false;
 	enum workspace_do_setup_flag flags = 0;
+	const char *build = 0;
 
 	uint32_t original_argi = argi + 1;
 
@@ -1047,7 +1048,7 @@ cmd_setup_common(struct workspace *wk,
 		return false;
 	}
 
-	const char *build = argv[argi];
+	build = argv[argi];
 
 	// The following shenanigans are to support passing the source dir instead
 	// of the build dir.  We decide that the passed dir is a source dir (and
@@ -1146,7 +1147,7 @@ cmd_setup_common(struct workspace *wk,
 
 	res = true;
 ret:
-	ctx->build_dir = make_str(wk, build);
+	ctx->build_dir = build ? make_str(wk, build) : 0;
 	ctx->argi = argi;
 	TracyCZoneAutoE;
 	return res;
