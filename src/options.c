@@ -827,7 +827,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 			int32_t min_d = INT32_MAX;
 			obj min_k = 0;
 			best_fuzzy_match_in_dict(wk, wk->global_opts, name, &min_d, &min_k);
-			best_fuzzy_match_in_dict(wk, current_project(wk)->opts,name, &min_d, &min_k);
+			best_fuzzy_match_in_dict(wk, current_project(wk)->opts, name, &min_d, &min_k);
 
 			LLOG_E("invalid option: ");
 			log_option_override(log_error, wk, oo);
@@ -836,7 +836,6 @@ setup_project_options(struct workspace *wk, const char *cwd)
 			}
 			log_plain(log_error, "\n");
 			ret = false;
-
 		}
 	}
 
@@ -883,6 +882,11 @@ const char *toolchain_component_option_name[compiler_language_count][toolchain_c
 bool
 init_global_options(struct workspace *wk)
 {
+	if (wk->init_flags & workspace_init_flag_global_options) {
+		return true;
+	}
+	wk->init_flags |= workspace_init_flag_global_options;
+
 	if (!init_builtin_options(wk, "options/global.meson")) {
 		return false;
 	}
@@ -916,8 +920,9 @@ init_global_options(struct workspace *wk)
 		obj link_args = make_strf(wk, "%s_link_args", langs[i].name);
 		make_compiler_option(wk, link_args);
 		if (compile_opt_env_var[langs[i].l][toolchain_component_linker]) {
-			set_compile_opt_from_env(
-				wk, get_str(wk, link_args)->s, compile_opt_env_var[langs[i].l][toolchain_component_linker]);
+			set_compile_opt_from_env(wk,
+				get_str(wk, link_args)->s,
+				compile_opt_env_var[langs[i].l][toolchain_component_linker]);
 		}
 
 		make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler);
@@ -1189,6 +1194,41 @@ get_option_backend(struct workspace *wk)
 	} else {
 		UNREACHABLE;
 	}
+}
+
+/* options loading */
+
+bool
+options_load_from_option_info(struct workspace *wk)
+{
+	obj arr;
+	if (!serial_load_from_private_dir(wk, &arr, output_path.paths[output_path_option_info].path)) {
+		return false;
+	}
+
+	uint32_t i = 0;
+	obj v;
+	obj_array_for(wk, arr, v) {
+		if (i == 0) {
+			wk->global_opts = v;
+		} else {
+			uint32_t proj_i = (i - 1) / 2;
+			if (proj_i >= wk->projects.len) {
+				make_project(wk, &proj_i, 0, "", "");
+			}
+
+			struct project *proj = arr_get(&wk->projects, proj_i);
+			if ((i - 1) & 1) {
+				proj->cfg.name = v;
+			} else {
+				proj->opts = v;
+			}
+		}
+
+		++i;
+	}
+
+	return true;
 }
 
 /* options listing subcommand */
@@ -1504,8 +1544,9 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 				workspace_init_bare(&az_wk, wk->a, wk->a_scratch);
 				analyze_project_call(&az_wk);
 
-				path_make_absolute(
-					wk, &subprojects_dir, get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
+				path_make_absolute(wk,
+					&subprojects_dir,
+					get_cstr(&az_wk, current_project(&az_wk)->subprojects_dir));
 
 				obj az_name = current_project(&az_wk)->cfg.name;
 				if (az_name) {
@@ -1529,34 +1570,9 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 			}
 		}
 	} else {
-		obj arr;
-		if (!serial_load_from_private_dir(wk, &arr, output_path.paths[output_path_option_info].path)) {
+		if (!options_load_from_option_info(wk)) {
 			goto ret;
 		}
-
-		uint32_t i = 0;
-		obj v;
-		obj_array_for(wk, arr, v) {
-			if (i == 0) {
-				wk->global_opts = v;
-			} else {
-				uint32_t proj_i = (i - 1) / 2;
-				if (proj_i >= wk->projects.len) {
-					make_project(wk, &proj_i, 0, "", "");
-				}
-
-				struct project *proj = arr_get(&wk->projects, proj_i);
-				if ((i - 1) & 1) {
-					proj->cfg.name = v;
-				} else {
-					proj->opts = v;
-				}
-			}
-
-			++i;
-		}
-		wk->global_opts = obj_array_index(wk, arr, 0);
-		current_project(wk)->opts = obj_array_index(wk, arr, 1);
 	}
 
 	struct list_options_ctx ctx = { .list_opts = list_opts };

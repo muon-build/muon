@@ -213,6 +213,14 @@ write_option_info(struct workspace *wk, void *_ctx, FILE *out)
 	return serial_dump(wk, arr, out);
 }
 
+static bool
+write_cmdline(struct workspace *wk, void *_ctx, FILE *out)
+{
+	obj regen_cmd = join_args_shell(wk, ca_regenerate_build_command(wk, true));
+	fprintf(out, "%s", get_str(wk, regen_cmd)->s);
+	return true;
+}
+
 bool
 backend_output(struct workspace *wk)
 {
@@ -251,6 +259,7 @@ backend_output(struct workspace *wk)
 			     wk->muon_private, output_path.paths[output_path_compiler_check_cache].path, wk, NULL, write_compiler_check_cache)
 		     && with_open(wk->muon_private, output_path.paths[output_path_summary].path, wk, NULL, write_summary_file)
 		     && with_open(wk->muon_private, output_path.paths[output_path_option_info].path, wk, NULL, write_option_info)
+		     && with_open(wk->muon_private, output_path.paths[output_path_cmdline].path, wk, NULL, write_cmdline)
 		     && introspect_write_all(wk);
 	}
 

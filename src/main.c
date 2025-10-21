@@ -11,6 +11,8 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/common_args.h"
+#include "backend/ninja.h"
 #include "backend/output.h"
 #include "buf_size.h"
 #include "cmd_install.h"
@@ -128,7 +130,6 @@ cmd_exe(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	if (!opts.capture) {
 		ctx.flags |= run_cmd_ctx_flag_dont_capture;
 	}
-
 
 	const char *envstr = NULL;
 	uint32_t envc = 0;
@@ -992,8 +993,20 @@ make_argv0_absolute(struct workspace *wk, struct tstr *buf, char *const argv[])
 	}
 }
 
+struct cmd_setup_common_ctx {
+	uint32_t argi;
+	int32_t n_operands;
+	obj build_dir;
+	bool cached;
+	const char *usage;
+};
+
 static bool
-cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+cmd_setup_common(struct workspace *wk,
+	uint32_t argc,
+	uint32_t argi,
+	char *const argv[],
+	struct cmd_setup_common_ctx *ctx)
 {
 	workspace_init_runtime(wk);
 
@@ -1016,17 +1029,23 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	}
 	case 'w': {
 		flags |= workspace_do_setup_flag_clear_cache;
+		ctx->cached = false;
 		break;
 	}
 	}
 	OPTEND_CUSTOM(argv[argi],
-		" <build dir|source dir>",
+		ctx->usage,
 		"  -D <option>=<value> - set options\n"
 		"  -# - enable setup progress bar\n"
-		"  -w - clear all caches before setup\n",
+		"  -w - wipe all caches before setup\n",
 		NULL,
-		1,
+		ctx->n_operands,
 		cmd_setup_help(wk))
+
+	if (ctx->n_operands < 0 && argc - argi < 1) {
+		check_operands(argc, argi, 1);
+		return false;
+	}
 
 	const char *build = argv[argi];
 
@@ -1041,8 +1060,7 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		path_copy_cwd(wk, &old_cwd);
 
 		enum build_language _lang;
-		if (!determine_build_file(wk, path_cwd(), &_lang, true))
-		{
+		if (!determine_build_file(wk, path_cwd(), &_lang, true)) {
 			// fix argv0 here since if it is a relative path it will be
 			// wrong after chdir
 			make_argv0_absolute(wk, &argv0, argv);
@@ -1060,6 +1078,39 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	}
 
 	++argi;
+
+	if (!workspace_do_setup_prepare(wk, build, argv[0], argi - original_argi, &argv[original_argi], flags)) {
+		goto ret;
+	}
+
+	if (ctx->cached) {
+		TSTR(cmdline);
+		path_join(wk, &cmdline, build, output_path.private_dir);
+		path_push(wk, &cmdline, output_path.paths[output_path_cmdline].path);
+		if (fs_file_exists(cmdline.buf)) {
+			struct source src;
+			if (!fs_read_entire_file(wk->a_scratch, cmdline.buf, &src)) {
+				return false;
+			}
+
+			if (!init_global_options(wk)) {
+				UNREACHABLE;
+			}
+
+			obj regen_cmd = join_args_shell(wk, ca_regenerate_build_command(wk, true));
+
+			if (str_eql(&(struct str) { src.src, src.len }, get_str(wk, regen_cmd))) {
+				L("command line has not changed -- not regenerating");
+				res = true;
+				goto ret;
+			} else {
+				L("command line has changed:");
+				L("original: %s", src.src);
+				L("new:      %s", get_str(wk, regen_cmd)->s);
+				ctx->cached = false;
+			}
+		}
+	}
 
 	// Extract any relevant -D options that need to be handled very early.
 	// Currently this is only vsenv.  These haven't been added to any options
@@ -1081,13 +1132,10 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 			const struct str *v = get_str(wk, oo->val);
 
 			if (str_eql(&STR("vsenv"), k)) {
-				opts.vsenv_req = str_eql(&STR("true"), v) ? setup_platform_env_requirement_required : setup_platform_env_requirement_skip ;
+				opts.vsenv_req = str_eql(&STR("true"), v) ? setup_platform_env_requirement_required :
+									    setup_platform_env_requirement_skip;
 			}
 		}
-	}
-
-	if (!workspace_do_setup_prepare(wk, build, argv[0], argc - original_argi, &argv[original_argi], flags)) {
-		goto ret;
 	}
 
 	setup_platform_env(wk, build, opts.vsenv_req);
@@ -1098,8 +1146,52 @@ cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 
 	res = true;
 ret:
+	ctx->build_dir = make_str(wk, build);
+	ctx->argi = argi;
 	TracyCZoneAutoE;
 	return res;
+}
+
+static bool
+cmd_setup(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct cmd_setup_common_ctx ctx = { .n_operands = 1, .usage = " <build dir|source dir>" };
+	return cmd_setup_common(wk, argc, argi, argv, &ctx);
+}
+
+static bool
+cmd_build(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct cmd_setup_common_ctx ctx = { .n_operands = -1, .cached = true, .usage = " <build dir|source dir> [ninja options] [ninja targets]" };
+	if (!cmd_setup_common(wk, argc, argi, argv, &ctx)) {
+		return false;
+	}
+
+	obj args = make_obj(wk, obj_array);
+	for (argi = ctx.argi; argi < argc; ++argi) {
+		obj_array_push(wk, args, make_str(wk, argv[argi]));
+	}
+
+	TSTR(old_cwd);
+	path_copy_cwd(wk, &old_cwd);
+
+	if (!path_chdir(wk, get_str(wk, ctx.build_dir)->s)) {
+		return false;
+	}
+
+	if (ctx.cached) {
+		if (!options_load_from_option_info(wk)) {
+			return false;
+		}
+	}
+
+	bool ok = ninja_run(wk, args, 0, 0, 0);
+
+	if (!path_chdir(wk, old_cwd.buf)) {
+		return false;
+	}
+
+	return ok;
 }
 
 static bool
@@ -1301,6 +1393,7 @@ cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[])
 {
 	const struct command commands[] = {
 		{ "analyze", cmd_analyze, "run a static analyzer" },
+		{ "build", cmd_build, "setup and build in a single step" },
 		{ "devenv", cmd_devenv, "run commands in developer environment" },
 		{ "fmt", cmd_format, "format meson source file" },
 		{ "info", cmd_info, NULL },
@@ -1356,8 +1449,8 @@ main(int argc, char *argv[])
 
 	struct arena a;
 	struct arena a_scratch;
-	arena_init(&a,);
-	arena_init(&a_scratch,);
+	arena_init(&a, );
+	arena_init(&a_scratch, );
 	struct workspace wk;
 	workspace_init_arena(&wk, &a, &a_scratch);
 

@@ -52,6 +52,7 @@ enum workspace_init_flag {
 	workspace_init_flag_bare = 1 << 1,
 	workspace_init_flag_runtime = 1 << 2,
 	workspace_init_flag_startup_files = 1 << 3,
+	workspace_init_flag_global_options = 1 << 4,
 };
 
 struct workspace {

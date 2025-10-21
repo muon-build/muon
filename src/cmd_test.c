@@ -19,6 +19,7 @@
 #include "functions/environment.h"
 #include "lang/serial.h"
 #include "log.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/mem.h"
@@ -1173,12 +1174,11 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	}
 	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
 
-	{ // load global opts
-		obj option_info;
-		if (!serial_load_from_private_dir(wk, &option_info, output_path.paths[output_path_option_info].path)) {
+	{ // load options
+		workspace_init_runtime(wk);
+		if (!options_load_from_option_info(wk)) {
 			goto ret;
 		}
-		wk->global_opts = obj_array_index(wk, option_info, 0);
 	}
 
 	if (!opts->no_rebuild) {

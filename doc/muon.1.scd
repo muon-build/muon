@@ -77,6 +77,13 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	  is useful for catching bugs in scripts that will be evaluated with
 	  *muon internal eval*, or script modules.
 
+## build
+	*muon* *build* [setup options] <build dir|source dir> [ninja options]
+
+	Invoke muon setup + ninja in a single command.  Additionally setup will only
+	run if the passed options have changed, including options implicitly set
+	using environment variabls.
+
 ## fmt
 	*muon* *fmt* [*-i*] [*-q*] [*-l*] [*-c* <muon_fmt.ini>] <file>[ <file>[...]]
 
@@ -304,7 +311,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	was compiled with *samu* enabled.
 
 ## setup
-	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-w*] [*-#*] <build dir>
+	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-w*] [*-#*] <build
+	dir|source dir>
 
 	Interpret all _source files_ and generate _buildfiles_ in _build dir_.
 

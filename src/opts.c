@@ -17,11 +17,11 @@ check_operands(uint32_t argc, uint32_t argi, int32_t expected)
 {
 	assert(argc >= argi);
 
-	uint32_t rem = argc - argi;
-
 	if (expected < 0) {
 		return true;
 	}
+
+	uint32_t rem = argc - argi;
 
 	if (rem < (uint32_t)expected) {
 		LOG_E("missing operand");

@@ -61,6 +61,8 @@ enum backend {
 };
 enum backend get_option_backend(struct workspace *wk);
 
+bool options_load_from_option_info(struct workspace *wk);
+
 struct list_options_opts {
 	bool list_all, only_modified;
 	bool list_subprojects;

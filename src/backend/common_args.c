@@ -905,22 +905,18 @@ ca_regenerate_build_command(struct workspace *wk, bool opts_only)
 		// NOTE: This only handles options of type str or [str], which is okay since
 		// the only options that can be set from the environment are of this
 		// type.
-		// TODO: The current implementation of array stringification would
-		// choke on spaces, etc.
 
-		const char *sval;
+		TSTR(buf);
+
 		switch (get_obj_type(wk, o->val)) {
-		case obj_string: sval = get_cstr(wk, o->val); break;
-		case obj_array: {
-			obj joined;
-			obj_array_join(wk, true, o->val, make_str(wk, ","), &joined);
-			sval = get_cstr(wk, joined);
+		case obj_string:
+		case obj_array:
+			obj_to_s(wk, o->val, &buf);
 			break;
-		}
 		default: UNREACHABLE;
 		}
 
-		obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), sval));
+		obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), buf.buf));
 	}
 
 	uint32_t i;

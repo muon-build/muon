@@ -803,7 +803,9 @@ find_program_step_4:
 		}
 
 		if (program_specific_envvar) {
-			get_option_value(wk, NULL, program_specific_envvar, &cmd_array);
+			obj option_value;
+			get_option_value(wk, NULL, program_specific_envvar, &option_value);
+			cmd_array = obj_array_dup_light(wk, option_value);
 			if (get_obj_array(wk, cmd_array)->len < 1) {
 				LOG_E("program option %s is an empty array", program_specific_envvar);
 				return false;

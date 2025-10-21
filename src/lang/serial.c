@@ -472,6 +472,7 @@ serial_load_from_private_dir(struct workspace *wk, obj *res, const char *file)
 	path_join(wk, &path, output_path.private_dir, file);
 
 	if (!fs_file_exists(path.buf)) {
+		LOG_E("file %s does not exist", path.buf);
 		return false;
 	}
 
@@ -480,11 +481,11 @@ serial_load_from_private_dir(struct workspace *wk, obj *res, const char *file)
 		return false;
 	}
 
-	bool ret = serial_load(wk, res, f);
+	bool ok = serial_load(wk, res, f);
 
 	if (!fs_fclose(f)) {
-		ret = false;
+		ok = false;
 	}
 
-	return ret;
+	return ok;
 }

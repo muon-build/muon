@@ -24,6 +24,7 @@ const struct output_path output_path = {
 		[output_path_option_info] = { "option_info.dat" },
 		[output_path_debug_log] = { "setup.log" },
 		[output_path_vsenv_cache] = { "vsenv.txt", .is_cache = true },
+		[output_path_cmdline] = { "cmdline.txt", .is_cache = true },
 	},
 	.introspect_file = {
 		.projectinfo = "intro-projectinfo.json",
