@@ -205,12 +205,15 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	path_make_absolute(wk, &build_root, build);
 	wk->build_root = get_cstr(wk, tstr_into_str(wk, &build_root));
 
+	obj argv0_str = 0;
 	TSTR(argv0_resolved);
 	if (fs_find_cmd(wk, &argv0_resolved, argv0)) {
-		wk->argv0 = get_cstr(wk, tstr_into_str(wk, &argv0_resolved));
+		argv0_str = tstr_into_str(wk, &argv0_resolved);
+		workspace_add_regenerate_dep(wk, argv0_str);
 	} else {
-		wk->argv0 = get_cstr(wk, make_str(wk, argv0));
+		argv0_str = make_str(wk, argv0);
 	}
+	wk->argv0 = get_cstr(wk, argv0_str);
 
 	wk->original_commandline.argc = argc;
 	wk->original_commandline.argv = argv;
