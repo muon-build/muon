@@ -103,9 +103,9 @@ Stage 2:
 
 ```
 build/muon-bootstrap setup build
-build/muon-bootstrap -C build samu
-build/muon-bootstrap -C build test
-build/muon-bootstrap -C build install
+build/muon-bootstrap -C build ninja
+build/muon -C build test -R
+build/muon -C build install
 ```
 
 ## Contribute
