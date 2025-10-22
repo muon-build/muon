@@ -16,6 +16,8 @@
 #include <io.h>
 #include <windows.h>
 
+#include "platform/term.h"
+
 bool
 term_winsize(struct workspace *wk, int fd, uint32_t *height, uint32_t *width)
 {
