@@ -125,8 +125,8 @@ struct machine_props {
 FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
 {
 	if (vm_enum(wk, endianness)) {
-		vm_enum_value(wk, endianness, big_endian);
-		vm_enum_value(wk, endianness, little_endian);
+		vm_enum_value_(wk, "endianness", "big", big_endian);
+		vm_enum_value_(wk, "endianness", "little", little_endian);
 	};
 
 	if (vm_enum(wk, machine_system)) {
