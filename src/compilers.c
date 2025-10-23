@@ -769,8 +769,10 @@ toolchain_exe_detect(struct workspace *wk,
 		return false;
 	}
 
-	obj cmd_arr_opt;
-	get_option(wk, NULL, &TSTR_STR(&opt_name), &cmd_arr_opt);
+	obj cmd_arr_opt = 0;
+	if (!get_option(wk, NULL, &TSTR_STR(&opt_name), &cmd_arr_opt)) {
+		UNREACHABLE;
+	}
 	struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
 
 	if (cmd_arr->source > option_value_source_default) {
