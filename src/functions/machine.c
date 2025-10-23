@@ -196,5 +196,6 @@ FUNC_REGISTER(machine)
 
 	if (lang_mode == language_internal) {
 		FUNC_IMPL_REGISTER(machine, set_props);
+		FUNC_IMPL_REGISTER_ALIAS(machine, set_props, set_properties);
 	}
 }
