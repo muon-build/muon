@@ -33,6 +33,22 @@ void get_option_value_overridable(struct workspace *wk,
 	const char *name,
 	obj *res);
 
+enum parse_and_set_option_flag {
+	parse_and_set_option_flag_override = 1 << 0,
+	parse_and_set_option_flag_for_subproject = 1 << 1,
+	parse_and_set_option_flag_have_value = 1 << 2,
+};
+struct parse_and_set_option_params {
+	uint32_t node;
+	obj project_name;
+	obj opt;
+	obj value;
+	obj opts;
+	enum parse_and_set_option_flag flags;
+	enum option_value_source source;
+};
+bool parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_params *params);
+
 bool check_invalid_option_overrides(struct workspace *wk);
 bool check_invalid_subproject_option(struct workspace *wk);
 bool prefix_dir_opts(struct workspace *wk);

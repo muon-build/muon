@@ -600,7 +600,11 @@ compiler_dict_to_str_dict(struct workspace *wk, obj d[machine_kind_count])
 	return res;
 }
 
-FUNC_IMPL(meson, project, tc_dict, func_impl_flag_impure, .desc = "return a dict containing read-only properties of the current project")
+FUNC_IMPL(meson,
+	project,
+	tc_dict,
+	func_impl_flag_impure,
+	.desc = "return a dict containing read-only properties of the current project")
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -800,6 +804,30 @@ FUNC_IMPL(meson,
 	return true;
 }
 
+FUNC_IMPL(meson, set_option, 0, func_impl_flag_impure, .desc = "set the value of an option as if it were set on the commandline")
+{
+	struct args_norm an[]
+		= { { obj_string }, { tc_feature_opt | tc_string | tc_bool | tc_number | tc_array }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+
+	if (wk->projects.len) {
+		vm_error(wk, "set_option may only be called prior to any project() call");
+		return false;
+	}
+
+	struct parse_and_set_option_params params = {
+		.node = wk->vm.ip - 1,
+		.opt = an[0].val,
+		.value = an[1].val,
+		.flags = parse_and_set_option_flag_have_value,
+		.source = option_value_source_commandline,
+	};
+
+	return parse_and_set_option(wk, &params);
+}
+
 FUNC_REGISTER(meson)
 {
 	FUNC_IMPL_REGISTER(meson, add_devenv);
@@ -839,5 +867,6 @@ FUNC_REGISTER(meson)
 		FUNC_IMPL_REGISTER(meson, private_dir);
 		FUNC_IMPL_REGISTER(meson, has_compiler);
 		FUNC_IMPL_REGISTER(meson, set_external_properties);
+		FUNC_IMPL_REGISTER(meson, set_option);
 	}
 }

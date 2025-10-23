@@ -975,28 +975,15 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 	return true;
 }
 
-enum parse_and_set_option_flag {
-	parse_and_set_option_flag_override = 1 << 0,
-	parse_and_set_option_flag_for_subproject = 1 << 1,
-	parse_and_set_option_flag_have_value = 1 << 2,
-};
-
-struct parse_and_set_option_params {
-	uint32_t node;
-	obj project_name;
-	obj opt;
-	obj value;
-	obj opts;
-	enum parse_and_set_option_flag flags;
-};
-
-static bool
+bool
 parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_params *params)
 {
 	struct option_override oo = { 0 };
 
 	if (params->flags & parse_and_set_option_flag_override) {
 		oo.source = option_value_source_override_options;
+	} else if (params->source) {
+		oo.source = params->source;
 	} else {
 		oo.source = option_value_source_default_options;
 	}
