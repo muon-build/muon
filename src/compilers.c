@@ -427,7 +427,15 @@ guess_version_arg(struct workspace *wk, bool msvc_like)
 static bool
 compiler_detect_c_or_cpp(struct workspace *wk, obj cmd_arr, obj comp_id)
 {
-	bool msvc_like = obj_array_in(wk, cmd_arr, make_str(wk, "cl"));
+	bool msvc_like = false;
+	obj v;
+	obj_array_for(wk, cmd_arr, v) {
+		const struct str *str_v = get_str(wk, v);
+		if (str_endswith(str_v, &STR("cl.exe"))) {
+			msvc_like = true;
+			break;
+		}
+	}
 
 	// helpful: mesonbuild/compilers/detect.py:350
 	struct run_cmd_ctx cmd_ctx = { 0 };
