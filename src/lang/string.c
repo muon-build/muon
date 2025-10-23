@@ -931,9 +931,9 @@ tstr_grow(struct workspace *wk, struct tstr *sb, uint32_t inc)
 		newcap = 1024;
 	}
 
-	do {
+	while (newcap < newlen) {
 		newcap *= 2;
-	} while (newcap < newlen);
+	}
 
 	sb->buf = ar_realloc(wk->a_scratch, sb->buf, sb->cap, newcap, 1);
 	sb->cap = newcap;
