@@ -17,6 +17,7 @@
 #include "lang/serial.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "machine_file.h"
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
@@ -475,13 +476,15 @@ workspace_do_setup_prepare(struct workspace *wk,
 }
 
 bool
-workspace_do_setup(struct workspace *wk)
+workspace_do_setup(struct workspace *wk, struct arr *preload_files)
 {
 	FILE *debug_file = 0;
 	bool res = false;
 
 	bool progress = log_is_progress_bar_enabled();
 	log_progress_disable();
+
+	LOG_I("muon %s%s%s", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
 	{
 		TSTR(path);
@@ -510,7 +513,17 @@ workspace_do_setup(struct workspace *wk)
 		}
 	}
 
-	LOG_I("muon %s%s%s", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
+	if (preload_files) {
+		for (uint32_t i = 0; i < preload_files->len; ++i) {
+			const char *path = *(const char **)arr_get(preload_files, i);
+			L("preloading %s", path);
+			if (str_endswith(&STRL(path), &STR(".ini"))) {
+				if (!machine_file_eval(wk, path, machine_kind_host)) {
+					return false;
+				}
+			}
+		}
+	}
 
 	if (progress) {
 		log_progress_enable(wk);

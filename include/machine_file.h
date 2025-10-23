@@ -8,5 +8,5 @@
 
 #include "lang/workspace.h"
 
-bool machine_file_parse(struct workspace *dest_wk, const char *path);
+bool machine_file_eval(struct workspace *wk, const char *path, enum machine_kind machine);
 #endif

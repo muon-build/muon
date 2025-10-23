@@ -1017,7 +1017,10 @@ cmd_setup_common(struct workspace *wk,
 
 	uint32_t original_argi = argi + 1;
 
-	OPTSTART("D:b:#w") {
+	struct arr preload_files = { 0 };
+	arr_init(wk->a_scratch, &preload_files, 8, const char *);
+
+	OPTSTART("D:b:#wp:") {
 	case '#': log_progress_enable(wk); break;
 	case 'D':
 		if (!parse_and_set_cmdline_option(wk, optarg)) {
@@ -1031,6 +1034,10 @@ cmd_setup_common(struct workspace *wk,
 	case 'w': {
 		flags |= workspace_do_setup_flag_clear_cache;
 		ctx->cached = false;
+		break;
+	}
+	case 'p': {
+		arr_push(wk->a_scratch, &preload_files, &optarg);
 		break;
 	}
 	}
@@ -1141,7 +1148,7 @@ cmd_setup_common(struct workspace *wk,
 
 	setup_platform_env(wk, build, opts.vsenv_req);
 
-	if (!workspace_do_setup(wk)) {
+	if (!workspace_do_setup(wk, &preload_files)) {
 		goto ret;
 	}
 

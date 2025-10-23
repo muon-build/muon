@@ -144,7 +144,7 @@ enum workspace_do_setup_flag {
 	workspace_do_setup_flag_clear_cache = 1 << 0,
 };
 bool workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags);
-bool workspace_do_setup(struct workspace *wk);
+bool workspace_do_setup(struct workspace *wk, struct arr *preload_files);
 void workspace_scratch_begin(struct workspace *wk);
 void workspace_scratch_end(struct workspace *wk);
 void workspace_perm_begin(struct workspace *wk);
