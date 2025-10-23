@@ -769,7 +769,8 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 		}
 	}
 
-	/* TODO: 3. [binaries] section in your machine files */
+	/* 3. [binaries] section in your machine files */
+	/* no-op: This is handled using the same mechanism as meson.override_find_program() */
 
 find_program_step_4:
 	/* 4. Directories provided using the dirs: kwarg */
@@ -796,8 +797,6 @@ find_program_step_4:
 		const char *program_specific_envvar = 0;
 		if (strcmp(str, "ninja") == 0) {
 			program_specific_envvar = "env.NINJA";
-		} else if (strcmp(str, "ar") == 0) {
-			program_specific_envvar = "env.AR";
 		} else if (strcmp(str, "pkg-config") == 0 || strcmp(str, "pkgconf") == 0) {
 			program_specific_envvar = "env.PKG_CONFIG";
 		}

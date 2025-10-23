@@ -434,11 +434,6 @@ option(
 # forbids . in an option name
 
 option(
-    'env.AR',
-    type: 'shell_array',
-    value: ['ar'],
-)
-option(
     'env.NINJA',
     type: 'shell_array',
     value: ['ninja'],

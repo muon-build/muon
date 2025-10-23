@@ -9,7 +9,7 @@
 
 extern bool initializing_builtin_options;
 extern const char *build_option_type_to_s[build_option_type_count];
-extern const char *toolchain_component_option_name[compiler_language_count][toolchain_component_count];
+bool toolchain_component_option_name(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct tstr *dest);
 
 struct option_override {
 	// strings

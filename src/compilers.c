@@ -17,6 +17,7 @@
 #include "buf_size.h"
 #include "compilers.h"
 #include "error.h"
+#include "functions/kernel.h"
 #include "functions/string.h"
 #include "guess.h"
 #include "lang/object_iterators.h"
@@ -507,19 +508,21 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 		ver = make_str(wk, "unknown");
 	}
 
+	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+
 	obj new_cmd;
 	obj_array_dup(wk, cmd_arr, &new_cmd);
 
 	{
-		uint32_t addr_bits = host_machine.address_bits;
+		uint32_t addr_bits = machine_definitions[comp->machine]->address_bits;
 
 		const char *plat;
 		TSTR(define);
 
-		if (host_machine.is_windows) {
+		if (machine_definitions[comp->machine]->is_windows) {
 			plat = "win";
 			tstr_pushf(wk, &define, "WIN%d", addr_bits);
-		} else if (host_machine.sys == machine_system_darwin) {
+		} else if (machine_definitions[comp->machine]->sys == machine_system_darwin) {
 			plat = "macho";
 			tstr_pushs(wk, &define, "MACHO");
 		} else {
@@ -534,7 +537,6 @@ compiler_detect_nasm(struct workspace *wk, obj cmd_arr, obj comp_id)
 		}
 	}
 
-	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	comp->cmd_arr[toolchain_component_compiler] = new_cmd;
 	comp->type[toolchain_component_compiler] = type;
 	comp->ver = ver;
@@ -682,13 +684,13 @@ static enum linker_type
 toolchain_default_linker(struct obj_compiler *comp)
 {
 	if (comp->type[toolchain_component_compiler] == compiler_clang) {
-		if (host_machine.sys == machine_system_windows) {
+		if (machine_definitions[comp->machine]->sys == machine_system_windows) {
 			if (str_eql(&comp->triple.env, &STR("gnu")))  {
 				return linker_clang_win;
 			} else {
 				return linker_clang_win_link;
 			}
-		} else if (host_machine.sys == machine_system_darwin) {
+		} else if (machine_definitions[comp->machine]->sys == machine_system_darwin) {
 			return linker_apple;
 		}
 	}
@@ -723,32 +725,69 @@ linker_detect(struct workspace *wk, obj comp, enum compiler_language lang, obj c
 
 typedef bool((*toolchain_detect_cmd_arr_cb)(struct workspace *wk, obj comp, enum compiler_language lang, obj cmd_arr));
 
+static obj
+toolchain_exe_resolve_cmd_arr(struct workspace *wk, obj argv0, obj orig_cmd_arr, enum machine_kind machine)
+{
+	if (!argv0) {
+		argv0 = obj_array_index(wk, orig_cmd_arr, 0);
+	}
+
+	obj found_prog = 0;
+	struct find_program_ctx find_program_ctx = {
+		.res = &found_prog,
+		.requirement = requirement_required,
+		.machine = machine,
+	};
+
+	if (!find_program(wk, &find_program_ctx, argv0) || !find_program_ctx.found) {
+		return 0;
+	}
+
+	struct obj_external_program *ep = get_obj_external_program(wk, found_prog);
+
+	obj cmd_arr;
+	obj_array_dup(wk, ep->cmd_array, &cmd_arr);
+	if (orig_cmd_arr) {
+		obj_array_extend(wk, cmd_arr, obj_array_slice(wk, orig_cmd_arr, 1, -1));
+	}
+
+	return cmd_arr;
+}
+
 bool
 toolchain_exe_detect(struct workspace *wk,
-	const char *toolchain_exe_option_name,
+	enum toolchain_component component,
 	const char *exe_list[],
 	obj comp,
 	enum compiler_language lang,
 	toolchain_detect_cmd_arr_cb cb)
 {
-	if (!toolchain_exe_option_name) {
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+
+	TSTR(opt_name);
+	if (!toolchain_component_option_name(wk, lang, component, compiler->machine, &opt_name)) {
 		return false;
 	}
 
 	obj cmd_arr_opt;
-	get_option(wk, NULL, &STRL(toolchain_exe_option_name), &cmd_arr_opt);
+	get_option(wk, NULL, &TSTR_STR(&opt_name), &cmd_arr_opt);
 	struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
 
 	if (cmd_arr->source > option_value_source_default) {
-		return cb(wk, comp, lang, cmd_arr->val);
+		obj cmd_arr_resolved = toolchain_exe_resolve_cmd_arr(wk, 0, cmd_arr->val, compiler->machine);
+		if (!cmd_arr_resolved) {
+			return false;
+		}
+
+		return cb(wk, comp, lang, cmd_arr_resolved);
 	}
 
 	uint32_t i;
 	for (i = 0; exe_list[i]; ++i) {
-		obj cmd_arr;
-		cmd_arr = make_obj(wk, obj_array);
-		obj_array_push(wk, cmd_arr, make_str(wk, exe_list[i]));
-
+		obj cmd_arr = toolchain_exe_resolve_cmd_arr(wk, make_str(wk, exe_list[i]), 0, compiler->machine);
+		if (!cmd_arr) {
+			return false;
+		}
 		if (cb(wk, comp, lang, cmd_arr)) {
 			return true;
 		}
@@ -763,9 +802,13 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 	const char **exe_list = NULL;
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
-
 	enum linker_type type = toolchain_default_linker(compiler);
-	if (type == linker_clang_win_link) {
+
+	if (toolchain_compiler_do_linker_passthrough(wk, compiler)) {
+		static const char *list[] = { NULL, NULL };
+		list[0] = get_cstr(wk, obj_array_index(wk, compiler->cmd_arr[toolchain_component_compiler], 0));
+		exe_list = list;
+	} else if (type == linker_clang_win_link) {
 		static const char *list[] = { "lld-link", NULL };
 		exe_list = list;
 	} else if (type == linker_msvc) {
@@ -780,7 +823,7 @@ toolchain_linker_detect(struct workspace *wk, obj comp, enum compiler_language l
 	}
 
 	return toolchain_exe_detect(wk,
-		toolchain_component_option_name[lang][toolchain_component_linker],
+		toolchain_component_linker,
 		exe_list,
 		comp,
 		lang,
@@ -802,7 +845,7 @@ toolchain_static_linker_detect(struct workspace *wk, obj comp, enum compiler_lan
 		exe_list = default_list;
 	}
 
-	return toolchain_exe_detect(wk, "env.AR", exe_list, comp, lang, static_linker_detect);
+	return toolchain_exe_detect(wk, toolchain_component_static_linker, exe_list, comp, lang, static_linker_detect);
 }
 
 static bool
@@ -810,7 +853,9 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 {
 	const char **exe_list = NULL;
 
-	if (host_machine.sys == machine_system_windows) {
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+
+	if (machine_definitions[compiler->machine]->sys == machine_system_windows) {
 		static const char *default_executables[][compiler_language_count] = {
 			[compiler_language_c] = { "cl", "cc", "gcc", "clang", "clang-cl", NULL },
 			[compiler_language_cpp] = { "cl", "c++", "g++", "clang++", "clang-cl", NULL },
@@ -833,7 +878,7 @@ toolchain_compiler_detect(struct workspace *wk, obj comp, enum compiler_language
 	}
 
 	return toolchain_exe_detect(wk,
-		toolchain_component_option_name[lang][toolchain_component_compiler],
+		toolchain_component_compiler,
 		exe_list,
 		comp,
 		lang,
@@ -851,17 +896,17 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 	get_obj_compiler(wk, *comp)->machine = machine;
 
 	if (!toolchain_compiler_detect(wk, *comp, lang)) {
-		LOG_W("failed to detect compiler for %s", compiler_language_to_s(lang));
+		LOG_W("failed to detect %s compiler for %s", machine_kind_to_s(machine), compiler_language_to_s(lang));
 		return false;
 	}
 
 	if (!toolchain_linker_detect(wk, *comp, lang)) {
-		LOG_W("failed to detect linker for %s", compiler_language_to_s(lang));
+		LOG_W("failed to detect %s linker for %s", machine_kind_to_s(machine), compiler_language_to_s(lang));
 		return false;
 	}
 
 	if (!toolchain_static_linker_detect(wk, *comp, lang)) {
-		LOG_W("failed to detect static linker for %s", compiler_language_to_s(lang));
+		LOG_W("failed to detect %s static linker for %s", machine_kind_to_s(machine), compiler_language_to_s(lang));
 		return false;
 	}
 
@@ -1295,7 +1340,7 @@ TOOLCHAIN_PROTO_0(compiler_gcc_args_pic)
 {
 	TOOLCHAIN_ARGS({ "-fPIC" });
 
-	if (host_machine.is_windows) {
+	if (machine_definitions[comp->machine]->is_windows) {
 		args.len = 0;
 	} else {
 		args.len = 1;
@@ -1836,7 +1881,7 @@ TOOLCHAIN_PROTO_1s(linker_link_args_def)
 TOOLCHAIN_PROTO_0(linker_link_args_always)
 {
 	TOOLCHAIN_ARGS({ "/NOLOGO", NULL });
-	argv[1] = host_machine.address_bits == 64 ? "/MACHINE:X64" : "/MACHINE:X86";
+	argv[1] = machine_definitions[comp->machine]->address_bits == 64 ? "/MACHINE:X64" : "/MACHINE:X86";
 
 	return &args;
 }

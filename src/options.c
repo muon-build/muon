@@ -857,27 +857,48 @@ make_compiler_option(struct workspace *wk, obj name)
 	}
 }
 
-static void
-make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp)
+bool toolchain_component_option_name(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct tstr *dest)
 {
-	const char *env_opt = toolchain_component_option_name[lang][comp];
-	if (!env_opt) {
+	const char *option_names[compiler_language_count][toolchain_component_count] = {
+		[compiler_language_c] = { "env.CC", "env.CC_LD" },
+		[compiler_language_cpp] = { "env.CXX", "env.CXX_LD" },
+		[compiler_language_objc] = { "env.OBJC", "env.OBJC_LD" },
+		[compiler_language_objcpp] = { "env.OBJCXX", "env.OBJCXX_LD" },
+		[compiler_language_nasm] = { "env.NASM", "env.NASM_LD" },
+	};
+
+	const char *n = 0;
+	if (c == toolchain_component_static_linker) {
+		n = "env.AR";
+	} else {
+		n = option_names[l][c];
+	}
+
+	if (!n) {
+		return false;
+	}
+
+	tstr_pushs(wk, dest, n);
+	if (machine == machine_kind_build) {
+		tstr_pushs(wk, dest, "_FOR_BUILD");
+	}
+
+	return true;
+}
+
+static void
+make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp, enum machine_kind m)
+{
+	TSTR(env_opt);
+	if (!toolchain_component_option_name(wk, lang, comp, m, &env_opt)) {
 		return;
 	}
 
-	make_compiler_option(wk, make_str(wk, env_opt));
+	make_compiler_option(wk, tstr_into_str(wk, &env_opt));
 
-	const char *env_var = strchr(env_opt, '.') + 1;
-	set_binary_from_env(wk, env_var, env_opt);
+	const char *env_var = strchr(env_opt.buf, '.') + 1;
+	set_binary_from_env(wk, env_var, env_opt.buf);
 }
-
-const char *toolchain_component_option_name[compiler_language_count][toolchain_component_count] = {
-	[compiler_language_c] = { "env.CC", "env.CC_LD" },
-	[compiler_language_cpp] = { "env.CXX", "env.CXX_LD" },
-	[compiler_language_objc] = { "env.OBJC", "env.OBJC_LD" },
-	[compiler_language_objcpp] = { "env.OBJCXX", "env.OBJCXX_LD" },
-	[compiler_language_nasm] = { "env.NASM", "env.NASM_LD" },
-};
 
 bool
 init_global_options(struct workspace *wk)
@@ -907,7 +928,7 @@ init_global_options(struct workspace *wk)
 		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS" },
 	};
 
-	uint32_t i;
+	uint32_t i, machine;
 	for (i = 0; i < ARRAY_LEN(langs); ++i) {
 		obj args = make_strf(wk, "%s_args", langs[i].name);
 		make_compiler_option(wk, args);
@@ -925,13 +946,17 @@ init_global_options(struct workspace *wk)
 				compile_opt_env_var[langs[i].l][toolchain_component_linker]);
 		}
 
-		make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler);
-		make_compiler_env_option(wk, langs[i].l, toolchain_component_linker);
+		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine)
+		{
+			make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler, machine);
+			make_compiler_env_option(wk, langs[i].l, toolchain_component_linker, machine);
+		}
 	}
+	make_compiler_env_option(wk, 0, toolchain_component_static_linker, machine_kind_host);
+	make_compiler_env_option(wk, 0, toolchain_component_static_linker, machine_kind_build);
 
 	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path", ENV_PATH_SEP_STR);
 
-	set_binary_from_env(wk, "AR", "env.AR");
 	set_binary_from_env(wk, "NINJA", "env.NINJA");
 	set_binary_from_env(wk, "PKG_CONFIG", "env.PKG_CONFIG");
 
