@@ -149,6 +149,7 @@ enum complex_type_preset {
 	tc_cx_enum_shell,
 	tc_cx_list_of_number,
 	tc_cx_dict_of_str,
+	tc_cx_override_find_program,
 };
 
 type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);

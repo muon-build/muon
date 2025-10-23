@@ -280,20 +280,30 @@ FUNC_IMPL(meson, override_dependency, 0, func_impl_flag_impure)
 
 FUNC_IMPL(meson, override_find_program, 0, func_impl_flag_impure)
 {
-	type_tag tc_allowed = tc_file | tc_external_program | tc_build_target | tc_custom_target
-			      | tc_python_installation;
-	struct args_norm an[] = { { obj_string }, { tc_allowed }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { COMPLEX_TYPE_PRESET(tc_cx_override_find_program) }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_native,
+	};
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
 
-	// TODO: why does override_find_program not accept a native keyword?
-	enum machine_kind machine = coerce_machine_kind(wk, 0);
-
-	if (!pop_args(wk, an, NULL)) {
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
 
 	obj override;
 
 	switch (get_obj_type(wk, an[1].val)) {
+	case obj_array:
+		override = make_obj(wk, obj_external_program);
+		struct obj_external_program *ep = get_obj_external_program(wk, override);
+		ep->cmd_array = an[1].val;
+		ep->found = true;
+		break;
 	case obj_build_target:
 	case obj_custom_target:
 	case obj_file:

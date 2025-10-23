@@ -589,6 +589,13 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 		tag = make_complex_type(wk, complex_type_nested, tc_dict, tc_string);
 		break;
 	}
+	case tc_cx_override_find_program: {
+		tag = make_complex_type(wk,
+			complex_type_or,
+			tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_python_installation,
+			make_complex_type(wk, complex_type_nested, tc_array, tc_string));
+		break;
+	}
 	default: UNREACHABLE;
 	}
 
