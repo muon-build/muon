@@ -27,8 +27,8 @@ const char *log_level_clr[log_level_count] = {
 		[log_warn] = STRINGIZE(c_yellow),
 			[log_note] = STRINGIZE(c_cyan),
 				[log_info] = "0",
-					[log_debug] = STRINGIZE(c_cyan),
-					};
+				[log_debug] = STRINGIZE(c_cyan),
+				};
 
 const char *log_level_name[log_level_count] = {
 	[log_error] = "error",
@@ -412,6 +412,14 @@ log_raw(const char *fmt, ...)
 	va_start(ap, fmt);
 	log_rawv(fmt, ap);
 	va_end(ap);
+}
+
+void
+log_flush(void)
+{
+	if (log_cfg.file) {
+		fflush(log_cfg.file);
+	}
 }
 
 void

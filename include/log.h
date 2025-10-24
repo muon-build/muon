@@ -67,6 +67,7 @@ void log_plain(enum log_level lvl, const char *fmt, ...) MUON_ATTR_FORMAT(printf
 void log_raw(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
 void log_rawv(const char *fmt, va_list ap);
 bool log_should_print(enum log_level lvl);
+void log_flush(void);
 
 void log_plain_version_string(enum log_level lvl, const char *version);
 const char *bool_to_yn(bool v);

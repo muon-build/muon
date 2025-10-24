@@ -252,6 +252,7 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 			}
 
 			log_raw("%c", c);
+			log_flush();
 		}
 		return;
 	} else if (ctx->stats.term) {
