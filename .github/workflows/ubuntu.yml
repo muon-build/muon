@@ -25,14 +25,12 @@ jobs:
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          build/muon-bootstrap -v setup build
-          build/muon-bootstrap -C build samu
+          build/muon-bootstrap -v build build
 
       # Build muon with ASan and UBSan and run the testsuite.
       - name: build_asan_ubsan
         run: |
-          build/muon setup -Db_sanitize=address,undefined build_asan_ubsan
-          build/muon -C build_asan_ubsan samu
+          build/muon build -Db_sanitize=address,undefined build_asan_ubsan
       - name: test_asan_ubsan
         run: |
           cd build_asan_ubsan
@@ -46,8 +44,7 @@ jobs:
       # Build muon FORTIFY_SOURCE=3 and run the testsuite.
       - name: build_fortify_source
         run: |
-          CFLAGS=-U_FORTIFY_SOURCE D_FORTIFY_SOURCE=3 build/muon setup build_fortify_source
-          build/muon -C build_fortify_source samu
+          CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3" build/muon build build_fortify_source
       - name: test_fortify_source
         run: |
           cd build_fortify_source
