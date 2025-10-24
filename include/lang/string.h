@@ -136,6 +136,7 @@ obj str_strip(struct workspace *wk, const struct str *ss, const struct str *stri
 obj str_split_strip(struct workspace *wk, const struct str *ss, const struct str *split, const struct str *strip);
 bool str_split_in_two(const struct str *s, struct str *l, struct str *r, char split);
 void str_to_lower(struct str *str);
+bool str_try_remove_prefix(struct str *s, const struct str *prefix);
 
 void cstr_copy_(char *dest, const struct str *src, uint32_t dest_len);
 #define cstr_copy(__dest, __src) cstr_copy_(__dest, __src, ARRAY_LEN(__dest));

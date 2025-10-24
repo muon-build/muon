@@ -860,6 +860,17 @@ str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, e
 	return make_strn(wk, stripped.s, stripped.len);
 }
 
+bool
+str_try_remove_prefix(struct str *s, const struct str *prefix)
+{
+	if (str_startswith(s, prefix)) {
+		s->len -= prefix->len;
+		s->s += prefix->len;
+		return true;
+	}
+	return false;
+}
+
 struct str_split_strip_ctx {
 	const struct str *strip;
 	obj res;
