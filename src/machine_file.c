@@ -119,8 +119,10 @@ machine_file_translate_cb(void *_ctx,
 		break;
 	case machine_file_section_builtin_options:
 	case machine_file_section_project_options:
-	case machine_file_section_project_options_prefixed:
 		tstr_pushf(wk, ctx->dest, "meson.set_option(%s, %s)\n", k, v);
+		break;
+	case machine_file_section_project_options_prefixed:
+		tstr_pushf(wk, ctx->dest, "# TODO: option needs prefix: meson.set_option(%s, %s)\n", k, v);
 		break;
 	case machine_file_section_count: UNREACHABLE;
 	}

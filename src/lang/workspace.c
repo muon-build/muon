@@ -516,10 +516,33 @@ workspace_do_setup(struct workspace *wk, struct arr *preload_files)
 	if (preload_files) {
 		for (uint32_t i = 0; i < preload_files->len; ++i) {
 			const char *path = *(const char **)arr_get(preload_files, i);
+			struct str path_str = STRL(path);
 			L("preloading %s", path);
-			if (str_endswith(&STRL(path), &STR(".ini"))) {
-				if (!machine_file_eval(wk, path, machine_kind_host)) {
-					return false;
+			if (str_endswith(&path_str, &STR(".meson"))) {
+				struct source src = { 0 };
+				if (!fs_read_entire_file(wk->a_scratch, path, &src)) {
+					goto ret;
+				}
+
+				stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+				stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
+
+				obj _res;
+				if (!eval(wk, &src, build_language_meson, 0, &_res)) {
+					goto ret;
+				}
+
+				stack_pop(&wk->stack, wk->vm.scope_stack);
+				stack_pop(&wk->stack, wk->vm.lang_mode);
+			} else {
+				enum machine_kind machine = machine_kind_host;
+				if (str_try_remove_prefix(&path_str, &STR("cross:"))) {
+					machine = machine_kind_host;
+				} else if (str_try_remove_prefix(&path_str, &STR("native:"))) {
+					machine = machine_kind_build;
+				}
+				if (!machine_file_eval(wk, path_str.s, machine)) {
+					goto ret;
 				}
 			}
 		}

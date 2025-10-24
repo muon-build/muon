@@ -341,6 +341,8 @@ translate_meson_opts_install(struct workspace *wk, char *argv[], uint32_t argc, 
 enum meson_opts_setup {
 	opt_setup_version = 1,
 	opt_setup_define,
+	opt_setup_cross_file,
+	opt_setup_native_file,
 };
 
 static bool
@@ -355,6 +357,8 @@ translate_meson_opts_setup_callback(struct workspace *wk,
 		break;
 	}
 	case opt_setup_define: obj_array_push(wk, ctx->argv, make_strf(wk, "-D%s", val)); break;
+	case opt_setup_cross_file: obj_array_push(wk, ctx->argv, make_strf(wk, "-pcross:%s", val)); break;
+	case opt_setup_native_file: obj_array_push(wk, ctx->argv, make_strf(wk, "-pnative:%s", val)); break;
 	default: UNREACHABLE;
 	}
 
@@ -398,7 +402,7 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		{ "build.pkg-config-path", true, "pkg_config_path" },
 		{ "buildtype", true, "buildtype" },
 		{ "cmake-prefix-path", true, "cmake_prefix_path" },
-		{ "cross-file", true, .ignore = true },
+		{ "cross-file", true, .handle_as = opt_setup_cross_file },
 		{ "debug", false, "debug" },
 		{ "default-library", true, "default_library" },
 		{ "errorlogs", .ignore = true },
@@ -406,7 +410,7 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		{ "force-fallback-for", true, "force_fallback_for" },
 		{ "install-umask", true, "insall_umask" },
 		{ "layout", true, "layout" },
-		{ "native-file", true, .ignore = true },
+		{ "native-file", true, .handle_as = opt_setup_native_file },
 		{ "optimization", true, "optimization" },
 		{ "pkg-config-path", true, "pkg_config_path" },
 		{ "pkgconfig.relocatable", .ignore = true },
@@ -754,7 +758,6 @@ translate_meson_opts(struct workspace *wk,
 	}
 
 	if (!default_subcommand) {
-		L("default sub");
 		++argi;
 	}
 
