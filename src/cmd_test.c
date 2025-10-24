@@ -22,7 +22,6 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
-#include "platform/mem.h"
 #include "platform/os.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -1173,7 +1172,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	for (uint32_t i = 0; i < ctx.opts->jobs; ++i) {
 		arr_push(wk->a, &ctx.jobs_sorted, &i);
 	}
-	ctx.jobs = z_calloc(ctx.opts->jobs, sizeof(struct test_result));
+	ctx.jobs = ar_maken(wk->a, struct test_result, ctx.opts->jobs);
 
 	{ // load options
 		workspace_init_runtime(wk);
@@ -1272,6 +1271,5 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	}
 
 ret:
-	z_free(ctx.jobs);
 	return ret;
 }
