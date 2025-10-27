@@ -1178,6 +1178,8 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		return false;
 	}
 
+	bool capture = get_obj_bool_with_default(wk, akw[kw_capture].val, true);
+
 	const char *argstr, *envstr;
 	uint32_t argc, envc;
 
@@ -1248,6 +1250,12 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		.stdin_path = feed ? get_file_path(wk, feed) : 0,
 	};
 
+	if (!capture) {
+		cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
+		// Ensure any pending logs are printed prior to this command's execution.
+		log_flush();
+	}
+
 	if (!run_cmd(wk, &cmd_ctx, argstr, argc, envstr, envc)) {
 		vm_error(wk, "%s", cmd_ctx.err_msg);
 		if (cmd_ctx.out.len) {
@@ -1275,12 +1283,12 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 	*res = make_obj(wk, obj_run_result);
 	struct obj_run_result *run_result = get_obj_run_result(wk, *res);
 	run_result->status = cmd_ctx.status;
-	if (akw[kw_capture].set && !get_obj_bool(wk, akw[kw_capture].val)) {
-		run_result->out = make_str(wk, "");
-		run_result->err = make_str(wk, "");
-	} else {
+	if (capture) {
 		run_result->out = tstr_into_str(wk, &cmd_ctx.out);
 		run_result->err = tstr_into_str(wk, &cmd_ctx.err);
+	} else {
+		run_result->out = make_str(wk, "");
+		run_result->err = make_str(wk, "");
 	}
 
 	ret = true;
