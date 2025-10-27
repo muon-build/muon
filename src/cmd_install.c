@@ -49,6 +49,8 @@ install_action_to_s(enum install_action action)
 	case install_action_chmod: return "chmod";
 	case install_action_fix_rpaths: return "fix_rpaths";
 	}
+
+	UNREACHABLE_RETURN;
 }
 
 static void
@@ -102,7 +104,7 @@ do_install_action(struct workspace *wk,
 		if (flags) {
 			log_print(false, log_info, " %03o", flags);
 		}
-		log_print(true, log_info, "");
+		log_print(false, log_info, "\n");
 		return true;
 	}
 
@@ -172,22 +174,17 @@ static enum iteration_result
 install_dir_iter(void *_ctx, const char *path)
 {
 	struct install_dir_ctx *ctx = _ctx;
-	struct stat sb;
 	TSTR(src);
 	TSTR(dest);
 
 	path_join(ctx->wk, &src, ctx->src_base, path);
 	path_join(ctx->wk, &dest, ctx->dest_base, path);
 
-	if (!fs_stat(src.buf, &sb)) {
-		return ir_err;
-	}
-
 	TSTR(rel);
 	path_relative_to(ctx->wk, &rel, ctx->src_root, src.buf);
 	obj rel_str = tstr_into_str(ctx->wk, &rel);
 
-	if (S_ISDIR(sb.st_mode)) {
+	if (fs_dir_exists(src.buf)) {
 		if (ctx->exclude_directories && obj_array_in(ctx->wk, ctx->exclude_directories, rel_str)) {
 			LOG_I("skipping dir '%s'", src.buf);
 			return ir_cont;
