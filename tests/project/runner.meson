@@ -156,7 +156,9 @@ func check_install()
         elif f.type in 'expr'
             if '?lib' in path
                 path = path.replace('?lib', 'lib')
-                path = path.replace('usr/lib', 'usr/bin')
+                if is_windows
+                    path = path.replace('usr/lib', 'usr/bin')
+                endif
             endif
 
             if path.endswith('?so')
@@ -166,6 +168,11 @@ func check_install()
                     path += '.dylib'
                 elif is_windows
                     path += '.dll'
+
+                    name = fs.name(path)
+                    if name.startswith('lib')
+                        path = fs.parent(path) / name.substring(3)
+                    endif
                 else
                     path += '.so'
                 endif
