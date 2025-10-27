@@ -68,6 +68,7 @@ foreach t : tests
     skip_analyze = props.get('skip_analyze', false) ? '1' : '0'
     git_clean = props.get('git_clean', false) ? '1' : '0'
     failing = props.get('failing', false) ? '1' : '0'
+    skip_uninstall = props.get('skip_uninstall', false) ? '1' : '0'
 
     setup_options = [{}]
 
@@ -117,6 +118,7 @@ foreach t : tests
             skip_analyze,
             git_clean,
             failing,
+            skip_uninstall,
         ] + optstrs
 
         test(

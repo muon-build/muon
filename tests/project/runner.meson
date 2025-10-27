@@ -3,6 +3,12 @@
 
 fs = import('fs')
 
+func banner(msg str)
+    print(
+        f'--------------------------------\n@msg@\n--------------------------------\n',
+    )
+endfunc
+
 muon_private = '.muon'
 
 muon = argv[1]
@@ -13,27 +19,17 @@ skip_exit_code = argv[5]
 skip_analyze = argv[6] == '1'
 git_clean = argv[7] == '1'
 failing = argv[8] == '1'
+skip_uninstall = argv[9] == '1'
 
-extra_setup_opts = argv.slice(9)
+extra_setup_opts = argv.slice(10)
 
-func check_install(destdir str)
-    install_check_script = source / 'check.sh'
-
-    if fs.is_file(install_check_script)
-        install_check_result = run_command(install_check_script, env: {'DESTDIR': destdir})
-
-        if install_check_result.returncode() != 0
-            if fs.is_dir(build / destdir)
-                message('failing destdir contains:')
-                print(run_command('find', build / destdir, check: true).stdout())
-            else
-                message(
-                    'failing destdir @0@ does not exist'.format(build / destdir),
-                )
-            endif
-        endif
-    endif
-endfunc
+test_json = source / 'test.json'
+if fs.is_file(test_json)
+    json = import('json')
+    test_json = json.parse(fs.read(test_json))
+else
+    test_json = {}
+endif
 
 if fs.is_dir(build)
     fs.rmdir(build, recursive: true, force: true)
@@ -47,6 +43,7 @@ endif
 fs.mkdir(build / muon_private, make_parents: true)
 
 if not skip_analyze
+    banner('analyze')
     analyze_result = run_command(muon, '-vC', source, 'analyze')
 
     if analyze_result.returncode() != 0
@@ -56,7 +53,23 @@ if not skip_analyze
     endif
 endif
 
-setup_result = run_command(muon, '-vC', source, 'setup', '-Dprefix=/usr', extra_setup_opts, build)
+banner('setup')
+
+if ninja == 'USE_MUON'
+    ninja = [muon, 'samu']
+else
+    ninja = [ninja]
+endif
+
+setup_result = run_command(
+    muon,
+    '-vC', source,
+    'setup',
+    '-Dprefix=/usr',
+    '-Denv.NINJA=' + repr(ninja),
+    extra_setup_opts,
+    build,
+)
 
 if setup_result.returncode() != 0
     print(setup_result.stdout())
@@ -74,16 +87,125 @@ if failing
     exit(99)
 endif
 
-if ninja == 'USE_MUON'
-    ninja = [muon, 'samu']
-endif
+banner('build')
 
-run_command(ninja, '-C', build, check: true)
+run_command(ninja, '-C', build, check: true, capture: false)
 
-run_command(muon, '-C', build, 'test', '-a', check: true)
+banner('test')
 
-run_command(muon, '-C', build, 'install', env: {'DESTDIR': 'destdir'}, check: true)
+run_command(muon, '-C', build, 'test', '-a', check: true, capture: false)
 
-if build_machine.system() != 'windows' and find_program('sh', required: false).found()
-    check_install('destdir')
+banner('install')
+
+destdir = 'destdir'
+assert(not fs.exists(build / destdir), 'destdir must not exist')
+run_command(
+    muon,
+    '-C', build,
+    'install',
+    env: {'DESTDIR': destdir},
+    check: true,
+    capture: false,
+)
+
+func check_install()
+    banner('check install')
+
+    is_windows = host_machine.system() == 'windows'
+
+    destdir_contents = {}
+    if fs.exists(build / destdir)
+        foreach path : fs.glob(build / destdir / '**')
+            if fs.is_file(path)
+                destdir_contents[path] = false
+            endif
+        endforeach
+    endif
+
+    ok = true
+
+    foreach f : test_json.get('installed', [])
+        path = build / destdir / f.file
+        check = fs.is_file
+
+        if f.type == 'file'
+            # nothing
+        elif f.type == 'dir'
+            check = fs.is_dir
+        elif f.type == 'exe'
+            if is_windows
+                path += '.exe'
+            endif
+        elif f.type == 'pdb'
+            if not is_windows
+                continue
+            endif
+        elif f.type == 'implib'
+            if not is_windows
+                continue
+            endif
+        elif f.type == 'python_file'
+            path = path.replace('@PYTHON_PURELIB@', 'python_purelib')
+        elif f.type in 'expr'
+            if '?lib' in path
+                path = path.replace('?lib', 'lib')
+            endif
+
+            if path.endswith('?so')
+                path = path.substring(0, -3)
+
+                if host_machine.system() == 'darwin'
+                    path += '.dylib'
+                elif is_windows
+                    path += '.dll'
+                else
+                    path += '.so'
+                endif
+            endif
+        elif f.type in ['implibempty']
+            # unsupported
+            continue
+        else
+            error('unhandled installed type @0@'.format(f.type))
+        endif
+
+        if check(path)
+            if f.type != 'dir'
+                destdir_contents[path] = true
+            endif
+        else
+            warning('path @0@ of type @1@ was not installed'.format(path, f.type))
+            ok = false
+        endif
+    endforeach
+
+    foreach path, accounted_for : destdir_contents
+        if not accounted_for
+            warning(
+                'path @0@ exists in destdir but was not mentioned in test.json'.format(path),
+            )
+            ok = false
+        endif
+    endforeach
+
+    assert(ok)
+endfunc
+check_install()
+
+if not skip_uninstall
+    banner('uninstall')
+
+    run_command(
+        muon,
+        '-C', build,
+        'install',
+        '-Ud', destdir,
+        check: true,
+        capture: false,
+    )
+
+    assert(
+        not fs.exists(build / destdir),
+        'destdir should have been fully uninstalled',
+    )
 endif
