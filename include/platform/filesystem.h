@@ -12,6 +12,13 @@
 
 #include "iterator.h"
 #include "lang/source.h"
+#include "lang/types.h"
+
+enum fs_mkdir_result {
+	fs_mkdir_result_error,
+	fs_mkdir_result_ok,
+	fs_mkdir_result_exists,
+};
 
 struct workspace;
 struct arena;
@@ -25,8 +32,9 @@ bool fs_file_exists(const char *path);
 bool fs_symlink_exists(const char *path);
 bool fs_exe_exists(struct workspace *wk, const char *path);
 bool fs_dir_exists(const char *path);
-bool fs_mkdir(const char *path, bool exist_ok);
+enum fs_mkdir_result fs_mkdir(const char *path, bool exist_ok);
 bool fs_mkdir_p(struct workspace *wk, const char *path);
+bool fs_mkdir_p_recorded(struct workspace *wk, const char *path, obj record);
 bool fs_rmdir(const char *path, bool force);
 bool fs_rmdir_recursive(struct workspace *wk, const char *path, bool force);
 bool fs_read_entire_file(struct arena *a, const char *path, struct source *src);
