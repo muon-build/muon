@@ -2154,6 +2154,20 @@ FUNC_IMPL(kernel, p, tc_any, func_impl_flag_extension)
 	return true;
 }
 
+FUNC_IMPL(kernel, repr, tc_string, .desc = "return a string representing the passed object")
+{
+	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_NULL }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+
+	TSTR(buf);
+	obj_to_s(wk, an[0].val, &buf);
+
+	*res = tstr_into_str(wk, &buf);
+	return true;
+}
+
 FUNC_IMPL(kernel, serial_load, tc_any)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
@@ -2355,6 +2369,7 @@ FUNC_REGISTER(kernel)
 		FUNC_IMPL_REGISTER(kernel, warning);
 
 		FUNC_IMPL_REGISTER(kernel, p);
+		FUNC_IMPL_REGISTER(kernel, repr);
 		FUNC_IMPL_REGISTER(kernel, print);
 		FUNC_IMPL_REGISTER(kernel, serial_load);
 		FUNC_IMPL_REGISTER(kernel, serial_dump);
