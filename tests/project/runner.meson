@@ -128,6 +128,18 @@ func check_install()
         path = build / destdir / f.file
         check = fs.is_file
 
+        if 'platform' in f
+            if f.platform.startswith('!')
+                if host_machine.system() == p(f.platform.substring(1))
+                    continue
+                endif
+            else
+                if host_machine.system() != f.platform
+                    continue
+                endif
+            endif
+        endif
+
         if f.type == 'file'
             # nothing
         elif f.type == 'dir'
