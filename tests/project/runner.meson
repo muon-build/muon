@@ -165,13 +165,15 @@ func check_install()
                     path += '.dylib'
                 elif is_windows
                     path += '.dll'
-
-                    name = fs.name(path)
-                    if name.startswith('lib')
-                        path = fs.parent(path) / name.substring(3)
-                    endif
                 else
                     path += '.so'
+                endif
+            endif
+
+            if is_windows
+                name = fs.name(path)
+                if name.startswith('lib')
+                    path = fs.parent(path) / name.substring(3)
                 endif
             endif
         elif f.type in ['implibempty', 'pdb', 'implib']
