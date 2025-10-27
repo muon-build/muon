@@ -146,8 +146,6 @@ workspace_init_runtime(struct workspace *wk)
 	arr_init(wk->a, &wk->projects, 16, struct project);
 	arr_init(wk->a, &wk->option_overrides, 32, struct option_override);
 
-	wk->binaries = make_obj(wk, obj_dict);
-	wk->host_machine = make_obj(wk, obj_dict);
 	wk->regenerate_deps = make_obj(wk, obj_array);
 	wk->exclude_regenerate_deps = make_obj(wk, obj_array);
 	wk->install = make_obj(wk, obj_array);

@@ -67,7 +67,6 @@ struct workspace {
 	} original_commandline;
 
 	/* Global objects
-	 * These should probably be cleaned up into a separate struct.
 	 * ----------------- */
 
 	obj toolchains[machine_kind_count];
@@ -79,11 +78,6 @@ struct workspace {
 	obj find_program_overrides[machine_kind_count];
 	/* dict[str] */
 	obj machine_properties[machine_kind_count];
-
-	/* TODO host machine dict */
-	obj host_machine;
-	/* TODO binaries dict */
-	obj binaries;
 
 	/* obj_array that tracks files for build regeneration */
 	obj regenerate_deps;
