@@ -954,7 +954,7 @@ create_target(struct workspace *wk,
 			return false;
 		}
 
-		install_tgt->build_target = true;
+		install_tgt->build_target = tgt->type == tgt_executable;
 
 		if (soname_install) {
 			push_install_target_install_dir(wk, soname_install, install_dir, akw[bt_kw_install_mode].val);
