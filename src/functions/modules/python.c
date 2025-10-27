@@ -150,7 +150,7 @@ FUNC_IMPL(module_python, find_installation, tc_python_installation, func_impl_fl
 		return false;
 	}
 
-	bool pure = false;
+	bool pure = true;
 	if (akw[kw_pure].set) {
 		pure = get_obj_bool(wk, akw[kw_pure].val);
 	}
