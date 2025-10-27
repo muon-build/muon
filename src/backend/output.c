@@ -62,7 +62,9 @@ with_open(const char *dir, const char *name, struct workspace *wk, void *ctx, wi
 	TracyCZoneName(tctx_func, buf, strlen(buf));
 #endif
 
-	obj_array_push(wk, wk->backend_output_stack, make_strf(wk, "writing %s", name));
+	if (wk->backend_output_stack) {
+		obj_array_push(wk, wk->backend_output_stack, make_strf(wk, "writing %s", name));
+	}
 	workspace_scratch_begin(wk);
 
 	bool ret = false;
@@ -78,7 +80,9 @@ with_open(const char *dir, const char *name, struct workspace *wk, void *ctx, wi
 	ret = true;
 ret:
 	workspace_scratch_end(wk);
-	obj_array_pop(wk, wk->backend_output_stack);
+	if (wk->backend_output_stack) {
+		obj_array_pop(wk, wk->backend_output_stack);
+	}
 	TracyCZoneEnd(tctx_func);
 	return ret;
 }
