@@ -47,8 +47,26 @@ fs_stat(const char *path, struct stat *sb)
 	return true;
 }
 
+static bool
+fs_mkdir_p_mkdir_recorded(struct workspace *wk, const char *path, obj record)
+{
+	switch (fs_mkdir(path, true)) {
+	case fs_mkdir_result_ok:
+		if (record) {
+			obj_array_push(wk, record, make_str(wk, path));
+		}
+		break;
+	case fs_mkdir_result_exists:
+		break;
+	case fs_mkdir_result_error:
+		return false;
+	}
+
+	return true;
+}
+
 bool
-fs_mkdir_p(struct workspace *wk, const char *path)
+fs_mkdir_p_recorded(struct workspace *wk, const char *path, obj record)
 {
 	uint32_t i, len = strlen(path);
 	TSTR(buf);
@@ -67,18 +85,24 @@ fs_mkdir_p(struct workspace *wk, const char *path)
 	for (; i < len; ++i) {
 		if (buf.buf[i] == PATH_SEP) {
 			buf.buf[i] = 0;
-			if (!fs_mkdir(buf.buf, true)) {
+			if (!fs_mkdir_p_mkdir_recorded(wk, buf.buf, record)) {
 				return false;
 			}
 			buf.buf[i] = PATH_SEP;
 		}
 	}
 
-	if (!fs_mkdir(path, true)) {
+	if (!fs_mkdir_p_mkdir_recorded(wk, path, record)) {
 		return false;
 	}
 
 	return true;
+}
+
+bool
+fs_mkdir_p(struct workspace *wk, const char *path)
+{
+	return fs_mkdir_p_recorded(wk, path, 0);
 }
 
 FILE *

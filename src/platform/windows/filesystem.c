@@ -302,25 +302,25 @@ fs_dir_exists(const char *path)
 	return (fi.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 }
 
-bool
+enum fs_mkdir_result
 fs_mkdir(const char *path, bool exist_ok)
 {
 	if (!CreateDirectory(path, NULL)) {
 		if (exist_ok && GetLastError() == ERROR_ALREADY_EXISTS) {
-			return true;
+			return fs_mkdir_result_exists;
 		}
 		LOG_E("failed to create directory \"%s\": %s", path, win32_error());
-		return false;
+		return fs_mkdir_result_error;
 	}
 
-	return true;
+	return fs_mkdir_result_ok;
 }
 
 bool
 fs_rmdir(const char *path, bool force)
 {
 	if (!RemoveDirectory(path)) {
-		if (force) {
+		if (force && (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND)) {
 			return true;
 		}
 

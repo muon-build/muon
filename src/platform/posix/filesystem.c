@@ -129,26 +129,26 @@ fs_dir_exists(const char *path)
 	return true;
 }
 
-bool
+enum fs_mkdir_result
 fs_mkdir(const char *path, bool exist_ok)
 {
 	if (mkdir(path, 0755) == -1) {
 		if (exist_ok && errno == EEXIST) {
-			return true;
+			return fs_mkdir_result_exists;
 		}
 
 		LOG_E("failed to create directory %s: %s", path, strerror(errno));
-		return false;
+		return fs_mkdir_result_error;
 	}
 
-	return true;
+	return fs_mkdir_result_ok;
 }
 
 bool
 fs_rmdir(const char *path, bool force)
 {
 	if (rmdir(path) == -1) {
-		if (force) {
+		if (force && errno == ENOENT) {
 			return true;
 		}
 
@@ -373,6 +373,10 @@ bool
 fs_remove(const char *path)
 {
 	if (remove(path) != 0) {
+		if (errno == ENOENT) {
+			return true;
+		}
+
 		LOG_E("failed remove(\"%s\"): %s", path, strerror(errno));
 		return false;
 	}
