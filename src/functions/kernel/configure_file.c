@@ -941,9 +941,11 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		if (!akw[kw_install_dir].set) {
 			vm_error_at(wk, akw[kw_install].node, "configure_file installation requires install_dir");
 			return false;
+		} else if (!get_str(wk, akw[kw_install_dir].val)->len) {
+			vm_warning_at(wk, akw[kw_install].node, "skipping configure_file installation: empty string passed for install_dir:");
+		} else {
+			push_install_target_install_dir(wk, output_str, akw[kw_install_dir].val, akw[kw_install_mode].val);
 		}
-
-		push_install_target_install_dir(wk, output_str, akw[kw_install_dir].val, akw[kw_install_mode].val);
 	}
 
 	return true;
