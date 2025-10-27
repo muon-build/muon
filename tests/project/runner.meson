@@ -148,9 +148,6 @@ func check_install()
             if is_windows
                 path += '.exe'
             endif
-        elif f.type == 'pdb' or f.type == 'implib'
-            # muon currently doesn't install pdbs or implibs
-            continue
         elif f.type == 'python_file'
             path = path.replace('@PYTHON_PURELIB@', 'python_purelib')
         elif f.type in 'expr'
@@ -177,7 +174,7 @@ func check_install()
                     path += '.so'
                 endif
             endif
-        elif f.type in ['implibempty']
+        elif f.type in ['implibempty', 'pdb', 'implib']
             # unsupported
             continue
         else
