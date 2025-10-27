@@ -531,7 +531,7 @@ func mkenums_simple(
         capture: true,
         input: sources,
         install: install_header,
-        install_dir: is_null(install_dir) ? '' : install_dir,
+        install_dir: is_null(install_dir) ? get_option('includedir') : install_dir,
         output: name + '.h',
         command: [
             cmd,
