@@ -137,9 +137,8 @@ func check_install()
                 path += '.exe'
             endif
         elif f.type == 'pdb'
-            if not is_windows
-                continue
-            endif
+            # muon currently doesn't install pdbs
+            continue
         elif f.type == 'implib'
             if not is_windows
                 continue
