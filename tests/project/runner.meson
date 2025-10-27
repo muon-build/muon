@@ -156,6 +156,7 @@ func check_install()
         elif f.type in 'expr'
             if '?lib' in path
                 path = path.replace('?lib', 'lib')
+                path = path.replace('usr/lib', 'usr/bin')
             endif
 
             if path.endswith('?so')
