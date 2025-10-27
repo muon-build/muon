@@ -445,14 +445,14 @@ determine_target_build_name(struct workspace *wk,
 	switch (tgt->type) {
 	case tgt_executable:
 		pref = "";
-		if (host_machine.is_windows) {
+		if (machine_definitions[tgt->machine]->is_windows) {
 			suff = "exe";
 		} else {
 			suff = NULL;
 		}
 		break;
 	case tgt_static_library:
-		if (host_machine.sys == machine_system_cygwin) {
+		if (machine_definitions[tgt->machine]->sys == machine_system_cygwin) {
 			pref = "cyg";
 		} else {
 			pref = "lib";
@@ -461,15 +461,15 @@ determine_target_build_name(struct workspace *wk,
 		break;
 	case tgt_shared_module:
 	case tgt_dynamic_library:
-		if (host_machine.sys == machine_system_cygwin) {
+		if (machine_definitions[tgt->machine]->sys == machine_system_cygwin) {
 			pref = "cyg";
-		} else if (host_machine.sys == machine_system_windows) {
+		} else if (machine_definitions[tgt->machine]->sys == machine_system_windows) {
 			pref = "";
 		} else {
 			pref = "lib";
 		}
 
-		if (host_machine.is_windows) {
+		if (machine_definitions[tgt->machine]->is_windows) {
 			suff = "dll";
 			if (sover) {
 				strncpy(ver_dll, get_cstr(wk, sover), sizeof(ver_dll) - 1);
@@ -482,7 +482,7 @@ determine_target_build_name(struct workspace *wk,
 					*ver_dll = 0;
 				}
 			}
-		} else if (host_machine.sys == machine_system_darwin) {
+		} else if (machine_definitions[tgt->machine]->sys == machine_system_darwin) {
 			suff = "dylib";
 		} else {
 			suff = "so";
@@ -504,7 +504,7 @@ determine_target_build_name(struct workspace *wk,
 		suff = get_cstr(wk, name_suff);
 	}
 
-	if (host_machine.is_windows) {
+	if (machine_definitions[tgt->machine]->is_windows) {
 		snprintf(plain_name, BUF_SIZE_2k, "%s%s", pref, get_cstr(wk, tgt->name));
 		tgt->build_name = make_strf(wk,
 			"%s%s%s%s%s",
@@ -665,7 +665,7 @@ create_target(struct workspace *wk,
 		if (akw[bt_kw_export_dynamic].set && get_obj_bool(wk, akw[bt_kw_export_dynamic].val)) {
 			tgt->flags |= build_tgt_flag_export_dynamic;
 
-			if (host_machine.is_windows) {
+			if (machine_definitions[tgt->machine]->is_windows) {
 				if (!setup_implib_and_defs(wk, tgt, plain_name, akw)) {
 					return false;
 				}
@@ -888,7 +888,7 @@ create_target(struct workspace *wk,
 
 	// soname handling
 	if (type & (tgt_dynamic_library | tgt_shared_module)) {
-		if (host_machine.is_windows) {
+		if (machine_definitions[tgt->machine]->is_windows) {
 			setup_dllname(wk, tgt, plain_name, sover, akw[bt_kw_version].val);
 			if (!setup_implib_and_defs(wk, tgt, plain_name, akw)) {
 				return false;
@@ -929,7 +929,7 @@ create_target(struct workspace *wk,
 				break;
 			case tgt_dynamic_library:
 			case tgt_shared_module: {
-				if (host_machine.is_windows) {
+				if (machine_definitions[tgt->machine]->is_windows) {
 					get_option_value(wk, current_project(wk), "bindir", &install_dir);
 				} else {
 					get_option_value(wk, current_project(wk), "libdir", &install_dir);
