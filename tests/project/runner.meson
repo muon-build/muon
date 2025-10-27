@@ -136,13 +136,9 @@ func check_install()
             if is_windows
                 path += '.exe'
             endif
-        elif f.type == 'pdb'
-            # muon currently doesn't install pdbs
+        elif f.type == 'pdb' or f.type == 'implib'
+            # muon currently doesn't install pdbs or implibs
             continue
-        elif f.type == 'implib'
-            if not is_windows
-                continue
-            endif
         elif f.type == 'python_file'
             path = path.replace('@PYTHON_PURELIB@', 'python_purelib')
         elif f.type in 'expr'
