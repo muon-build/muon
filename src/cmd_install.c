@@ -11,6 +11,7 @@
 #include "cmd_install.h"
 #include "error.h"
 #include "functions/environment.h"
+#include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "log.h"
 #include "platform/assert.h"
@@ -19,43 +20,184 @@
 #include "platform/rpath_fixer.h"
 #include "platform/run_cmd.h"
 
-struct copy_subdir_ctx {
+struct install_ctx {
+	struct install_options *opts;
+	obj prefix;
+	obj full_prefix;
+	obj destdir;
+	obj env;
+	obj installed;
+};
+
+enum install_action {
+	install_action_mkdir,
+	install_action_mkdir_p,
+	install_action_copy_file,
+	install_action_make_symlink,
+	install_action_chmod,
+	install_action_fix_rpaths,
+};
+
+static const char *
+install_action_to_s(enum install_action action)
+{
+	switch (action) {
+	case install_action_mkdir: return "mkdir";
+	case install_action_mkdir_p: return "mkdir_p";
+	case install_action_copy_file: return "copy_file";
+	case install_action_make_symlink: return "make_symlink";
+	case install_action_chmod: return "chmod";
+	case install_action_fix_rpaths: return "fix_rpaths";
+	}
+}
+
+static void
+print_install_action(struct workspace *wk, enum install_action action, obj src, obj dest)
+{
+	switch (action) {
+	case install_action_mkdir:
+	case install_action_mkdir_p: obj_lprintf(wk, log_info, "%s %o\n", install_action_to_s(action), dest); break;
+	case install_action_copy_file:
+		obj_lprintf(wk, log_info, "%s %o -> %o\n", install_action_to_s(action), src, dest);
+		break;
+	case install_action_make_symlink:
+		obj_lprintf(wk, log_info, "%s %o\n", install_action_to_s(action), dest);
+		break;
+	case install_action_chmod:
+		LLOG_I("%s %03o", install_action_to_s(action), (int)get_obj_number(wk, src));
+		obj_lprintf(wk, log_info, " %o\n", dest);
+		break;
+	case install_action_fix_rpaths: obj_lprintf(wk, log_info, "%s %o\n", install_action_to_s(action), dest); break;
+	}
+}
+
+static void
+record_install_action(struct workspace *wk, struct install_ctx *ctx, enum install_action action, obj src, obj dest)
+{
+	obj a = make_obj(wk, obj_array);
+	obj_array_push(wk, a, make_number(wk, action));
+	obj_array_push(wk, a, src);
+	obj_array_push(wk, a, dest);
+	obj_array_push(wk, ctx->installed, a);
+
+	print_install_action(wk, action, src, dest);
+}
+
+static bool
+do_install_action(struct workspace *wk,
+	struct install_ctx *ctx,
+	enum install_action action,
+	const char *src,
+	const char *dest,
+	uint32_t flags)
+{
+	if (ctx->opts->dry_run) {
+		LLOG_I("%s", install_action_to_s(action));
+		if (src) {
+			log_print(false, log_info, " %s", src);
+		}
+		if (dest) {
+			log_print(false, log_info, " ->%s", dest);
+		}
+		if (flags) {
+			log_print(false, log_info, " %03o", flags);
+		}
+		log_print(true, log_info, "");
+		return true;
+	}
+
+	switch (action) {
+	case install_action_mkdir:
+	case install_action_mkdir_p: {
+		obj record = make_obj(wk, obj_array);
+		if (!fs_mkdir_p_recorded(wk, dest, record)) {
+			return false;
+		}
+
+		obj v;
+		obj_array_for(wk, record, v) {
+			record_install_action(wk, ctx, install_action_mkdir, 0, v);
+		}
+		break;
+	}
+	case install_action_copy_file:
+		if (!fs_copy_file(wk, src, dest, true)) {
+			return false;
+		}
+
+		record_install_action(wk, ctx, action, make_str(wk, src), make_str(wk, dest));
+		break;
+	case install_action_make_symlink:
+		if (!fs_make_symlink(src, dest, true)) {
+			return false;
+		}
+
+		record_install_action(wk, ctx, action, make_str(wk, src), make_str(wk, dest));
+		break;
+	case install_action_chmod:
+		if (!fs_chmod(dest, flags)) {
+			return false;
+		}
+
+		record_install_action(wk, ctx, action, make_number(wk, flags), make_str(wk, dest));
+		break;
+	case install_action_fix_rpaths:
+		if (ctx->opts->dry_run) {
+			break;
+		} else {
+			if (!fix_rpaths(wk, dest, src)) {
+				return ir_err;
+			}
+
+			record_install_action(wk, ctx, action, make_str(wk, src), make_str(wk, dest));
+		}
+		break;
+	}
+
+	return true;
+}
+
+struct install_dir_ctx {
 	obj exclude_directories;
 	obj exclude_files;
 	bool has_perm;
 	uint32_t perm;
 	const char *src_base, *dest_base;
 	const char *src_root;
+	struct install_ctx *ctx;
 	struct workspace *wk;
 };
 
 static enum iteration_result
-copy_subdir_iter(void *_ctx, const char *path)
+install_dir_iter(void *_ctx, const char *path)
 {
-	struct copy_subdir_ctx *ctx = _ctx;
+	struct install_dir_ctx *ctx = _ctx;
+	struct stat sb;
 	TSTR(src);
 	TSTR(dest);
 
 	path_join(ctx->wk, &src, ctx->src_base, path);
 	path_join(ctx->wk, &dest, ctx->dest_base, path);
 
+	if (!fs_stat(src.buf, &sb)) {
+		return ir_err;
+	}
+
 	TSTR(rel);
 	path_relative_to(ctx->wk, &rel, ctx->src_root, src.buf);
 	obj rel_str = tstr_into_str(ctx->wk, &rel);
 
-	if (fs_dir_exists(src.buf)) {
+	if (S_ISDIR(sb.st_mode)) {
 		if (ctx->exclude_directories && obj_array_in(ctx->wk, ctx->exclude_directories, rel_str)) {
 			LOG_I("skipping dir '%s'", src.buf);
 			return ir_cont;
 		}
 
-		LOG_I("make dir '%s'", dest.buf);
-
-		if (!fs_mkdir(dest.buf, true)) {
+		if (!do_install_action(ctx->wk, ctx->ctx, install_action_mkdir, 0, dest.buf, 0)) {
 			return ir_err;
 		}
 
-		struct copy_subdir_ctx new_ctx = {
+		struct install_dir_ctx new_ctx = {
 			.exclude_directories = ctx->exclude_directories,
 			.exclude_files = ctx->exclude_files,
 			.has_perm = ctx->has_perm,
@@ -63,10 +205,11 @@ copy_subdir_iter(void *_ctx, const char *path)
 			.src_root = ctx->src_root,
 			.src_base = src.buf,
 			.dest_base = dest.buf,
+			.ctx = ctx->ctx,
 			.wk = ctx->wk,
 		};
 
-		if (!fs_dir_foreach(ctx->wk, src.buf, &new_ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(ctx->wk, src.buf, &new_ctx, install_dir_iter)) {
 			return ir_err;
 		}
 	} else if (fs_symlink_exists(src.buf) || fs_file_exists(src.buf)) {
@@ -75,9 +218,7 @@ copy_subdir_iter(void *_ctx, const char *path)
 			return ir_cont;
 		}
 
-		LOG_I("install '%s' -> '%s'", src.buf, dest.buf);
-
-		if (!fs_copy_file(ctx->wk, src.buf, dest.buf, 0)) {
+		if (!do_install_action(ctx->wk, ctx->ctx, install_action_copy_file, src.buf, dest.buf, 0)) {
 			return ir_err;
 		}
 	} else {
@@ -85,20 +226,12 @@ copy_subdir_iter(void *_ctx, const char *path)
 		return ir_err;
 	}
 
-	if (ctx->has_perm && !fs_chmod(dest.buf, ctx->perm)) {
+	if (ctx->has_perm && !do_install_action(ctx->wk, ctx->ctx, install_action_chmod, 0, dest.buf, ctx->perm)) {
 		return ir_err;
 	}
 
 	return ir_cont;
 }
-
-struct install_ctx {
-	struct install_options *opts;
-	obj prefix;
-	obj full_prefix;
-	obj destdir;
-	obj env;
-};
 
 static enum iteration_result
 install_iter(struct workspace *wk, void *_ctx, obj v_id)
@@ -123,26 +256,14 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 		in->type = install_target_emptydir;
 	}
 
-	if ((in->type == install_target_default || in->type == install_target_symlink) && !fs_exists(src)) {
+	if ((in->type == install_target_default) && !fs_exists(src)) {
 		LOG_W("src '%s' does not exist, skipping", src);
 		return ir_cont;
 	}
 
 	switch (in->type) {
-	case install_target_default: LOG_I("install '%s' -> '%s'", src, dest); break;
-	case install_target_subdir: LOG_I("install subdir '%s' -> '%s'", src, dest); break;
-	case install_target_symlink: LOG_I("install symlink '%s' -> '%s'", dest, src); break;
-	case install_target_emptydir: LOG_I("install emptydir '%s'", dest); break;
-	default: UNREACHABLE_RETURN;
-	}
-
-	if (ctx->opts->dry_run) {
-		return ir_cont;
-	}
-
-	switch (in->type) {
 	case install_target_default:
-	case install_target_symlink:
+	case install_target_symlink: {
 		path_dirname(wk, &dest_dirname, dest);
 
 		if (fs_exists(dest_dirname.buf) && !fs_dir_exists(dest_dirname.buf)) {
@@ -150,38 +271,55 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			return ir_err;
 		}
 
-		if (!fs_mkdir_p(wk, dest_dirname.buf)) {
+		if (!do_install_action(wk, ctx, install_action_mkdir_p, 0, dest_dirname.buf, 0)) {
 			return ir_err;
 		}
 
 		if (in->type == install_target_default) {
 			if (fs_dir_exists(src)) {
-				if (!fs_copy_dir(wk, src, dest, true)) {
+				if (!do_install_action(wk, ctx, install_action_mkdir_p, 0, dest, 0)) {
+					return ir_err;
+				}
+
+				struct install_dir_ctx dir_ctx = {
+					.exclude_directories = in->exclude_directories,
+					.exclude_files = in->exclude_files,
+					.has_perm = in->has_perm,
+					.perm = in->perm,
+					.src_root = src,
+					.src_base = src,
+					.dest_base = dest,
+					.ctx = ctx,
+					.wk = wk,
+				};
+
+				if (!fs_dir_foreach(wk, src, &dir_ctx, install_dir_iter)) {
 					return ir_err;
 				}
 			} else {
-				if (!fs_copy_file(wk, src, dest, true)) {
+				if (!do_install_action(wk, ctx, install_action_copy_file, src, dest, 0)) {
 					return ir_err;
 				}
 			}
 
 			if (in->build_target) {
-				if (!fix_rpaths(wk, dest, wk->build_root)) {
+				if (!do_install_action(wk, ctx, install_action_fix_rpaths, wk->build_root, dest, 0)) {
 					return ir_err;
 				}
 			}
 		} else {
-			if (!fs_make_symlink(src, dest, true)) {
+			if (!do_install_action(wk, ctx, install_action_make_symlink, src, dest, 0)) {
 				return ir_err;
 			}
 		}
 		break;
-	case install_target_subdir:
-		if (!fs_mkdir_p(wk, dest)) {
+	}
+	case install_target_subdir: {
+		if (!do_install_action(wk, ctx, install_action_mkdir_p, 0, dest, 0)) {
 			return ir_err;
 		}
 
-		struct copy_subdir_ctx ctx = {
+		struct install_dir_ctx dir_ctx = {
 			.exclude_directories = in->exclude_directories,
 			.exclude_files = in->exclude_files,
 			.has_perm = in->has_perm,
@@ -189,22 +327,25 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 			.src_root = src,
 			.src_base = src,
 			.dest_base = dest,
+			.ctx = ctx,
 			.wk = wk,
 		};
 
-		if (!fs_dir_foreach(wk, src, &ctx, copy_subdir_iter)) {
+		if (!fs_dir_foreach(wk, src, &dir_ctx, install_dir_iter)) {
 			return ir_err;
 		}
 		break;
-	case install_target_emptydir:
-		if (!fs_mkdir_p(wk, dest)) {
+	}
+	case install_target_emptydir: {
+		if (!do_install_action(wk, ctx, install_action_mkdir_p, 0, dest, 0)) {
 			return ir_err;
 		}
 		break;
+	}
 	default: UNREACHABLE_RETURN;
 	}
 
-	if (in->has_perm && !fs_chmod(dest, in->perm)) {
+	if (in->has_perm && !do_install_action(wk, ctx, install_action_chmod, 0, dest, in->perm)) {
 		return ir_err;
 	}
 
@@ -284,12 +425,123 @@ err:
 	return ir_err;
 }
 
+static bool
+do_uninstall(struct workspace *wk, struct install_ctx *ctx, struct install_options *opts)
+{
+	TSTR(installed_src);
+	path_join(wk, &installed_src, output_path.private_dir, output_path.paths[output_path_installed].path);
+
+	if (!fs_file_exists(installed_src.buf)) {
+		LOG_E("unable to find record of previous install at %s", installed_src.buf);
+		return false;
+	}
+
+	obj installed;
+	if (!serial_load_from_private_dir(wk, &installed, output_path.paths[output_path_installed].path)) {
+		return false;
+	}
+
+	uint32_t installed_len = get_obj_array(wk, installed)->len;
+
+	if (!installed_len) {
+		LOG_I("nothing to uninstall");
+		return true;
+	}
+
+	struct uninstall_elem {
+		obj record;
+		bool ok;
+	};
+
+	struct arr installed_arr = { 0 };
+	arr_init(wk->a_scratch, &installed_arr, installed_len, struct uninstall_elem);
+
+	obj v;
+	obj_array_for(wk, installed, v) {
+		arr_push(wk->a_scratch, &installed_arr, &(struct uninstall_elem) { .record = v, .ok = true });
+	}
+
+	bool all_ok = true;
+	obj action_dedup = make_obj(wk, obj_dict);
+
+	for (int32_t i = installed_arr.len - 1; i >= 0; --i) {
+		struct uninstall_elem *e = arr_get(&installed_arr, i);
+		enum install_action action = get_obj_number(wk, obj_array_index(wk, e->record, 0));
+		obj d = obj_array_index(wk, e->record, 2);
+		const char *dest = get_cstr(wk, d);
+
+		// print_install_action(wk, action, obj_array_index(wk, e->record, 1), d);
+		// LOG_I("");
+
+		bool ok = true;
+
+		switch (action) {
+		case install_action_mkdir_p:
+		case install_action_mkdir:
+			LOG_I("rmdir %s", dest);
+			if (!opts->dry_run && !fs_rmdir(dest, true)) {
+				ok = false;
+			}
+			break;
+		case install_action_make_symlink:
+		case install_action_copy_file:
+			if (obj_dict_in(wk, action_dedup, d)) {
+				continue;
+			}
+			obj_dict_set(wk, action_dedup, d, obj_bool_true);
+
+			LOG_I("rm %s", dest);
+			if (!opts->dry_run && !fs_remove(dest)) {
+				ok = false;
+			}
+			break;
+		case install_action_chmod:
+		case install_action_fix_rpaths:
+			/* no-op */
+			break;
+		}
+
+		if (!ok) {
+			e->ok = false;
+			all_ok = false;
+		}
+	}
+
+	for (uint32_t i = 0; i < installed_arr.len; ++i) {
+		struct uninstall_elem *e = arr_get(&installed_arr, i);
+		if (!e->ok) {
+			obj_array_push(wk, ctx->installed, e->record);
+		}
+	}
+
+	return all_ok;
+}
+
+static bool
+write_installed(struct workspace *wk, void *_ctx, FILE *out)
+{
+	struct install_ctx *ctx = _ctx;
+	return serial_dump(wk, ctx->installed, out);
+}
+
 bool
 install_run(struct workspace *wk, struct install_options *opts)
 {
 	bool ret = false;
 	TSTR(install_src);
 	path_join(wk, &install_src, output_path.private_dir, output_path.paths[output_path_install].path);
+
+	struct install_ctx ctx = {
+		.opts = opts,
+		.installed = make_obj(wk, obj_array),
+	};
+
+	if (opts->uninstall) {
+		if (!(ret = do_uninstall(wk, &ctx, opts))) {
+			LOG_E("uninstall finished with errors");
+		}
+		goto ret;
+	}
 
 	FILE *f;
 	f = fs_fopen(install_src.buf, "rb");
@@ -305,10 +557,6 @@ install_run(struct workspace *wk, struct install_options *opts)
 	} else if (!fs_fclose(f)) {
 		goto ret;
 	}
-
-	struct install_ctx ctx = {
-		.opts = opts,
-	};
 
 	obj install_targets, install_scripts, source_root;
 	install_targets = obj_array_index(wk, install, 0);
@@ -344,5 +592,10 @@ install_run(struct workspace *wk, struct install_options *opts)
 
 	ret = true;
 ret:
+	if (!with_open(
+		    output_path.private_dir, output_path.paths[output_path_installed].path, wk, &ctx, write_installed)) {
+		ret = false;
+	}
+
 	return ret;
 }

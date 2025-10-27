@@ -20,6 +20,7 @@ const struct output_path output_path = {
 		[output_path_summary] = { "summary.txt" },
 		[output_path_tests] = { "tests.dat" },
 		[output_path_install] = { "install.dat" },
+		[output_path_installed] = { "installed.dat" },
 		[output_path_compiler_check_cache] = { "compiler_check_cache.dat", .is_cache = true },
 		[output_path_option_info] = { "option_info.dat" },
 		[output_path_debug_log] = { "setup.log" },

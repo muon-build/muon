@@ -955,14 +955,16 @@ cmd_install(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 		.destdir = os_get_env("DESTDIR"),
 	};
 
-	OPTSTART("nd:") {
+	OPTSTART("nd:U") {
 	case 'n': opts.dry_run = true; break;
 	case 'd': opts.destdir = optarg; break;
+	case 'U': opts.uninstall = true; break;
 	}
 	OPTEND(argv[argi],
 		"",
 		"  -n - dry run\n"
-		"  -d <destdir> - set destdir\n",
+		"  -d <destdir> - set destdir\n"
+		"  -U - uninstall\n",
 		NULL,
 		0)
 

@@ -9,7 +9,7 @@
 
 struct install_options {
 	const char *destdir;
-	bool dry_run;
+	bool dry_run, uninstall;
 };
 
 struct workspace;

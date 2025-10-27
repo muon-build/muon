@@ -17,6 +17,7 @@ enum output_path_name {
 	output_path_summary,
 	output_path_tests,
 	output_path_install,
+	output_path_installed,
 	output_path_compiler_check_cache,
 	output_path_option_info,
 	output_path_debug_log,

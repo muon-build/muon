@@ -182,6 +182,8 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*OPTIONS*:
 	- *-n* - dry run
 	- *-d* <destdir> - set destdir
+	- *-U* - Uninstall files instead of installing them.  This works based on a
+	  record of what was installed during a previous *muon* *install* run
 
 ## internal
 	*muon* *internal* <command> [<args>]
