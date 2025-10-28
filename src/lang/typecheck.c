@@ -536,6 +536,11 @@ complex_type_enum_get(struct workspace *wk, enum complex_type_preset t)
 			str_enum_add_type_value(wk, e, "posix");
 			str_enum_add_type_value(wk, e, "cmd");
 			break;
+		case tc_cx_enum_toolchain_component:
+			str_enum_add_type_value(wk, e, "compiler");
+			str_enum_add_type_value(wk, e, "linker");
+			str_enum_add_type_value(wk, e, "static_linker");
+			break;
 		default: UNREACHABLE_RETURN;
 		}
 	}
@@ -574,6 +579,7 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
 				make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
 		break;
+	case tc_cx_enum_toolchain_component:
 	case tc_cx_enum_shell:
 	case tc_cx_enum_machine_system:
 	case tc_cx_enum_machine_subsystem:
@@ -594,6 +600,16 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 			complex_type_or,
 			tc_file | tc_external_program | tc_build_target | tc_custom_target | tc_python_installation,
 			make_complex_type(wk, complex_type_nested, tc_array, tc_string));
+		break;
+	}
+	case tc_cx_toolchain_overrides: {
+		tag = make_complex_type(wk,
+			complex_type_nested,
+			tc_dict,
+			make_complex_type(wk,
+				complex_type_or,
+				tc_capture,
+				make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
 		break;
 	}
 	default: UNREACHABLE;

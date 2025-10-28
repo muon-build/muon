@@ -2358,87 +2358,9 @@ FUNC_IMPL(compiler, version, tc_string, func_impl_flag_impure)
 	return true;
 }
 
-static bool
-validate_toolchain_handlers(struct workspace *wk, obj handlers, enum toolchain_component component)
-{
-	const struct toolchain_arg_handler *handler;
-	obj k, v;
-	obj_dict_for(wk, handlers, k, v) {
-		if (!(handler = get_toolchain_arg_handler_info(component, get_cstr(wk, k)))) {
-			vm_error(wk, "unknown toolchain function %o", k);
-			return false;
-		}
-
-		if (get_obj_type(wk, v) != obj_capture) {
-			continue;
-		}
-
-		struct obj_func *f = get_obj_capture(wk, v)->func;
-		if (f->nkwargs) {
-			vm_error(wk, "toolchain function %o has an invalid signature: accepts kwargs", k);
-			return false;
-		} else if (!type_tags_eql(wk,
-				   f->return_type,
-				   make_complex_type(wk, complex_type_nested, tc_array, tc_string))) {
-			vm_error(
-				wk, "toolchain function %o has an invalid signature: return type must be list[str]", k);
-			return false;
-		}
-
-		type_tag expected_sig[2];
-		uint32_t expected_sig_len;
-		toolchain_arg_arity_to_sig(handler->arity, expected_sig, &expected_sig_len);
-
-		bool sig_valid;
-		switch (f->nargs) {
-		case 0: {
-			sig_valid = expected_sig_len == 0;
-			break;
-		}
-		case 1: {
-			sig_valid = expected_sig_len == 1 && expected_sig[0] == f->an[0].type;
-			break;
-		}
-		case 2: {
-			sig_valid = expected_sig_len == 2 && expected_sig[0] == f->an[0].type
-				    && expected_sig[1] == f->an[1].type;
-			break;
-		}
-		default: sig_valid = false;
-		}
-
-		if (!sig_valid) {
-			obj expected = make_str(wk, "(");
-			uint32_t i;
-			for (i = 0; i < expected_sig_len; ++i) {
-				str_app(wk, &expected, typechecking_type_to_s(wk, expected_sig[i]));
-				if (i + 1 < expected_sig_len) {
-					str_app(wk, &expected, ", ");
-				}
-			}
-			str_app(wk, &expected, ")");
-
-			vm_error(wk,
-				"toolchain function %o has an invalid signature: expected signature: %#o",
-				k,
-				expected);
-			return false;
-		}
-	}
-	return true;
-}
-
 FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 {
-	type_tag override_type = make_complex_type(wk,
-		complex_type_nested,
-		tc_dict,
-		make_complex_type(wk,
-			complex_type_or,
-			tc_capture,
-			make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
-
-	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { complex_type_preset_get(wk, tc_cx_enum_toolchain_component) }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_overwrite,
 		kw_cmd_array,
@@ -2449,7 +2371,7 @@ FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 	struct args_kw akw[] = {
 		[kw_overwrite] = { "overwrite", tc_bool },
 		[kw_cmd_array] = { "cmd_array", TYPE_TAG_LISTIFY | tc_string },
-		[kw_handlers] = { "handlers", override_type },
+		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_override_find_program) },
 		[kw_libdirs] = { "libdirs", TYPE_TAG_LISTIFY | tc_string },
 		[kw_version] = { "version", tc_string },
 		0,
@@ -2467,13 +2389,13 @@ FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 	struct obj_compiler *c = get_obj_compiler(wk, self);
 
 	if (akw[kw_handlers].set) {
+		if (!toolchain_overrides_validate(wk, akw[kw_handlers].val, component)) {
+			return false;
+		}
+
 		obj *overrides = &c->overrides[component];
 
 		bool overwrite = akw[kw_overwrite].set ? get_obj_bool(wk, akw[kw_overwrite].val) : *overrides == 0;
-
-		if (!validate_toolchain_handlers(wk, akw[kw_handlers].val, component)) {
-			return false;
-		}
 
 		if (overwrite) {
 			*overrides = akw[kw_handlers].val;

@@ -102,7 +102,8 @@ FUNC_IMPL(module_toolchain,
 	return true;
 }
 
-static void module_toolchain_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
+static void
+module_toolchain_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
 {
 	obj_dict_set(wk, d, make_str(wk, key), val->len ? make_strn(wk, val->s, val->len) : make_str(wk, "unknown"));
 }
@@ -126,10 +127,52 @@ FUNC_IMPL(module_toolchain, parse_triple, tc_dict, .desc = "parse a target tripl
 	return true;
 }
 
+FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain type")
+{
+	struct args_norm an[] = {
+		{ tc_string },
+		{ complex_type_preset_get(wk, tc_cx_enum_toolchain_component) },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_overwrite,
+		kw_cmd_array,
+		kw_handlers,
+		kw_libdirs,
+		kw_version,
+	};
+	struct args_kw akw[] = {
+		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_override_find_program) },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	obj name = an[0].val;
+
+	uint32_t component;
+	if (!toolchain_component_from_s(get_cstr(wk, an[1].val), &component)) {
+		vm_error(wk, "unknown toolchain component %o", an[1].val);
+		return false;
+	}
+
+	if (akw[kw_handlers].set) {
+		if (!toolchain_overrides_validate(wk, akw[kw_handlers].val, component)) {
+			return false;
+		}
+	}
+
+	// Do something
+
+	return true;
+}
+
 FUNC_REGISTER(module_toolchain)
 {
 	if (lang_mode == language_internal) {
 		FUNC_IMPL_REGISTER(module_toolchain, create);
 		FUNC_IMPL_REGISTER(module_toolchain, parse_triple);
+		FUNC_IMPL_REGISTER(module_toolchain, register);
 	}
 }
