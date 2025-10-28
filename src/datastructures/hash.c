@@ -8,8 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <stdio.h> // TODO
-
 #include "arena.h"
 #include "datastructures/hash.h"
 #include "datastructures/seg_list.h"
@@ -257,7 +255,7 @@ hash_get_strn(const struct hash *h, const char *str, uint64_t len)
 	return hash_get(h, &key);
 }
 
-void
+bool
 hash_unset(struct hash *h, const void *key)
 {
 	struct hash_elem *he;
@@ -266,19 +264,53 @@ hash_unset(struct hash *h, const void *key)
 
 	probe(h, key, &he, &meta, &hv);
 
+	bool found = false;
+
 	if (k_full(*meta)) {
+		found = true;
 		*meta = k_deleted;
+
+		/* When a value is unset, delete its corresponding key.  Since the
+		 * deletion swaps the deleted key with the key in tail postion, unless
+		 * the deleted key is in tail position already, we need to scan the
+		 * hash elem array to find the hash element that references the tail
+		 * key and fix it's keyi value.
+		 */
+		const uint64_t old_key_idx = he->keyi;
+		*he = (struct hash_elem){ 0 };
+		const uint64_t tail_key_idx = h->keys.len - 1;
+		assert(h->keys.len == h->len);
+
+		if (tail_key_idx != old_key_idx) {
+			for (uint64_t i = 0; i < h->cap; ++i) {
+				if (!k_full(*sl_get(&h->meta, i, uint8_t))) {
+					continue;
+				}
+
+				he = sl_get(&h->e, i, struct hash_elem);
+				if (he->keyi == tail_key_idx) {
+					break;
+				}
+			}
+
+			assert(he->keyi == tail_key_idx && "hash elem with tail key index not found?");
+			he->keyi = old_key_idx;
+		}
+
+		sl_del_(sl_cast(&h->keys), old_key_idx, h->key_size);
 		--h->len;
 	}
 
 	assert(hash_get(h, key) == NULL);
+
+	return found;
 }
 
-void
+bool
 hash_unset_strn(struct hash *h, const char *s, uint64_t len)
 {
 	struct strkey key = { .str = s, .len = len };
-	hash_unset(h, &key);
+	return hash_unset(h, &key);
 }
 
 void

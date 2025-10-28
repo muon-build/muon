@@ -1481,26 +1481,27 @@ obj_dict_set(struct workspace *wk, obj dict, obj key, obj val)
 	obj_dict_set_impl(wk, dict, &k, obj_dict_key_comparison_func_string, key, val);
 }
 
-static void
+static bool
 _obj_dict_del(struct workspace *wk, obj dict, union obj_dict_key_comparison_key *key, obj_dict_key_comparison_func comp)
 {
 	obj_dict_copy_on_write(wk, dict);
 
 	struct obj_dict *d = get_obj_dict(wk, dict);
 	if (!d->len) {
-		return;
+		return false;
 	}
 
 	if (d->flags & obj_dict_flag_big) {
 		struct hash *h = bucket_arr_get(&wk->vm.objects.dict_hashes, d->data);
 
+		bool found;
 		if (d->flags & obj_dict_flag_int_key) {
-			hash_unset(h, &key->num);
+			found = hash_unset(h, &key->num);
 		} else {
-			hash_unset_strn(h, key->string.s, key->string.len);
+			found = hash_unset_strn(h, key->string.s, key->string.len);
 		}
 
-		return;
+		return found;
 	}
 
 	uint32_t cur_id = d->data, prev_id = 0;
@@ -1522,7 +1523,7 @@ _obj_dict_del(struct workspace *wk, obj dict, union obj_dict_key_comparison_key 
 	}
 
 	if (!found) {
-		return;
+		return false;
 	}
 
 	--d->len;
@@ -1537,29 +1538,31 @@ _obj_dict_del(struct workspace *wk, obj dict, union obj_dict_key_comparison_key 
 			prev->next = 0;
 		}
 	}
+
+	return true;
 }
 
-void
+bool
 obj_dict_del_strn(struct workspace *wk, obj dict, const char *str, uint32_t len)
 {
 	union obj_dict_key_comparison_key key = { .string = {
 							  .s = str,
 							  .len = len,
 						  } };
-	_obj_dict_del(wk, dict, &key, obj_dict_key_comparison_func_string);
+	return _obj_dict_del(wk, dict, &key, obj_dict_key_comparison_func_string);
 }
 
-void
+bool
 obj_dict_del_str(struct workspace *wk, obj dict, const char *str)
 {
-	obj_dict_del_strn(wk, dict, str, strlen(str));
+	return obj_dict_del_strn(wk, dict, str, strlen(str));
 }
 
-void
+bool
 obj_dict_del(struct workspace *wk, obj dict, obj key)
 {
 	const struct str *k = get_str(wk, key);
-	obj_dict_del_strn(wk, dict, k->s, k->len);
+	return obj_dict_del_strn(wk, dict, k->s, k->len);
 }
 
 /* dict convienence functions */

@@ -60,14 +60,17 @@ FUNC_IMPL(dict, get, tc_any)
 	return true;
 }
 
-FUNC_IMPL(dict, delete, 0, func_impl_flag_impure)
+FUNC_IMPL(dict, delete, 0, func_impl_flag_impure, .desc = "Delete a key from a dictionary.  Note that this mutates the underlying dictionary and also may reorder its keys.")
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	obj_dict_del(wk, self, an[0].val);
+	if (!obj_dict_del(wk, self, an[0].val)) {
+		vm_error_at(wk, an[0].node, "key not in dictionary: '%s'", get_cstr(wk, an[0].val));
+		return false;
+	}
 	return true;
 }
 

@@ -72,24 +72,29 @@ sl_get_(struct slist *sl, uint32_t i, uint32_t item_size)
 	return ((char *)sl->segments[seg]) + item_size * slot;
 }
 
-void sl_grow_to_(struct arena *a, struct slist *sl, uint32_t size, uint32_t item_size, uint32_t item_align, uint32_t max_segments)
+void
+sl_grow_to_(struct arena *a,
+	struct slist *sl,
+	uint32_t size,
+	uint32_t item_size,
+	uint32_t item_align,
+	uint32_t max_segments)
 {
 	sl->len += size;
 	const uint32_t new_segs_used = sl_segment_count_for_capacity(sl->len);
 	assert(new_segs_used <= max_segments);
 	for (; sl->segs_used < new_segs_used; ++sl->segs_used) {
-		sl->segments[sl->segs_used]
-			= ar_alloc(a, sl_slots_in_segment(sl->segs_used), item_size, item_align);
+		sl->segments[sl->segs_used] = ar_alloc(a, sl_slots_in_segment(sl->segs_used), item_size, item_align);
 	}
 }
 
-void *sl_alloc_(struct arena *a, struct slist *sl, uint32_t item_size, uint32_t item_align, uint32_t max_segments)
+void *
+sl_alloc_(struct arena *a, struct slist *sl, uint32_t item_size, uint32_t item_align, uint32_t max_segments)
 {
 	// create the next segment if needed
 	if (sl->len >= sl_capacity_for_segment_count(sl->segs_used)) {
 		assert(sl->segs_used < max_segments);
-		sl->segments[sl->segs_used]
-			= ar_alloc(a, sl_slots_in_segment(sl->segs_used), item_size, item_align);
+		sl->segments[sl->segs_used] = ar_alloc(a, sl_slots_in_segment(sl->segs_used), item_size, item_align);
 		++sl->segs_used;
 	}
 
@@ -97,7 +102,13 @@ void *sl_alloc_(struct arena *a, struct slist *sl, uint32_t item_size, uint32_t 
 	return sl_get_(sl, sl->len - 1, item_size);
 }
 
-void *sl_push_(struct arena *a, struct slist *sl, const void *e, uint32_t item_size, uint32_t item_align, uint32_t max_segments)
+void *
+sl_push_(struct arena *a,
+	struct slist *sl,
+	const void *e,
+	uint32_t item_size,
+	uint32_t item_align,
+	uint32_t max_segments)
 {
 	void *r = sl_alloc_(a, sl, item_size, item_align, max_segments);
 	memcpy(r, e, item_size);
@@ -116,4 +127,28 @@ sl_memset_(struct slist *sl, uint8_t c)
 	for (uint32_t i = 0; i < sl->segs_used; ++i) {
 		memset(sl->segments[i], c, sl_slots_in_segment(i));
 	}
+}
+
+void
+sl_pop_(struct slist *sl)
+{
+	assert(sl->len);
+	--sl->len;
+
+	const uint32_t slot = sl->len - sl_capacity_for_segment_count(sl->segs_used);
+	if (slot == 0) {
+		--sl->segs_used;
+	}
+}
+
+void
+sl_del_(struct slist *sl, uint64_t i, uint32_t item_size)
+{
+	if (i != sl->len - 1) {
+		void *cur = sl_get_(sl, i, item_size);
+		void *tail = sl_get_(sl, sl->len - 1, item_size);
+		memcpy(cur, tail, item_size);
+	}
+
+	sl_pop_(sl);
 }

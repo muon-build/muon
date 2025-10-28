@@ -67,6 +67,8 @@ void *sl_alloc_(struct arena *a, struct slist *sl, uint32_t item_size, uint32_t 
 void *sl_push_(struct arena *a, struct slist *sl, const void *e, uint32_t item_size, uint32_t item_align, uint32_t max_segments);
 #define sl_push(__a, __sl, __e, __type) (__type *)sl_push_(__a, sl_cast(__sl), __e, sizeof(__type), ar_alignof(__type), ARRAY_LEN((__sl)->segments))
 
+void sl_del_(struct slist *sl, uint64_t i, uint32_t item_size);
+#define sl_del(__sl, __i, __type) sl_del_(sl_cast(__sl), __i, sizeof(__type))
 void sl_clear_(struct slist *sl);
 #define sl_clear(__sl) sl_clear_(sl_cast(__sl))
 void sl_memset_(struct slist *sl, uint8_t c);
