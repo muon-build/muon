@@ -17,6 +17,7 @@
 #include "functions/kernel/build_target.h"
 #include "functions/kernel/dependency.h"
 #include "install.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "machines.h"
@@ -881,6 +882,19 @@ create_target(struct workspace *wk,
 			obj_dict_seti(wk, tgt->pch, pch_args[i].l, pch);
 
 			build_tgt_inc_required_compiler(wk, tgt, pch_args[i].l);
+		}
+	}
+
+	{ // Verify required compilers
+		obj k, _v;
+		obj_dict_for(wk, tgt->required_compilers, k, _v) {
+			enum compiler_language lang = k;
+			if (!obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], lang, &_v)) {
+				vm_error(wk, "no %s compiler defined for language %s",
+					machine_kind_to_s(tgt->machine),
+					compiler_language_to_s(lang));
+				return false;
+			}
 		}
 	}
 
