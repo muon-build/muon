@@ -118,6 +118,7 @@ enum feature_opt_state {
 	_(curl, "private/curl", true)                                           \
 	_(windows, "public/windows", true)                                      \
 	_(json, "private/json", true)                                           \
+	_(util, "private/util", true)                                           \
 	_(cmake, "public/cmake", false)                                         \
 	_(dlang, "public/dlang", false)                                         \
 	_(gnome, "public/gnome", false)                                         \

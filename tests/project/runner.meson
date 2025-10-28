@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 fs = import('fs')
+util = import('util')
 
 func banner(msg str)
     print(
@@ -49,7 +50,7 @@ if not skip_analyze
     if analyze_result.returncode() != 0
         print(analyze_result.stdout())
         print(analyze_result.stderr())
-        exit(analyze_result.returncode())
+        util.exit(analyze_result.returncode())
     endif
 endif
 
@@ -66,7 +67,7 @@ setup_result = run_command(
     '-vC', source,
     'setup',
     '-Dprefix=/usr',
-    '-Denv.NINJA=' + repr(ninja),
+    '-Denv.NINJA=' + util.repr(ninja),
     extra_setup_opts,
     build,
 )
@@ -76,15 +77,15 @@ if setup_result.returncode() != 0
     print(setup_result.stderr())
 
     if 'MESON_SKIP_TEST' in setup_result.stdout() or failing
-        exit(skip_exit_code.to_int())
+        util.exit(skip_exit_code.to_int())
     else
-        exit(setup_result.returncode())
+        util.exit(setup_result.returncode())
     endif
 endif
 
 if failing
     print('test was marked failing but did not fail')
-    exit(99)
+    util.exit(99)
 endif
 
 banner('build')

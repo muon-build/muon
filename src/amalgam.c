@@ -81,6 +81,7 @@
 #include "functions/modules/sourceset.c"
 #include "functions/modules/subprojects.c"
 #include "functions/modules/toolchain.c"
+#include "functions/modules/util.c"
 #include "functions/number.c"
 #include "functions/run_result.c"
 #include "functions/source_configuration.c"

@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "args.h"
@@ -29,7 +28,6 @@
 #include "functions/string.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
-#include "lang/serial.h"
 #include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
@@ -2154,80 +2152,6 @@ FUNC_IMPL(kernel, p, tc_any, func_impl_flag_extension)
 	return true;
 }
 
-FUNC_IMPL(kernel, repr, tc_string, .desc = "return a string representing the passed object")
-{
-	struct args_norm an[] = { { tc_any | TYPE_TAG_ALLOW_NULL }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, 0)) {
-		return false;
-	}
-
-	TSTR(buf);
-	obj_to_s(wk, an[0].val, &buf);
-
-	*res = tstr_into_str(wk, &buf);
-	return true;
-}
-
-FUNC_IMPL(kernel, serial_load, tc_any)
-{
-	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	obj str;
-	coerce_string(wk, an[0].node, an[0].val, &str);
-
-	FILE *f;
-	if (str_eql(get_str(wk, str), &STR("-"))) {
-		f = stdin;
-	} else if (!(f = fs_fopen(get_cstr(wk, str), "rb"))) {
-		return false;
-	}
-
-	bool ret = false;
-	if (!serial_load(wk, res, f)) {
-		goto ret;
-	}
-
-	if (!fs_fclose(f)) {
-		goto ret;
-	}
-
-	ret = true;
-ret:
-	return ret;
-}
-
-FUNC_IMPL(kernel, serial_dump, .flags = func_impl_flag_sandbox_disable)
-{
-	struct args_norm an[] = { { tc_string | tc_file }, { tc_any }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	obj str;
-	coerce_string(wk, an[0].node, an[0].val, &str);
-
-	FILE *f;
-	if (!(f = fs_fopen(get_cstr(wk, str), "wb"))) {
-		return false;
-	}
-
-	bool ret = false;
-	if (!serial_dump(wk, an[1].val, f)) {
-		goto ret;
-	}
-
-	if (!fs_fclose(f)) {
-		goto ret;
-	}
-
-	ret = true;
-ret:
-	return ret;
-}
-
 FUNC_IMPL(kernel, is_null, tc_bool, true)
 {
 	struct args_norm an[] = { { TYPE_TAG_ALLOW_NULL | tc_any }, ARG_TYPE_NULL };
@@ -2252,46 +2176,6 @@ FUNC_IMPL(kernel, typeof, tc_string, true)
 	}
 
 	*res = make_str(wk, obj_type_to_s(get_obj_type(wk, an[0].val)));
-
-	return true;
-}
-
-FUNC_IMPL(kernel, exit, 0)
-{
-	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	exit(get_obj_number(wk, an[0].val));
-
-	return true;
-}
-
-FUNC_IMPL(kernel,
-	create_enum,
-	tc_string,
-	true,
-	.desc
-	= "Create a string enum.  The resulting string will warn if it is compared against a value that it can never contain.")
-{
-	struct args_norm an[] = {
-		{ tc_string, .desc = "The value for this enum" },
-		{ TYPE_TAG_LISTIFY | tc_string, "The list of possible values for this enum" },
-		ARG_TYPE_NULL,
-	};
-	if (!pop_args(wk, an, NULL)) {
-		return false;
-	}
-
-	const struct str *s = get_str(wk, an[0].val);
-
-	if (!obj_array_in(wk, an[1].val, an[0].val)) {
-		vm_error_at(wk, an[0].node, "value %o not in list of values", an[0].val);
-		return false;
-	}
-
-	*res = make_strn_enum(wk, s->s, s->len, an[1].val);
 
 	return true;
 }
@@ -2369,14 +2253,9 @@ FUNC_REGISTER(kernel)
 		FUNC_IMPL_REGISTER(kernel, warning);
 
 		FUNC_IMPL_REGISTER(kernel, p);
-		FUNC_IMPL_REGISTER(kernel, repr);
 		FUNC_IMPL_REGISTER(kernel, print);
-		FUNC_IMPL_REGISTER(kernel, serial_load);
-		FUNC_IMPL_REGISTER(kernel, serial_dump);
 		FUNC_IMPL_REGISTER(kernel, is_null);
 		FUNC_IMPL_REGISTER(kernel, typeof);
-		FUNC_IMPL_REGISTER(kernel, exit);
-		FUNC_IMPL_REGISTER(kernel, create_enum);
 	} else if (lang_mode == language_opts) {
 		FUNC_REGISTER_INHERIT(kernel_options, 0);
 

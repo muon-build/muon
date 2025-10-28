@@ -62,6 +62,7 @@ src = files(
     'functions/modules/sourceset.c',
     'functions/modules/subprojects.c',
     'functions/modules/toolchain.c',
+    'functions/modules/util.c',
     'functions/number.c',
     'functions/run_result.c',
     'functions/source_configuration.c',
