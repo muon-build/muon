@@ -1028,12 +1028,12 @@ tstr_vpushf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list args
 	va_list args_copy;
 	va_copy(args_copy, args);
 
-	len = vsnprintf(NULL, 0, fmt, args_copy);
+	len = vsnprintf(NULL, 0, fmt, args_copy) + 1;
 
 	tstr_grow(wk, sb, len);
 
-	vsnprintf(&sb->buf[sb->len], len + 1, fmt, args);
-	sb->len += len;
+	vsnprintf(&sb->buf[sb->len], len, fmt, args);
+	sb->len += len - 1;
 
 	va_end(args_copy);
 }
