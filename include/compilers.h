@@ -314,7 +314,7 @@ void compilers_init(void);
 
 const struct toolchain_arg_handler *get_toolchain_arg_handler_info(enum toolchain_component component,
 	const char *name);
-void toolchain_arg_arity_to_sig(enum toolchain_arg_arity arity, type_tag signature[2], uint32_t *len);
+bool toolchain_overrides_validate(struct workspace *wk, obj handlers, enum toolchain_component component);
 
 struct toolchain_dump_opts {
 	const char *s1, *s2;

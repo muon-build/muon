@@ -2,7 +2,6 @@
  * SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
  * SPDX-FileCopyrightText: illiliti <illiliti@dimension.sh>
  * SPDX-FileCopyrightText: Owen Rafferty <owen@owenrafferty.com>
-		"-Wsuggest-attribute=malloc",
  * SPDX-FileCopyrightText: illiliti <illiliti@thunix.net>
  * SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
  * SPDX-License-Identifier: GPL-3.0-only
@@ -2223,7 +2222,7 @@ get_toolchain_arg_handler_info(enum toolchain_component component, const char *n
 	return 0;
 }
 
-void
+static void
 toolchain_arg_arity_to_sig(enum toolchain_arg_arity arity, type_tag signature[2], uint32_t *len)
 {
 	switch (arity) {
@@ -2260,6 +2259,77 @@ toolchain_arg_arity_to_sig(enum toolchain_arg_arity arity, type_tag signature[2]
 	}
 	}
 }
+
+bool
+toolchain_overrides_validate(struct workspace *wk, obj handlers, enum toolchain_component component)
+{
+	const struct toolchain_arg_handler *handler;
+	obj k, v;
+	obj_dict_for(wk, handlers, k, v) {
+		if (!(handler = get_toolchain_arg_handler_info(component, get_cstr(wk, k)))) {
+			vm_error(wk, "unknown toolchain function %o", k);
+			return false;
+		}
+
+		if (get_obj_type(wk, v) != obj_capture) {
+			continue;
+		}
+
+		struct obj_func *f = get_obj_capture(wk, v)->func;
+		if (f->nkwargs) {
+			vm_error(wk, "toolchain function %o has an invalid signature: accepts kwargs", k);
+			return false;
+		} else if (!type_tags_eql(wk,
+				   f->return_type,
+				   make_complex_type(wk, complex_type_nested, tc_array, tc_string))) {
+			vm_error(
+				wk, "toolchain function %o has an invalid signature: return type must be list[str]", k);
+			return false;
+		}
+
+		type_tag expected_sig[2];
+		uint32_t expected_sig_len;
+		toolchain_arg_arity_to_sig(handler->arity, expected_sig, &expected_sig_len);
+
+		bool sig_valid;
+		switch (f->nargs) {
+		case 0: {
+			sig_valid = expected_sig_len == 0;
+			break;
+		}
+		case 1: {
+			sig_valid = expected_sig_len == 1 && expected_sig[0] == f->an[0].type;
+			break;
+		}
+		case 2: {
+			sig_valid = expected_sig_len == 2 && expected_sig[0] == f->an[0].type
+				    && expected_sig[1] == f->an[1].type;
+			break;
+		}
+		default: sig_valid = false;
+		}
+
+		if (!sig_valid) {
+			obj expected = make_str(wk, "(");
+			uint32_t i;
+			for (i = 0; i < expected_sig_len; ++i) {
+				str_app(wk, &expected, typechecking_type_to_s(wk, expected_sig[i]));
+				if (i + 1 < expected_sig_len) {
+					str_app(wk, &expected, ", ");
+				}
+			}
+			str_app(wk, &expected, ")");
+
+			vm_error(wk,
+				"toolchain function %o has an invalid signature: expected signature: %#o",
+				k,
+				expected);
+			return false;
+		}
+	}
+	return true;
+}
+
 
 static obj
 lookup_toolchain_arg_override(struct workspace *wk,
@@ -2312,6 +2382,7 @@ handle_toolchain_arg_override_check_const(struct workspace *wk)
 		return handle_toolchain_arg_override_convert_to_args(wk, handle_toolchain_arg_override);
 	}
 
+	// TODO: this needs to actually call the function
 	return 0;
 }
 
@@ -2327,7 +2398,6 @@ static const struct args *
 handle_toolchain_arg_override_0(TOOLCHAIN_SIG_0)
 {
 	constant_override_check();
-
 	return 0;
 }
 
