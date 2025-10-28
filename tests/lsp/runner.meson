@@ -102,7 +102,9 @@ func parse_output(raw_output str) -> list[dict[any]]
 
         msg = json.parse(msg_parts[1])
         msg.delete('jsonrpc')
-        msg.delete('id')
+        if 'id' in msg
+            msg.delete('id')
+        endif
 
         tmp += msg
     endforeach
