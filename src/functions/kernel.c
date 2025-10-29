@@ -105,13 +105,12 @@ project_add_language(struct workspace *wk,
 
 		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 		// TODO: make this overrideable
-		const enum compiler_type type = comp->type[toolchain_component_compiler];
-		if (type == compiler_clang || type == compiler_apple_clang) {
+		if (toolchain_compiler_can_compile_llvm_ir(wk, comp)) {
 			obj llvm_ir_compiler;
 			llvm_ir_compiler = make_obj(wk, obj_compiler);
 			struct obj_compiler *c = get_obj_compiler(wk, llvm_ir_compiler);
 			*c = *comp;
-			c->type[toolchain_component_compiler] = compiler_clang_llvm_ir;
+			c->type[toolchain_component_compiler] = compiler_type(wk, "clang-llvm-ir");
 			c->lang = compiler_language_llvm_ir;
 			obj_dict_seti(wk,
 				current_project(wk)->toolchains[machine],

@@ -377,10 +377,6 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 	}
 
 	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
-	if (comp->type[toolchain_component_compiler] != compiler_apple_clang) {
-		L("skipping extraframework dependency lookup: compiler type is not apple clang");
-		return true;
-	}
 
 	if (!comp->fwdirs) {
 		obj cmd;

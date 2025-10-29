@@ -123,9 +123,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 		obj static_link_args;
 		static_link_args = make_obj(wk, obj_array);
 
-		// TODO: make this overrideable
-		const enum static_linker_type type = comp->type[toolchain_component_static_linker];
-		if (type == static_linker_ar_posix || type == static_linker_ar_gcc) {
+		if (toolchain_static_linker_needs_wipe(wk, comp)) {
 			obj_array_push(wk, static_link_args, make_shell_escaped_str(wk, wk->argv0));
 			obj_array_push(wk, static_link_args, make_str(wk, "internal"));
 			obj_array_push(wk, static_link_args, make_str(wk, "exe"));

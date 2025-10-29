@@ -2412,7 +2412,7 @@ obj_inspect(struct workspace *wk, obj val)
 		obj_lprintf(wk, lvl, "  machine: %s\n", machine_kind_to_s(compiler->machine));
 		for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 			log_plain(lvl, "  %s:\n", toolchain_component_to_s(i));
-			log_plain(lvl, "    type: %s\n", toolchain_component_type_to_s(i, compiler->type[i])->id);
+			log_plain(lvl, "    type: %s\n", toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
 			obj_lprintf(wk, lvl, "    cmd_arr: %o\n", compiler->cmd_arr[i]);
 			obj_lprintf(wk, lvl, "    overrides: %o\n", compiler->overrides[i]);
 		}

@@ -1699,25 +1699,18 @@ compiler_has_argument(struct workspace *wk,
 
 	if (!opts.from_cache) {
 		bool option_ignored = false;
-		if (comp->type[toolchain_component_compiler] == compiler_msvc) {
-			// Check for msvc command line warning D9002 : ignoring unknown option
-			if (opts.cmd_ctx.err.len && strstr(opts.cmd_ctx.err.buf, "D9002")) {
-				option_ignored = true;
+		struct tstr *outs[] = { &opts.cmd_ctx.out, &opts.cmd_ctx.err };
+		for (uint32_t i = 0; i < ARRAY_LEN(outs); ++i) {
+			if (!outs[i]->len) {
+				continue;
 			}
-		}
 
-		if (comp->type[toolchain_component_linker] == linker_msvc
-			|| comp->type[toolchain_component_linker] == linker_clang_win_link) {
-			// Check for link command line warning LNK4044: unrecognized option
-			if (opts.cmd_ctx.out.len && strstr(opts.cmd_ctx.out.buf, "LNK4044")) {
+			if (toolchain_compiler_check_ignored_option(wk, comp, outs[i]->buf)) {
 				option_ignored = true;
-			}
-		}
-
-		if (comp->type[toolchain_component_linker] == linker_clang_win_link)
-		{
-			if (opts.cmd_ctx.err.len && strstr(opts.cmd_ctx.err.buf, "ignoring unknown argument")) {
+				break;
+			} else if (toolchain_linker_check_ignored_option(wk, comp, outs[i]->buf)) {
 				option_ignored = true;
+				break;
 			}
 		}
 
@@ -1891,7 +1884,7 @@ FUNC_IMPL(compiler, get_id, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_str(wk, compiler_type_to_s(get_obj_compiler(wk, self)->type[toolchain_component_compiler]));
+	*res = make_str(wk, compiler_type_to_s(wk, get_obj_compiler(wk, self)->type[toolchain_component_compiler]));
 	return true;
 }
 
@@ -1901,7 +1894,7 @@ FUNC_IMPL(compiler, get_linker_id, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_str(wk, linker_type_to_s(get_obj_compiler(wk, self)->type[toolchain_component_linker]));
+	*res = make_str(wk, linker_type_to_s(wk, get_obj_compiler(wk, self)->type[toolchain_component_linker]));
 	return true;
 }
 
@@ -1911,17 +1904,10 @@ FUNC_IMPL(compiler, get_argument_syntax, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	const char *syntax;
-	enum compiler_type type = get_obj_compiler(wk, self)->type[toolchain_component_compiler];
-
-	switch (type) {
-	case compiler_gcc:
-	case compiler_clang:
-	case compiler_apple_clang: syntax = "gcc"; break;
-	case compiler_clang_cl:
-	case compiler_msvc: syntax = "msvc"; break;
-	case compiler_posix:
-	default: syntax = "other"; break;
+	const struct args *a = toolchain_compiler_argument_syntax(wk, get_obj_compiler(wk, self));
+	const char *syntax = "other";
+	if (a->len) {
+		syntax = a->args[0];
 	}
 
 	*res = make_str(wk, syntax);
@@ -2438,7 +2424,11 @@ FUNC_IMPL(compiler, get_internal_id, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_str(wk, compiler_type_name[get_obj_compiler(wk, self)->type[toolchain_component_compiler]].id);
+	*res = make_str(wk,
+		toolchain_component_type_to_id(wk,
+			toolchain_component_compiler,
+			get_obj_compiler(wk, self)->type[toolchain_component_compiler])
+			->id);
 	return true;
 }
 
@@ -2448,7 +2438,10 @@ FUNC_IMPL(compiler, get_internal_linker_id, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_str(wk, linker_type_name[get_obj_compiler(wk, self)->type[toolchain_component_linker]].id);
+	*res = make_str(wk,
+		toolchain_component_type_to_id(
+			wk, toolchain_component_linker, get_obj_compiler(wk, self)->type[toolchain_component_linker])
+			->id);
 	return true;
 }
 
@@ -2458,8 +2451,11 @@ FUNC_IMPL(compiler, get_internal_static_linker_id, tc_string, func_impl_flag_imp
 		return false;
 	}
 
-	*res = make_str(
-		wk, static_linker_type_name[get_obj_compiler(wk, self)->type[toolchain_component_static_linker]].id);
+	*res = make_str(wk,
+		toolchain_component_type_to_id(wk,
+			toolchain_component_static_linker,
+			get_obj_compiler(wk, self)->type[toolchain_component_static_linker])
+			->id);
 	return true;
 }
 

@@ -618,3 +618,61 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 	obj_dict_seti(wk, wk->vm.objects.complex_types, (uint32_t)t, make_number(wk, tag));
 	return tag;
 }
+
+bool
+typecheck_capture(struct workspace *wk,
+	uint32_t ip,
+	obj v,
+	struct args_norm *an,
+	struct args_kw *akw,
+	type_tag return_type)
+{
+	if (!typecheck(wk, ip, v, obj_capture)) {
+		return false;
+	}
+
+	struct obj_func *fn = get_obj_capture(wk, v)->func;
+
+	for (uint32_t i = 0; i < fn->nargs; ++i) {
+		if (!an || an[i].type == ARG_TYPE_NULL) {
+			goto type_err;
+		}
+
+		if (!type_tags_eql(wk, an[i].type, fn->an[i].type)) {
+			goto type_err;
+		}
+	}
+
+	if (akw) {
+		vm_error_at(wk, ip, "kwarg typechecking not currently supported");
+		return false;
+	} else if (fn->nkwargs) {
+		goto type_err;
+	}
+
+	if (!type_tags_eql(wk, return_type, fn->return_type)) {
+		goto type_err;
+	}
+
+	return true;
+
+type_err: {
+	obj expected = make_obj(wk, obj_array);
+	if (an) {
+		for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+			obj_array_push(wk, expected, typechecking_type_to_str(wk, an[i].type));
+		}
+	}
+
+	obj joined;
+	obj_array_join(wk, false, expected, make_str(wk, ", "), &joined);
+
+	vm_error_at(wk,
+		ip,
+		"function %s has an invalid signature, expected signature: (%#o) -> %s",
+		fn->name,
+		joined,
+		typechecking_type_to_s(wk, return_type));
+	return false;
+}
+}

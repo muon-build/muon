@@ -51,7 +51,7 @@ FUNC_IMPL(module_toolchain,
 		const struct {
 			const char *name;
 			uint32_t kw;
-			bool (*lookup_name)(const char *, uint32_t *);
+			bool (*lookup_name)(struct workspace *wk, const char *, uint32_t *);
 		} toolchain_elem[] = {
 			{ "compiler", kw_inherit_compiler, compiler_type_from_s },
 			{ "linker", kw_inherit_linker, linker_type_from_s },
@@ -76,7 +76,7 @@ FUNC_IMPL(module_toolchain,
 			if (get_obj_type(wk, akw[toolchain_elem[i].kw].val) == obj_string) {
 				uint32_t compiler_type;
 				if (!toolchain_elem[i].lookup_name(
-					    get_cstr(wk, akw[toolchain_elem[i].kw].val), &compiler_type)) {
+					    wk, get_cstr(wk, akw[toolchain_elem[i].kw].val), &compiler_type)) {
 					vm_error_at(wk,
 						akw[toolchain_elem[i].kw].node,
 						"unknown %s type: %o",
@@ -131,17 +131,23 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 {
 	struct args_norm an[] = {
 		{ tc_string },
-		{ complex_type_preset_get(wk, tc_cx_enum_toolchain_component) },
 		ARG_TYPE_NULL,
 	};
 	enum kwargs {
-		kw_overwrite,
-		kw_cmd_array,
+		kw_component,
+		kw_public_id,
+		kw_inherit,
+		kw_default_linker,
+		kw_detect,
 		kw_handlers,
-		kw_libdirs,
-		kw_version,
 	};
 	struct args_kw akw[] = {
+		[kw_component]
+		= { "component", complex_type_preset_get(wk, tc_cx_enum_toolchain_component), .required = true },
+		[kw_public_id] = { "public_id", tc_string },
+		[kw_inherit] = { "inherit", tc_string },
+		[kw_default_linker] = { "default_linker", tc_string },
+		[kw_detect] = { "detect", tc_capture, .required = true },
 		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_override_find_program) },
 		0,
 	};
@@ -149,22 +155,59 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 		return false;
 	}
 
-	obj name = an[0].val;
+	obj id = an[0].val;
 
 	uint32_t component;
-	if (!toolchain_component_from_s(get_cstr(wk, an[1].val), &component)) {
-		vm_error(wk, "unknown toolchain component %o", an[1].val);
+	if (!toolchain_component_from_s(get_cstr(wk, akw[kw_component].val), &component)) {
+		vm_error(wk, "unknown toolchain component %o", akw[kw_component].val);
 		return false;
+	}
+
+	struct toolchain_registry_component_compiler rc = {
+		.id = {
+			.id = get_cstr(wk, id),
+			.public_id = akw[kw_public_id].set ? get_cstr(wk, akw[kw_public_id].val) : get_cstr(wk, id),
+		},
+		.comp = compiler_empty,
+	};
+
+	if (akw[kw_inherit].set) {
+		uint32_t inherit_type;
+		if (!toolchain_type_from_s(wk, component, get_cstr(wk, akw[kw_inherit].val), &inherit_type)) {
+			vm_error_at(wk, akw[kw_inherit].node, "unknown %s %o", toolchain_component_to_s(component), akw[kw_inherit].val);
+			return false;
+		}
+
+		rc.comp = ((struct toolchain_registry_component_compiler *)arr_get(
+				   &wk->toolchain_registry.components[toolchain_component_compiler], inherit_type))
+				  ->comp;
+	}
+
+	{
+		struct args_norm detect_an[] = { { tc_string }, { ARG_TYPE_NULL } };
+		if (!typecheck_capture(wk, akw[kw_detect].node, akw[kw_detect].val, detect_an, 0, tc_bool)) {
+			return false;
+		}
+		rc.comp.detect = akw[kw_detect].val;
+	}
+
+	if (akw[kw_default_linker].set) {
+		uint32_t default_linker;
+		if (!linker_type_from_s(wk, get_cstr(wk, akw[kw_default_linker].val), &default_linker)) {
+			rc.comp.default_linker = default_linker;
+		}
 	}
 
 	if (akw[kw_handlers].set) {
 		if (!toolchain_overrides_validate(wk, akw[kw_handlers].val, component)) {
 			return false;
 		}
+
+		// TODO:
+		// rc.comp.handlers = akw[kw_handlers].val;
 	}
 
-	// Do something
-
+	arr_push(wk->a, &wk->toolchain_registry.components[toolchain_component_compiler], &rc);
 	return true;
 }
 

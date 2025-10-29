@@ -11,6 +11,7 @@
 #include "lang/eval.h"
 #include "lang/string.h"
 #include "lang/vm.h"
+#include "compilers.h"
 
 struct project {
 	/* array of dicts */
@@ -45,6 +46,25 @@ struct project {
 
 	// ninja-specific
 	obj generic_rules[machine_kind_count];
+};
+
+struct toolchain_registry_component_compiler {
+	struct toolchain_id id;
+	struct compiler comp;
+};
+
+struct toolchain_registry_component_linker {
+	struct toolchain_id id;
+	struct linker comp;
+};
+
+struct toolchain_registry_component_static_linker {
+	struct toolchain_id id;
+	struct static_linker comp;
+};
+
+struct toolchain_registry {
+	struct arr components[toolchain_component_count];
 };
 
 enum workspace_init_flag {
@@ -103,6 +123,7 @@ struct workspace {
 
 	struct arr projects;
 	struct arr option_overrides;
+	struct toolchain_registry toolchain_registry;
 
 	uint32_t cur_project, init_flags;
 
@@ -119,7 +140,6 @@ void workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a
 void workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scratch);
 void workspace_init_runtime(struct workspace *wk);
 void workspace_init_startup_files(struct workspace *wk);
-void workspace_init(struct workspace *wk, struct arena *a, struct arena *a_scratch);
 void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
 void workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v);
 void workspace_add_regenerate_dep(struct workspace *wk, obj v);

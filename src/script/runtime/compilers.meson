@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+toolchain = import('toolchain')
+
+toolchain.register(
+    'slimcc',
+    component: 'compiler',
+    inherit: 'posix',
+    default_linker: 'ld',
+    detect: func(version_output str) -> bool
+        return 'slimcc' in version_output
+    endfunc,
+)
