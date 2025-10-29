@@ -1785,7 +1785,7 @@ TOOLCHAIN_PROTO_0(compiler_cl_args_linker_delimiter)
 TOOLCHAIN_PROTO_1srb(compiler_cl_check_ignored_option)
 {
 	// Check for msvc command line warning D9002 : ignoring unknown option
-	return strstr(s1, "D9002") == 0;
+	return !!strstr(s1, "D9002");
 }
 
 TOOLCHAIN_PROTO_0(compiler_deps_gcc)
@@ -1988,7 +1988,7 @@ TOOLCHAIN_PROTO_1s(linker_link_args_whole_archive)
 TOOLCHAIN_PROTO_1srb(linker_link_check_ignored_option)
 {
 	// Check for link command line warning LNK4044: unrecognized option
-	return strstr(s1, "LNK4044") != 0;
+	return !!strstr(s1, "LNK4044");
 }
 
 /* lld-link linker */
@@ -2004,7 +2004,7 @@ TOOLCHAIN_PROTO_1srb(linker_lld_link_check_ignored_option)
 {
 	// Check for link command line warning LNK4044: unrecognized option
 	// _and_ "ignoring unknown argument"
-	return strstr(s1, "LNK4044") != 0 || strstr(s1, "ignoring unknown argument");
+	return (!!strstr(s1, "LNK4044")) || (!!strstr(s1, "ignoring unknown argument"));
 }
 
 /* apple linker */
