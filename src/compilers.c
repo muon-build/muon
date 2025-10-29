@@ -2235,7 +2235,7 @@ build_linkers(struct workspace *wk)
 		lld_win.args.soname = linker_empty.args.soname;
 		lld_win.args.export_dynamic = linker_empty.args.export_dynamic;
 		lld_win.args.allow_shlib_undefined = linker_empty.args.allow_shlib_undefined;
-		register_linker(wk, "clang-win", "lld", &lld);
+		register_linker(wk, "clang-win", "lld", &lld_win);
 	}
 
 	struct linker apple = posix;
@@ -2289,7 +2289,7 @@ build_static_linkers(struct workspace *wk)
 
 	struct static_linker gcc = posix;
 	gcc.args.base = static_linker_ar_gcc_args_base;
-	register_static_linker(wk, "ar-gcc", "ar", &posix);
+	register_static_linker(wk, "ar-gcc", "ar", &gcc);
 
 	struct static_linker msvc = static_linker_empty;
 	msvc.args.input_output = linker_link_args_input_output;
