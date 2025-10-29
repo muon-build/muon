@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+util = import('util')
+fs = import('fs')
+
+build = argv[1]
+
+data = {}
+
+foreach path : fs.glob(build / '**/test_report.dat')
+    rel = fs.relative_to(path, build)
+    times = util.serial_load(path)
+
+    times_named = {}
+    prev_time = 0
+    foreach step : times
+        diff = step[1] - prev_time
+        prev_time = step[1]
+        # convert to us
+        diff = diff / 1000
+        times_named[step[0]] = diff
+    endforeach
+    data[rel] = times_named
+endforeach
+
+sum = {}
+longest = {}
+foreach key, _ : times_named
+    sum[key] = 0
+    longest[key] = {'name': '', 'dur': 0}
+endforeach
+total = 0
+
+foreach name, times : data
+    foreach key, val : times
+        sum[key] += val
+        total += val
+
+        if val > longest[key].dur
+            longest[key].dur = val
+            longest[key].name = name
+        endif
+    endforeach
+endforeach
+
+foreach k, v : sum
+    pct = v * 1000 / total
+    print(f'@k@\n')
+    print(f'  @0@.@1@% of total time\n'.format(pct / 10, pct - ((pct / 10) * 10)))
+    print('  longest: @0@, @1@ms\n'.format(longest[k].name, longest[k].dur / 1000))
+endforeach
