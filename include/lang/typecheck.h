@@ -156,4 +156,12 @@ enum complex_type_preset {
 
 type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);
 obj complex_type_enum_get(struct workspace *wk, enum complex_type_preset t);
+
+bool
+typecheck_capture(struct workspace *wk,
+	uint32_t ip,
+	obj v,
+	struct args_norm *an,
+	struct args_kw *akw,
+	type_tag return_type);
 #endif
