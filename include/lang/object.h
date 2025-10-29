@@ -119,6 +119,7 @@ enum feature_opt_state {
 	_(windows, "public/windows", true)                                      \
 	_(json, "private/json", true)                                           \
 	_(util, "private/util", true)                                           \
+	_(time, "private/time", true)                                           \
 	_(cmake, "public/cmake", false)                                         \
 	_(dlang, "public/dlang", false)                                         \
 	_(gnome, "public/gnome", false)                                         \

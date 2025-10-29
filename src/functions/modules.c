@@ -19,6 +19,7 @@
 #include "functions/modules/python.h"
 #include "functions/modules/sourceset.h"
 #include "functions/modules/subprojects.h"
+#include "functions/modules/time.h"
 #include "functions/modules/toolchain.h"
 #include "functions/modules/util.h"
 #include "lang/func_lookup.h"
@@ -288,6 +289,7 @@ func_impl_register_proto func_impl_register_module_funcs[module_count] = {
 	[module_curl] = func_impl_register_module_curl,
 	[module_json] = func_impl_register_module_json,
 	[module_util] = func_impl_register_module_util,
+	[module_time] = func_impl_register_module_time,
 };
 
 bool

@@ -61,6 +61,7 @@ src = files(
     'functions/modules/python.c',
     'functions/modules/sourceset.c',
     'functions/modules/subprojects.c',
+    'functions/modules/time.c',
     'functions/modules/toolchain.c',
     'functions/modules/util.c',
     'functions/number.c',
