@@ -738,7 +738,7 @@ static_linker_detect(struct workspace *wk, obj comp, enum compiler_language lang
 static uint32_t
 toolchain_default_linker(struct workspace *wk, struct obj_compiler *comp)
 {
-	if (comp->type[toolchain_component_compiler] == compiler_type(wk, "msvc")) {
+	if (comp->type[toolchain_component_compiler] == compiler_type(wk, "clang")) {
 		if (machine_definitions[comp->machine]->sys == machine_system_windows) {
 			if (str_eql(&comp->triple.env, &STR("gnu"))) {
 				return linker_type(wk, "lld-win");
