@@ -139,6 +139,7 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 		kw_public_id,
 		kw_inherit,
 		kw_default_linker,
+		kw_default_static_linker,
 		kw_detect,
 		kw_handlers,
 	};
@@ -148,6 +149,7 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 		[kw_public_id] = { "public_id", tc_string },
 		[kw_inherit] = { "inherit", tc_string },
 		[kw_default_linker] = { "default_linker", tc_string },
+		[kw_default_static_linker] = { "default_static_linker", tc_string },
 		[kw_detect] = { "detect", tc_capture, .required = true },
 		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides) },
 		0,
@@ -212,8 +214,24 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 
 		uint32_t default_linker;
 		if (!linker_type_from_s(wk, get_cstr(wk, akw[kw_default_linker].val), &default_linker)) {
-			data.compiler.default_linker = default_linker;
+			vm_error(wk, "unknown linker type %s", get_cstr(wk, akw[kw_default_linker].val));
+			return false;
 		}
+		data.compiler.default_linker = default_linker;
+	}
+
+	if (akw[kw_default_static_linker].set) {
+		if (component != toolchain_component_compiler) {
+			vm_error(wk, "default_static_linker is only valid for a compiler component");
+			return false;
+		}
+
+		uint32_t default_static_linker;
+		if (!static_linker_type_from_s(wk, get_cstr(wk, akw[kw_default_static_linker].val), &default_static_linker)) {
+			vm_error(wk, "unknown static linker type %s", get_cstr(wk, akw[kw_default_static_linker].val));
+			return false;
+		}
+		data.compiler.default_linker = default_static_linker;
 	}
 
 	if (akw[kw_handlers].set) {
