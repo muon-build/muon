@@ -536,6 +536,11 @@ complex_type_enum_get(struct workspace *wk, enum complex_type_preset t)
 			str_enum_add_type_value(wk, e, "posix");
 			str_enum_add_type_value(wk, e, "cmd");
 			break;
+		case tc_cx_enum_toolchain_component:
+			str_enum_add_type_value(wk, e, "compiler");
+			str_enum_add_type_value(wk, e, "linker");
+			str_enum_add_type_value(wk, e, "static_linker");
+			break;
 		default: UNREACHABLE_RETURN;
 		}
 	}
@@ -574,6 +579,7 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
 				make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
 		break;
+	case tc_cx_enum_toolchain_component:
 	case tc_cx_enum_shell:
 	case tc_cx_enum_machine_system:
 	case tc_cx_enum_machine_subsystem:
@@ -596,9 +602,91 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 			make_complex_type(wk, complex_type_nested, tc_array, tc_string));
 		break;
 	}
+	case tc_cx_toolchain_overrides: {
+		tag = make_complex_type(wk,
+			complex_type_nested,
+			tc_dict,
+			make_complex_type(wk,
+				complex_type_or,
+				tc_capture,
+				make_complex_type(wk,
+					complex_type_or,
+					tc_bool,
+					make_complex_type(wk, complex_type_nested, tc_array, tc_string))));
+		break;
+	}
 	default: UNREACHABLE;
 	}
 
 	obj_dict_seti(wk, wk->vm.objects.complex_types, (uint32_t)t, make_number(wk, tag));
 	return tag;
+}
+
+bool
+typecheck_capture(struct workspace *wk,
+	uint32_t ip,
+	obj v,
+	struct args_norm *an,
+	struct args_kw *akw,
+	type_tag return_type,
+	const char *name)
+{
+	if (!typecheck(wk, ip, v, obj_capture)) {
+		return false;
+	}
+
+	struct obj_func *fn = get_obj_capture(wk, v)->func;
+
+	uint32_t i;
+	for (i = 0; i < fn->nargs; ++i) {
+		if (!an || an[i].type == ARG_TYPE_NULL) {
+			// too many posargs
+			goto type_err;
+		}
+
+		if (!type_tags_eql(wk, an[i].type, fn->an[i].type)) {
+			// posargs type mismatch
+			goto type_err;
+		}
+	}
+
+	if (an[i].type != ARG_TYPE_NULL) {
+		// too few posargs
+		goto type_err;
+	}
+
+	if (akw) {
+		vm_error_at(wk, ip, "kwarg typechecking not currently supported");
+		return false;
+	} else if (fn->nkwargs) {
+		// no kwargs accepted
+		goto type_err;
+	}
+
+	if (!type_tags_eql(wk, return_type, fn->return_type)) {
+		// return type mistmatch
+		goto type_err;
+	}
+
+	return true;
+
+type_err: {
+	obj expected = make_obj(wk, obj_array);
+	if (an) {
+		for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+			obj_array_push(wk, expected, typechecking_type_to_str(wk, an[i].type));
+		}
+	}
+
+	obj joined;
+	obj_array_join(wk, false, expected, make_str(wk, ", "), &joined);
+
+	vm_error_at(wk,
+		ip,
+		"function %s has an invalid signature, expected signature: (%#o) -> %s",
+		fn->name ? fn->name : name,
+		joined,
+		typechecking_type_to_s(wk, return_type));
+	return false;
+}
 }

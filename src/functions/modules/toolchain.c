@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include "buf_size.h"
+#include "log.h"
 #include "functions/modules/toolchain.h"
 #include "lang/typecheck.h"
 
@@ -51,7 +52,7 @@ FUNC_IMPL(module_toolchain,
 		const struct {
 			const char *name;
 			uint32_t kw;
-			bool (*lookup_name)(const char *, uint32_t *);
+			bool (*lookup_name)(struct workspace *wk, const char *, uint32_t *);
 		} toolchain_elem[] = {
 			{ "compiler", kw_inherit_compiler, compiler_type_from_s },
 			{ "linker", kw_inherit_linker, linker_type_from_s },
@@ -76,7 +77,7 @@ FUNC_IMPL(module_toolchain,
 			if (get_obj_type(wk, akw[toolchain_elem[i].kw].val) == obj_string) {
 				uint32_t compiler_type;
 				if (!toolchain_elem[i].lookup_name(
-					    get_cstr(wk, akw[toolchain_elem[i].kw].val), &compiler_type)) {
+					    wk, get_cstr(wk, akw[toolchain_elem[i].kw].val), &compiler_type)) {
 					vm_error_at(wk,
 						akw[toolchain_elem[i].kw].node,
 						"unknown %s type: %o",
@@ -102,7 +103,8 @@ FUNC_IMPL(module_toolchain,
 	return true;
 }
 
-static void module_toolchain_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
+static void
+module_toolchain_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
 {
 	obj_dict_set(wk, d, make_str(wk, key), val->len ? make_strn(wk, val->s, val->len) : make_str(wk, "unknown"));
 }
@@ -126,10 +128,132 @@ FUNC_IMPL(module_toolchain, parse_triple, tc_dict, .desc = "parse a target tripl
 	return true;
 }
 
+FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain type")
+{
+	struct args_norm an[] = {
+		{ tc_string },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_component,
+		kw_public_id,
+		kw_inherit,
+		kw_default_linker,
+		kw_default_static_linker,
+		kw_detect,
+		kw_handlers,
+	};
+	struct args_kw akw[] = {
+		[kw_component]
+		= { "component", complex_type_preset_get(wk, tc_cx_enum_toolchain_component), .required = true },
+		[kw_public_id] = { "public_id", tc_string },
+		[kw_inherit] = { "inherit", tc_string },
+		[kw_default_linker] = { "default_linker", tc_string },
+		[kw_default_static_linker] = { "default_static_linker", tc_string },
+		[kw_detect] = { "detect", tc_capture, .required = true },
+		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides) },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	const char *id = get_cstr(wk, an[0].val);
+	const char *public_id = akw[kw_public_id].set ? get_cstr(wk, akw[kw_public_id].val) : id;
+
+	uint32_t component;
+	if (!toolchain_component_from_s(get_cstr(wk, akw[kw_component].val), &component)) {
+		vm_error(wk, "unknown toolchain component %o", akw[kw_component].val);
+		return false;
+	}
+
+	struct toolchain_registry_component base = { .id = { .id = id, .public_id = public_id } };
+	union {
+		struct compiler compiler;
+		struct linker linker;
+		struct static_linker static_linker;
+	} data = { 0 };
+
+	{
+		uint32_t inherit_type = 0;
+		if (akw[kw_inherit].set) {
+			if (!toolchain_type_from_s(wk, component, get_cstr(wk, akw[kw_inherit].val), &inherit_type)) {
+				vm_error_at(wk, akw[kw_inherit].node, "unknown %s %o", toolchain_component_to_s(component), akw[kw_inherit].val);
+				return false;
+			}
+		}
+
+		const struct arr *registry = &wk->toolchain_registry.components[component];
+
+		switch (component) {
+		case toolchain_component_compiler:
+			data.compiler = ((struct toolchain_registry_component_compiler *)arr_get(registry, inherit_type))->comp;
+			break;
+		case toolchain_component_linker:
+			data.linker = ((struct toolchain_registry_component_linker *)arr_get(registry, inherit_type))->comp;
+			break;
+		case toolchain_component_static_linker:
+			data.static_linker = ((struct toolchain_registry_component_static_linker *)arr_get(registry, inherit_type))->comp;
+			break;
+		}
+	}
+
+	{
+		struct args_norm detect_an[] = { { tc_string }, { tc_string }, { ARG_TYPE_NULL } };
+		if (!typecheck_capture(wk, akw[kw_detect].node, akw[kw_detect].val, detect_an, 0, tc_bool, "detect")) {
+			return false;
+		}
+		base.detect = akw[kw_detect].val;
+	}
+
+	if (akw[kw_default_linker].set) {
+		if (component != toolchain_component_compiler) {
+			vm_error(wk, "default_linker is only valid for a compiler component");
+			return false;
+		}
+
+		uint32_t default_linker;
+		if (!linker_type_from_s(wk, get_cstr(wk, akw[kw_default_linker].val), &default_linker)) {
+			vm_error(wk, "unknown linker type %s", get_cstr(wk, akw[kw_default_linker].val));
+			return false;
+		}
+		data.compiler.default_linker = default_linker;
+	}
+
+	if (akw[kw_default_static_linker].set) {
+		if (component != toolchain_component_compiler) {
+			vm_error(wk, "default_static_linker is only valid for a compiler component");
+			return false;
+		}
+
+		uint32_t default_static_linker;
+		if (!static_linker_type_from_s(wk, get_cstr(wk, akw[kw_default_static_linker].val), &default_static_linker)) {
+			vm_error(wk, "unknown static linker type %s", get_cstr(wk, akw[kw_default_static_linker].val));
+			return false;
+		}
+		data.compiler.default_linker = default_static_linker;
+	}
+
+	if (akw[kw_handlers].set) {
+		if (!toolchain_overrides_validate(wk, akw[kw_handlers].node, akw[kw_handlers].val, component)) {
+			return false;
+		}
+
+		base.overrides = akw[kw_handlers].val;
+	}
+
+	if (wk->vm.in_analyzer) {
+		return true;
+	}
+
+	return toolchain_register_component(wk, component, &base, &data);
+}
+
 FUNC_REGISTER(module_toolchain)
 {
 	if (lang_mode == language_internal) {
 		FUNC_IMPL_REGISTER(module_toolchain, create);
 		FUNC_IMPL_REGISTER(module_toolchain, parse_triple);
+		FUNC_IMPL_REGISTER(module_toolchain, register);
 	}
 }
