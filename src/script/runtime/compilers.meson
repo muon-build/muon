@@ -8,7 +8,7 @@ toolchain.register(
     component: 'compiler',
     inherit: 'posix',
     default_linker: 'ld',
-    detect: func(version_output str) -> bool
-        return 'slimcc' in version_output
+    detect: func(stdout str, _stderr str) -> bool
+        return 'slimcc' in stdout
     endfunc,
 )

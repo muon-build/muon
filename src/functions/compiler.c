@@ -2375,7 +2375,7 @@ FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 	struct obj_compiler *c = get_obj_compiler(wk, self);
 
 	if (akw[kw_handlers].set) {
-		if (!toolchain_overrides_validate(wk, akw[kw_handlers].val, component)) {
+		if (!toolchain_overrides_validate(wk, akw[kw_handlers].node, akw[kw_handlers].val, component)) {
 			return false;
 		}
 

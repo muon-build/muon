@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include "buf_size.h"
+#include "log.h"
 #include "functions/modules/toolchain.h"
 #include "lang/typecheck.h"
 
@@ -148,14 +149,15 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 		[kw_inherit] = { "inherit", tc_string },
 		[kw_default_linker] = { "default_linker", tc_string },
 		[kw_detect] = { "detect", tc_capture, .required = true },
-		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_override_find_program) },
+		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides) },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
-	obj id = an[0].val;
+	const char *id = get_cstr(wk, an[0].val);
+	const char *public_id = akw[kw_public_id].set ? get_cstr(wk, akw[kw_public_id].val) : id;
 
 	uint32_t component;
 	if (!toolchain_component_from_s(get_cstr(wk, akw[kw_component].val), &component)) {
@@ -163,52 +165,70 @@ FUNC_IMPL(module_toolchain, register, tc_dict, .desc = "Register a new toolchain
 		return false;
 	}
 
-	struct toolchain_registry_component_compiler rc = {
-		.id = {
-			.id = get_cstr(wk, id),
-			.public_id = akw[kw_public_id].set ? get_cstr(wk, akw[kw_public_id].val) : get_cstr(wk, id),
-		},
-		.comp = compiler_empty,
-	};
+	struct toolchain_registry_component base = { .id = { .id = id, .public_id = public_id } };
+	union {
+		struct compiler compiler;
+		struct linker linker;
+		struct static_linker static_linker;
+	} data = { 0 };
 
-	if (akw[kw_inherit].set) {
-		uint32_t inherit_type;
-		if (!toolchain_type_from_s(wk, component, get_cstr(wk, akw[kw_inherit].val), &inherit_type)) {
-			vm_error_at(wk, akw[kw_inherit].node, "unknown %s %o", toolchain_component_to_s(component), akw[kw_inherit].val);
-			return false;
+	{
+		uint32_t inherit_type = 0;
+		if (akw[kw_inherit].set) {
+			if (!toolchain_type_from_s(wk, component, get_cstr(wk, akw[kw_inherit].val), &inherit_type)) {
+				vm_error_at(wk, akw[kw_inherit].node, "unknown %s %o", toolchain_component_to_s(component), akw[kw_inherit].val);
+				return false;
+			}
 		}
 
-		rc.comp = ((struct toolchain_registry_component_compiler *)arr_get(
-				   &wk->toolchain_registry.components[toolchain_component_compiler], inherit_type))
-				  ->comp;
+		const struct arr *registry = &wk->toolchain_registry.components[component];
+
+		switch (component) {
+		case toolchain_component_compiler:
+			data.compiler = ((struct toolchain_registry_component_compiler *)arr_get(registry, inherit_type))->comp;
+			break;
+		case toolchain_component_linker:
+			data.linker = ((struct toolchain_registry_component_linker *)arr_get(registry, inherit_type))->comp;
+			break;
+		case toolchain_component_static_linker:
+			data.static_linker = ((struct toolchain_registry_component_static_linker *)arr_get(registry, inherit_type))->comp;
+			break;
+		}
 	}
 
 	{
-		struct args_norm detect_an[] = { { tc_string }, { ARG_TYPE_NULL } };
-		if (!typecheck_capture(wk, akw[kw_detect].node, akw[kw_detect].val, detect_an, 0, tc_bool)) {
+		struct args_norm detect_an[] = { { tc_string }, { tc_string }, { ARG_TYPE_NULL } };
+		if (!typecheck_capture(wk, akw[kw_detect].node, akw[kw_detect].val, detect_an, 0, tc_bool, "detect")) {
 			return false;
 		}
-		rc.comp.detect = akw[kw_detect].val;
+		base.detect = akw[kw_detect].val;
 	}
 
 	if (akw[kw_default_linker].set) {
+		if (component != toolchain_component_compiler) {
+			vm_error(wk, "default_linker is only valid for a compiler component");
+			return false;
+		}
+
 		uint32_t default_linker;
 		if (!linker_type_from_s(wk, get_cstr(wk, akw[kw_default_linker].val), &default_linker)) {
-			rc.comp.default_linker = default_linker;
+			data.compiler.default_linker = default_linker;
 		}
 	}
 
 	if (akw[kw_handlers].set) {
-		if (!toolchain_overrides_validate(wk, akw[kw_handlers].val, component)) {
+		if (!toolchain_overrides_validate(wk, akw[kw_handlers].node, akw[kw_handlers].val, component)) {
 			return false;
 		}
 
-		// TODO:
-		// rc.comp.handlers = akw[kw_handlers].val;
+		base.overrides = akw[kw_handlers].val;
 	}
 
-	arr_push(wk->a, &wk->toolchain_registry.components[toolchain_component_compiler], &rc);
-	return true;
+	if (wk->vm.in_analyzer) {
+		return true;
+	}
+
+	return toolchain_register_component(wk, component, &base, &data);
 }
 
 FUNC_REGISTER(module_toolchain)

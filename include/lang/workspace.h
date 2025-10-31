@@ -49,21 +49,22 @@ struct project {
 };
 
 struct toolchain_registry_component_compiler {
-	struct toolchain_id id;
+	struct toolchain_registry_component base;
 	struct compiler comp;
 };
 
 struct toolchain_registry_component_linker {
-	struct toolchain_id id;
+	struct toolchain_registry_component base;
 	struct linker comp;
 };
 
 struct toolchain_registry_component_static_linker {
-	struct toolchain_id id;
+	struct toolchain_registry_component base;
 	struct static_linker comp;
 };
 
 struct toolchain_registry {
+	obj ids[toolchain_component_count];
 	struct arr components[toolchain_component_count];
 };
 

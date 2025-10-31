@@ -163,5 +163,6 @@ typecheck_capture(struct workspace *wk,
 	obj v,
 	struct args_norm *an,
 	struct args_kw *akw,
-	type_tag return_type);
+	type_tag return_type,
+	const char *name);
 #endif
