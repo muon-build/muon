@@ -1106,14 +1106,14 @@ obj_array_sort_wrapper(const void *a, const void *b, void *_ctx)
 void
 obj_array_sort(struct workspace *wk, void *usr_ctx, obj arr, obj_array_sort_func func, obj *res)
 {
-	workspace_scratch_begin(wk);
-
 	uint32_t len = get_obj_array(wk, arr)->len;
 
 	if (!len) {
 		*res = arr;
 		return;
 	}
+
+	workspace_scratch_begin(wk);
 
 	struct arr da;
 	arr_init(wk->a_scratch, &da, len, obj);
