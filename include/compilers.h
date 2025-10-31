@@ -207,7 +207,6 @@ struct compiler {
 	struct {
 		FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER)
 	} args;
-	obj detect;
 	uint32_t default_linker;
 	uint32_t default_static_linker;
 };
@@ -224,10 +223,6 @@ struct static_linker {
 	} args;
 };
 
-extern struct compiler compiler_empty;
-extern struct linker linker_empty;
-extern struct static_linker static_linker_empty;
-
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 
@@ -243,6 +238,11 @@ enum toolchain_arg {
 struct toolchain_id {
 	const char *id;
 	const char *public_id;
+};
+
+struct toolchain_registry_component {
+	struct toolchain_id id;
+	obj detect, overrides;
 };
 
 extern const struct language languages[];
@@ -282,12 +282,18 @@ bool filename_to_compiler_language(const char *str, enum compiler_language *l);
 const char *compiler_language_extension(enum compiler_language l);
 enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang);
 
+bool
+toolchain_register_component(struct workspace *wk,
+	enum toolchain_component component,
+	const struct toolchain_registry_component *base,
+	const void *data);
+
 bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang);
 void compilers_init(struct workspace *wk);
 
 const struct toolchain_arg_handler *get_toolchain_arg_handler_info(enum toolchain_component component,
 	const char *name);
-bool toolchain_overrides_validate(struct workspace *wk, obj handlers, enum toolchain_component component);
+bool toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component);
 
 struct toolchain_dump_opts {
 	const char *s1, *s2;
