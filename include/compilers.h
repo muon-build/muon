@@ -291,8 +291,6 @@ toolchain_register_component(struct workspace *wk,
 bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang);
 void compilers_init(struct workspace *wk);
 
-const struct toolchain_arg_handler *get_toolchain_arg_handler_info(enum toolchain_component component,
-	const char *name);
 bool toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component);
 
 struct toolchain_dump_opts {

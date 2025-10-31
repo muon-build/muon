@@ -118,15 +118,11 @@ compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_ch
 bool
 toolchain_type_from_s(struct workspace *wk, enum toolchain_component comp, const char *name, uint32_t *res)
 {
-	struct toolchain_id *id;
-	for (uint32_t i = 0; i < wk->toolchain_registry.components[comp].len; ++i) {
-		id = arr_get(&wk->toolchain_registry.components[comp], i);
-		if (strcmp(id->id, name) == 0) {
-			*res = i;
-			return true;
-		}
+	obj o;
+	if (obj_dict_index_str(wk, wk->toolchain_registry.ids[comp], name, &o)) {
+		*res = get_obj_number(wk, o);
+		return true;
 	}
-
 	return false;
 }
 
@@ -2129,6 +2125,7 @@ build_compilers(struct workspace *wk)
 		struct compiler clang_llvm_ir = compiler_empty;
 		clang_llvm_ir.args.compile_only = compiler_posix_args_compile_only;
 		clang_llvm_ir.args.output = compiler_posix_args_output;
+		clang_llvm_ir.args.object_ext = compiler_posix_args_object_extension;
 		register_component(compiler, "clang-llvm-ir", "clang", &clang_llvm_ir);
 	}
 
@@ -2152,42 +2149,42 @@ build_compilers(struct workspace *wk)
 	register_component(compiler, "posix", 0, &posix);
 
 	struct compiler gcc = posix;
-	gcc.args.linker_passthrough = linker_args_passthrough;
-	gcc.args.preprocess_only = compiler_gcc_args_preprocess_only;
+	gcc.args.argument_syntax = compiler_gcc_args_syntax;
+	gcc.args.color_output = compiler_gcc_args_color_output;
+	gcc.args.coverage = compiler_gcc_args_coverage;
 	gcc.args.deps = compiler_gcc_args_deps;
-	gcc.args.optimization = compiler_gcc_args_optimization;
-	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
-	gcc.args.warn_everything = compiler_gcc_args_warn_everything;
-	gcc.args.werror = compiler_gcc_args_werror;
-	gcc.args.winvalid_pch = compiler_gcc_args_winvalid_pch;
-	gcc.args.set_std = compiler_gcc_args_set_std;
-	gcc.args.include_system = compiler_gcc_args_include_system;
+	gcc.args.deps_type = compiler_deps_gcc;
+	gcc.args.enable_lto = compiler_gcc_args_lto;
+	gcc.args.force_language = compiler_gcc_args_force_language;
 	gcc.args.include_dirafter = compiler_gcc_args_include_dirafter;
+	gcc.args.include_pch = compiler_gcc_args_include_pch;
+	gcc.args.include_system = compiler_gcc_args_include_system;
+	gcc.args.linker_passthrough = linker_args_passthrough;
+	gcc.args.optimization = compiler_gcc_args_optimization;
+	gcc.args.pch_ext = compiler_gcc_args_pch_extension;
+	gcc.args.permissive = compiler_gcc_args_permissive;
 	gcc.args.pgo = compiler_gcc_args_pgo;
 	gcc.args.pic = compiler_gcc_args_pic;
 	gcc.args.pie = compiler_gcc_args_pie;
+	gcc.args.preprocess_only = compiler_gcc_args_preprocess_only;
 	gcc.args.sanitize = compiler_gcc_args_sanitize;
-	gcc.args.visibility = compiler_gcc_args_visibility;
+	gcc.args.set_std = compiler_gcc_args_set_std;
 	gcc.args.specify_lang = compiler_gcc_args_specify_lang;
-	gcc.args.color_output = compiler_gcc_args_color_output;
-	gcc.args.enable_lto = compiler_gcc_args_lto;
-	gcc.args.deps_type = compiler_deps_gcc;
-	gcc.args.coverage = compiler_gcc_args_coverage;
-	gcc.args.permissive = compiler_gcc_args_permissive;
-	gcc.args.include_pch = compiler_gcc_args_include_pch;
-	gcc.args.pch_ext = compiler_gcc_args_pch_extension;
-	gcc.args.force_language = compiler_gcc_args_force_language;
-	gcc.args.argument_syntax = compiler_gcc_args_syntax;
+	gcc.args.visibility = compiler_gcc_args_visibility;
+	gcc.args.warn_everything = compiler_gcc_args_warn_everything;
+	gcc.args.warning_lvl = compiler_gcc_args_warning_lvl;
+	gcc.args.werror = compiler_gcc_args_werror;
+	gcc.args.winvalid_pch = compiler_gcc_args_winvalid_pch;
 	gcc.default_linker = linker_type(wk, "ld");
 	gcc.default_static_linker = static_linker_type(wk, "ar-gcc");
 	register_component(compiler, "gcc", 0, &gcc);
 
 	struct compiler clang = gcc;
 	clang.args.can_compile_llvm_ir = toolchain_arg_0rb_true;
-	clang.args.warn_everything = compiler_clang_args_warn_everything;
-	clang.args.include_pch = compiler_clang_args_include_pch;
 	clang.args.emit_pch = compiler_clang_args_emit_pch;
+	clang.args.include_pch = compiler_clang_args_include_pch;
 	clang.args.pch_ext = compiler_clang_args_pch_extension;
+	clang.args.warn_everything = compiler_clang_args_warn_everything;
 	clang.default_linker = linker_type(wk, "lld");
 	register_component(compiler, "clang", 0, &clang);
 
@@ -2197,28 +2194,28 @@ build_compilers(struct workspace *wk)
 	register_component(compiler, "clang-apple", "clang", &apple_clang);
 
 	struct compiler msvc = compiler_empty;
-	msvc.args.deps = compiler_cl_args_deps;
-	msvc.args.compile_only = compiler_cl_args_compile_only;
-	msvc.args.preprocess_only = compiler_cl_args_preprocess_only;
-	msvc.args.output = compiler_cl_args_output;
-	msvc.args.optimization = compiler_cl_args_optimization;
-	msvc.args.debug = compiler_cl_args_debug;
-	msvc.args.warning_lvl = compiler_cl_args_warning_lvl;
-	msvc.args.warn_everything = compiler_cl_args_warn_everything;
-	msvc.args.werror = compiler_cl_args_werror;
-	msvc.args.set_std = compiler_cl_args_set_std;
-	msvc.args.include = compiler_cl_args_include;
-	msvc.args.sanitize = compiler_cl_args_sanitize;
-	msvc.args.define = compiler_cl_args_define;
 	msvc.args.always = compiler_cl_args_always;
-	msvc.args.crt = compiler_cl_args_crt;
-	msvc.args.debugfile = compiler_cl_args_debugfile;
-	msvc.args.object_ext = compiler_cl_args_object_extension;
-	msvc.args.deps_type = compiler_deps_msvc;
-	msvc.args.std_supported = compiler_cl_args_std_supported;
-	msvc.args.linker_delimiter = compiler_cl_args_linker_delimiter;
-	msvc.args.check_ignored_option = compiler_cl_check_ignored_option;
 	msvc.args.argument_syntax = compiler_cl_args_syntax;
+	msvc.args.check_ignored_option = compiler_cl_check_ignored_option;
+	msvc.args.compile_only = compiler_cl_args_compile_only;
+	msvc.args.crt = compiler_cl_args_crt;
+	msvc.args.debug = compiler_cl_args_debug;
+	msvc.args.debugfile = compiler_cl_args_debugfile;
+	msvc.args.define = compiler_cl_args_define;
+	msvc.args.deps = compiler_cl_args_deps;
+	msvc.args.deps_type = compiler_deps_msvc;
+	msvc.args.include = compiler_cl_args_include;
+	msvc.args.linker_delimiter = compiler_cl_args_linker_delimiter;
+	msvc.args.object_ext = compiler_cl_args_object_extension;
+	msvc.args.optimization = compiler_cl_args_optimization;
+	msvc.args.output = compiler_cl_args_output;
+	msvc.args.preprocess_only = compiler_cl_args_preprocess_only;
+	msvc.args.sanitize = compiler_cl_args_sanitize;
+	msvc.args.set_std = compiler_cl_args_set_std;
+	msvc.args.std_supported = compiler_cl_args_std_supported;
+	msvc.args.warn_everything = compiler_cl_args_warn_everything;
+	msvc.args.warning_lvl = compiler_cl_args_warning_lvl;
+	msvc.args.werror = compiler_cl_args_werror;
 	msvc.default_linker = linker_type(wk, "link");
 	msvc.default_static_linker = static_linker_type(wk, "lib");
 	register_component(compiler, "msvc", 0, &msvc);
@@ -2229,12 +2226,13 @@ build_compilers(struct workspace *wk)
 	register_component(compiler, "clang-cl", 0, &clang_cl);
 
 	struct compiler nasm = compiler_empty;
-	nasm.args.output = compiler_posix_args_output;
-	nasm.args.optimization = compiler_posix_args_optimization;
 	nasm.args.debug = compiler_posix_args_debug;
+	nasm.args.define = compiler_posix_args_define;
 	nasm.args.include = compiler_posix_args_include;
 	nasm.args.include_system = compiler_posix_args_include;
-	nasm.args.define = compiler_posix_args_define;
+	nasm.args.object_ext = compiler_posix_args_object_extension;
+	nasm.args.optimization = compiler_posix_args_optimization;
+	nasm.args.output = compiler_posix_args_output;
 	nasm.default_linker = linker_type(wk, "posix");
 	nasm.default_static_linker = static_linker_type(wk, "ar-posix");
 	register_component(compiler, "nasm", 0, &nasm);
@@ -2249,29 +2247,29 @@ build_linkers(struct workspace *wk)
 	register_component(linker, "empty", 0, &linker_empty);
 
 	struct linker posix = linker_empty;
+	posix.args.input_output = linker_posix_args_input_output;
 	posix.args.lib = linker_posix_args_lib;
 	posix.args.shared = linker_posix_args_shared;
-	posix.args.input_output = linker_posix_args_input_output;
 	register_component(linker, "posix", 0, &posix);
 
 	struct linker ld = posix;
-	ld.args.as_needed = linker_ld_args_as_needed;
-	ld.args.no_undefined = linker_ld_args_no_undefined;
-	ld.args.start_group = linker_ld_args_start_group;
-	ld.args.end_group = linker_ld_args_end_group;
-	ld.args.soname = linker_ld_args_soname;
-	ld.args.rpath = linker_ld_args_rpath;
-	ld.args.pgo = compiler_gcc_args_pgo;
-	ld.args.sanitize = compiler_gcc_args_sanitize;
 	ld.args.allow_shlib_undefined = linker_ld_args_allow_shlib_undefined;
-	ld.args.shared_module = linker_posix_args_shared;
+	ld.args.as_needed = linker_ld_args_as_needed;
+	ld.args.coverage = compiler_gcc_args_coverage;
+	ld.args.def = linker_ld_args_def;
+	ld.args.enable_lto = compiler_gcc_args_lto;
+	ld.args.end_group = linker_ld_args_end_group;
 	ld.args.export_dynamic = linker_ld_args_export_dynamic;
 	ld.args.fatal_warnings = linker_ld_args_fatal_warnings;
-	ld.args.whole_archive = linker_ld_args_whole_archive;
-	ld.args.enable_lto = compiler_gcc_args_lto;
-	ld.args.coverage = compiler_gcc_args_coverage;
 	ld.args.implib = linker_ld_args_implib;
-	ld.args.def = linker_ld_args_def;
+	ld.args.no_undefined = linker_ld_args_no_undefined;
+	ld.args.pgo = compiler_gcc_args_pgo;
+	ld.args.rpath = linker_ld_args_rpath;
+	ld.args.sanitize = compiler_gcc_args_sanitize;
+	ld.args.shared_module = linker_posix_args_shared;
+	ld.args.soname = linker_ld_args_soname;
+	ld.args.start_group = linker_ld_args_start_group;
+	ld.args.whole_archive = linker_ld_args_whole_archive;
 	register_component(linker, "ld", 0, &ld);
 
 	struct linker lld = ld;
@@ -2280,32 +2278,34 @@ build_linkers(struct workspace *wk)
 	{
 		struct linker lld_win = lld;
 		// disable unsupported flags
-		lld_win.args.soname = linker_empty.args.soname;
-		lld_win.args.export_dynamic = linker_empty.args.export_dynamic;
 		lld_win.args.allow_shlib_undefined = linker_empty.args.allow_shlib_undefined;
+		lld_win.args.export_dynamic = linker_empty.args.export_dynamic;
+		lld_win.args.soname = linker_empty.args.soname;
 		register_component(linker, "lld-win", "lld", &lld_win);
 	}
 
-	struct linker apple = posix;
-	apple.args.sanitize = compiler_gcc_args_sanitize;
-	apple.args.enable_lto = compiler_gcc_args_lto;
-	apple.args.allow_shlib_undefined = linker_apple_args_allow_shlib_undefined;
-	apple.args.shared_module = linker_apple_args_shared_module;
-	apple.args.whole_archive = linker_apple_args_whole_archive;
-	apple.args.rpath = linker_ld_args_rpath;
-	register_component(linker, "apple", "ld-apple", &apple);
+	{
+		struct linker apple = posix;
+		apple.args.allow_shlib_undefined = linker_apple_args_allow_shlib_undefined;
+		apple.args.enable_lto = compiler_gcc_args_lto;
+		apple.args.rpath = linker_ld_args_rpath;
+		apple.args.sanitize = compiler_gcc_args_sanitize;
+		apple.args.shared_module = linker_apple_args_shared_module;
+		apple.args.whole_archive = linker_apple_args_whole_archive;
+		register_component(linker, "apple", "ld-apple", &apple);
+	}
 
 	struct linker link = linker_empty;
-	link.args.lib = linker_link_args_lib;
+	link.args.always = linker_link_args_always;
+	link.args.check_ignored_option = linker_link_check_ignored_option;
 	link.args.debug = linker_link_args_debug;
+	link.args.def = linker_link_args_def;
+	link.args.implib = linker_link_args_implib;
+	link.args.input_output = linker_link_args_input_output;
+	link.args.lib = linker_link_args_lib;
 	link.args.shared = linker_link_args_shared;
 	link.args.shared_module = linker_link_args_shared;
-	link.args.input_output = linker_link_args_input_output;
-	link.args.always = linker_link_args_always;
 	link.args.whole_archive = linker_link_args_whole_archive;
-	link.args.implib = linker_link_args_implib;
-	link.args.def = linker_link_args_def;
-	link.args.check_ignored_option = linker_link_check_ignored_option;
 	register_component(linker, "link", "link", &link);
 
 	{
@@ -2329,14 +2329,18 @@ build_static_linkers(struct workspace *wk)
 	posix.args.needs_wipe = toolchain_arg_0rb_true;
 	register_component(static_linker, "ar-posix", "ar", &posix);
 
-	struct static_linker gcc = posix;
-	gcc.args.base = static_linker_ar_gcc_args_base;
-	register_component(static_linker, "ar-gcc", "ar", &gcc);
+	{
+		struct static_linker gcc = posix;
+		gcc.args.base = static_linker_ar_gcc_args_base;
+		register_component(static_linker, "ar-gcc", "ar", &gcc);
+	}
 
-	struct static_linker msvc = static_linker_empty;
-	msvc.args.input_output = linker_link_args_input_output;
-	msvc.args.always = linker_link_args_always;
-	register_component(static_linker, "lib", 0, &msvc);
+	{
+		struct static_linker msvc = static_linker_empty;
+		msvc.args.always = linker_link_args_always;
+		msvc.args.input_output = linker_link_args_input_output;
+		register_component(static_linker, "lib", 0, &msvc);
+	}
 }
 
 #undef TOOLCHAIN_ARG_MEMBER
@@ -2383,7 +2387,7 @@ static struct {
 	= { toolchain_static_linker_arg_handlers, ARRAY_LEN(toolchain_static_linker_arg_handlers) },
 };
 
-const struct toolchain_arg_handler *
+static const struct toolchain_arg_handler *
 get_toolchain_arg_handler_info(enum toolchain_component component, const char *name)
 {
 	uint32_t i;
