@@ -65,17 +65,17 @@ write_linker_rule(struct workspace *wk,
 	obj args;
 	args = make_obj(wk, obj_array);
 
-	if (toolchain_compiler_do_linker_passthrough(wk, comp)) {
+	if (toolchain_compiler_do_linker_passthrough(wk, comp_id)) {
 		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 
-		push_args(wk, args, toolchain_compiler_output(wk, comp, "$out"));
+		push_args(wk, args, toolchain_compiler_output(wk, comp_id, "$out"));
 		obj_array_push(wk, args, make_str(wk, "$in"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	} else {
 		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_linker]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
-		push_args(wk, args, toolchain_linker_input_output(wk, comp, "$in", "$out"));
+		push_args(wk, args, toolchain_linker_input_output(wk, comp_id, "$in", "$out"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	}
 
@@ -123,7 +123,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 		obj static_link_args;
 		static_link_args = make_obj(wk, obj_array);
 
-		if (toolchain_static_linker_needs_wipe(wk, comp)) {
+		if (toolchain_static_linker_needs_wipe(wk, comp_id)) {
 			obj_array_push(wk, static_link_args, make_shell_escaped_str(wk, wk->argv0));
 			obj_array_push(wk, static_link_args, make_str(wk, "internal"));
 			obj_array_push(wk, static_link_args, make_str(wk, "exe"));
@@ -133,9 +133,9 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 		}
 
 		obj_array_extend(wk, static_link_args, comp->cmd_arr[toolchain_component_static_linker]);
-		push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp));
-		push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp));
-		push_args(wk, static_link_args, toolchain_static_linker_input_output(wk, comp, "$in", "$out"));
+		push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp_id));
+		push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp_id));
+		push_args(wk, static_link_args, toolchain_static_linker_input_output(wk, comp_id, "$in", "$out"));
 
 		fprintf(out,
 			"rule %s_%s_static_linker\n"
@@ -155,7 +155,7 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 
 	const char *deps = 0;
 	{
-		const struct args *deps_args = toolchain_compiler_deps_type(wk, comp);
+		const struct args *deps_args = toolchain_compiler_deps_type(wk, comp_id);
 		if (deps_args->len) {
 			deps = deps_args->args[0];
 		}
@@ -167,13 +167,13 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 	obj_array_push(wk, args, rule_args);
 
 	if (deps) {
-		push_args(wk, args, toolchain_compiler_deps(wk, comp, "$out", "${out}.d"));
+		push_args(wk, args, toolchain_compiler_deps(wk, comp_id, "$out", "${out}.d"));
 	}
 
-	push_args(wk, args, toolchain_compiler_debugfile(wk, comp, "$out"));
+	push_args(wk, args, toolchain_compiler_debugfile(wk, comp_id, "$out"));
 
-	push_args(wk, args, toolchain_compiler_output(wk, comp, "$out"));
-	push_args(wk, args, toolchain_compiler_compile_only(wk, comp));
+	push_args(wk, args, toolchain_compiler_output(wk, comp_id, "$out"));
+	push_args(wk, args, toolchain_compiler_compile_only(wk, comp_id));
 	obj_array_push(wk, args, make_str(wk, "$in"));
 
 	obj compile_command = join_args_plain(wk, args);

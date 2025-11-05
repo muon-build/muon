@@ -31,6 +31,9 @@ guess_version(struct workspace *wk, const char *src, obj *res)
 			ver = p;
 			dots = new_dots;
 			ver_len = new_len;
+			if (new_dots >= 2) {
+				break;
+			}
 		}
 
 		if (new_len) {

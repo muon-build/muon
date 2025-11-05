@@ -106,18 +106,18 @@ ca_get_buildtype(struct workspace *wk,
 }
 
 static void
-ca_get_buildtype_args(struct workspace *wk, struct obj_compiler *comp, const struct ca_buildtype *buildtype, obj args_id)
+ca_get_buildtype_args(struct workspace *wk, obj comp, const struct ca_buildtype *buildtype, obj args_id)
 {
 	if (buildtype->debug) {
 		push_args(wk, args_id, toolchain_compiler_debug(wk, comp));
 	}
 
-	push_args(wk, args_id, toolchain_compiler_optimization(wk, comp, buildtype->opt));
+	push_args(wk, args_id, toolchain_compiler_optimization(wk, comp, vm_enum_to_obj(wk, enum compiler_optimization_lvl, buildtype->opt)));
 }
 
 static void
 ca_get_warning_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args_id)
@@ -141,7 +141,7 @@ ca_get_warning_args(struct workspace *wk,
 	default: UNREACHABLE; return;
 	}
 
-	push_args(wk, args_id, toolchain_compiler_warning_lvl(wk, comp, lvl));
+	push_args(wk, args_id, toolchain_compiler_warning_lvl(wk, comp, vm_enum_to_obj(wk, enum compiler_warning_lvl, lvl)));
 
 	if (tgt->pch && lvl >= 1) {
 		push_args(wk, args_id, toolchain_compiler_winvalid_pch(wk, comp));
@@ -150,7 +150,7 @@ ca_get_warning_args(struct workspace *wk,
 
 static void
 ca_get_werror_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args_id)
@@ -165,14 +165,14 @@ ca_get_werror_args(struct workspace *wk,
 
 void
 ca_get_std_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
 	obj std;
 
-	switch (comp->lang) {
+	switch (get_obj_compiler(wk, comp)->lang) {
 	case compiler_language_objc:
 	case compiler_language_c: ca_get_option_value_for_tgt(wk, proj, tgt, "c_std", &std); break;
 	case compiler_language_objcpp:
@@ -216,13 +216,13 @@ ca_get_std_args(struct workspace *wk,
 
 void
 ca_get_option_compile_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
 	obj args;
-	switch (comp->lang) {
+	switch (get_obj_compiler(wk, comp)->lang) {
 #define TOOLCHAIN_ENUM(lang) \
 	case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_args", &args); break;
 		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
@@ -235,7 +235,7 @@ ca_get_option_compile_args(struct workspace *wk,
 
 static void
 ca_setup_optional_b_args_compiler(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	const struct ca_buildtype *buildtype,
@@ -258,7 +258,7 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 			UNREACHABLE;
 			return;
 		}
-		push_args(wk, args, toolchain_compiler_pgo(wk, comp, stage));
+		push_args(wk, args, toolchain_compiler_pgo(wk, comp, vm_enum_to_obj(wk, enum compiler_pgo_stage, stage)));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
@@ -296,9 +296,9 @@ ca_get_base_compiler_args(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	enum compiler_language lang,
-	obj comp_id)
+	obj comp)
 {
-	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
+	// struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	struct ca_buildtype buildtype;
 
 	ca_get_buildtype(wk, proj, tgt, &buildtype);
@@ -337,10 +337,8 @@ ca_get_base_compiler_args(struct workspace *wk,
 }
 
 void
-ca_setup_compiler_args_includes(struct workspace *wk, obj compiler, obj include_dirs, obj args, bool relativize)
+ca_setup_compiler_args_includes(struct workspace *wk, obj comp, obj include_dirs, obj args, bool relativize)
 {
-	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
-
 	obj v;
 	obj_array_for(wk, include_dirs, v) {
 		const char *dir;
@@ -414,17 +412,15 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 	obj_dict_for(wk, tgt->required_compilers, _lang, _n) {
 		(void)_n;
 		enum compiler_language lang = _lang;
-		obj comp_id;
-		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], lang, &comp_id)) {
+		obj comp;
+		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], lang, &comp)) {
 			LOG_E("No %s compiler defined for language %s",
 				machine_kind_to_s(tgt->machine),
 				compiler_language_to_s(lang));
 			return false;
 		}
 
-		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-
-		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp_id);
+		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp);
 
 		if (tgt->flags & build_tgt_flag_pic) {
 			push_args(wk, args, toolchain_compiler_pic(wk, comp));
@@ -435,7 +431,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		}
 
 		if (tgt->flags & build_tgt_flag_visibility) {
-			push_args(wk, args, toolchain_compiler_visibility(wk, comp, tgt->visibility));
+			push_args(wk, args, toolchain_compiler_visibility(wk, comp, vm_enum_to_obj(wk, enum compiler_visibility_type, tgt->visibility)));
 		}
 
 		obj dedupd;
@@ -451,7 +447,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 			}
 		}
 
-		ca_setup_compiler_args_includes(wk, comp_id, tgt->dep_internal.include_directories, args, true);
+		ca_setup_compiler_args_includes(wk, comp, tgt->dep_internal.include_directories, args, true);
 
 		obj args_post;
 		args_post = make_obj(wk, obj_array);
@@ -489,7 +485,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 					push_args(wk,
 						args_dup,
 						toolchain_compiler_force_language(
-							wk, comp, compiler_language_to_hdr(lang)));
+							wk, comp, compiler_language_to_gcc_name(compiler_language_to_hdr(lang))));
 					obj_dict_seti(wk, tgt->processed_args_pch, lang, args_dup);
 				}
 
@@ -532,13 +528,13 @@ ca_build_target_joined_args(struct workspace *wk, obj processed_args)
 
 void
 ca_get_option_link_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
 	obj args;
-	switch (comp->lang) {
+	switch (get_obj_compiler(wk, comp)->lang) {
 #define TOOLCHAIN_ENUM(lang) \
 	case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_link_args", &args); break;
 		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
@@ -551,7 +547,7 @@ ca_get_option_link_args(struct workspace *wk,
 
 static void
 ca_push_linker_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct obj_build_target *tgt,
 	const struct args *args)
 {
@@ -568,7 +564,7 @@ ca_push_linker_args(struct workspace *wk,
 
 static bool
 ca_setup_optional_b_args_linker(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args)
@@ -609,21 +605,20 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 
 bool
 ca_prepare_target_linker_args(struct workspace *wk,
-	struct obj_compiler *comp,
+	obj comp,
 	const struct project *proj,
 	struct obj_build_target *tgt,
 	bool relativize)
 {
 	if (!comp) {
-		obj comp_id;
-		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp_id)) {
+		if (!obj_dict_geti(wk, proj->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp)) {
 			LOG_E("no compiler defined for link language %s",
 				compiler_language_to_s(tgt->dep_internal.link_language));
 			return false;
 		}
-
-		comp = get_obj_compiler(wk, comp_id);
 	}
+
+	const enum compiler_language lang = get_obj_compiler(wk, comp)->lang;
 
 	if (relativize) {
 		ca_relativize_paths(wk, tgt->dep_internal.link_with, true, &tgt->dep_internal.link_with);
@@ -669,13 +664,13 @@ ca_prepare_target_linker_args(struct workspace *wk,
 
 		/* global args */
 		obj global_args;
-		if (obj_dict_geti(wk, wk->global_link_args[tgt->machine], comp->lang, &global_args)) {
+		if (obj_dict_geti(wk, wk->global_link_args[tgt->machine], lang, &global_args)) {
 			obj_array_extend(wk, tgt->dep_internal.link_args, global_args);
 		}
 
 		/* project args */
 		obj proj_args;
-		if (obj_dict_geti(wk, proj->link_args[tgt->machine], comp->lang, &proj_args)) {
+		if (obj_dict_geti(wk, proj->link_args[tgt->machine], lang, &proj_args)) {
 			obj_array_extend(wk, tgt->dep_internal.link_args, proj_args);
 		}
 
@@ -719,7 +714,7 @@ ca_prepare_target_linker_args(struct workspace *wk,
 		if (proj) {
 			/* project link_with */
 			obj proj_link_with;
-			if (obj_dict_geti(wk, proj->link_with[tgt->machine], comp->lang, &proj_link_with)) {
+			if (obj_dict_geti(wk, proj->link_with[tgt->machine], lang, &proj_link_with)) {
 				obj_array_extend(wk, tgt->dep_internal.link_args, proj_link_with);
 			}
 		}

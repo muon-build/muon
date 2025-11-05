@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "datastructures/arr.h"
 #include "lang/types.h"
 #include "machines.h"
 
@@ -39,61 +40,65 @@ enum compiler_language {
 };
 #undef TOOLCHAIN_ENUM
 
+#define FOREACH_COMPILER_OPTIMIZATION_LVL(_) \
+	_(none) \
+	_(0) \
+	_(1) \
+	_(2) \
+	_(3) \
+	_(g) \
+	_(s) \
+
+#define TOOLCHAIN_ENUM(v) compiler_optimization_lvl_##v,
 enum compiler_optimization_lvl {
-	compiler_optimization_lvl_none,
-	compiler_optimization_lvl_0,
-	compiler_optimization_lvl_1,
-	compiler_optimization_lvl_2,
-	compiler_optimization_lvl_3,
-	compiler_optimization_lvl_g,
-	compiler_optimization_lvl_s,
+	FOREACH_COMPILER_OPTIMIZATION_LVL(TOOLCHAIN_ENUM)
 };
+#undef TOOLCHAIN_ENUM
 
+#define FOREACH_COMPILER_PGO_STAGE(_) \
+	_(generate) \
+	_(use) \
+
+#define TOOLCHAIN_ENUM(v) compiler_pgo_stage_##v,
 enum compiler_pgo_stage {
-	compiler_pgo_generate,
-	compiler_pgo_use,
+	FOREACH_COMPILER_PGO_STAGE(TOOLCHAIN_ENUM)
 };
+#undef TOOLCHAIN_ENUM
 
+#define FOREACH_COMPILER_WARNING_LVL(_) \
+	_(0) \
+	_(1) \
+	_(2) \
+	_(3) \
+	_(everything)
+
+#define TOOLCHAIN_ENUM(v) compiler_warning_lvl_##v,
 enum compiler_warning_lvl {
-	compiler_warning_lvl_0,
-	compiler_warning_lvl_1,
-	compiler_warning_lvl_2,
-	compiler_warning_lvl_3,
-	compiler_warning_lvl_everything,
+	FOREACH_COMPILER_WARNING_LVL(TOOLCHAIN_ENUM)
 };
+#undef TOOLCHAIN_ENUM
 
+#define FOREACH_COMPILER_VISIBILITY_TYPE(_) \
+	_(default) \
+	_(hidden) \
+	_(internal) \
+	_(protected) \
+	_(inlineshidden)
+
+#define TOOLCHAIN_ENUM(v) compiler_visibility_type_##v,
 enum compiler_visibility_type {
-	compiler_visibility_default,
-	compiler_visibility_hidden,
-	compiler_visibility_internal,
-	compiler_visibility_protected,
-	compiler_visibility_inlineshidden,
+	FOREACH_COMPILER_VISIBILITY_TYPE(TOOLCHAIN_ENUM)
 };
-
-enum toolchain_arg_arity {
-	toolchain_arg_arity_0,
-	toolchain_arg_arity_1i,
-	toolchain_arg_arity_1s,
-	toolchain_arg_arity_2s,
-	toolchain_arg_arity_1s1b,
-	toolchain_arg_arity_ns,
-	toolchain_arg_arity_0rb,
-	toolchain_arg_arity_1srb,
-};
-
-struct toolchain_arg_handler {
-	const char *name;
-	enum toolchain_arg_arity arity;
-};
+#undef TOOLCHAIN_ENUM
 
 #define TOOLCHAIN_TRUE ((void *)1)
 #define TOOLCHAIN_FALSE 0
 
-#define TOOLCHAIN_PARAMS_BASE struct workspace *wk, struct obj_compiler *comp
+#define TOOLCHAIN_PARAMS_BASE struct workspace *wk, obj comp
 #define TOOLCHAIN_PARAM_NAMES_BASE wk, comp
 
 #define TOOLCHAIN_SIG_0 TOOLCHAIN_PARAMS_BASE
-#define TOOLCHAIN_SIG_1i TOOLCHAIN_PARAMS_BASE, uint32_t i1
+#define TOOLCHAIN_SIG_1i TOOLCHAIN_PARAMS_BASE, obj i1
 #define TOOLCHAIN_SIG_1s TOOLCHAIN_PARAMS_BASE, const char *s1
 #define TOOLCHAIN_SIG_2s TOOLCHAIN_PARAMS_BASE, const char *s1, const char *s2
 #define TOOLCHAIN_SIG_1s1b TOOLCHAIN_PARAMS_BASE, const char *s1, bool b1
@@ -123,104 +128,88 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 #define TOOLCHAIN_ARG_MEMBER_(name, return_type, type, params, names) compiler_get_arg_func_##type name;
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, type)
 
-#define FOREACH_COMPILER_ARG(_)                                \
-	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0rb) \
+#define FOREACH_COMPILER_ARG(_)                                  \
+	_(always, compiler, TOOLCHAIN_PARAMS_0)                  \
+	_(argument_syntax, compiler, TOOLCHAIN_PARAMS_0)         \
+	_(can_compile_llvm_ir, compiler, TOOLCHAIN_PARAMS_0rb)   \
 	_(check_ignored_option, compiler, TOOLCHAIN_PARAMS_1srb) \
-	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns)   \
-	_(linker_delimiter, compiler, TOOLCHAIN_PARAMS_0)   \
-	_(deps, compiler, TOOLCHAIN_PARAMS_2s)                 \
-	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)          \
-	_(preprocess_only, compiler, TOOLCHAIN_PARAMS_0)       \
-	_(output, compiler, TOOLCHAIN_PARAMS_1s)               \
-	_(optimization, compiler, TOOLCHAIN_PARAMS_1i)         \
-	_(debug, compiler, TOOLCHAIN_PARAMS_0)                 \
-	_(warning_lvl, compiler, TOOLCHAIN_PARAMS_1i)          \
-	_(warn_everything, compiler, TOOLCHAIN_PARAMS_0)       \
-	_(werror, compiler, TOOLCHAIN_PARAMS_0)                \
-	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)              \
-	_(include, compiler, TOOLCHAIN_PARAMS_1s)              \
-	_(include_system, compiler, TOOLCHAIN_PARAMS_1s)       \
-	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)     \
-	_(pgo, compiler, TOOLCHAIN_PARAMS_1i)                  \
-	_(pic, compiler, TOOLCHAIN_PARAMS_0)                   \
-	_(pie, compiler, TOOLCHAIN_PARAMS_0)                   \
-	_(sanitize, compiler, TOOLCHAIN_PARAMS_1s)             \
-	_(define, compiler, TOOLCHAIN_PARAMS_1s)               \
-	_(visibility, compiler, TOOLCHAIN_PARAMS_1i)           \
-	_(specify_lang, compiler, TOOLCHAIN_PARAMS_1s)         \
-	_(color_output, compiler, TOOLCHAIN_PARAMS_1s)         \
-	_(enable_lto, compiler, TOOLCHAIN_PARAMS_0)            \
-	_(always, compiler, TOOLCHAIN_PARAMS_0)                \
-	_(crt, compiler, TOOLCHAIN_PARAMS_1s1b)                \
-	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)            \
-	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)            \
-	_(pch_ext, compiler, TOOLCHAIN_PARAMS_0)               \
-	_(force_language, compiler, TOOLCHAIN_PARAMS_1i)       \
-	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)             \
-	_(coverage, compiler, TOOLCHAIN_PARAMS_0)              \
-	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)        \
-	_(permissive, compiler, TOOLCHAIN_PARAMS_0)            \
-	_(include_pch, compiler, TOOLCHAIN_PARAMS_1s)          \
-	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)              \
-	_(winvalid_pch, compiler, TOOLCHAIN_PARAMS_0)          \
-	_(can_compile_llvm_ir, compiler, TOOLCHAIN_PARAMS_0rb) \
-	_(argument_syntax, compiler, TOOLCHAIN_PARAMS_0)
+	_(color_output, compiler, TOOLCHAIN_PARAMS_1s)           \
+	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)            \
+	_(coverage, compiler, TOOLCHAIN_PARAMS_0)                \
+	_(crt, compiler, TOOLCHAIN_PARAMS_1s1b)                  \
+	_(debug, compiler, TOOLCHAIN_PARAMS_0)                   \
+	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)              \
+	_(define, compiler, TOOLCHAIN_PARAMS_1s)                 \
+	_(deps, compiler, TOOLCHAIN_PARAMS_2s)                   \
+	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)               \
+	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0rb) \
+	_(dumpmachine, compiler, TOOLCHAIN_PARAMS_0) \
+	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)                \
+	_(enable_lto, compiler, TOOLCHAIN_PARAMS_0)              \
+	_(force_language, compiler, TOOLCHAIN_PARAMS_1s)         \
+	_(include, compiler, TOOLCHAIN_PARAMS_1s)                \
+	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)       \
+	_(include_pch, compiler, TOOLCHAIN_PARAMS_1s)            \
+	_(include_system, compiler, TOOLCHAIN_PARAMS_1s)         \
+	_(linker_delimiter, compiler, TOOLCHAIN_PARAMS_0)        \
+	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns)     \
+	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)              \
+	_(optimization, compiler, TOOLCHAIN_PARAMS_1i)           \
+	_(output, compiler, TOOLCHAIN_PARAMS_1s)                 \
+	_(pch_ext, compiler, TOOLCHAIN_PARAMS_0)                 \
+	_(permissive, compiler, TOOLCHAIN_PARAMS_0)              \
+	_(pgo, compiler, TOOLCHAIN_PARAMS_1i)                    \
+	_(pic, compiler, TOOLCHAIN_PARAMS_0)                     \
+	_(pie, compiler, TOOLCHAIN_PARAMS_0)                     \
+	_(preprocess_only, compiler, TOOLCHAIN_PARAMS_0)         \
+	_(print_search_dirs, compiler, TOOLCHAIN_PARAMS_0) \
+	_(sanitize, compiler, TOOLCHAIN_PARAMS_1s)               \
+	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)                \
+	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)          \
+	_(version, compiler, TOOLCHAIN_PARAMS_0)                 \
+	_(visibility, compiler, TOOLCHAIN_PARAMS_1i)             \
+	_(warn_everything, compiler, TOOLCHAIN_PARAMS_0)         \
+	_(warning_lvl, compiler, TOOLCHAIN_PARAMS_1i)            \
+	_(werror, compiler, TOOLCHAIN_PARAMS_0)                  \
+	_(winvalid_pch, compiler, TOOLCHAIN_PARAMS_0)
 
-#define FOREACH_LINKER_ARG(_)                                \
+#define FOREACH_LINKER_ARG(_)                                  \
+	_(allow_shlib_undefined, linker, TOOLCHAIN_PARAMS_0)   \
+	_(always, linker, TOOLCHAIN_PARAMS_0)                  \
+	_(as_needed, linker, TOOLCHAIN_PARAMS_0)               \
 	_(check_ignored_option, linker, TOOLCHAIN_PARAMS_1srb) \
-	_(lib, linker, TOOLCHAIN_PARAMS_1s)                  \
-	_(debug, linker, TOOLCHAIN_PARAMS_0)                 \
-	_(as_needed, linker, TOOLCHAIN_PARAMS_0)             \
-	_(no_undefined, linker, TOOLCHAIN_PARAMS_0)          \
-	_(start_group, linker, TOOLCHAIN_PARAMS_0)           \
-	_(end_group, linker, TOOLCHAIN_PARAMS_0)             \
-	_(shared, linker, TOOLCHAIN_PARAMS_0)                \
-	_(soname, linker, TOOLCHAIN_PARAMS_1s)               \
-	_(rpath, linker, TOOLCHAIN_PARAMS_1s)                \
-	_(pgo, linker, TOOLCHAIN_PARAMS_1i)                  \
-	_(sanitize, linker, TOOLCHAIN_PARAMS_1s)             \
-	_(allow_shlib_undefined, linker, TOOLCHAIN_PARAMS_0) \
-	_(shared_module, linker, TOOLCHAIN_PARAMS_0)         \
-	_(export_dynamic, linker, TOOLCHAIN_PARAMS_0)        \
-	_(fatal_warnings, linker, TOOLCHAIN_PARAMS_0)        \
-	_(whole_archive, linker, TOOLCHAIN_PARAMS_1s)        \
-	_(enable_lto, linker, TOOLCHAIN_PARAMS_0)            \
-	_(input_output, linker, TOOLCHAIN_PARAMS_2s)         \
-	_(always, linker, TOOLCHAIN_PARAMS_0)                \
-	_(coverage, linker, TOOLCHAIN_PARAMS_0)              \
-	_(implib, linker, TOOLCHAIN_PARAMS_1s)               \
-	_(def, linker, TOOLCHAIN_PARAMS_1s) \
-	_(fuse_ld, linker, TOOLCHAIN_PARAMS_0)
+	_(coverage, linker, TOOLCHAIN_PARAMS_0)                \
+	_(debug, linker, TOOLCHAIN_PARAMS_0)                   \
+	_(def, linker, TOOLCHAIN_PARAMS_1s)                    \
+	_(enable_lto, linker, TOOLCHAIN_PARAMS_0)              \
+	_(end_group, linker, TOOLCHAIN_PARAMS_0)               \
+	_(export_dynamic, linker, TOOLCHAIN_PARAMS_0)          \
+	_(fatal_warnings, linker, TOOLCHAIN_PARAMS_0)          \
+	_(fuse_ld, linker, TOOLCHAIN_PARAMS_0)                 \
+	_(implib, linker, TOOLCHAIN_PARAMS_1s)                 \
+	_(input_output, linker, TOOLCHAIN_PARAMS_2s)           \
+	_(lib, linker, TOOLCHAIN_PARAMS_1s)                    \
+	_(no_undefined, linker, TOOLCHAIN_PARAMS_0)            \
+	_(pgo, linker, TOOLCHAIN_PARAMS_1i)                    \
+	_(rpath, linker, TOOLCHAIN_PARAMS_1s)                  \
+	_(sanitize, linker, TOOLCHAIN_PARAMS_1s)               \
+	_(shared, linker, TOOLCHAIN_PARAMS_0)                  \
+	_(shared_module, linker, TOOLCHAIN_PARAMS_0)           \
+	_(soname, linker, TOOLCHAIN_PARAMS_1s)                 \
+	_(start_group, linker, TOOLCHAIN_PARAMS_0)             \
+	_(version, linker, TOOLCHAIN_PARAMS_0)                 \
+	_(whole_archive, linker, TOOLCHAIN_PARAMS_1s)
 
 #define FOREACH_STATIC_LINKER_ARG(_)                        \
-	_(needs_wipe, static_linker, TOOLCHAIN_PARAMS_0rb)          \
+	_(always, static_linker, TOOLCHAIN_PARAMS_0)        \
 	_(base, static_linker, TOOLCHAIN_PARAMS_0)          \
 	_(input_output, static_linker, TOOLCHAIN_PARAMS_2s) \
-	_(always, static_linker, TOOLCHAIN_PARAMS_0)
+	_(needs_wipe, static_linker, TOOLCHAIN_PARAMS_0rb)  \
+	_(version, static_linker, TOOLCHAIN_PARAMS_0)
 
 struct language {
 	bool is_header;
 	bool is_linkable;
-};
-
-struct compiler {
-	struct {
-		FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER)
-	} args;
-	uint32_t default_linker;
-	uint32_t default_static_linker;
-};
-
-struct linker {
-	struct {
-		FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
-	} args;
-};
-
-struct static_linker {
-	struct {
-		FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
-	} args;
 };
 
 #undef TOOLCHAIN_ARG_MEMBER
@@ -242,7 +231,13 @@ struct toolchain_id {
 
 struct toolchain_registry_component {
 	struct toolchain_id id;
-	obj detect, overrides;
+	obj detect, overrides, exe;
+	uint32_t sub_components[toolchain_component_count];
+};
+
+struct toolchain_registry {
+	obj ids[toolchain_component_count];
+	struct arr components[toolchain_component_count];
 };
 
 extern const struct language languages[];
@@ -263,19 +258,14 @@ obj compiler_check_cache_key(struct workspace *wk, const struct compiler_check_c
 bool compiler_check_cache_get(struct workspace *wk, obj key, struct compiler_check_cache_value *val);
 void compiler_check_cache_set(struct workspace *wk, obj key, const struct compiler_check_cache_value *val);
 
-bool toolchain_type_from_s(struct workspace *wk, enum toolchain_component comp, const char *name, uint32_t *res);
+bool toolchain_component_type_from_s(struct workspace *wk, enum toolchain_component comp, const char *name, uint32_t *res);
 const struct toolchain_id *toolchain_component_type_to_id(struct workspace *wk, enum toolchain_component comp, uint32_t val);
 const char *toolchain_component_to_s(enum toolchain_component comp);
 bool toolchain_component_from_s(const char *name, uint32_t *res);
-const char *compiler_type_to_s(struct workspace *wk, uint32_t compiler_type);
-bool compiler_type_from_s(struct workspace *wk, const char *name, uint32_t *res);
-uint32_t compiler_type(struct workspace *wk, const char *name);
-const char *linker_type_to_s(struct workspace *wk, uint32_t linker_type);
-bool linker_type_from_s(struct workspace *wk, const char *name, uint32_t *res);
-bool static_linker_type_from_s(struct workspace *wk, const char *name, uint32_t *res);
 
 enum compiler_language compiler_language_to_hdr(enum compiler_language lang);
 const char *compiler_language_to_s(enum compiler_language l);
+const char *compiler_language_to_gcc_name(enum compiler_language l);
 bool s_to_compiler_language(const char *s, enum compiler_language *l);
 
 bool filename_to_compiler_language(const char *str, enum compiler_language *l);
@@ -285,11 +275,11 @@ enum compiler_language coalesce_link_languages(enum compiler_language cur, enum 
 bool
 toolchain_register_component(struct workspace *wk,
 	enum toolchain_component component,
-	const struct toolchain_registry_component *base,
-	const void *data);
+	const struct toolchain_registry_component *base);
 
 bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang);
 void compilers_init(struct workspace *wk);
+void compilers_register_native(struct workspace *wk);
 
 bool toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component);
 
@@ -299,7 +289,7 @@ struct toolchain_dump_opts {
 	uint32_t i1;
 	const struct args *n1;
 };
-void toolchain_dump(struct workspace *wk, struct obj_compiler *comp, struct toolchain_dump_opts *opts);
+void toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts);
 
 #define TOOLCHAIN_ARG_MEMBER_(name, _name, component, return_type, _type, params, names) \
 	return_type toolchain_##component##_name params;

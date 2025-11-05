@@ -681,15 +681,15 @@ create_target(struct workspace *wk,
 		if (vis->set && get_str(wk, vis->val)->len) {
 			const struct str *str = get_str(wk, vis->val);
 			if (str_eql(str, &STR("default"))) {
-				tgt->visibility = compiler_visibility_default;
+				tgt->visibility = compiler_visibility_type_default;
 			} else if (str_eql(str, &STR("hidden"))) {
-				tgt->visibility = compiler_visibility_hidden;
+				tgt->visibility = compiler_visibility_type_hidden;
 			} else if (str_eql(str, &STR("internal"))) {
-				tgt->visibility = compiler_visibility_internal;
+				tgt->visibility = compiler_visibility_type_internal;
 			} else if (str_eql(str, &STR("protected"))) {
-				tgt->visibility = compiler_visibility_protected;
+				tgt->visibility = compiler_visibility_type_protected;
 			} else if (str_eql(str, &STR("inlineshidden"))) {
-				tgt->visibility = compiler_visibility_inlineshidden;
+				tgt->visibility = compiler_visibility_type_inlineshidden;
 			} else {
 				vm_error_at(wk, vis->node, "unknown visibility '%s'", get_cstr(wk, vis->val));
 				return false;

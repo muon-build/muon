@@ -1098,12 +1098,9 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 /*
  */
 
-static void
-az_op_constant_func(struct workspace *wk)
+void
+az_analyze_func(struct workspace *wk, obj c)
 {
-	analyzer.unpatched_ops.ops[op_constant_func](wk);
-
-	obj c = object_stack_peek(&wk->vm.stack, 1);
 	struct obj_capture *capture = get_obj_capture(wk, c);
 
 	struct args_norm an[ARRAY_LEN(capture->func->an)] = { 0 };
@@ -1111,14 +1108,16 @@ az_op_constant_func(struct workspace *wk)
 	{
 		uint32_t i;
 		for (i = 0; i < capture->func->nargs; ++i) {
-			an[i].val = make_typeinfo(wk, flatten_type(wk, capture->func->an[i].type));
+			an[i].val = make_typeinfo(
+				wk, flatten_type_flags(wk, capture->func->an[i].type, flatten_type_flag_keep_enums));
 			an[i].node = wk->vm.ip - 1;
 		}
 		an[i].type = ARG_TYPE_NULL;
 
 		for (i = 0; i < capture->func->nkwargs; ++i) {
 			akw[i].key = capture->func->akw[i].key;
-			akw[i].val = make_typeinfo(wk, flatten_type(wk, capture->func->akw[i].type));
+			akw[i].val = make_typeinfo(
+				wk, flatten_type_flags(wk, capture->func->akw[i].type, flatten_type_flag_keep_enums));
 			akw[i].node = wk->vm.ip - 1;
 		}
 		akw[i].key = 0;
@@ -1138,6 +1137,15 @@ az_op_constant_func(struct workspace *wk)
 		stack_pop(&wk->stack, cur_func_context);
 		stack_pop(&wk->stack, pop_args_ctx);
 	}
+}
+
+static void
+az_op_constant_func(struct workspace *wk)
+{
+	analyzer.unpatched_ops.ops[op_constant_func](wk);
+
+	obj c = object_stack_peek(&wk->vm.stack, 1);
+	az_analyze_func(wk, c);
 }
 
 static void

@@ -28,6 +28,7 @@ struct func_impl {
 	const char *desc;
 	const char *file;
 	uint32_t line;
+	const char *deferred_return_type;
 };
 
 #define FUNC_IMPL(__type, __name, ...) \
@@ -35,8 +36,10 @@ static bool func_ ## __type ## _ ## __name(struct workspace *wk, obj self, obj *
 static struct func_impl func_impl_ ## __type ## _ ## __name = { #__name, func_ ## __type ## _ ## __name, __VA_ARGS__, .file = __FILE__, .line = __LINE__ }; \
 static bool func_ ## __type ## _ ## __name(struct workspace *wk, obj self, obj *res)
 
-#define FUNC_IMPL_REGISTER_ARGS enum language_mode lang_mode, struct func_impl *dest, uint32_t cap, uint32_t *added
-#define FUNC_IMPL_REGISTER_ARGS_FWD lang_mode, dest, cap, added
+#define FUNC_IMPL_RETURN(k) 0, .deferred_return_type = #k
+
+#define FUNC_IMPL_REGISTER_ARGS struct workspace *wk, enum language_mode lang_mode, struct func_impl *dest, uint32_t cap, uint32_t *added
+#define FUNC_IMPL_REGISTER_ARGS_FWD wk, lang_mode, dest, cap, added
 
 void func_impl_register(FUNC_IMPL_REGISTER_ARGS, const struct func_impl *src, const char *alias);
 
@@ -63,7 +66,7 @@ struct func_impl_group {
 
 extern struct func_impl native_funcs[];
 
-void build_func_impl_tables(void);
+void build_func_impl_tables(struct workspace *wk);
 
 bool func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj *func);
 bool func_lookup_for_group(const struct func_impl_group impl_group[],
@@ -73,6 +76,7 @@ bool func_lookup_for_group(const struct func_impl_group impl_group[],
 const struct func_impl_group *func_lookup_group(enum obj_type t);
 
 void func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr *kwargs_arr);
+void kwargs_arr_init(struct workspace *wk, struct arr *arr);
 void kwargs_arr_push(struct workspace *wk, struct arr *arr, const struct args_kw *kw);
 void kwargs_arr_del(struct workspace *wk, struct arr *arr, const char *name);
 struct args_kw *kwargs_arr_get(struct workspace *wk, struct arr *arr, const char *name);

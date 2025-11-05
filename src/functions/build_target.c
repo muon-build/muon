@@ -83,7 +83,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 		obj comp_id;
 		if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], opts->lang, &comp_id)) {
 
-			const struct args *args = opts->get_ext(wk, get_obj_compiler(wk, comp_id));
+			const struct args *args = opts->get_ext(wk, comp_id);
 			if (args->len) {
 				assert(args->len == 1);
 				ext = args->args[0];

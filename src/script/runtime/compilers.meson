@@ -2,13 +2,327 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 toolchain = import('toolchain')
+fs = import('fs')
 
-toolchain.register(
-    'slimcc',
-    component: 'compiler',
-    inherit: 'posix',
-    default_linker: 'ld',
-    detect: func(stdout str, _stderr str) -> bool
-        return 'slimcc' in stdout
-    endfunc,
+################################################################################
+# static linkers
+################################################################################
+
+# https://pubs.opengroup.org/onlinepubs/9699919799/
+toolchain.register_static_linker(
+    'ar-posix',
+    exe: 'ar',
+    handlers: {
+        'base': ['csr'],
+        'input_output': func(_c compiler, input str, output str) -> list[str]
+            return [output, input]
+        endfunc,
+        'needs_wipe': true,
+    },
 )
+
+toolchain.register_static_linker(
+    'ar-gnu',
+    inherit: 'ar-posix',
+    detect: func(out str) -> int
+        return 'Free Software Foundation' in out ? 100 : 0
+    endfunc,
+    handlers: {
+        'version': ['--version'],
+        'base': ['csrD'],
+    },
+)
+
+################################################################################
+# linkers
+################################################################################
+
+toolchain.register_linker(
+    'ld-posix',
+    exe: 'ld',
+    handlers: {
+        'version': ['-v'],
+        'input_output': func(_c compiler, input str, output str) -> list[str]
+            return [output, input]
+        endfunc,
+        'lib': func(_c compiler, lib str) -> list[str]
+            return ['-l', lib]
+        endfunc,
+        'shared': ['-shared'],
+    }
+)
+
+toolchain.register_linker(
+    'ld',
+    inherit: 'ld-posix',
+    handlers: {
+        'allow_shlib_undefined': ['--allow-shlib-undefined'],
+        'as_needed': ['--as-needed'],
+        'coverage': ['--coverage'],
+        'def': func(_c compiler, s1 str) -> list[str]
+            return [s1]
+        endfunc,
+        'enable_lto': ['-flto'],
+        'end_group': ['--end-group'],
+        'export_dynamic': ['-export-dynamic'],
+        'fatal_warnings': ['--fatal-warnings'],
+        'implib': func(_c compiler, s1 str) -> list[str]
+            return ['--out-implib,' + s1]
+        endfunc,
+        'no_undefined': ['--no_undefined'],
+        'pgo': func(_c compiler, stage str) -> list[str]
+            if stage == 'generate'
+                return ['-fprofile-generate']
+            elif stage == 'use'
+                return ['-fprofile-correction', '-fprofile-use']
+            endif
+        endfunc,
+        'rpath': func(_c compiler, s1 str) -> list[str]
+            return ['-rpath,' + s1]
+        endfunc,
+        'sanitize': func(_c compiler, s1 str) -> list[str]
+            return ['-fsanitize=' + s1]
+        endfunc,
+        'shared_module': ['-shared'],
+        'soname': func(_c compiler, s1 str) -> list[str]
+            return ['-soname', s1]
+        endfunc,
+        'start_group': ['--start-group'],
+        'whole_archive': func(_c compiler, s1 str) -> list[str]
+            return ['--whole-archive', s1, '--no-whole-archive']
+        endfunc
+    }
+)
+
+toolchain.register_linker(
+    'lld',
+    inherit: 'ld',
+    exe: 'lld',
+)
+
+toolchain.register_linker(
+    'lld-apple',
+    inherit: 'ld-posix',
+    exe: 'lld',
+    detect: func(out str) -> int
+        return 'Apple' in out ? 100 : 0
+    endfunc,
+    handlers: {
+        'allow_shlib_undefined': ['-undefined', 'dynamic_lookup'],
+        'enable_lto': ['-flto'],
+        'rpath': func(_c compiler, s1 str) -> list[str]
+            return ['-rpath,' + s1]
+        endfunc,
+        'sanitize': func(_c compiler, s1 str) -> list[str]
+            return ['-fsanitize=' + s1]
+        endfunc,
+        'shared_module': ['-bundle'],
+        'whole_archive': func(_c compiler, s1 str) -> list[str]
+            return ['-force_load', s1]
+        endfunc
+    },
+)
+
+################################################################################
+# compilers
+################################################################################
+
+toolchain.register_compiler(
+    'posix',
+    exe: 'cc',
+    linker: 'ld-posix',
+    static_linker: 'ar-posix',
+    handlers: {
+        'version': ['--version'],
+        'do_linker_passthrough': true,
+        'linker_passthrough': func(_c compiler, args list[str]) -> list[str]
+            len = args.length()
+            if len == 0
+                return args
+            elif len == 1
+                if args[0] in ['-shared', '-bundle', '-dynamiclib'] or args[0].startswith('-fuse-ld=')
+                    return args
+                endif
+
+                return ['-Wl,' + args[0]]
+            elif len == 2
+                if args[0] == '-l'
+                    # "-Wl,-l,dl" errors out on some compilers - use "-ldl" form
+                    return ['-l' + args[1]]
+                endif
+
+                return ['-Wl,' + args[0] + ',' + args[1]]
+            elif len == 3
+                return ['-Wl,' + args[0], args[1], '-Wl,' + args[1]]
+            else
+                error('unhandled linker_passthrough @0@'.format(args))
+            endif
+        endfunc,
+        'compile_only': ['-c'],
+        'preprocess_only': ['-E'],
+        'output': func(_c compiler, s str) -> list[str]
+            return ['-o', s]
+        endfunc,
+        'optimization': func(_c compiler, lvl str) -> list[str]
+            if lvl == '0'
+                return ['-O0']
+            elif lvl in ['1', '2', '3']
+                return ['-O1']
+            else
+                return []
+            endif
+        endfunc,
+        'debug': ['-g'],
+        'include': func(_c compiler, s str) -> list[str]
+            return ['-I', s]
+        endfunc,
+        'include_system': func(_c compiler, s str) -> list[str]
+            return ['-I', s]
+        endfunc,
+        'object_ext': ['.o'],
+        'define': func(_c compiler, s str) -> list[str]
+            return ['-D', s]
+        endfunc,
+        'pic': ['-fPIC'],
+        'force_language': func(_c compiler, s str) -> list[str]
+            return ['-x', s]
+        endfunc,
+        'werror': ['-Werror'],
+    },
+)
+
+toolchain.register_compiler(
+    'gcc',
+    exe: 'gcc',
+    linker: 'ld',
+    static_linker: 'ar-gnu',
+    inherit: 'posix',
+    detect: func(out str) -> int
+        return 'Free Software Foundation' in out ? 100 : 0
+    endfunc,
+    handlers: {
+        'argument_syntax': ['gcc'],
+        'color_output': func(c compiler, s str) -> list[str]
+            if c.version().version_compare('<4.9.0')
+                return []
+            endif
+
+            return ['-fdiagnostics-color=' + s]
+        endfunc,
+        'coverage': ['--coverage'],
+        'deps': func(_c compiler, s1 str, s2 str) -> list[str]
+            return ['-MD', '-MQ', s1, '-MF', s2]
+        endfunc,
+        'deps_type': ['gcc'],
+        'enable_lto': ['-flto'],
+        'include_dirafter': func(_c compiler, s1 str) -> list[str]
+            return ['-idirafter', s1]
+        endfunc,
+        'include_pch': func(_c compiler, s1 str) -> list[str]
+            return ['-I', fs.parent(s1), '-include', fs.name(s1)]
+        endfunc,
+        'include_system': func(_c compiler, s1 str) -> list[str]
+            return ['-isystem', s1]
+        endfunc,
+        'optimization': func(_c compiler, lvl str) -> list[str]
+            if lvl == 'none'
+                return []
+            else
+                return ['-O' + lvl]
+            endif
+        endfunc,
+        'pch_ext': ['.gch'],
+        'permissive': ['-fpermissive'],
+        'pgo': func(_c compiler, stage str) -> list[str]
+            if stage == 'generate'
+                return ['-fprofile-generate']
+            elif stage == 'use'
+                return ['-fprofile-correction', '-fprofile-use']
+            endif
+        endfunc,
+        'pic': ['-fPIC'],
+        'pie': ['-fPIE'],
+        'preprocess_only': ['-E', '-P'],
+        'sanitize': func(_c compiler, s1 str) -> list[str]
+            return ['-fsanitize=' + s1]
+        endfunc,
+        'set_std': func(_c compiler, s1 str) -> list[str]
+            return ['-std=' + s1]
+        endfunc,
+        'visibility': func(_c compiler, type str) -> list[str]
+            if type == 'default'
+				return ['-fvisibility=default']
+            elif type == 'internal'
+				return ['-fvisibility=internal']
+            elif type == 'protected'
+				return ['-fvisibility=protected']
+            elif type == 'inlineshidden'
+                return ['-fvisibility=hidden', '-fvisibility-inlines-hidden']
+            elif type == 'hidden'
+				return ['-fvisibility=hidden']
+            endif
+        endfunc,
+        'warn_everything': [], # TODO
+        'warning_lvl': func(_c compiler, lvl str) -> list[str]
+            args = []
+            if lvl in ['1', '2', '3']
+                args += '-Wall'
+            endif
+
+            if lvl in ['2', '3']
+                args += '-Wextra'
+            endif
+
+            if lvl in ['3']
+                args += '-pedantic'
+            endif
+            return args
+        endfunc,
+        'winvalid_pch': ['-Winvalid-pch'],
+        'print_search_dirs': ['-print-search-dirs'],
+        'dumpmachine': ['-dumpmachine'],
+    },
+)
+
+toolchain.register_compiler(
+    'clang',
+    inherit: 'gcc',
+    exe: 'clang',
+    linker: 'lld',
+    static_linker: 'ar-posix',
+    detect: func(out str) -> int
+        return 'clang' in out.to_lower() ? 50 : 0
+    endfunc,
+    handlers: {
+        'can_compile_llvm_ir': true,
+        'color_output': func(_c compiler, s str) -> list[str]
+            return ['-fdiagnostics-color=' + s]
+        endfunc,
+        'emit_pch': ['-Xclang', '-emit-pch'],
+        'include_pch': func(_c compiler, s1 str) -> list[str]
+            return ['-include-pch', s1]
+        endfunc,
+        'pch_ext': ['.pch'],
+        'warn_everything': ['-Weverything'],
+    }
+)
+
+toolchain.register_compiler(
+    'clang-apple',
+    inherit: 'clang',
+    linker: 'lld-apple',
+    detect: func(out str) -> int
+        out = out.to_lower()
+        return ('clang' in out and 'apple' in out) ? 100 : 0
+    endfunc
+)
+
+# toolchain.register(
+#     'slimcc',
+#     component: 'compiler',
+#     inherit: 'posix',
+#     default_linker: 'ld',
+#     detect: func(stdout str, _stderr str) -> number
+#         return 'slimcc' in stdout ? 100 : 0
+#     endfunc,
+# )

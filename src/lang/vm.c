@@ -1391,7 +1391,7 @@ vm_op_in(struct workspace *wk)
 		res = obj_array_in(wk, b, a) ? obj_bool_true : obj_bool_false;
 
 		if (a_t == obj_string) {
-			check_str_enum(wk, a, a_t, b, b_t);
+			check_str_enum(wk, a, a_t, b, b_t, check_str_enum_op_in);
 		}
 		break;
 	}
@@ -1401,7 +1401,7 @@ vm_op_in(struct workspace *wk)
 		res = obj_dict_in(wk, b, a) ? obj_bool_true : obj_bool_false;
 
 		if (res == obj_bool_false) {
-			check_str_enum(wk, a, a_t, b, b_t);
+			check_str_enum(wk, a, a_t, b, b_t, check_str_enum_op_in);
 		}
 		break;
 	case obj_string:
@@ -1445,18 +1445,22 @@ vm_op_eq(struct workspace *wk)
 	obj res = 0;
 
 	if (a_t == obj_typeinfo || b_t == obj_typeinfo) {
-		if (a_t == obj_string) {
-			check_str_enum(wk, b, b_t, a, a_t);
-		} else if (b_t == obj_string) {
-			check_str_enum(wk, a, a_t, b, b_t);
+		if (a_t == obj_typeinfo ) {
+			check_str_enum(wk, a, a_t, b, b_t, check_str_enum_op_eq);
+		} else if (b_t == obj_typeinfo) {
+			check_str_enum(wk, b, b_t, a, a_t, check_str_enum_op_eq);
 		}
 
 		res = make_typeinfo(wk, tc_bool);
 	} else {
 		res = obj_equal(wk, a, b) ? obj_bool_true : obj_bool_false;
 
-		if (a_t == obj_string && b_t == obj_string && res == obj_bool_false) {
-			check_str_enum(wk, a, a_t, b, b_t);
+		if (res == obj_bool_false) {
+			if (a_t == obj_string) {
+				check_str_enum(wk, a, a_t, b, b_t, check_str_enum_op_eq);
+			} else if (b_t == obj_string) {
+				check_str_enum(wk, b, b_t, a, a_t, check_str_enum_op_eq);
+			}
 		}
 	}
 
@@ -2838,19 +2842,21 @@ vm_types_init(struct workspace *wk)
 		wk->vm.types.enums = make_obj(wk, obj_dict);
 		wk->vm.types.docs = make_obj(wk, obj_dict);
 		wk->vm.types.top_level_docs = make_obj(wk, obj_dict);
+		wk->vm.types.str_enum_values = make_obj(wk, obj_dict);
+		wk->vm.types.str_enums = make_obj(wk, obj_dict);
 	}
 }
 
 static bool
-vm_register_common(struct workspace *wk, obj dict, const char *name)
+vm_register_common(struct workspace *wk, obj dict, obj name)
 {
 	obj def;
-	if (obj_dict_index_str(wk, dict, name, &def)) {
+	if (obj_dict_index(wk, dict, name, &def)) {
 		return false;
 	}
 
 	def = make_obj(wk, obj_dict);
-	obj_dict_set(wk, dict, make_str(wk, name), def);
+	obj_dict_set(wk, dict, name, def);
 	return true;
 }
 
@@ -2858,7 +2864,13 @@ bool
 vm_enum_(struct workspace *wk, const char *name)
 {
 	vm_types_init(wk);
-	return vm_register_common(wk, wk->vm.types.enums, name);
+	obj n = make_str(wk, name);
+	if (!vm_register_common(wk, wk->vm.types.enums, n)) {
+		return false;
+	}
+
+	obj_dict_set(wk, wk->vm.types.str_enum_values, n, make_obj(wk, obj_array));
+	return true;
 }
 
 void
@@ -2866,17 +2878,34 @@ vm_enum_value_(struct workspace *wk, const char *name, const char *member, uint3
 {
 	obj def;
 	if (!obj_dict_index_str(wk, wk->vm.types.enums, name, &def)) {
-		error_unrecoverable("enums %s is not registered", name);
+		error_unrecoverable("enum %s is not registered", name);
 	}
 
-	obj_dict_set(wk, def, make_str(wk, member), value);
+	obj str_enum_values;
+	if (!obj_dict_index_str(wk, wk->vm.types.str_enum_values, name, &str_enum_values)) {
+		LO("%o\n", wk->vm.types.str_enum_values);
+		UNREACHABLE;
+	}
+	obj m = make_strn_enum(wk, member, strlen(member), str_enum_values);
+	obj_array_push(wk, str_enum_values, m);
+	obj_dict_set(wk, def, m, value);
+}
+
+obj
+vm_enum_values_(struct workspace *wk, const char *name)
+{
+	obj str_enum_values;
+	if (!obj_dict_index_str(wk, wk->vm.types.str_enum_values, name, &str_enum_values)) {
+		UNREACHABLE;
+	}
+	return str_enum_values;
 }
 
 bool
 vm_struct_(struct workspace *wk, const char *name)
 {
 	vm_types_init(wk);
-	return vm_register_common(wk, wk->vm.types.structs, name);
+	return vm_register_common(wk, wk->vm.types.structs, make_str(wk, name));
 }
 
 const char *
@@ -3006,10 +3035,29 @@ vm_obj_to_enum_(struct workspace *wk, const char *name, obj o, void *s)
 {
 	obj def;
 	if (!obj_dict_index_str(wk, wk->vm.types.enums, name, &def)) {
-		error_unrecoverable("enums %s is not registered", name);
+		error_unrecoverable("enum %s is not registered", name);
 	}
 
 	return vm_obj_to_enum_def(wk, def, o, s);
+}
+
+obj
+vm_enum_to_obj_(struct workspace *wk, const char *name, uint32_t value)
+{
+	obj def;
+	if (!obj_dict_index_str(wk, wk->vm.types.enums, name, &def)) {
+		error_unrecoverable("enum %s is not registered", name);
+	}
+
+	obj k, v;
+	obj_dict_for(wk, def, k, v) {
+		if (v == value) {
+			return k;
+		}
+	}
+
+	error_unrecoverable("enums %s value %d is not registered", name, value);
+	return 0;
 }
 
 static bool
@@ -3205,7 +3253,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, cmd_arr);
 	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, overrides);
 	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, uint32_t, type);
-	vm_reflect_obj_field(obj_compiler, obj, ver);
+	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, ver);
 	vm_reflect_obj_field(obj_compiler, obj, libdirs);
 	vm_reflect_obj_field(obj_compiler, obj, fwdirs);
 	vm_reflect_obj_field(obj_compiler, enum compiler_language, lang);
@@ -3361,7 +3409,7 @@ vm_init(struct workspace *wk)
 	vm_reflect_objects(wk);
 
 	/* func impl tables */
-	build_func_impl_tables();
+	build_func_impl_tables(wk);
 
 	/* default scope */
 	wk->vm.default_scope_stack = make_obj(wk, obj_array);
@@ -3383,10 +3431,6 @@ vm_init(struct workspace *wk)
 
 	/* module cache */
 	wk->vm.modules = make_obj(wk, obj_dict);
-
-	/* enum types */
-	wk->vm.objects.enums.values = make_obj(wk, obj_dict);
-	wk->vm.objects.enums.types = make_obj(wk, obj_dict);
 
 	/* complex type cache */
 	wk->vm.objects.complex_types = make_obj(wk, obj_dict);

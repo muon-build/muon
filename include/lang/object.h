@@ -426,8 +426,8 @@ struct obj_compiler {
 	obj cmd_arr[toolchain_component_count];
 	obj overrides[toolchain_component_count];
 	uint32_t type[toolchain_component_count];
+	obj ver[toolchain_component_count];
 	struct target_triple triple;
-	obj ver;
 	obj libdirs;
 	obj fwdirs;
 	enum compiler_language lang;

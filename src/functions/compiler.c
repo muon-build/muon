@@ -110,20 +110,21 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		return true;
 	}
 
-	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
+	obj comp = opts->comp_id;
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
 	// Set up compiler arguments
 
 	obj compiler_args;
 	compiler_args = make_obj(wk, obj_array);
 
-	obj_array_extend(wk, compiler_args, comp->cmd_arr[toolchain_component_compiler]);
+	obj_array_extend(wk, compiler_args, compiler->cmd_arr[toolchain_component_compiler]);
 
 	push_args(wk, compiler_args, toolchain_compiler_always(wk, comp));
 
 	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
-	if (comp->lang == compiler_language_cpp) {
+	if (compiler->lang == compiler_language_cpp) {
 		push_args(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
 	}
 
@@ -162,7 +163,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	} else {
 		TSTR(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
-		tstr_pushs(wk, &test_source_path, compiler_language_extension(comp->lang));
+		tstr_pushs(wk, &test_source_path, compiler_language_extension(compiler->lang));
 		source_path = tstr_into_str(wk, &test_source_path);
 	}
 
@@ -181,13 +182,13 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 			output_path = opts->output_path;
 		} else if (opts->mode == compiler_check_mode_run) {
 			path_join(wk, &test_output_path, wk->muon_private, "compiler_check_exe");
-			if (machine_definitions[comp->machine]->is_windows) {
+			if (machine_definitions[compiler->machine]->is_windows) {
 				tstr_pushs(wk, &test_output_path, ".exe");
 			}
 			output_path = test_output_path.buf;
 		} else {
 			path_join(wk, &test_output_path, wk->muon_private, "test.");
-			tstr_pushs(wk, &test_output_path, compiler_language_extension(comp->lang));
+			tstr_pushs(wk, &test_output_path, compiler_language_extension(compiler->lang));
 			tstr_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
 			output_path = test_output_path.buf;
 		}
@@ -228,7 +229,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	opts->cache_key = compiler_check_cache_key(wk,
 		&(struct compiler_check_cache_key){
-			.comp = comp,
+			.comp = compiler,
 			.argstr = argstr,
 			.argc = argc,
 			.src = src,
@@ -1668,12 +1669,10 @@ compiler_has_argument(struct workspace *wk,
 	bool *has_argument,
 	enum compiler_check_mode mode)
 {
-	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-
 	obj args;
 	args = make_obj(wk, obj_array);
 
-	push_args(wk, args, toolchain_compiler_werror(wk, comp));
+	push_args(wk, args, toolchain_compiler_werror(wk, comp_id));
 
 	if (get_obj_type(wk, arg) == obj_string) {
 		obj_array_push(wk, args, arg);
@@ -1705,10 +1704,10 @@ compiler_has_argument(struct workspace *wk,
 				continue;
 			}
 
-			if (toolchain_compiler_check_ignored_option(wk, comp, outs[i]->buf)) {
+			if (toolchain_compiler_check_ignored_option(wk, comp_id, outs[i]->buf)) {
 				option_ignored = true;
 				break;
-			} else if (toolchain_linker_check_ignored_option(wk, comp, outs[i]->buf)) {
+			} else if (toolchain_linker_check_ignored_option(wk, comp_id, outs[i]->buf)) {
 				option_ignored = true;
 				break;
 			}
@@ -1884,7 +1883,11 @@ FUNC_IMPL(compiler, get_id, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_str(wk, compiler_type_to_s(wk, get_obj_compiler(wk, self)->type[toolchain_component_compiler]));
+	*res = make_str(wk,
+		toolchain_component_type_to_id(wk,
+			toolchain_component_compiler,
+			get_obj_compiler(wk, self)->type[toolchain_component_compiler])
+			->public_id);
 	return true;
 }
 
@@ -1894,7 +1897,11 @@ FUNC_IMPL(compiler, get_linker_id, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_str(wk, linker_type_to_s(wk, get_obj_compiler(wk, self)->type[toolchain_component_linker]));
+	*res = make_str(wk,
+		toolchain_component_type_to_id(wk,
+			toolchain_component_linker,
+			get_obj_compiler(wk, self)->type[toolchain_component_linker])
+			->public_id);
 	return true;
 }
 
@@ -1904,7 +1911,7 @@ FUNC_IMPL(compiler, get_argument_syntax, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	const struct args *a = toolchain_compiler_argument_syntax(wk, get_obj_compiler(wk, self));
+	const struct args *a = toolchain_compiler_argument_syntax(wk, self);
 	const char *syntax = "other";
 	if (a->len) {
 		syntax = a->args[0];
@@ -1991,7 +1998,7 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 		bool ok = false;
 		struct compiler_check_opts opts = { .mode = compiler_check_mode_link, .comp_id = compiler };
 		opts.args = make_obj(wk, obj_array);
-		push_args(wk, opts.args, toolchain_linker_lib(wk, comp, libname));
+		push_args(wk, opts.args, toolchain_linker_lib(wk, compiler, libname));
 
 		const char *src = "int main(void) { return 0; }\n";
 		if (!compiler_check(wk, &opts, src, 0, &ok)) {
@@ -2226,7 +2233,7 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 	obj base_cmd;
 	obj_array_dup(wk, comp->cmd_arr[toolchain_component_compiler], &base_cmd);
 
-	push_args(wk, base_cmd, toolchain_compiler_preprocess_only(wk, comp));
+	push_args(wk, base_cmd, toolchain_compiler_preprocess_only(wk, self));
 
 	const char *lang = 0;
 	switch (comp->lang) {
@@ -2240,11 +2247,11 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 		return false;
 	}
 
-	push_args(wk, base_cmd, toolchain_compiler_specify_lang(wk, comp, lang));
+	push_args(wk, base_cmd, toolchain_compiler_force_language(wk, self, lang));
 
-	ca_get_std_args(wk, comp, current_project(wk), NULL, base_cmd);
+	ca_get_std_args(wk, self, current_project(wk), NULL, base_cmd);
 
-	ca_get_option_compile_args(wk, comp, current_project(wk), NULL, base_cmd);
+	ca_get_option_compile_args(wk, self, current_project(wk), NULL, base_cmd);
 
 	bool have_dep = false;
 	struct build_dep dep = { 0 };
@@ -2254,8 +2261,8 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 		obj_array_extend_nodup(wk, base_cmd, dep.compile_args);
 	}
 
-	push_args(wk, base_cmd, toolchain_compiler_include(wk, comp, "@OUTDIR@"));
-	push_args(wk, base_cmd, toolchain_compiler_include(wk, comp, "@CURRENT_SOURCE_DIR@"));
+	push_args(wk, base_cmd, toolchain_compiler_include(wk, self, "@OUTDIR@"));
+	push_args(wk, base_cmd, toolchain_compiler_include(wk, self, "@CURRENT_SOURCE_DIR@"));
 
 	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, self, base_cmd)) {
 		return false;
@@ -2340,13 +2347,13 @@ FUNC_IMPL(compiler, version, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = get_obj_compiler(wk, self)->ver;
+	*res = get_obj_compiler(wk, self)->ver[toolchain_component_compiler];
 	return true;
 }
 
 FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 {
-	struct args_norm an[] = { { complex_type_preset_get(wk, tc_cx_enum_toolchain_component) }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { complex_type_enum_get(wk, enum toolchain_component) }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_overwrite,
 		kw_cmd_array,
@@ -2407,12 +2414,7 @@ FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 	}
 
 	if (akw[kw_version].set) {
-		if (component != toolchain_component_compiler) {
-			vm_error(wk, "version only configurable for compiler");
-			return false;
-		}
-
-		c->ver = akw[kw_version].val;
+		c->ver[component] = akw[kw_version].val;
 	}
 
 	return true;

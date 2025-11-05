@@ -48,26 +48,6 @@ struct project {
 	obj generic_rules[machine_kind_count];
 };
 
-struct toolchain_registry_component_compiler {
-	struct toolchain_registry_component base;
-	struct compiler comp;
-};
-
-struct toolchain_registry_component_linker {
-	struct toolchain_registry_component base;
-	struct linker comp;
-};
-
-struct toolchain_registry_component_static_linker {
-	struct toolchain_registry_component base;
-	struct static_linker comp;
-};
-
-struct toolchain_registry {
-	obj ids[toolchain_component_count];
-	struct arr components[toolchain_component_count];
-};
-
 enum workspace_init_flag {
 	workspace_init_flag_arena = 1 << 0,
 	workspace_init_flag_bare = 1 << 1,

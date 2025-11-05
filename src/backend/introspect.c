@@ -147,7 +147,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			enum toolchain_component component = toolchain_component_linker;
 			if (t->type & tgt_static_library) {
 				component = toolchain_component_static_linker;
-			} else if (toolchain_compiler_do_linker_passthrough(wk, comp)) {
+			} else if (toolchain_compiler_do_linker_passthrough(wk, linker)) {
 				component = toolchain_component_compiler;
 			}
 

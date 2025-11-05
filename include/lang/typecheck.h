@@ -139,15 +139,14 @@ bool rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int
 bool type_tags_eql(struct workspace *wk, type_tag a, type_tag b);
 
 type_tag flatten_type(struct workspace *wk, type_tag t);
+enum flatten_type_flag {
+	flatten_type_flag_keep_enums = 1 << 0,
+};
+type_tag flatten_type_flags(struct workspace *wk, type_tag t, enum flatten_type_flag flags);
 
 enum complex_type_preset {
 	tc_cx_options_dict_or_list = 1,
 	tc_cx_options_deprecated_kw,
-	tc_cx_enum_machine_system,
-	tc_cx_enum_machine_subsystem,
-	tc_cx_enum_machine_endian,
-	tc_cx_enum_shell,
-	tc_cx_enum_toolchain_component,
 	tc_cx_list_of_number,
 	tc_cx_dict_of_str,
 	tc_cx_override_find_program,
@@ -155,7 +154,8 @@ enum complex_type_preset {
 };
 
 type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);
-obj complex_type_enum_get(struct workspace *wk, enum complex_type_preset t);
+type_tag complex_type_enum_get_(struct workspace *wk, const char *n);
+#define complex_type_enum_get(wk__, n__) complex_type_enum_get_(wk__, #n__)
 
 bool
 typecheck_capture(struct workspace *wk,

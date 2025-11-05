@@ -59,6 +59,7 @@ bool az_diagnostic_name_to_enum(const char *name, enum az_diagnostic *ret);
 void az_print_diagnostic_names(void);
 void az_check_dead_code(struct workspace *wk, struct ast *ast);
 void az_set_error(void);
+void az_analyze_func(struct workspace *wk, obj c);
 
 struct az_assignment {
 	const char *name;

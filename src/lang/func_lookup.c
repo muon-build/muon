@@ -57,7 +57,7 @@ struct func_impl native_funcs[768];
 
 static struct func_impl_group func_impl_groups[obj_type_count][language_mode_count] = { 0 };
 
-static func_impl_register_proto func_impl_register_funcs[obj_type_count] = {
+static const func_impl_register_proto func_impl_register_funcs[obj_type_count] = {
 	[obj_null] = func_impl_register_kernel,
 	[obj_disabler] = func_impl_register_disabler,
 	[obj_meson] = func_impl_register_meson,
@@ -91,10 +91,20 @@ void
 func_impl_register(FUNC_IMPL_REGISTER_ARGS, const struct func_impl *src, const char *alias)
 {
 	assert(*added < cap);
-	dest[*added] = *src;
+	struct func_impl *impl = &dest[*added];
+	*impl = *src;
 
 	if (alias) {
-		dest[*added].name = alias;
+		impl->name = alias;
+	}
+
+	if (impl->deferred_return_type) {
+		const struct str drt = STRL(impl->deferred_return_type);
+		if (str_startswith(&drt, &STR("enum "))) {
+			impl->return_type = complex_type_enum_get_(wk, impl->deferred_return_type);
+		} else {
+			UNREACHABLE;
+		}
 	}
 
 	++*added;
@@ -116,13 +126,15 @@ func_impl_register_inherit(func_impl_register_proto reg,
 }
 
 static void
-copy_func_impl_group(struct func_impl_group *group,
+copy_func_impl_group(
+	struct workspace *wk,
+	struct func_impl_group *group,
 	uint32_t *off,
 	enum language_mode lang_mode,
 	func_impl_register_proto reg)
 {
 	uint32_t len = 0;
-	reg(lang_mode, native_funcs + *off, ARRAY_LEN(native_funcs) - *off, &len);
+	reg(wk, lang_mode, native_funcs + *off, ARRAY_LEN(native_funcs) - *off, &len);
 
 	*group = (struct func_impl_group){
 		.impls = &native_funcs[*off],
@@ -133,7 +145,7 @@ copy_func_impl_group(struct func_impl_group *group,
 }
 
 void
-build_func_impl_tables(void)
+build_func_impl_tables(struct workspace *wk)
 {
 	uint32_t off = 0;
 	enum module m;
@@ -141,12 +153,12 @@ build_func_impl_tables(void)
 	enum language_mode lang_mode;
 
 	// Only kernel registers functions
-	copy_func_impl_group(&func_impl_groups[0][language_opts], &off, language_opts, func_impl_register_funcs[0]);
+	copy_func_impl_group(wk, &func_impl_groups[0][language_opts], &off, language_opts, func_impl_register_funcs[0]);
 
 	for (t = 0; t < obj_type_count; ++t) {
 		if (func_impl_register_funcs[t]) {
 			for (lang_mode = 0; lang_mode <= language_internal; ++lang_mode) {
-				copy_func_impl_group(
+				copy_func_impl_group(wk,
 					&func_impl_groups[t][lang_mode], &off, lang_mode, func_impl_register_funcs[t]);
 			}
 		}
@@ -155,13 +167,13 @@ build_func_impl_tables(void)
 	for (m = 0; m < module_count; ++m) {
 		if (func_impl_register_module_funcs[m]) {
 			for (lang_mode = 0; lang_mode <= language_internal; ++lang_mode) {
-				copy_func_impl_group(
+				copy_func_impl_group(wk,
 					&module_func_impl_groups[m][lang_mode], &off, lang_mode, func_impl_register_module_funcs[m]);
 			}
 		}
 	}
 
-	copy_func_impl_group(&az_func_impl_group, &off, language_external, func_impl_register_analyzer);
+	copy_func_impl_group(wk, &az_func_impl_group, &off, language_external, func_impl_register_analyzer);
 }
 
 /******************************************************************************
@@ -297,7 +309,7 @@ kwargs_arr_push_sentinel(struct workspace *wk, struct arr *arr)
 	arr_push(wk->a_scratch, arr, &(struct args_kw){ 0 });
 }
 
-static void
+void
 kwargs_arr_init(struct workspace *wk, struct arr *arr)
 {
 	arr_init(wk->a_scratch, arr, 8, struct args_kw);

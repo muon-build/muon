@@ -103,9 +103,10 @@ project_add_language(struct workspace *wk,
 	if (l == compiler_language_c || l == compiler_language_cpp) {
 		obj_dict_seti(wk, current_project(wk)->toolchains[machine], compiler_language_assembly, comp_id);
 
+#if 0
+		// TODO: also register a clang llvm ir compiler
 		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
-		// TODO: make this overrideable
-		if (toolchain_compiler_can_compile_llvm_ir(wk, comp)) {
+		if (toolchain_compiler_can_compile_llvm_ir(wk, comp_id)) {
 			obj llvm_ir_compiler;
 			llvm_ir_compiler = make_obj(wk, obj_compiler);
 			struct obj_compiler *c = get_obj_compiler(wk, llvm_ir_compiler);
@@ -117,6 +118,7 @@ project_add_language(struct workspace *wk,
 				compiler_language_llvm_ir,
 				llvm_ir_compiler);
 		}
+#endif
 	}
 
 	switch (l) {

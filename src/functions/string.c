@@ -489,19 +489,19 @@ FUNC_IMPL(string, length, tc_number)
 static bool
 string_shell_common(struct workspace *wk, enum shell_type *shell)
 {
-	if (vm_enum(wk, shell_type)) {
+	if (vm_enum(wk, enum shell_type)) {
 		vm_enum_value_prefixed(wk, shell_type, posix);
 		vm_enum_value_prefixed(wk, shell_type, cmd);
 	}
 
 	enum kwargs { kw_shell };
-	struct args_kw akw[] = { [kw_shell] = { "shell", complex_type_preset_get(wk, tc_cx_enum_shell) }, 0 };
+	struct args_kw akw[] = { [kw_shell] = { "shell", complex_type_enum_get(wk, enum shell_type) }, 0 };
 	if (!pop_args(wk, 0, akw)) {
 		return false;
 	}
 
 	*shell = shell_type_posix;
-	if (akw[kw_shell].set && !vm_obj_to_enum(wk, shell_type, akw[kw_shell].val, shell)) {
+	if (akw[kw_shell].set && !vm_obj_to_enum(wk, enum shell_type, akw[kw_shell].val, shell)) {
 		return false;
 	}
 

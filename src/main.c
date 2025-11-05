@@ -635,7 +635,6 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 static bool
 cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	struct obj_compiler comp = { 0 };
 	bool set_linker = false, set_static_linker = false;
 
 	const char *n1_args[32] = { "<value1>", "<value2>" };
@@ -650,6 +649,9 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
+
+	obj comp = make_obj(wk, obj_compiler);
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 
 	OPTSTART("t:s:") {
 	case 't': {
@@ -683,37 +685,32 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 			return false;
 		}
 
-		switch ((enum toolchain_component)component) {
-		case toolchain_component_compiler:
-			if (!compiler_type_from_s(wk, type, &comp.type[component])) {
-				LOG_E("unknown compiler type: %s", type);
-				return false;
-			}
+		if (!toolchain_component_type_from_s(wk, component, type, &compiler->type[component])) {
+			LOG_E("unknown %s type: %s", toolchain_component_to_s(component), type);
+			return false;
+		}
 
-			struct toolchain_registry_component_compiler *c = arr_get(&wk->toolchain_registry.components[component], comp.type[component]);
+		switch ((enum toolchain_component)component) {
+		case toolchain_component_compiler: {
+			struct toolchain_registry_component *c
+				= arr_get(&wk->toolchain_registry.components[component], compiler->type[component]);
 
 			if (!set_linker) {
-				comp.type[toolchain_component_linker] = c->comp.default_linker;
+				compiler->type[toolchain_component_linker]
+					= c->sub_components[toolchain_component_linker];
 			}
 
 			if (!set_static_linker) {
-				comp.type[toolchain_component_static_linker]
-					= c->comp.default_static_linker;
+				compiler->type[toolchain_component_static_linker]
+					= c->sub_components[toolchain_component_static_linker];
 			}
 			break;
+		}
 		case toolchain_component_linker:
 			set_linker = true;
-			if (!linker_type_from_s(wk, type, &comp.type[component])) {
-				LOG_E("unknown linker type: %s", type);
-				return false;
-			}
 			break;
 		case toolchain_component_static_linker:
 			set_static_linker = true;
-			if (!static_linker_type_from_s(wk, type, &comp.type[component])) {
-				LOG_E("unknown static_linker type: %s", type);
-				return false;
-			}
 			break;
 		}
 
@@ -787,9 +784,9 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 	make_dummy_project(wk, true);
 
 	printf("compiler: %s, linker: %s, static_linker: %s\n",
-		toolchain_component_type_to_id(wk, toolchain_component_compiler, comp.type[toolchain_component_compiler])->id,
-		toolchain_component_type_to_id(wk, toolchain_component_linker, comp.type[toolchain_component_linker])->id,
-		toolchain_component_type_to_id(wk, toolchain_component_static_linker, comp.type[toolchain_component_static_linker])->id);
+		toolchain_component_type_to_id(wk, toolchain_component_compiler, compiler->type[toolchain_component_compiler])->id,
+		toolchain_component_type_to_id(wk, toolchain_component_linker, compiler->type[toolchain_component_linker])->id,
+		toolchain_component_type_to_id(wk, toolchain_component_static_linker, compiler->type[toolchain_component_static_linker])->id);
 	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {",
 		opts.s1,
 		opts.s2,
@@ -803,7 +800,7 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 	}
 	printf("}\n");
 
-	toolchain_dump(wk, &comp, &opts);
+	toolchain_dump(wk, comp, &opts);
 
 	return true;
 }

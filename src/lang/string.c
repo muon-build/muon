@@ -233,76 +233,24 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 	return s;
 }
 
-bool
-str_enum_add_type(struct workspace *wk, uint32_t id, obj *res)
-{
-	if (!obj_dict_geti(wk, wk->vm.objects.enums.types, id, res)) {
-		*res = make_obj(wk, obj_dict);
-		obj_dict_set(wk, *res, make_str(wk, ""), make_obj(wk, obj_array));
-		obj_dict_seti(wk, wk->vm.objects.enums.types, id, *res);
-		return true;
-	}
-	return false;
-}
-
-void
-str_enum_add_type_value(struct workspace *wk, obj type, const char *value)
-{
-	obj values;
-	if (!obj_dict_index_str(wk, type, "", &values)) {
-		UNREACHABLE;
-	}
-
-	obj v = make_str_enum(wk, value, values);
-	obj_array_push(wk, values, v);
-	obj_dict_set(wk, type, v, v);
-}
-
-obj
-str_enum_get(struct workspace *wk, obj type, const char *name)
-{
-	obj res;
-	if (!obj_dict_index_str(wk, type, name, &res)) {
-		UNREACHABLE;
-	}
-
-	return res;
-}
-
-obj
-mark_typeinfo_as_enum(struct workspace *wk, obj ti, obj values)
-{
-	obj_dict_seti(wk, wk->vm.objects.enums.values, ti, values);
-
-	return ti;
-}
-
 obj
 make_strn_enum(struct workspace *wk, const char *str, uint32_t n, obj values)
 {
 	obj s = _make_str(wk, str, n, 0, false);
 
-	obj_dict_seti(wk, wk->vm.objects.enums.values, s, values);
-
+	obj_dict_seti(wk, wk->vm.types.str_enums, s, values);
 	return s;
 }
 
-obj
-make_str_enum(struct workspace *wk, const char *str, obj values)
-{
-	return make_strn_enum(wk, str, strlen(str), values);
-}
-
 bool
-check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_type r_t)
+check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_type r_t, enum check_str_enum_op op)
 {
 	// Only run this check in the analyzer?
 	if (!wk->vm.in_analyzer) {
 		return true;
 	}
 
-	enum obj_type c_t;
-	obj values = 0, c = 0;
+	obj values = 0;
 
 	if (l_t == obj_typeinfo) {
 		type_tag t = get_obj_typeinfo(wk, l)->type;
@@ -318,44 +266,51 @@ check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_t
 			return true;
 		}
 
-		c = r;
-		c_t = r_t;
 		values = COMPLEX_TYPE_INDEX(t);
-	} else if (obj_dict_geti(wk, wk->vm.objects.enums.values, l, &values)) {
-		c = r;
-		c_t = r_t;
-	} else if (r_t == obj_string && obj_dict_geti(wk, wk->vm.objects.enums.values, r, &values)) {
-		c = l;
-		c_t = obj_string;
+	} else if (l_t == obj_string) {
+		if (!obj_dict_geti(wk, wk->vm.types.str_enums, l, &values)) {
+			return true;
+		}
 	} else {
-		return true;
+		UNREACHABLE;
 	}
 
-	if (c_t == obj_string) {
-		if (!obj_array_in(wk, values, c)) {
-			vm_warning(wk, "%o is not one of %o", c, values);
-			return false;
-		}
-	} else if (c_t == obj_array) {
-		obj v;
-		obj_array_for(wk, c, v) {
-			if (!obj_array_in(wk, values, v)) {
-				vm_warning(wk, "%o is not one of %o", v, values);
+	switch (op) {
+	case check_str_enum_op_eq:
+		if (r_t == obj_string) {
+			if (!obj_array_in(wk, values, r)) {
+				vm_warning(wk, "%o is not one of %o", r, values);
 				return false;
 			}
+			return true;
 		}
-	} else if (c_t == obj_dict) {
-		obj k, _v;
-		obj_dict_for(wk, c, k, _v) {
-			(void)_v;
-			if (!obj_array_in(wk, values, k)) {
-				vm_warning(wk, "%o is not one of %o", k, values);
-				return false;
+		break;
+	case check_str_enum_op_in:
+		if (r_t == obj_array) {
+			obj v;
+			obj_array_for(wk, r, v) {
+				if (!obj_array_in(wk, values, v)) {
+					vm_warning(wk, "%o is not one of %o", v, values);
+					return false;
+				}
 			}
+			return true;
+		} else if (r_t == obj_dict) {
+			obj k, _v;
+			obj_dict_for(wk, r, k, _v) {
+				(void)_v;
+				if (!obj_array_in(wk, values, k)) {
+					vm_warning(wk, "%o is not one of %o", k, values);
+					return false;
+				}
+			}
+			return true;
 		}
+		break;
 	}
 
-	return true;
+	vm_warning(wk, "%o is not one of %o", r, values);
+	return false;
 }
 
 obj

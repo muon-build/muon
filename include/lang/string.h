@@ -96,13 +96,12 @@ obj make_strf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(print
 obj make_strfv(struct workspace *wk, const char *fmt, va_list args);
 struct str *reserve_str(struct workspace *wk, obj *s, uint32_t len);
 
-obj make_str_enum(struct workspace *wk, const char *str, obj values);
-obj mark_typeinfo_as_enum(struct workspace *wk, obj ti, obj values);
 obj make_strn_enum(struct workspace *wk, const char *str, uint32_t n, obj values);
-bool check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_type r_t);
-bool str_enum_add_type(struct workspace *wk, uint32_t id, obj *res);
-void str_enum_add_type_value(struct workspace *wk, obj type, const char *value);
-obj str_enum_get(struct workspace *wk, obj type, const char *name);
+enum check_str_enum_op {
+	check_str_enum_op_eq,
+	check_str_enum_op_in,
+};
+bool check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_type r_t, enum check_str_enum_op op);
 
 void str_app(struct workspace *wk, obj *s, const char *str);
 void str_appf(struct workspace *wk, obj *s, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);

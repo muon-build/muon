@@ -483,7 +483,7 @@ type_tags_eql(struct workspace *wk, type_tag a, type_tag b)
 }
 
 type_tag
-flatten_type(struct workspace *wk, type_tag t)
+flatten_type_flags(struct workspace *wk, type_tag t, enum flatten_type_flag flags)
 {
 	t &= ~TYPE_TAG_ALLOW_NULL;
 
@@ -502,7 +502,11 @@ flatten_type(struct workspace *wk, type_tag t)
 	if (ct == complex_type_preset) {
 		return flatten_type(wk, complex_type_preset_get(wk, idx));
 	} else if (ct == complex_type_enum) {
-		return tc_string;
+		if (flags & flatten_type_flag_keep_enums) {
+			return t;
+		} else {
+			return tc_string;
+		}
 	}
 
 	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
@@ -518,35 +522,38 @@ flatten_type(struct workspace *wk, type_tag t)
 	UNREACHABLE_RETURN;
 }
 
-obj
-complex_type_enum_get(struct workspace *wk, enum complex_type_preset t)
+type_tag
+flatten_type(struct workspace *wk, type_tag t)
 {
-#define STR_ENUM(id) str_enum_add_type_value(wk, e, #id);
+	return flatten_type_flags(wk, t, 0);
+}
 
-	obj e;
-	if (str_enum_add_type(wk, t, &e)) {
-		switch (t) {
-		case tc_cx_enum_machine_endian:
-			str_enum_add_type_value(wk, e, "little");
-			str_enum_add_type_value(wk, e, "big");
-			break;
-		case tc_cx_enum_machine_system: FOREACH_MACHINE_SYSTEM(STR_ENUM) break;
-		case tc_cx_enum_machine_subsystem: FOREACH_MACHINE_SUBSYSTEM(STR_ENUM) break;
-		case tc_cx_enum_shell:
-			str_enum_add_type_value(wk, e, "posix");
-			str_enum_add_type_value(wk, e, "cmd");
-			break;
-		case tc_cx_enum_toolchain_component:
-			str_enum_add_type_value(wk, e, "compiler");
-			str_enum_add_type_value(wk, e, "linker");
-			str_enum_add_type_value(wk, e, "static_linker");
-			break;
-		default: UNREACHABLE_RETURN;
-		}
-	}
-#undef STR_ENUM
 
-	return e;
+type_tag
+complex_type_enum_get_(struct workspace *wk, const char *n)
+{
+	obj values = vm_enum_values_(wk, n);
+	return COMPLEX_TYPE(values, complex_type_enum);
+// #define STR_ENUM(id) str_enum_add_type_value(wk, e, #id);
+
+// 	obj e;
+// 	if (str_enum_add_type(wk, t, &e)) {
+// 		switch (t) {
+// 		case tc_cx_enum_shell:
+// 			str_enum_add_type_value(wk, e, "posix");
+// 			str_enum_add_type_value(wk, e, "cmd");
+// 			break;
+// 		case tc_cx_enum_toolchain_component:
+// 			str_enum_add_type_value(wk, e, "compiler");
+// 			str_enum_add_type_value(wk, e, "linker");
+// 			str_enum_add_type_value(wk, e, "static_linker");
+// 			break;
+// 		default: UNREACHABLE_RETURN;
+// 		}
+// 	}
+// #undef STR_ENUM
+
+// 	return e;
 }
 
 type_tag
@@ -579,14 +586,6 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 				make_complex_type(wk, complex_type_nested, tc_dict, tc_string),
 				make_complex_type(wk, complex_type_nested, tc_array, tc_string)));
 		break;
-	case tc_cx_enum_toolchain_component:
-	case tc_cx_enum_shell:
-	case tc_cx_enum_machine_system:
-	case tc_cx_enum_machine_subsystem:
-	case tc_cx_enum_machine_endian: {
-		obj values = obj_dict_index_as_obj(wk, complex_type_enum_get(wk, t), "");
-		return COMPLEX_TYPE(values, complex_type_enum);
-	}
 	case tc_cx_list_of_number: {
 		tag = make_complex_type(wk, complex_type_nested, tc_array, tc_number);
 		break;

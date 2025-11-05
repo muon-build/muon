@@ -180,10 +180,6 @@ struct vm_objects {
 	struct bucket_arr obj_aos[obj_type_count - _obj_aos_start];
 	struct vm_reflection_registry reflected;
 	struct hash str_hash;
-	struct {
-		obj values;
-		obj types;
-	} enums;
 	obj complex_types;
 	bool obj_clear_mark_set;
 };
@@ -195,7 +191,34 @@ struct vm_ops {
 
 struct vm_type_registry {
 	obj structs;
+
+	/* dict of str -> dict[int] mapping enum names to their members and member values
+	 * e.g. {
+	 *   "enum machine_system": {
+	 *     "linux": 1,
+	 *     "darwin": 2,
+	 *   }
+	 * }
+	 */
 	obj enums;
+
+	/* dict of str -> list[str] mapping enum names to an array of all members
+	 *
+	 * e.g. {"enum machine_system": ["linux", "darwin"]}
+	 */
+	obj str_enum_values;
+
+	/* dict of obj -> list[str] mapping strings by id to an array of all members
+	 *
+	 * e.g. {0: ["linux", "darwin"], 1: ["linux", "darwin"]}
+	 *
+	 * object ids are used as keys so that two distinct strings may exist with
+	 * the same value but one may be tagged as a str_enum
+	 *
+	 * str_enum strings are not interned
+	 */
+	obj str_enums;
+
 	obj docs;
 	obj top_level_docs;
 };
@@ -301,17 +324,25 @@ enum vm_struct_type {
 
 enum vm_struct_type vm_make_struct_type(struct workspace *wk, enum vm_struct_type base_t, const char *name);
 
+#define vm_enum_check_(e) ((void)sizeof(e))
+
 bool vm_enum_(struct workspace *wk, const char *name);
-#define vm_enum(__wk, __e) vm_enum_(__wk, #__e)
+#define vm_enum(__wk, __e) (vm_enum_check_(__e), vm_enum_(__wk, #__e))
 
 void vm_enum_value_(struct workspace *wk, const char *name, const char *member, uint32_t value);
-#define vm_enum_value(__wk, __e, __m) vm_enum_value_(__wk, #__e, #__m, __m)
-#define vm_enum_value_prefixed(__wk, __e, __m) vm_enum_value_(__wk, #__e, #__m, __e ## _ ## __m)
+#define vm_enum_value(__wk, __e, __m) vm_enum_check_(enum __e), vm_enum_value_(__wk, "enum "#__e, #__m, __m)
+#define vm_enum_value_prefixed(__wk, __e, __m) vm_enum_check_(enum __e), vm_enum_value_(__wk, "enum "#__e, #__m, __e ## _ ## __m)
 
 bool vm_obj_to_enum_(struct workspace *wk, const char *name, obj o, void *s);
-#define vm_obj_to_enum(__wk, __e, __o, __d) vm_obj_to_enum_(__wk, #__e, __o, __d)
+#define vm_obj_to_enum(__wk, __e, __o, __d) (vm_enum_check_(__e), vm_obj_to_enum_(__wk, #__e, __o, __d))
 
-#define vm_struct_type_enum(__wk, __e) vm_make_struct_type(__wk, vm_struct_type_enum_, #__e)
+obj vm_enum_to_obj_(struct workspace *wk, const char *name, uint32_t value);
+#define vm_enum_to_obj(__wk, __e, __m) (vm_enum_check_(__e), vm_enum_to_obj_(__wk, #__e, __m))
+
+obj vm_enum_values_(struct workspace *wk, const char *name);
+#define vm_enum_values(__wk, __e) (vm_enum_check_(__e), vm_enum_values_(__wk, #__e))
+
+#define vm_struct_type_enum(__wk, __e) (vm_enum_check_(__e), vm_make_struct_type(__wk, vm_struct_type_enum_, #__e))
 
 bool vm_struct_(struct workspace *wk, const char *name);
 #define vm_struct(__wk, __s) vm_struct_(__wk, #__s)
