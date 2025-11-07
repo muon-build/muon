@@ -72,7 +72,7 @@ toolchain.register_linker(
         'implib': func(_c compiler, s1 str) -> list[str]
             return ['--out-implib,' + s1]
         endfunc,
-        'no_undefined': ['--no_undefined'],
+        'no_undefined': ['--no-undefined'],
         'pgo': func(_c compiler, stage str) -> list[str]
             if stage == 'generate'
                 return ['-fprofile-generate']
