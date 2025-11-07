@@ -733,6 +733,9 @@ toolchain_component_detect_apply_candidate(struct obj_compiler *compiler,
 	compiler->type[component] = candidate->idx;
 	compiler->ver[component] = ver;
 	compiler->overrides[component] = candidate->overrides;
+	if (component == toolchain_component_compiler) {
+		compiler->ver_raw = candidate->output;
+	}
 	*found = true;
 }
 
@@ -740,7 +743,6 @@ static bool
 toolchain_component_detect(struct workspace *wk,
 	enum toolchain_component component,
 	obj comp,
-	enum compiler_language lang,
 	bool *found)
 {
 	L("detecting component %s", toolchain_component_to_s(component));
@@ -754,24 +756,23 @@ toolchain_component_detect(struct workspace *wk,
 
 	obj *candidates = 0;
 	uint32_t candidates_len = 0;
+	uint32_t preferred_type = 0; // TODO: use this do assist in detection of linker / static_linker
 
 	// first check if the option for this component has been set, e.g. env.CC
 	{
 		TSTR(opt_name);
-		if (!toolchain_component_option_name(wk, lang, component, compiler->machine, &opt_name)) {
-			return false;
-		}
+		if (toolchain_component_option_name(wk, compiler->lang, component, compiler->machine, &opt_name)) {
+			obj cmd_arr_opt = 0;
+			if (!get_option(wk, NULL, &TSTR_STR(&opt_name), &cmd_arr_opt)) {
+				UNREACHABLE;
+			}
+			struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
 
-		obj cmd_arr_opt = 0;
-		if (!get_option(wk, NULL, &TSTR_STR(&opt_name), &cmd_arr_opt)) {
-			UNREACHABLE;
-		}
-		struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
-
-		if (cmd_arr->source > option_value_source_default) {
-			candidates = ar_maken(wk->a_scratch, obj, 1);
-			candidates_len = 1;
-			candidates[0] = cmd_arr->val;
+			if (cmd_arr->source > option_value_source_default) {
+				candidates = ar_maken(wk->a_scratch, obj, 1);
+				candidates_len = 1;
+				candidates[0] = cmd_arr->val;
+			}
 		}
 	}
 
@@ -784,9 +785,21 @@ toolchain_component_detect(struct workspace *wk,
 			obj exe_list = make_obj(wk, obj_dict);
 			for (uint32_t i = 1 /* skip the empty toolchain */; i < registry->len; ++i) {
 				const struct toolchain_registry_component *base = arr_get(registry, i);
-				obj_dict_set(wk, exe_list, base->exe, obj_bool_true);
+
+				obj exe;
+				if (!obj_dict_geti(wk, base->exe, compiler->lang, &exe)) {
+					continue;
+				}
+
+				obj_dict_set(wk, exe_list, exe, obj_bool_true);
 			}
 			candidates_len = get_obj_dict(wk, exe_list)->len;
+
+			if (!candidates_len) {
+				LOG_E("no candidate executables defined for language %s", compiler_language_to_s(compiler->lang));
+				return false;
+			}
+
 			candidates = ar_maken(wk->a_scratch, obj, candidates_len);
 			uint32_t i = 0;
 			obj exe, _;
@@ -801,15 +814,41 @@ toolchain_component_detect(struct workspace *wk,
 			// what candidate to use
 			candidates = ar_maken(wk->a_scratch, obj, 1);
 			candidates_len = 1;
+
+			const struct toolchain_registry_component *rc
+				= arr_get(&wk->toolchain_registry.components[toolchain_component_compiler],
+					compiler->type[toolchain_component_compiler]);
+
+			if (rc->sub_components[component].fn) {
+				obj res;
+
+				struct args_norm an[] = { { .val = comp }, { ARG_TYPE_NULL } };
+				if (!vm_eval_capture(wk, rc->sub_components[component].fn, an, 0, &res)) {
+					return false;
+				}
+
+				if (!toolchain_component_type_from_s(wk, component, get_cstr(wk, res), &preferred_type)) {
+					vm_error_at(wk,
+						get_obj_capture(wk, rc->sub_components[component].fn)->func->entry,
+						"unknown %s type returned from toolchain function",
+						toolchain_component_to_s(component));
+					return false;
+				}
+			} else if (rc->sub_components[component].type) {
+				preferred_type = rc->sub_components[component].type;
+			} else {
+				L("skipping %s detecting for %s compiler",
+					toolchain_component_to_s(component),
+					compiler_language_to_s(compiler->lang));
+				*found = true;
+				return true;
+			}
+
 			if (component == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, comp)) {
 				do_linker_passthrough = true;
 				candidates[0] = compiler->cmd_arr[toolchain_component_compiler];
 			} else {
-				const struct toolchain_registry_component *rc
-					= arr_get(&wk->toolchain_registry.components[toolchain_component_compiler],
-						compiler->type[toolchain_component_compiler]);
-
-				const struct toolchain_registry_component *sub_component = arr_get(registry, rc->sub_components[component]);
+				const struct toolchain_registry_component *sub_component = arr_get(registry, preferred_type);
 				candidates[0] = make_obj(wk, obj_array);
 				obj_array_push(wk, candidates[0], sub_component->exe);
 			}
@@ -817,13 +856,23 @@ toolchain_component_detect(struct workspace *wk,
 	}
 
 	// now determine lists of toolchains to check against, grouped by common
-	// version argument.  The default_list
+	// version argument.  The default_list is composed of toolchains with no
+	// version argument defined.
 	obj toolchains_grouped_by_version_arg = make_obj(wk, obj_dict);
 	obj toolchains_with_no_version_arg = make_obj(wk, obj_array);
 	{
 		for (uint32_t i = 1 /* skip the empty toolchain */; i < registry->len; ++i) {
 			const struct args *args = 0;
 			const struct toolchain_registry_component *base = arr_get(registry, i);
+
+			if (preferred_type && i != preferred_type) {
+				continue;
+			} else if (component == toolchain_component_compiler) {
+				obj _v;
+				if (!obj_dict_geti(wk, base->exe, compiler->lang, &_v)) {
+					continue;
+				}
+			}
 
 			compiler->type[component] = i;
 			compiler->overrides[component] = base->overrides;
@@ -964,7 +1013,7 @@ check_next_candidate:
 
 	if (default_candidate.found) {
 		const struct toolchain_registry_component *base = arr_get(registry, default_candidate.idx);
-		LOG_W("unable to detect %s type, falling back on %s", toolchain_component_to_s(component), base->id.id);
+		// L("unable to detect %s type, falling back on %s", toolchain_component_to_s(component), base->id.id);
 		toolchain_component_detect_apply_candidate(
 			compiler, component, &default_candidate, make_str(wk, "unknown"), found);
 		return true;
@@ -1135,11 +1184,17 @@ toolchain_component_compiler_refine_machine(struct workspace *wk, obj comp, stru
 }
 
 bool
-toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang)
+toolchain_detect(struct workspace *wk,
+	obj *comp,
+	enum machine_kind machine,
+	enum compiler_language lang,
+	enum toolchain_detect_flag flags)
 {
 	if (obj_dict_geti(wk, wk->toolchains[machine], lang, comp)) {
 		return true;
 	}
+
+	L("detecting %s", compiler_language_to_s(lang));
 
 	*comp = make_obj(wk, obj_compiler);
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
@@ -1148,15 +1203,21 @@ toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enu
 
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 		bool found;
-		if (!toolchain_component_detect(wk, i, *comp, lang, &found) || !found) {
+		if (!toolchain_component_detect(wk, i, *comp, &found) || !found) {
 			return false;
+		}
+
+		if (i == toolchain_component_compiler) {
+			toolchain_component_compiler_refine_machine(wk, *comp, compiler);
+			toolchain_component_compiler_populate_libdirs(wk, *comp, compiler);
 		}
 	}
 
-	toolchain_component_compiler_refine_machine(wk, *comp, compiler);
-	toolchain_component_compiler_populate_libdirs(wk, *comp, compiler);
-
 	obj_dict_seti(wk, wk->toolchains[machine], lang, *comp);
+
+	if (flags & toolchain_detect_flag_silent) {
+		return true;
+	}
 
 	LLOG_I("%s: detected", compiler_log_prefix(lang, machine));
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {

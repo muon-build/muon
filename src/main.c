@@ -697,12 +697,12 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 
 			if (!set_linker) {
 				compiler->type[toolchain_component_linker]
-					= c->sub_components[toolchain_component_linker];
+					= c->sub_components[toolchain_component_linker].type;
 			}
 
 			if (!set_static_linker) {
 				compiler->type[toolchain_component_static_linker]
-					= c->sub_components[toolchain_component_static_linker];
+					= c->sub_components[toolchain_component_static_linker].type;
 			}
 			break;
 		}
@@ -1269,7 +1269,9 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 		}
 
 		workspace_scratch_begin(wk);
-		fmt_ret = fmt(wk->a_scratch, &src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
+		workspace_perm_begin(wk);
+		fmt_ret = fmt(wk->a, wk->a_scratch, &src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
+		workspace_perm_end(wk);
 		workspace_scratch_end(wk);
 
 		if (!fmt_ret && opts.print_failures) {

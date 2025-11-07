@@ -427,6 +427,7 @@ struct obj_compiler {
 	obj overrides[toolchain_component_count];
 	uint32_t type[toolchain_component_count];
 	obj ver[toolchain_component_count];
+	obj ver_raw;
 	struct target_triple triple;
 	obj libdirs;
 	obj fwdirs;

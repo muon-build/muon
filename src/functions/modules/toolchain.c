@@ -6,9 +6,10 @@
 #include "compat.h"
 
 #include "buf_size.h"
-#include "log.h"
 #include "functions/modules/toolchain.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
+#include "log.h"
 
 FUNC_IMPL(module_toolchain,
 	create,
@@ -101,12 +102,6 @@ FUNC_IMPL(module_toolchain,
 	return true;
 }
 
-static void
-module_toolchain_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
-{
-	obj_dict_set(wk, d, make_str(wk, key), val->len ? make_strn(wk, val->s, val->len) : make_str(wk, "unknown"));
-}
-
 FUNC_IMPL(module_toolchain, parse_triple, tc_dict, .desc = "parse a target triple")
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
@@ -116,12 +111,7 @@ FUNC_IMPL(module_toolchain, parse_triple, tc_dict, .desc = "parse a target tripl
 
 	struct target_triple t = { 0 };
 	machine_parse_triple(get_str(wk, an[0].val), &t);
-
-	*res = make_obj(wk, obj_dict);
-	module_toolchain_set_triple_value(wk, *res, "arch", &t.arch);
-	module_toolchain_set_triple_value(wk, *res, "vendor", &t.vendor);
-	module_toolchain_set_triple_value(wk, *res, "system", &t.system);
-	module_toolchain_set_triple_value(wk, *res, "env", &t.env);
+	*res = machine_parsed_triple_to_obj(wk, &t);
 
 	return true;
 }
@@ -129,6 +119,9 @@ FUNC_IMPL(module_toolchain, parse_triple, tc_dict, .desc = "parse a target tripl
 static bool
 func_modue_toolchain_register_component_common(struct workspace *wk, enum toolchain_component component, obj *res)
 {
+	type_tag exe_type = component == toolchain_component_compiler ? complex_type_preset_get(wk, tc_cx_dict_of_str) :
+									tc_string;
+
 	struct args_norm an[] = {
 		{ tc_string },
 		ARG_TYPE_NULL,
@@ -145,15 +138,38 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 	struct args_kw akw[] = {
 		[kw_public_id] = { "public_id", tc_string },
 		[kw_inherit] = { "inherit", tc_string },
-		[kw_exe] = { "exe", tc_string },
+		[kw_exe] = { "exe", exe_type },
 		[kw_detect] = { "detect", tc_capture },
 		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides) },
-		[kw_linker] = { component == toolchain_component_compiler ? "linker" : 0, tc_string },
-		[kw_static_linker] = { "static_linker", tc_string },
+		[kw_linker] = { component == toolchain_component_compiler ? "linker" : 0, tc_string | tc_capture },
+		[kw_static_linker] = { "static_linker", tc_string | tc_capture },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
 		return false;
+	}
+
+	const struct {
+		struct args_kw *kw;
+		enum toolchain_component component;
+	} sub_components[] = {
+		{ &akw[kw_linker], toolchain_component_linker },
+		{ &akw[kw_static_linker], toolchain_component_static_linker },
+	};
+
+	for (uint32_t i = 0; i < ARRAY_LEN(sub_components); ++i) {
+		const struct args_kw *kw = sub_components[i].kw;
+		const enum toolchain_component sub_component = sub_components[i].component;
+		if (kw->set) {
+			assert(component == toolchain_component_compiler);
+
+			if (get_obj_type(wk, kw->val) == obj_capture) {
+				struct args_norm an[] = { { tc_compiler }, { ARG_TYPE_NULL } };
+				if (!typecheck_capture(wk, kw->node, kw->val, an, 0, tc_string, kw->key)) {
+					return false;
+				}
+			}
+		}
 	}
 
 	if (akw[kw_detect].set) {
@@ -204,28 +220,20 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		base.detect = akw[kw_detect].val;
 	}
 
-	{
-		struct {
-			struct args_kw *kw;
-			enum toolchain_component component;
-		} sub_components[] = {
-			{ &akw[kw_linker], toolchain_component_linker },
-			{ &akw[kw_static_linker], toolchain_component_static_linker },
-		};
+	for (uint32_t i = 0; i < ARRAY_LEN(sub_components); ++i) {
+		const struct args_kw *kw = sub_components[i].kw;
+		const enum toolchain_component sub_component = sub_components[i].component;
 
-		for (uint32_t i = 0; i < ARRAY_LEN(sub_components); ++i) {
-			const struct args_kw *kw = sub_components[i].kw;
-			const enum toolchain_component sub_component = sub_components[i].component;
-
-			if (kw->set) {
-				assert(component == toolchain_component_compiler);
-
+		if (kw->set) {
+			if (get_obj_type(wk, kw->val) == obj_string) {
 				uint32_t type;
 				if (!toolchain_component_type_from_s(wk, sub_component, get_cstr(wk, kw->val), &type)) {
 					vm_error(wk, "unknown %s type %s", toolchain_component_to_s(sub_component), get_cstr(wk, kw->val));
 					return false;
 				}
-				base.sub_components[sub_component] = type;
+				base.sub_components[sub_component].type = type;
+			} else {
+				base.sub_components[sub_component].fn = kw->val;
 			}
 		}
 	}
@@ -243,7 +251,21 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 	}
 
 	if (akw[kw_exe].set) {
-		base.exe = akw[kw_exe].val;
+		if (get_obj_type(wk, akw[kw_exe].val) == obj_string) {
+			base.exe = akw[kw_exe].val;
+		} else {
+			base.exe = make_obj(wk, obj_dict);
+
+			obj k, v;
+			obj_dict_for(wk, akw[kw_exe].val, k, v) {
+				enum compiler_language l;
+				if (!s_to_compiler_language(get_cstr(wk, k), &l)) {
+					vm_error(wk, "unknown language %o", k);
+					return false;
+				}
+				obj_dict_seti(wk, base.exe, l, v);
+			}
+		}
 	}
 
 	if (!base.exe) {
@@ -269,6 +291,41 @@ FUNC_IMPL(module_toolchain, register_static_linker, tc_dict, .desc = "Register a
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_static_linker, res);
 }
 
+FUNC_IMPL(module_toolchain, handler, tc_capture | tc_array, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
+{
+	struct args_norm an[] = {
+		{ tc_string },
+		{ tc_string },
+		{ tc_string },
+		ARG_TYPE_NULL,
+	};
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+
+
+	uint32_t component;
+	if (!toolchain_component_from_s(get_cstr(wk, an[0].val), &component)) {
+		vm_error_at(wk, an[0].node, "unknown component %o", an[0].val);
+		return false;
+	}
+
+	uint32_t type;
+	if (!toolchain_component_type_from_s(wk, component, get_cstr(wk, an[1].val), &type)) {
+		vm_error_at(wk, an[1].node, "unknown %s %o", toolchain_component_to_s(component), an[1].val);
+		return false;
+	}
+
+	const struct arr *registry = &wk->toolchain_registry.components[component];
+	const struct toolchain_registry_component *c = arr_get(registry, type);
+	if (!obj_dict_index(wk, c->overrides, an[2].val, res)) {
+		vm_error_at(wk, an[1].node, "unknown %s handler %o", toolchain_component_to_s(component), an[2].val);
+		return false;
+	}
+
+	return true;
+}
+
 FUNC_REGISTER(module_toolchain)
 {
 	if (lang_mode == language_internal) {
@@ -277,5 +334,6 @@ FUNC_REGISTER(module_toolchain)
 		FUNC_IMPL_REGISTER(module_toolchain, register_compiler);
 		FUNC_IMPL_REGISTER(module_toolchain, register_linker);
 		FUNC_IMPL_REGISTER(module_toolchain, register_static_linker);
+		FUNC_IMPL_REGISTER(module_toolchain, handler);
 	}
 }

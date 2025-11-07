@@ -45,6 +45,7 @@ project_add_language(struct workspace *wk,
 	obj compiler,
 	enum machine_kind machine,
 	enum requirement_type req,
+	enum toolchain_detect_flag detect_flags,
 	bool *found)
 {
 	if (req == requirement_skip) {
@@ -84,7 +85,7 @@ project_add_language(struct workspace *wk,
 
 		obj_dict_seti(wk, wk->toolchains[machine], l, comp_id);
 	} else {
-		if (!toolchain_detect(wk, &comp_id, machine, l)) {
+		if (!toolchain_detect(wk, &comp_id, machine, l, detect_flags)) {
 			if (req == requirement_required) {
 				vm_error_at(wk, err_node, "unable to detect %s compiler", get_cstr(wk, str));
 				return false;
@@ -103,22 +104,19 @@ project_add_language(struct workspace *wk,
 	if (l == compiler_language_c || l == compiler_language_cpp) {
 		obj_dict_seti(wk, current_project(wk)->toolchains[machine], compiler_language_assembly, comp_id);
 
-#if 0
-		// TODO: also register a clang llvm ir compiler
-		struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 		if (toolchain_compiler_can_compile_llvm_ir(wk, comp_id)) {
-			obj llvm_ir_compiler;
-			llvm_ir_compiler = make_obj(wk, obj_compiler);
-			struct obj_compiler *c = get_obj_compiler(wk, llvm_ir_compiler);
-			*c = *comp;
-			c->type[toolchain_component_compiler] = compiler_type(wk, "clang-llvm-ir");
-			c->lang = compiler_language_llvm_ir;
-			obj_dict_seti(wk,
-				current_project(wk)->toolchains[machine],
-				compiler_language_llvm_ir,
-				llvm_ir_compiler);
+			bool c_found;
+			if (!project_add_language(wk,
+				    err_node,
+				    make_str(wk, "llvm_ir"),
+				    compiler,
+				    machine,
+				    requirement_auto,
+				    toolchain_detect_flag_silent,
+				    &c_found)) {
+				return false;
+			}
 		}
-#endif
 	}
 
 	switch (l) {
@@ -130,7 +128,7 @@ project_add_language(struct workspace *wk,
 			&& !obj_dict_geti(
 				wk, current_project(wk)->toolchains[machine], compiler_language_cpp, &c_compiler)) {
 			bool c_found;
-			if (!project_add_language(wk, err_node, make_str(wk, "c"), compiler, machine, req, &c_found)) {
+			if (!project_add_language(wk, err_node, make_str(wk, "c"), compiler, machine, req, 0, &c_found)) {
 				return false;
 			}
 		}
@@ -141,7 +139,7 @@ project_add_language(struct workspace *wk,
 			    wk, current_project(wk)->toolchains[machine], compiler_language_cpp, &cpp_compiler)) {
 			bool cpp_found;
 			if (!project_add_language(
-				    wk, err_node, make_str(wk, "cpp"), compiler, machine, req, &cpp_found)) {
+				    wk, err_node, make_str(wk, "cpp"), compiler, machine, req, 0, &cpp_found)) {
 				return false;
 			}
 		}
@@ -227,10 +225,10 @@ FUNC_IMPL(kernel, project, 0)
 	obj val;
 	obj_array_for(wk, an[1].val, val) {
 		bool _found;
-		if (!project_add_language(wk, an[1].node, val, 0, machine_kind_host, requirement_required, &_found)) {
+		if (!project_add_language(wk, an[1].node, val, 0, machine_kind_host, requirement_required, 0, &_found)) {
 			return false;
 		}
-		if (!project_add_language(wk, an[1].node, val, 0, machine_kind_build, requirement_auto, &_found)) {
+		if (!project_add_language(wk, an[1].node, val, 0, machine_kind_build, requirement_auto, 0, &_found)) {
 			return false;
 		}
 	}
@@ -469,7 +467,7 @@ add_languages(struct workspace *wk,
 	obj val;
 	obj_array_for(wk, langs, val) {
 		bool found = false;
-		if (!project_add_language(wk, node, val, compiler, machine, required, &found)) {
+		if (!project_add_language(wk, node, val, compiler, machine, required, 0, &found)) {
 			return false;
 		}
 

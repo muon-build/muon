@@ -129,7 +129,7 @@ toolchain.register_linker(
 
 toolchain.register_compiler(
     'posix',
-    exe: 'cc',
+    exe: {'c': 'cc', 'objc': 'cc', 'cpp': 'c++', 'objcpp': 'c++'},
     linker: 'ld-posix',
     static_linker: 'ar-posix',
     handlers: {
@@ -193,7 +193,7 @@ toolchain.register_compiler(
 
 toolchain.register_compiler(
     'gcc',
-    exe: 'gcc',
+    exe: {'c': 'gcc', 'objc': 'gcc', 'cpp': 'g++', 'objcpp': 'g++'},
     linker: 'ld',
     static_linker: 'ar-gnu',
     inherit: 'posix',
@@ -287,8 +287,22 @@ toolchain.register_compiler(
 toolchain.register_compiler(
     'clang',
     inherit: 'gcc',
-    exe: 'clang',
-    linker: 'lld',
+    exe: {'c': 'clang', 'objc': 'clang', 'cpp': 'clang++', 'objcpp': 'clang++'},
+    linker: func(c compiler) -> str
+        m = c.machine()
+        t = c.target_triple()
+        if m.system() == 'windows'
+            if t.env == 'gnu'
+                return 'lld-win'
+            else
+                return 'lld-link'
+            endif
+        elif m.system() == 'darwin' or 'Apple' in c.version_raw()
+            return 'lld-apple'
+        else
+            return 'lld'
+        endif
+    endfunc,
     static_linker: 'ar-posix',
     detect: func(out str) -> int
         return 'clang' in out.to_lower() ? 50 : 0
@@ -308,13 +322,62 @@ toolchain.register_compiler(
 )
 
 toolchain.register_compiler(
-    'clang-apple',
-    inherit: 'clang',
-    linker: 'lld-apple',
+    'clang-llvm-ir',
+    exe: {'llvm_ir': 'clang'},
+    handlers: {
+        'compile_only': toolchain.handler('compiler', 'posix', 'compile_only'),
+        'output': toolchain.handler('compiler', 'posix', 'output'),
+        'object_ext': toolchain.handler('compiler', 'posix', 'object_ext'),
+    }
+)
+
+toolchain.register_compiler(
+    'nasm',
+    exe: {'nasm': 'nasm'},
     detect: func(out str) -> int
-        out = out.to_lower()
-        return ('clang' in out and 'apple' in out) ? 100 : 0
-    endfunc
+        return 'NASM' in out ? 100 : 1
+    endfunc,
+    linker: 'ld-posix',
+    static_linker: 'ar-posix',
+    handlers: {
+        'version': ['--version'],
+        'always': func(c compiler) -> list[str]
+            m = c.machine()
+            address_bits = m.address_bits()
+            if m.system() == 'windows'
+                plat = 'win'
+                def = f'WIN@address_bits@'
+            elif m.system() == 'darwin'
+                plat = 'macho'
+                def = 'MACHO'
+            else
+                plat = 'elf'
+                def = 'ELF'
+            endif
+
+            res = [f'-f@plat@@address_bits@', f'-D@def@']
+            if address_bits == 64
+                res += '-D__x86_64__'
+            endif
+            return res
+        endfunc,
+        'debug': toolchain.handler('compiler', 'posix', 'debug'),
+        'define': toolchain.handler('compiler', 'posix', 'define'),
+        'include': toolchain.handler('compiler', 'posix', 'include'),
+        'include_system': toolchain.handler('compiler', 'posix', 'include_system'),
+        'object_ext': toolchain.handler('compiler', 'posix', 'object_ext'),
+        'optimization': toolchain.handler('compiler', 'posix', 'optimization'),
+        'output': toolchain.handler('compiler', 'posix', 'output'),
+    }
+)
+
+toolchain.register_compiler(
+    'yasm',
+    exe: {'nasm': 'yasm'},
+    inherit: 'nasm',
+    detect: func(out str) -> int
+        return 'yasm' in out ? 100 : 0
+    endfunc,
 )
 
 # toolchain.register(

@@ -94,6 +94,8 @@ const char *machine_subsystem_to_s(enum machine_subsystem sys);
 const char *machine_system_to_kernel_name(enum machine_system sys);
 
 void machine_parse_triple(const struct str *raw, struct target_triple *triple);
+struct workspace;
+obj machine_parsed_triple_to_obj(struct workspace *wk, const struct target_triple* t);
 
 void machine_init(void);
 

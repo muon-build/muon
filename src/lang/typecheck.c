@@ -534,26 +534,6 @@ complex_type_enum_get_(struct workspace *wk, const char *n)
 {
 	obj values = vm_enum_values_(wk, n);
 	return COMPLEX_TYPE(values, complex_type_enum);
-// #define STR_ENUM(id) str_enum_add_type_value(wk, e, #id);
-
-// 	obj e;
-// 	if (str_enum_add_type(wk, t, &e)) {
-// 		switch (t) {
-// 		case tc_cx_enum_shell:
-// 			str_enum_add_type_value(wk, e, "posix");
-// 			str_enum_add_type_value(wk, e, "cmd");
-// 			break;
-// 		case tc_cx_enum_toolchain_component:
-// 			str_enum_add_type_value(wk, e, "compiler");
-// 			str_enum_add_type_value(wk, e, "linker");
-// 			str_enum_add_type_value(wk, e, "static_linker");
-// 			break;
-// 		default: UNREACHABLE_RETURN;
-// 		}
-// 	}
-// #undef STR_ENUM
-
-// 	return e;
 }
 
 type_tag
@@ -621,6 +601,30 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 	return tag;
 }
 
+static bool
+typecheck_capture_arg(struct workspace *wk, type_tag a, type_tag b)
+{
+	bool a_complex = a & TYPE_TAG_COMPLEX, b_complex = b & TYPE_TAG_COMPLEX;
+	type_tag tmp;
+	if (a_complex && !b_complex) {
+		tmp = a;
+		a = b;
+		b = tmp;
+		a_complex = false;
+		b_complex = true;
+	}
+
+	// make tc_string compatible with enum types
+	if (!a_complex && b_complex && a == tc_string) {
+		enum complex_type b_ct = COMPLEX_TYPE_TYPE(b);
+		if (b_ct == complex_type_enum) {
+			return true;
+		}
+	}
+
+	return type_tags_eql(wk, a, b);
+}
+
 bool
 typecheck_capture(struct workspace *wk,
 	uint32_t ip,
@@ -643,7 +647,7 @@ typecheck_capture(struct workspace *wk,
 			goto type_err;
 		}
 
-		if (!type_tags_eql(wk, an[i].type, fn->an[i].type)) {
+		if (!typecheck_capture_arg(wk, an[i].type, fn->an[i].type)) {
 			// posargs type mismatch
 			goto type_err;
 		}

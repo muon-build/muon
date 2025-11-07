@@ -232,7 +232,10 @@ struct toolchain_id {
 struct toolchain_registry_component {
 	struct toolchain_id id;
 	obj detect, overrides, exe;
-	uint32_t sub_components[toolchain_component_count];
+	struct {
+		obj fn;
+		uint32_t type;
+	} sub_components[toolchain_component_count];
 };
 
 struct toolchain_registry {
@@ -277,7 +280,10 @@ toolchain_register_component(struct workspace *wk,
 	enum toolchain_component component,
 	const struct toolchain_registry_component *base);
 
-bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang);
+enum toolchain_detect_flag {
+	toolchain_detect_flag_silent = 1 << 0,
+};
+bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang, enum toolchain_detect_flag flags);
 void compilers_init(struct workspace *wk);
 void compilers_register_native(struct workspace *wk);
 

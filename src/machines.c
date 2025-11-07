@@ -581,6 +581,23 @@ machine_parse_triple(const struct str *str, struct target_triple *t)
 		parts[3]->s);
 }
 
+static void
+machine_parsed_triple_to_obj_set_triple_value(struct workspace *wk, obj d, const char *key, const struct str *val)
+{
+	obj_dict_set(wk, d, make_str(wk, key), val->len ? make_strn(wk, val->s, val->len) : make_str(wk, "unknown"));
+}
+
+obj
+machine_parsed_triple_to_obj(struct workspace *wk, const struct target_triple* t)
+{
+	obj res = make_obj(wk, obj_dict);
+	machine_parsed_triple_to_obj_set_triple_value(wk, res, "arch", &t->arch);
+	machine_parsed_triple_to_obj_set_triple_value(wk, res, "vendor", &t->vendor);
+	machine_parsed_triple_to_obj_set_triple_value(wk, res, "system", &t->system);
+	machine_parsed_triple_to_obj_set_triple_value(wk, res, "env", &t->env);
+	return res;
+}
+
 void
 machine_init(void)
 {

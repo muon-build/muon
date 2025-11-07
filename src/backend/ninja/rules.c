@@ -73,6 +73,10 @@ write_linker_rule(struct workspace *wk,
 		obj_array_push(wk, args, make_str(wk, "$in"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	} else {
+		if (!comp->cmd_arr[toolchain_component_linker]) {
+			return;
+		}
+
 		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_linker]);
 		obj_array_push(wk, args, make_str(wk, "$ARGS"));
 		push_args(wk, args, toolchain_linker_input_output(wk, comp_id, "$in", "$out"));

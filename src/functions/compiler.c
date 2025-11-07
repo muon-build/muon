@@ -2461,6 +2461,38 @@ FUNC_IMPL(compiler, get_internal_static_linker_id, tc_string, func_impl_flag_imp
 	return true;
 }
 
+
+FUNC_IMPL(compiler, target_triple, tc_dict, func_impl_flag_impure)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = machine_parsed_triple_to_obj(wk, &get_obj_compiler(wk, self)->triple);
+	return true;
+}
+
+FUNC_IMPL(compiler, machine, tc_machine, func_impl_flag_impure)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_obj(wk, obj_machine);
+	set_obj_machine(wk, *res, get_obj_compiler(wk, self)->machine);
+	return true;
+}
+
+FUNC_IMPL(compiler, version_raw, tc_string, func_impl_flag_impure)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = get_obj_compiler(wk, self)->ver_raw;
+	return true;
+}
+
 FUNC_REGISTER(compiler)
 {
 	FUNC_IMPL_REGISTER(compiler, alignment);
@@ -2502,5 +2534,8 @@ FUNC_REGISTER(compiler)
 		FUNC_IMPL_REGISTER(compiler, get_internal_id);
 		FUNC_IMPL_REGISTER(compiler, get_internal_linker_id);
 		FUNC_IMPL_REGISTER(compiler, get_internal_static_linker_id);
+		FUNC_IMPL_REGISTER(compiler, target_triple);
+		FUNC_IMPL_REGISTER(compiler, machine);
+		FUNC_IMPL_REGISTER(compiler, version_raw);
 	}
 }

@@ -160,6 +160,18 @@ FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
 	return true;
 }
 
+FUNC_IMPL(machine, address_bits, tc_number, func_impl_flag_impure)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	struct machine_definition *m = get_machine_for_self(wk, self);
+
+	*res = make_number(wk, m->address_bits);
+	return true;
+}
+
 FUNC_REGISTER(machine)
 {
 	{
@@ -190,6 +202,7 @@ FUNC_REGISTER(machine)
 	FUNC_IMPL_REGISTER(machine, subsystem);
 
 	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(machine, address_bits);
 		FUNC_IMPL_REGISTER(machine, set_props);
 		FUNC_IMPL_REGISTER_ALIAS(machine, set_props, set_properties);
 	}
