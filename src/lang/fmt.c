@@ -1688,11 +1688,17 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 }
 
 bool
-fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig)
+fmt(struct arena *a,
+	struct arena *a_scratch,
+	struct source *src,
+	FILE *out,
+	const char *cfg_path,
+	bool check_only,
+	bool editorconfig)
 {
 	struct tstr out_buf;
 	struct workspace wk = { 0 };
-	workspace_init_bare(&wk, a, 0);
+	workspace_init_bare(&wk, a, a_scratch);
 	struct fmt_ctx f = {
 		.wk = &wk,
 		.out_buf = &out_buf,

@@ -7,9 +7,8 @@
 #define MUON_LANG_FMT_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
-
-#include "lang/source.h"
 
 enum fmt_indent_style {
 	fmt_indent_style_space,
@@ -37,5 +36,14 @@ struct fmt_opts {
 	bool use_editor_config; // ignored for now
 };
 
-bool fmt(struct arena *a, struct source *src, FILE *out, const char *cfg_path, bool check_only, bool editorconfig);
+struct arena;
+struct source;
+bool
+fmt(struct arena *a,
+	struct arena *a_scratch,
+	struct source *src,
+	FILE *out,
+	const char *cfg_path,
+	bool check_only,
+	bool editorconfig);
 #endif
