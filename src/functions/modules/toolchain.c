@@ -159,7 +159,6 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 
 	for (uint32_t i = 0; i < ARRAY_LEN(sub_components); ++i) {
 		const struct args_kw *kw = sub_components[i].kw;
-		const enum toolchain_component sub_component = sub_components[i].component;
 		if (kw->set) {
 			assert(component == toolchain_component_compiler);
 

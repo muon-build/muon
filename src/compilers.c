@@ -1012,7 +1012,7 @@ check_next_candidate:
 	}
 
 	if (default_candidate.found) {
-		const struct toolchain_registry_component *base = arr_get(registry, default_candidate.idx);
+		// const struct toolchain_registry_component *base = arr_get(registry, default_candidate.idx);
 		// L("unable to detect %s type, falling back on %s", toolchain_component_to_s(component), base->id.id);
 		toolchain_component_detect_apply_candidate(
 			compiler, component, &default_candidate, make_str(wk, "unknown"), found);
@@ -2890,7 +2890,6 @@ handle_toolchain_arg_override_1srb(TOOLCHAIN_SIG_1srb)
 #define TOOLCHAIN_ARG_MEMBER_(name, _name, component, return_type, _type, params, names)                           \
 	return_type toolchain_##component##_name params                                                            \
 	{                                                                                                          \
-		struct obj_compiler *c = get_obj_compiler(wk, comp); \
 		handle_toolchain_arg_override = lookup_toolchain_arg_override(                                     \
 			wk, comp, toolchain_component_##component, toolchain_arg_by_component_##component##_name); \
 		if (handle_toolchain_arg_override) {                                                               \
