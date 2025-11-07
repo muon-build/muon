@@ -49,7 +49,7 @@ toolchain.register_linker(
             return ['-l', lib]
         endfunc,
         'shared': ['-shared'],
-    }
+    },
 )
 
 toolchain.register_linker(
@@ -90,8 +90,8 @@ toolchain.register_linker(
         'start_group': ['--start-group'],
         'whole_archive': func(_c compiler, s1 str) -> list[str]
             return ['--whole-archive', s1, '--no-whole-archive']
-        endfunc
-    }
+        endfunc,
+    },
 )
 
 toolchain.register_linker(
@@ -119,7 +119,7 @@ toolchain.register_linker(
         'shared_module': ['-bundle'],
         'whole_archive': func(_c compiler, s1 str) -> list[str]
             return ['-force_load', s1]
-        endfunc
+        endfunc,
     },
 )
 
@@ -251,15 +251,15 @@ toolchain.register_compiler(
         endfunc,
         'visibility': func(_c compiler, type str) -> list[str]
             if type == 'default'
-				return ['-fvisibility=default']
+                return ['-fvisibility=default']
             elif type == 'internal'
-				return ['-fvisibility=internal']
+                return ['-fvisibility=internal']
             elif type == 'protected'
-				return ['-fvisibility=protected']
+                return ['-fvisibility=protected']
             elif type == 'inlineshidden'
                 return ['-fvisibility=hidden', '-fvisibility-inlines-hidden']
             elif type == 'hidden'
-				return ['-fvisibility=hidden']
+                return ['-fvisibility=hidden']
             endif
         endfunc,
         'warn_everything': [], # TODO
@@ -318,7 +318,7 @@ toolchain.register_compiler(
         endfunc,
         'pch_ext': ['.pch'],
         'warn_everything': ['-Weverything'],
-    }
+    },
 )
 
 toolchain.register_compiler(
@@ -328,7 +328,7 @@ toolchain.register_compiler(
         'compile_only': toolchain.handler('compiler', 'posix', 'compile_only'),
         'output': toolchain.handler('compiler', 'posix', 'output'),
         'object_ext': toolchain.handler('compiler', 'posix', 'object_ext'),
-    }
+    },
 )
 
 toolchain.register_compiler(
@@ -368,7 +368,7 @@ toolchain.register_compiler(
         'object_ext': toolchain.handler('compiler', 'posix', 'object_ext'),
         'optimization': toolchain.handler('compiler', 'posix', 'optimization'),
         'output': toolchain.handler('compiler', 'posix', 'output'),
-    }
+    },
 )
 
 toolchain.register_compiler(
