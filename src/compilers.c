@@ -978,10 +978,10 @@ toolchain_component_detect(struct workspace *wk,
 					return false;
 				}
 
-				if (cmd_ctx.status != 0) {
-					run_cmd_ctx_destroy(&cmd_ctx);
-					continue;
-				}
+				// if (cmd_ctx.status != 0) {
+				// 	run_cmd_ctx_destroy(&cmd_ctx);
+				// 	continue;
+				// }
 
 				TSTR(output);
 				tstr_pushn(wk, &output, cmd_ctx.out.buf, cmd_ctx.out.len);
