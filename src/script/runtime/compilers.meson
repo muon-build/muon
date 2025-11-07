@@ -55,6 +55,9 @@ toolchain.register_linker(
 toolchain.register_linker(
     'ld',
     inherit: 'ld-posix',
+    detect: func(out str) -> int
+        return 'GNU' in out ? 100 : 0
+    endfunc,
     handlers: {
         'allow_shlib_undefined': ['--allow-shlib-undefined'],
         'as_needed': ['--as-needed'],
