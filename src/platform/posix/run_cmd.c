@@ -32,7 +32,7 @@ enum copy_pipe_result {
 };
 
 static enum copy_pipe_result
-copy_pipe(struct workspace *wk, int pipe, struct tstr *tstr, FILE *tee_out)
+copy_pipe(struct workspace *wk, int pipe, struct tstr *tstr, FILE *tee_out, bool process_is_dead)
 {
 	ssize_t b;
 	char buf[4096];
@@ -42,6 +42,9 @@ copy_pipe(struct workspace *wk, int pipe, struct tstr *tstr, FILE *tee_out)
 
 		if (b == -1) {
 			if (errno == EAGAIN) {
+				if (process_is_dead) {
+					return copy_pipe_result_finished;
+				}
 				return copy_pipe_result_waiting;
 			} else {
 				return copy_pipe_result_failed;
@@ -59,17 +62,17 @@ copy_pipe(struct workspace *wk, int pipe, struct tstr *tstr, FILE *tee_out)
 }
 
 static enum copy_pipe_result
-copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx)
+copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool process_is_dead)
 {
 	enum copy_pipe_result res;
 
 	bool tee = ctx->flags & run_cmd_ctx_flag_tee;
 
-	if ((res = copy_pipe(wk, ctx->pipefd_out[0], &ctx->out, tee ? stdout : 0)) == copy_pipe_result_failed) {
+	if ((res = copy_pipe(wk, ctx->pipefd_out[0], &ctx->out, tee ? stdout : 0, process_is_dead)) == copy_pipe_result_failed) {
 		return res;
 	}
 
-	switch (copy_pipe(wk, ctx->pipefd_err[0], &ctx->err, tee ? stderr : 0)) {
+	switch (copy_pipe(wk, ctx->pipefd_err[0], &ctx->err, tee ? stderr : 0, process_is_dead)) {
 	case copy_pipe_result_waiting: return copy_pipe_result_waiting;
 	case copy_pipe_result_finished: return res;
 	case copy_pipe_result_failed: return copy_pipe_result_failed;
@@ -116,7 +119,7 @@ run_cmd_collect(struct workspace *wk, struct run_cmd_ctx *ctx)
 
 	while (true) {
 		if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
-			if ((pipe_res = copy_pipes(wk, ctx)) == copy_pipe_result_failed) {
+			if ((pipe_res = copy_pipes(wk, ctx, false)) == copy_pipe_result_failed) {
 				return run_cmd_error;
 			}
 		}
@@ -143,7 +146,7 @@ run_cmd_collect(struct workspace *wk, struct run_cmd_ctx *ctx)
 
 	if (!(ctx->flags & run_cmd_ctx_flag_dont_capture)) {
 		while (pipe_res != copy_pipe_result_finished) {
-			if ((pipe_res = copy_pipes(wk, ctx)) == copy_pipe_result_failed) {
+			if ((pipe_res = copy_pipes(wk, ctx, true)) == copy_pipe_result_failed) {
 				return run_cmd_error;
 			}
 		}
