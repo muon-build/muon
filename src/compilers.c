@@ -1108,7 +1108,7 @@ static void
 toolchain_component_compiler_populate_libdirs(struct workspace *wk, obj comp, struct obj_compiler *compiler)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	const struct args *args = toolchain_compiler_dumpmachine(wk, comp);
+	const struct args *args = toolchain_compiler_print_search_dirs(wk, comp);
 	if (!args->len) {
 		goto done;
 	}
@@ -1146,6 +1146,9 @@ done:
 	run_cmd_ctx_destroy(&cmd_ctx);
 
 	if (!compiler->libdirs) {
+		L("populating libdirs using defaults");
+
+		// TODO: make this a toolchain compiler handler
 		const char *libdirs[] = { "/usr/lib", "/usr/local/lib", "/lib", NULL };
 
 		compiler->libdirs = make_obj(wk, obj_array);
