@@ -73,8 +73,7 @@ jobs:
       - name: Bootstrap
         run: |
           ./bootstrap.sh build
-          build/muon-bootstrap -v setup -Dlibpkgconf=enabled build
-          build/muon-bootstrap -C build samu
+          build/muon-bootstrap -v build -Dlibpkgconf=enabled -Dsamurai=disabled build
 
       - name: test_with_libpkgconf
         run: |
