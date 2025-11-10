@@ -201,11 +201,11 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(whole_archive, linker, TOOLCHAIN_PARAMS_1s)
 
 #define FOREACH_STATIC_LINKER_ARG(_)                        \
-	_(always, static_linker, TOOLCHAIN_PARAMS_0)        \
-	_(base, static_linker, TOOLCHAIN_PARAMS_0)          \
-	_(input_output, static_linker, TOOLCHAIN_PARAMS_2s) \
-	_(needs_wipe, static_linker, TOOLCHAIN_PARAMS_0rb)  \
-	_(version, static_linker, TOOLCHAIN_PARAMS_0)
+	_(always, archiver, TOOLCHAIN_PARAMS_0)        \
+	_(base, archiver, TOOLCHAIN_PARAMS_0)          \
+	_(input_output, archiver, TOOLCHAIN_PARAMS_2s) \
+	_(needs_wipe, archiver, TOOLCHAIN_PARAMS_0rb)  \
+	_(version, archiver, TOOLCHAIN_PARAMS_0)
 
 struct language {
 	bool is_header;

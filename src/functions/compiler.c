@@ -2447,7 +2447,7 @@ FUNC_IMPL(compiler, get_internal_linker_id, tc_string, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(compiler, get_internal_static_linker_id, tc_string, func_impl_flag_impure)
+FUNC_IMPL(compiler, get_internal_archiver_id, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
@@ -2455,8 +2455,8 @@ FUNC_IMPL(compiler, get_internal_static_linker_id, tc_string, func_impl_flag_imp
 
 	*res = make_str(wk,
 		toolchain_component_type_to_id(wk,
-			toolchain_component_static_linker,
-			get_obj_compiler(wk, self)->type[toolchain_component_static_linker])
+			toolchain_component_archiver,
+			get_obj_compiler(wk, self)->type[toolchain_component_archiver])
 			->id);
 	return true;
 }
@@ -2533,7 +2533,7 @@ FUNC_REGISTER(compiler)
 		FUNC_IMPL_REGISTER(compiler, configure);
 		FUNC_IMPL_REGISTER(compiler, get_internal_id);
 		FUNC_IMPL_REGISTER(compiler, get_internal_linker_id);
-		FUNC_IMPL_REGISTER(compiler, get_internal_static_linker_id);
+		FUNC_IMPL_REGISTER(compiler, get_internal_archiver_id);
 		FUNC_IMPL_REGISTER(compiler, target_triple);
 		FUNC_IMPL_REGISTER(compiler, machine);
 		FUNC_IMPL_REGISTER(compiler, version_raw);

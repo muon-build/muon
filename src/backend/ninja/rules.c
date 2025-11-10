@@ -103,9 +103,9 @@ write_linker_rule(struct workspace *wk,
 }
 
 static void
-write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, enum machine_kind machine)
+write_archiver_rule(struct workspace *wk, FILE *out, struct project *proj, enum machine_kind machine)
 {
-	enum compiler_language static_linker_precedence[] = {
+	enum compiler_language archiver_precedence[] = {
 		compiler_language_c,
 		compiler_language_cpp,
 		compiler_language_objc,
@@ -115,8 +115,8 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 
 	obj comp_id = 0;
 	uint32_t j;
-	for (j = 0; j < ARRAY_LEN(static_linker_precedence); ++j) {
-		if (obj_dict_geti(wk, proj->toolchains[machine], static_linker_precedence[j], &comp_id)) {
+	for (j = 0; j < ARRAY_LEN(archiver_precedence); ++j) {
+		if (obj_dict_geti(wk, proj->toolchains[machine], archiver_precedence[j], &comp_id)) {
 			break;
 		}
 	}
@@ -127,7 +127,7 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 		obj static_link_args;
 		static_link_args = make_obj(wk, obj_array);
 
-		if (toolchain_static_linker_needs_wipe(wk, comp_id)) {
+		if (toolchain_archiver_needs_wipe(wk, comp_id)) {
 			obj_array_push(wk, static_link_args, make_shell_escaped_str(wk, wk->argv0));
 			obj_array_push(wk, static_link_args, make_str(wk, "internal"));
 			obj_array_push(wk, static_link_args, make_str(wk, "exe"));
@@ -136,13 +136,13 @@ write_static_linker_rule(struct workspace *wk, FILE *out, struct project *proj, 
 			obj_array_push(wk, static_link_args, make_str(wk, "--"));
 		}
 
-		obj_array_extend(wk, static_link_args, comp->cmd_arr[toolchain_component_static_linker]);
-		push_args(wk, static_link_args, toolchain_static_linker_always(wk, comp_id));
-		push_args(wk, static_link_args, toolchain_static_linker_base(wk, comp_id));
-		push_args(wk, static_link_args, toolchain_static_linker_input_output(wk, comp_id, "$in", "$out"));
+		obj_array_extend(wk, static_link_args, comp->cmd_arr[toolchain_component_archiver]);
+		push_args(wk, static_link_args, toolchain_archiver_always(wk, comp_id));
+		push_args(wk, static_link_args, toolchain_archiver_base(wk, comp_id));
+		push_args(wk, static_link_args, toolchain_archiver_input_output(wk, comp_id, "$in", "$out"));
 
 		fprintf(out,
-			"rule %s_%s_static_linker\n"
+			"rule %s_%s_archiver\n"
 			" command = %s\n"
 			" description = linking static $out\n"
 			"\n",
@@ -439,7 +439,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 					}
 				}
 
-				write_static_linker_rule(wk, out, proj, machine);
+				write_archiver_rule(wk, out, proj, machine);
 			}
 
 			obj_clear(wk, &mk);

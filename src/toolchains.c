@@ -137,7 +137,7 @@ toolchain_component_type_to_id(struct workspace *wk, enum toolchain_component co
 static const struct toolchain_id toolchain_component_name[] = {
 	[toolchain_component_compiler] = { "compiler" },
 	[toolchain_component_linker] = { "linker" },
-	[toolchain_component_static_linker] = { "static_linker" },
+	[toolchain_component_archiver] = { "archiver" },
 };
 
 const char *
@@ -473,7 +473,7 @@ toolchain_component_detect(struct workspace *wk,
 
 	obj *candidates = 0;
 	uint32_t candidates_len = 0;
-	uint32_t preferred_type = 0; // TODO: use this do assist in detection of linker / static_linker
+	uint32_t preferred_type = 0; // TODO: use this do assist in detection of linker / archiver
 
 	// first check if the option for this component has been set, e.g. env.CC
 	{
@@ -603,8 +603,8 @@ toolchain_component_detect(struct workspace *wk,
 				args = toolchain_linker_version(wk, comp);
 				break;
 			}
-			case toolchain_component_static_linker: {
-				args = toolchain_static_linker_version(wk, comp);
+			case toolchain_component_archiver: {
+				args = toolchain_archiver_version(wk, comp);
 				break;
 			}
 			}
@@ -1036,7 +1036,7 @@ struct toolchain_arg_handler {
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, comp, type)
 static struct toolchain_arg_handler toolchain_compiler_arg_handlers[] = { FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER) };
 static struct toolchain_arg_handler toolchain_linker_arg_handlers[] = { FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) };
-static struct toolchain_arg_handler toolchain_static_linker_arg_handlers[]
+static struct toolchain_arg_handler toolchain_archiver_arg_handlers[]
 	= { FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) };
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
@@ -1048,8 +1048,8 @@ static struct {
 	[toolchain_component_compiler]
 	= { toolchain_compiler_arg_handlers, ARRAY_LEN(toolchain_compiler_arg_handlers) },
 	[toolchain_component_linker] = { toolchain_linker_arg_handlers, ARRAY_LEN(toolchain_linker_arg_handlers) },
-	[toolchain_component_static_linker]
-	= { toolchain_static_linker_arg_handlers, ARRAY_LEN(toolchain_static_linker_arg_handlers) },
+	[toolchain_component_archiver]
+	= { toolchain_archiver_arg_handlers, ARRAY_LEN(toolchain_archiver_arg_handlers) },
 };
 
 bool

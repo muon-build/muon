@@ -58,7 +58,7 @@ enum log_level {
 enum toolchain_component {
 	toolchain_component_compiler,
 	toolchain_component_linker,
-	toolchain_component_static_linker,
+	toolchain_component_archiver,
 };
 #define toolchain_component_count 3 // Keep in sync with above
 

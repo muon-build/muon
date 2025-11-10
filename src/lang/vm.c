@@ -3180,7 +3180,7 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 #define vm_reflect_obj_field_for_each_toolchain_component(__type, __field_type, __name)   \
 	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_compiler]); \
 	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_linker]);   \
-	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_static_linker])
+	vm_reflect_obj_field(__type, __field_type, __name[toolchain_component_archiver])
 
 void
 vm_reflect_objects(struct workspace *wk)

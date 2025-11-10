@@ -21,7 +21,7 @@ FUNC_IMPL(module_toolchain,
 		kw_inherit,
 		kw_inherit_compiler,
 		kw_inherit_linker,
-		kw_inherit_static_linker,
+		kw_inherit_archiver,
 	};
 	struct args_kw akw[] = {
 		[kw_inherit] = { "inherit", tc_compiler, .desc = "A toolchain to inherit from" },
@@ -33,7 +33,7 @@ FUNC_IMPL(module_toolchain,
 			tc_string | tc_compiler,
 			.desc
 			= "The linker component to inherit from.  Can be either a compiler object or linker type name." },
-		[kw_inherit_static_linker] = { "inherit_static_linker",
+		[kw_inherit_archiver] = { "inherit_archiver",
 			tc_string | tc_compiler,
 			.desc
 			= "The static linker component to inherit from.  Can be either a compiler object or static linker type name." },
@@ -56,7 +56,7 @@ FUNC_IMPL(module_toolchain,
 		} toolchain_elem[] = {
 			{ toolchain_component_compiler, kw_inherit_compiler },
 			{ toolchain_component_linker, kw_inherit_linker },
-			{ toolchain_component_static_linker, kw_inherit_static_linker },
+			{ toolchain_component_archiver, kw_inherit_archiver },
 		};
 
 		uint32_t i;
@@ -133,7 +133,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		kw_handlers,
 		kw_exe,
 		kw_linker,
-		kw_static_linker,
+		kw_archiver,
 	};
 	struct args_kw akw[] = {
 		[kw_public_id] = { "public_id", tc_string },
@@ -142,7 +142,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		[kw_detect] = { "detect", tc_capture },
 		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides) },
 		[kw_linker] = { component == toolchain_component_compiler ? "linker" : 0, tc_string | tc_capture },
-		[kw_static_linker] = { "static_linker", tc_string | tc_capture },
+		[kw_archiver] = { "archiver", tc_string | tc_capture },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -154,7 +154,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		enum toolchain_component component;
 	} sub_components[] = {
 		{ &akw[kw_linker], toolchain_component_linker },
-		{ &akw[kw_static_linker], toolchain_component_static_linker },
+		{ &akw[kw_archiver], toolchain_component_archiver },
 	};
 
 	for (uint32_t i = 0; i < ARRAY_LEN(sub_components); ++i) {
@@ -285,9 +285,9 @@ FUNC_IMPL(module_toolchain, register_linker, tc_dict, .desc = "Register a new li
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_linker, res);
 }
 
-FUNC_IMPL(module_toolchain, register_static_linker, tc_dict, .desc = "Register a new static linker type")
+FUNC_IMPL(module_toolchain, register_archiver, tc_dict, .desc = "Register a new static linker type")
 {
-	return func_modue_toolchain_register_component_common(wk, toolchain_component_static_linker, res);
+	return func_modue_toolchain_register_component_common(wk, toolchain_component_archiver, res);
 }
 
 FUNC_IMPL(module_toolchain, handler, tc_capture | tc_array, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
@@ -332,7 +332,7 @@ FUNC_REGISTER(module_toolchain)
 		FUNC_IMPL_REGISTER(module_toolchain, parse_triple);
 		FUNC_IMPL_REGISTER(module_toolchain, register_compiler);
 		FUNC_IMPL_REGISTER(module_toolchain, register_linker);
-		FUNC_IMPL_REGISTER(module_toolchain, register_static_linker);
+		FUNC_IMPL_REGISTER(module_toolchain, register_archiver);
 		FUNC_IMPL_REGISTER(module_toolchain, handler);
 	}
 }

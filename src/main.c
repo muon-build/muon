@@ -635,7 +635,7 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 static bool
 cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	bool set_linker = false, set_static_linker = false;
+	bool set_linker = false, set_archiver = false;
 
 	const char *n1_args[32] = { "<value1>", "<value2>" };
 	struct args n1 = { n1_args, 2 };
@@ -700,17 +700,17 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 					= c->sub_components[toolchain_component_linker].type;
 			}
 
-			if (!set_static_linker) {
-				compiler->type[toolchain_component_static_linker]
-					= c->sub_components[toolchain_component_static_linker].type;
+			if (!set_archiver) {
+				compiler->type[toolchain_component_archiver]
+					= c->sub_components[toolchain_component_archiver].type;
 			}
 			break;
 		}
 		case toolchain_component_linker:
 			set_linker = true;
 			break;
-		case toolchain_component_static_linker:
-			set_static_linker = true;
+		case toolchain_component_archiver:
+			set_archiver = true;
 			break;
 		}
 
@@ -783,10 +783,10 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 
 	make_dummy_project(wk, true);
 
-	printf("compiler: %s, linker: %s, static_linker: %s\n",
+	printf("compiler: %s, linker: %s, archiver: %s\n",
 		toolchain_component_type_to_id(wk, toolchain_component_compiler, compiler->type[toolchain_component_compiler])->id,
 		toolchain_component_type_to_id(wk, toolchain_component_linker, compiler->type[toolchain_component_linker])->id,
-		toolchain_component_type_to_id(wk, toolchain_component_static_linker, compiler->type[toolchain_component_static_linker])->id);
+		toolchain_component_type_to_id(wk, toolchain_component_archiver, compiler->type[toolchain_component_archiver])->id);
 	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {",
 		opts.s1,
 		opts.s2,

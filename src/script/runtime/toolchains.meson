@@ -9,7 +9,7 @@ fs = import('fs')
 ################################################################################
 
 # https://pubs.opengroup.org/onlinepubs/9699919799/
-toolchain.register_static_linker(
+toolchain.register_archiver(
     'ar-posix',
     exe: 'ar',
     handlers: {
@@ -21,7 +21,7 @@ toolchain.register_static_linker(
     },
 )
 
-toolchain.register_static_linker(
+toolchain.register_archiver(
     'ar-gnu',
     inherit: 'ar-posix',
     detect: func(out str) -> int
@@ -33,7 +33,7 @@ toolchain.register_static_linker(
     },
 )
 
-toolchain.register_static_linker(
+toolchain.register_archiver(
     'lib',
     exe: 'lib',
     handlers: {
@@ -219,7 +219,7 @@ toolchain.register_compiler(
     'posix',
     exe: {'c': 'cc', 'objc': 'cc', 'cpp': 'c++', 'objcpp': 'c++'},
     linker: 'ld-posix',
-    static_linker: 'ar-posix',
+    archiver: 'ar-posix',
     handlers: {
         'version': ['--version'],
         'do_linker_passthrough': true,
@@ -285,7 +285,7 @@ toolchain.register_compiler(
     'gcc',
     exe: {'c': 'gcc', 'objc': 'gcc', 'cpp': 'g++', 'objcpp': 'g++'},
     linker: 'ld',
-    static_linker: 'ar-gnu',
+    archiver: 'ar-gnu',
     inherit: 'posix',
     detect: func(out str) -> int
         return 'Free Software Foundation' in out ? 100 : 0
@@ -394,7 +394,7 @@ toolchain.register_compiler(
             return 'lld'
         endif
     endfunc,
-    static_linker: 'ar-posix',
+    archiver: 'ar-posix',
     detect: func(out str) -> int
         return 'clang' in out.to_lower() ? 50 : 0
     endfunc,
@@ -426,7 +426,7 @@ toolchain.register_compiler(
     'msvc',
     exe: {'c': 'cl', 'cpp': 'cl'},
     linker: 'link',
-    static_linker: 'lib',
+    archiver: 'lib',
     detect: func(out str) -> int
         return 'Microsoft' in out ? 100 : 0
     endfunc,
@@ -527,7 +527,7 @@ toolchain.register_compiler(
         return 'NASM' in out ? 100 : 1
     endfunc,
     linker: 'ld-posix',
-    static_linker: 'ar-posix',
+    archiver: 'ar-posix',
     handlers: {
         'version': ['--version'],
         'always': func(c compiler) -> list[str]

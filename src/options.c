@@ -983,8 +983,8 @@ init_global_options(struct workspace *wk)
 		}
 	}
 	// There is a single env.AR option shared by all languages
-	make_compiler_env_option(wk, compiler_language_c, toolchain_component_static_linker, machine_kind_host);
-	make_compiler_env_option(wk, compiler_language_c, toolchain_component_static_linker, machine_kind_build);
+	make_compiler_env_option(wk, compiler_language_c, toolchain_component_archiver, machine_kind_host);
+	make_compiler_env_option(wk, compiler_language_c, toolchain_component_archiver, machine_kind_build);
 
 	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path", ENV_PATH_SEP_STR);
 
