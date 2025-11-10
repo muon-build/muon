@@ -90,11 +90,11 @@ steps.setup = func()
 endfunc
 
 steps.build = func()
-    run_command(ninja, '-C', build, check: true, capture: false)
+    run_command(ninja, '-C', build, check: true)
 endfunc
 
 steps.test = func()
-    run_command(muon, '-C', build, 'test', '-a', check: true, capture: false)
+    run_command(muon, '-C', build, 'test', '-a', check: true)
 endfunc
 
 steps.install = func()
@@ -105,7 +105,6 @@ steps.install = func()
         'install',
         env: {'DESTDIR': destdir},
         check: true,
-        capture: false,
     )
 endfunc
 
@@ -215,7 +214,6 @@ steps.uninstall = func()
         'install',
         '-Ud', destdir,
         check: true,
-        capture: false,
     )
 
     assert(
