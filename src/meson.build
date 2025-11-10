@@ -91,7 +91,6 @@ src = files(
     'cmd_subprojects.c',
     'cmd_test.c',
     'coerce.c',
-    'compilers.c',
     'embedded.c',
     'error.c',
     'guess.c',
@@ -106,6 +105,7 @@ src = files(
     'opts.c',
     'rpmvercmp.c',
     'sha_256.c',
+    'toolchains.c',
     'vsenv.c',
     'wrap.c',
 )

@@ -11,7 +11,7 @@
 #include "lang/eval.h"
 #include "lang/string.h"
 #include "lang/vm.h"
-#include "compilers.h"
+#include "toolchains.h"
 
 struct project {
 	/* array of dicts */

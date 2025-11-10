@@ -18,7 +18,6 @@
 #include "backend/common_args.h"
 #include "buf_size.h"
 #include "coerce.h"
-#include "compilers.h"
 #include "error.h"
 #include "formats/ansi.h"
 #include "functions/compiler.h"
@@ -33,6 +32,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
+#include "toolchains.h"
 
 MUON_ATTR_FORMAT(printf, 3, 4)
 static void

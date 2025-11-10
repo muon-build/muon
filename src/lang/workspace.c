@@ -180,7 +180,7 @@ workspace_init_startup_files(struct workspace *wk)
 
 	const char *startup_files[] = {
 		"runtime/dependencies.meson",
-		"runtime/compilers.meson",
+		"runtime/toolchains.meson",
 	};
 
 	for (uint32_t i = 0; i < ARRAY_LEN(startup_files); ++i) {

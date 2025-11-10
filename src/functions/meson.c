@@ -12,7 +12,6 @@
 #include "backend/output.h"
 #include "buf_size.h"
 #include "coerce.h"
-#include "compilers.h"
 #include "error.h"
 #include "functions/kernel.h"
 #include "functions/kernel/dependency.h"
@@ -23,6 +22,7 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "toolchains.h"
 #include "version.h"
 
 FUNC_IMPL(meson, get_compiler, tc_compiler, func_impl_flag_impure)

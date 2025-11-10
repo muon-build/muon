@@ -15,7 +15,6 @@
 
 #include "args.h"
 #include "buf_size.h"
-#include "compilers.h"
 #include "error.h"
 #include "functions/kernel.h"
 #include "functions/string.h"
@@ -31,6 +30,7 @@
 #include "platform/path.h"
 #include "platform/run_cmd.h"
 #include "sha_256.h"
+#include "toolchains.h"
 
 obj
 compiler_check_cache_key(struct workspace *wk, const struct compiler_check_cache_key *key)

@@ -24,7 +24,7 @@ foreach s : [
     'options/per_project.meson',
     'python/python_info.py',
     'runtime/dependencies.meson',
-    'runtime/compilers.meson',
+    'runtime/toolchains.meson',
 ]
     scripts_input += s
     scripts_cmdline += files(s) + [s]
