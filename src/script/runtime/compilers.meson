@@ -428,7 +428,7 @@ toolchain.register_compiler(
     linker: 'link',
     static_linker: 'lib',
     detect: func(out str) -> int
-        return 'clang' in out.to_lower() ? 50 : 0
+        return 'Microsoft' in out ? 100 : 0
     endfunc,
     handlers: {
         'always': ['/nologo'],
