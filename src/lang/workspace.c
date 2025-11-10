@@ -189,8 +189,6 @@ workspace_init_startup_files(struct workspace *wk)
 		}
 	}
 
-	compilers_register_native(wk);
-
 	wk->init_flags |= workspace_init_flag_startup_files;
 }
 

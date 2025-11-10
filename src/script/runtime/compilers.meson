@@ -568,13 +568,3 @@ toolchain.register_compiler(
         return 'yasm' in out ? 100 : 0
     endfunc,
 )
-
-# toolchain.register(
-#     'slimcc',
-#     component: 'compiler',
-#     inherit: 'posix',
-#     default_linker: 'ld',
-#     detect: func(stdout str, _stderr str) -> number
-#         return 'slimcc' in stdout ? 100 : 0
-#     endfunc,
-# )

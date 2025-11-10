@@ -285,7 +285,6 @@ enum toolchain_detect_flag {
 };
 bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine, enum compiler_language lang, enum toolchain_detect_flag flags);
 void compilers_init(struct workspace *wk);
-void compilers_register_native(struct workspace *wk);
 
 bool toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component);
 
