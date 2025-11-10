@@ -1538,7 +1538,9 @@ bool
 list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 {
 	bool ret = false;
-	workspace_init_runtime(wk);
+	if (!(wk->init_flags & workspace_init_flag_runtime)) {
+		workspace_init_runtime(wk);
+	}
 	wk->vm.lang_mode = language_opts;
 
 	bool load_from_build_dir = false;
