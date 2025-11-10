@@ -313,19 +313,25 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	was compiled with *samu* enabled.
 
 ## setup
-	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-w*] [*-#*] <build
-	dir|source dir>
+	*muon* *setup* [*-D*[subproject*:*]option*=*value...] [*-w*] [*-#*] [*-p*
+	<file>] <build dir|source dir>
 
 	Interpret all _source files_ and generate _buildfiles_ in _build dir_.
 
 	*OPTIONS*:
-	- *-D* [subproject*:*]option*=*value - Set build options.  Options
+	- *-D* - [subproject*:*]option*=*value - Set build options.  Options
 	  are either built in or project-defined.  Subproject options can be
 	  specified by prepending the subproject's name and a colon to the
 	  *option*.  This option may be specified multiple times.
-	- *-#* Display a progress bar during setup. Can be combined with muon -q to
+	- *-#* - Display a progress bar during setup. Can be combined with muon -q to
 	  only display a progress bar.
-	- *-w* Clear all build caches before setup begins.
+	- *-w* - Clear all build caches before setup begins.
+	- *-p* <file> - Add _file_ to list of preload files that will be evaluated
+	  prior to the first project() call.  These files may be either meson
+	  scripts (ending with .meson) that will be evaluated in script mode, or
+	  meson machine files.  Machine files may be prefixed with `cross:` or
+	  `native:` to specify which machine they apply to, e.g. `-p cross:foo.ini`
+	  will load `foo.ini` as a cross file.
 
 ## subprojects
 	*muon* *subprojects*
@@ -401,15 +407,6 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	*muon* *version*
 
 	Print out version information as well as enabled features.
-
-# EXTENSIONS
-
-*muon* provides some extra functions that may be called within _source files_.
-They are documented below.
-
-- *dbg()* - Begin an interactive debugger.
-- *p(value)* - Print any value's internal representation.  For example,
-  `p('hello')` prints `'hello'`.
 
 # SEE ALSO
 

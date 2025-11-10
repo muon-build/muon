@@ -1060,7 +1060,8 @@ cmd_setup_common(struct workspace *wk,
 		ctx->usage,
 		"  -D <option>=<value> - set options\n"
 		"  -# - enable setup progress bar\n"
-		"  -w - wipe all caches before setup\n",
+		"  -w - wipe all caches before setup\n"
+		"  -p <file> - preload <file>\n",
 		NULL,
 		ctx->n_operands,
 		cmd_setup_help(wk))
