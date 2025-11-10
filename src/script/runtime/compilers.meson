@@ -45,7 +45,7 @@ toolchain.register_static_linker(
             return [f'/OUT:@output@', input]
         endfunc,
         'version': ['/?'],
-    }
+    },
 )
 
 ################################################################################
@@ -135,7 +135,7 @@ toolchain.register_linker(
         'allow_shlib_undefined': [],
         'export_dynamic': [],
         'soname': [],
-    }
+    },
 )
 
 toolchain.register_linker(
@@ -165,7 +165,7 @@ toolchain.register_linker(
     'link',
     exe: 'link',
     handlers: {
-		'always': func(c compiler) -> list[str]
+        'always': func(c compiler) -> list[str]
             m = c.machine().address_bits() == 64 ? '64' : '86'
             return ['/NOLOGO', f'/MACHINE:X@m@']
         endfunc,
@@ -173,23 +173,23 @@ toolchain.register_linker(
             # Check for link command line warning LNK4044: unrecognized option
             return 'LNK4044' in s
         endfunc,
-		'debug': ['/DEBUG'],
-		'def': func(_c compiler, s str) -> list[str]
+        'debug': ['/DEBUG'],
+        'def': func(_c compiler, s str) -> list[str]
             return [f'/DEF:@s@']
         endfunc,
-		'implib': func(_c compiler, s str) -> list[str]
+        'implib': func(_c compiler, s str) -> list[str]
             return [f'/IMPLIB:@s@']
         endfunc,
         'input_output': func(_c compiler, input str, output str) -> list[str]
             return [f'/OUT:@output@', input]
         endfunc,
-		'lib': func(_c compiler, s str) -> list[str]
+        'lib': func(_c compiler, s str) -> list[str]
             return [s]
         endfunc,
-		'shared': ['/DLL'],
-		'shared_module': ['/DLL'],
+        'shared': ['/DLL'],
+        'shared_module': ['/DLL'],
         'version': ['/?'],
-		'whole_archive': func(_c compiler, s str) -> list[str]
+        'whole_archive': func(_c compiler, s str) -> list[str]
             return [f'/WHOLEARCHIVE:@s@']
         endfunc,
     },
@@ -204,8 +204,8 @@ toolchain.register_linker(
         'fuse_ld': ['-fuse-ld=lld-link'],
         'check_ignored_option': func(c compiler, s str) -> bool
             return (
-                toolchain.handler('linker', 'link', 'check_ignored_option')(c, s) or
-                'ignoring unknown argument' in s
+                toolchain.handler('linker', 'link', 'check_ignored_option')(c, s)
+                or 'ignoring unknown argument' in s
             )
         endfunc,
     },
