@@ -165,7 +165,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(print_search_dirs, compiler, TOOLCHAIN_PARAMS_0) \
 	_(sanitize, compiler, TOOLCHAIN_PARAMS_1s)               \
 	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)                \
-	_(std_supported, compiler, TOOLCHAIN_PARAMS_1s)          \
+	_(std_unsupported, compiler, TOOLCHAIN_PARAMS_1srb)      \
 	_(version, compiler, TOOLCHAIN_PARAMS_0)                 \
 	_(visibility, compiler, TOOLCHAIN_PARAMS_1i)             \
 	_(warn_everything, compiler, TOOLCHAIN_PARAMS_0)         \

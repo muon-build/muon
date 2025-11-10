@@ -204,7 +204,7 @@ ca_get_std_args(struct workspace *wk,
 			memcpy(buf, s, len);
 			buf[len] = 0;
 
-			if (toolchain_compiler_std_supported(wk, comp, buf)) {
+			if (!toolchain_compiler_std_unsupported(wk, comp, buf)) {
 				push_args(wk, args_id, toolchain_compiler_set_std(wk, comp, buf));
 				return;
 			}

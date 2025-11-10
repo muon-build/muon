@@ -337,6 +337,103 @@ toolchain.register_compiler(
 )
 
 toolchain.register_compiler(
+    'msvc',
+    exe: {'c': 'cl', 'cpp': 'cl'},
+    linker: 'link',
+    static_linker: 'lib',
+    detect: func(out str) -> int
+        return 'clang' in out.to_lower() ? 50 : 0
+    endfunc,
+    handlers: {
+        'always': ['/nologo'],
+        'argument_syntax': ['msvc'],
+        'check_ignored_option': func(_c compiler, s str) -> bool
+            # Check for msvc command line warning D9002 : ignoring unknown option
+            return 'D9002' in s
+        endfunc,
+        'compile_only': ['/c'],
+        'crt': func(_c compiler, s str, debug bool) -> list[str]
+            if s == 'from_buildtype'
+                return debug ? ['/MDd'] : ['/MD']
+            elif s == 'static_from_buildtype'
+                return debug ? ['/MTd'] : ['/MT']
+            else
+                return [s]
+            endif
+        endfunc,
+        'debug': ['/Zi'],
+        'debugfile': func(_c compiler, s str) -> list[str]
+            return [f'/Fd@s@.pdb']
+        endfunc,
+        'define': func(_c compiler, s str) -> list[str]
+            return ['/D', s]
+        endfunc,
+        'deps': ['/showIncludes'],
+        'deps_type': ['msvc'],
+        'include': func(_c compiler, s str) -> list[str]
+            return ['/I', s]
+        endfunc,
+        'linker_delimiter': ['/link'],
+        'object_ext': ['.obj'],
+        'optimization': func(_c compiler, lvl str) -> list[str]
+            if lvl == '0'
+                return ['/0d']
+            elif lvl == '1'
+                return ['/01']
+            elif lvl == '2'
+                return ['/02']
+            elif lvl == '3'
+                return ['/02', '/Gw']
+            elif lvl == 's'
+                return ['/01', '/Gw']
+            else
+                return []
+            endif
+        endfunc,
+        'output': func(_c compiler, s str) -> list[str]
+            if s.to_lower().endswith('.exe')
+                return [f'/Fe@s@']
+            else
+                return [f'/Fo@s@']
+            endif
+        endfunc,
+        'preprocess_only': ['/EP'],
+        'sanitize': func(_c compiler, s1 str) -> list[str]
+            return ['-fsanitize=' + s1]
+        endfunc,
+        'set_std': func(_c compiler, s1 str) -> list[str]
+            return [f'/std:@s1@']
+        endfunc,
+        'std_unsupported': func(_c compiler, s1 str) -> bool
+            return s1 not in [
+                'c++14',
+                'c++17',
+                'c++20',
+                'c++latest',
+                'c11',
+                'c17',
+                'clatest',
+            ]
+        endfunc,
+        'warn_everything': ['/Wall'],
+        'warning_lvl': func(_c compiler, lvl str) -> list[str]
+            # meson uses nothing instead of /W0, but it's the same warning level
+            # see: https://mesonbuild.com/Builtin-options.html#details-for-warning_level
+            if lvl == '1'
+                return ['/W2']
+            elif lvl == '2'
+                return ['/W3']
+            elif lvl in ['3', 'everything']
+                return ['/W4']
+            else
+                return []
+            endif
+        endfunc,
+        'werror': ['/WX'],
+    },
+)
+
+toolchain.register_compiler(
     'nasm',
     exe: {'nasm': 'nasm'},
     detect: func(out str) -> int
