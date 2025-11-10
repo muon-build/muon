@@ -33,6 +33,21 @@ toolchain.register_static_linker(
     },
 )
 
+toolchain.register_static_linker(
+    'lib',
+    exe: 'lib',
+    handlers: {
+        'always': func(c compiler) -> list[str]
+            m = c.machine().address_bits() == 64 ? '64' : '86'
+            return ['/NOLOGO', f'/MACHINE:X@m@']
+        endfunc,
+        'input_output': func(_c compiler, input str, output str) -> list[str]
+            return [f'/OUT:@output@', input]
+        endfunc,
+        'version': ['/?'],
+    }
+)
+
 ################################################################################
 # linkers
 ################################################################################
@@ -67,7 +82,13 @@ toolchain.register_linker(
         endfunc,
         'enable_lto': ['-flto'],
         'end_group': ['--end-group'],
-        'export_dynamic': ['-export-dynamic'],
+        'export_dynamic': func(c compiler) -> list[str]
+            if c.machine().system() == 'windows'
+                return ['-export-all-symbols']
+            else
+                return ['-export-dynamic']
+            endif
+        endfunc,
         'fatal_warnings': ['--fatal-warnings'],
         'implib': func(_c compiler, s1 str) -> list[str]
             return ['--out-implib,' + s1]
@@ -80,8 +101,12 @@ toolchain.register_linker(
                 return ['-fprofile-correction', '-fprofile-use']
             endif
         endfunc,
-        'rpath': func(_c compiler, s1 str) -> list[str]
-            return ['-rpath,' + s1]
+        'rpath': func(c compiler, s1 str) -> list[str]
+            if c.machine().system() == 'windows'
+                return []
+            else
+                return ['-rpath,' + s1]
+            endif
         endfunc,
         'sanitize': func(_c compiler, s1 str) -> list[str]
             return ['-fsanitize=' + s1]
@@ -104,6 +129,16 @@ toolchain.register_linker(
 )
 
 toolchain.register_linker(
+    'lld-win',
+    inherit: 'lld',
+    handlers: {
+        'allow_shlib_undefined': [],
+        'export_dynamic': [],
+        'soname': [],
+    }
+)
+
+toolchain.register_linker(
     'lld-apple',
     inherit: 'ld-posix',
     exe: 'lld',
@@ -122,6 +157,56 @@ toolchain.register_linker(
         'shared_module': ['-bundle'],
         'whole_archive': func(_c compiler, s1 str) -> list[str]
             return ['-force_load', s1]
+        endfunc,
+    },
+)
+
+toolchain.register_linker(
+    'link',
+    exe: 'link',
+    handlers: {
+		'always': func(c compiler) -> list[str]
+            m = c.machine().address_bits() == 64 ? '64' : '86'
+            return ['/NOLOGO', f'/MACHINE:X@m@']
+        endfunc,
+        'check_ignored_option': func(_c compiler, s str) -> bool
+            # Check for link command line warning LNK4044: unrecognized option
+            return 'LNK4044' in s
+        endfunc,
+		'debug': ['/DEBUG'],
+		'def': func(_c compiler, s str) -> list[str]
+            return [f'/DEF:@s@']
+        endfunc,
+		'implib': func(_c compiler, s str) -> list[str]
+            return [f'/IMPLIB:@s@']
+        endfunc,
+        'input_output': func(_c compiler, input str, output str) -> list[str]
+            return [f'/OUT:@output@', input]
+        endfunc,
+		'lib': func(_c compiler, s str) -> list[str]
+            return [s]
+        endfunc,
+		'shared': ['/DLL'],
+		'shared_module': ['/DLL'],
+        'version': ['/?'],
+		'whole_archive': func(_c compiler, s str) -> list[str]
+            return [f'/WHOLEARCHIVE:@s@']
+        endfunc,
+    },
+)
+
+toolchain.register_linker(
+    'lld-link',
+    inherit: 'link',
+    exe: 'lld-link',
+    handlers: {
+        'lib': toolchain.handler('linker', 'ld-posix', 'lib'),
+        'fuse_ld': ['-fuse-ld=lld-link'],
+        'check_ignored_option': func(c compiler, s str) -> bool
+            return (
+                toolchain.handler('linker', 'link', 'check_ignored_option')(c, s) or
+                'ignoring unknown argument' in s
+            )
         endfunc,
     },
 )
@@ -186,7 +271,9 @@ toolchain.register_compiler(
         'define': func(_c compiler, s str) -> list[str]
             return ['-D', s]
         endfunc,
-        'pic': ['-fPIC'],
+        'pic': func(c compiler) -> list[str]
+            return c.machine().system() == 'windows' ? [] : ['-fPIC']
+        endfunc,
         'force_language': func(_c compiler, s str) -> list[str]
             return ['-x', s]
         endfunc,
@@ -245,7 +332,6 @@ toolchain.register_compiler(
                 return ['-fprofile-correction', '-fprofile-use']
             endif
         endfunc,
-        'pic': ['-fPIC'],
         'pie': ['-fPIE'],
         'preprocess_only': ['-E', '-P'],
         'sanitize': func(_c compiler, s1 str) -> list[str]
@@ -415,6 +501,7 @@ toolchain.register_compiler(
                 'clatest',
             ]
         endfunc,
+        'version': ['/?'],
         'warn_everything': ['/Wall'],
         'warning_lvl': func(_c compiler, lvl str) -> list[str]
             # meson uses nothing instead of /W0, but it's the same warning level
