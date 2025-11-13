@@ -353,11 +353,11 @@ setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const 
 {
 	{
 		TSTR(implib);
-		// Although /mingw64/bin/ld typically uses a .dll.a suffix, -implib.lib also works.
-		tstr_pushf(wk, &implib, "%s-implib.lib", plain_name);
+		tstr_pushf(wk, &implib, "%s" MUON_DEFAULT_IMPLIB_SUFFIX, plain_name);
 		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
 		tgt->implib = tstr_into_str(wk, &path);
+		tgt_fixup_implib_suffix(wk, tgt);
 	}
 
 	if (akw[bt_kw_vs_module_defs].set)
