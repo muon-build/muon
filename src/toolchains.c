@@ -16,6 +16,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "error.h"
+#include "formats/ansi.h"
 #include "functions/kernel.h"
 #include "functions/string.h"
 #include "guess.h"
@@ -858,13 +859,14 @@ toolchain_detect(struct workspace *wk,
 		return true;
 	}
 
-	LLOG_I("%s: detected", compiler_log_prefix(lang, machine));
+	LLOG_I("%s: ", compiler_log_prefix(lang, machine));
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
-		if (i > toolchain_component_compiler) {
-			log_plain(log_info, ", %s:", toolchain_component_to_s(i));
+		if (i) {
+			log_plain(log_info, "\n  ");
+			log_plain(log_info, "%s: ", toolchain_component_to_s(i));
 		}
 
-		log_plain(log_info, " %s", toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
+		log_plain(log_info, CLR(c_bold) CLR(c_green) "%s" CLR(0), toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
 
 		const struct str *ver_str = get_str(wk, compiler->ver[i]);
 		if (!str_eql(ver_str, &STR("unknown"))) {
