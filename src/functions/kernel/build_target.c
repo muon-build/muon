@@ -885,6 +885,10 @@ create_target(struct workspace *wk,
 		}
 	}
 
+	if (!build_tgt_determine_linker(wk, an[0].node, tgt)) {
+		return false;
+	}
+
 	{ // Verify required compilers
 		obj k, _v;
 		obj_dict_for(wk, tgt->required_compilers, k, _v) {
@@ -978,10 +982,6 @@ create_target(struct workspace *wk,
 			push_install_target_install_dir(
 				wk, plain_name_install, install_dir, akw[bt_kw_install_mode].val);
 		}
-	}
-
-	if (!build_tgt_determine_linker(wk, an[0].node, tgt)) {
-		return false;
 	}
 
 	tgt->dep = (struct build_dep){
