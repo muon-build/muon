@@ -148,6 +148,36 @@ SPDX-License-Identifier: GPL-3.0-only
         color: #50FA7B;
       }
 
+      .markdown table {
+        border-collapse: collapse;
+        width: 100%%;
+        margin: 20px 0;
+        font-family: monospace;
+        background-color: #282a36;
+        color: #f8f8f2;
+      }
+      .markdown th {
+        background-color: #44475a;
+        color: #bd93f9;
+        font-weight: bold;
+        padding: 10px 10px;
+        text-align: left;
+        border: 1px solid #6272a4;
+      }
+      .markdown td {
+        padding: 10px 10px;
+        text-align: left;
+        border: 1px solid #44475a;
+      }
+      .markdown tbody tr:nth-child(even) {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+      .markdown tbody tr:hover {
+        background-color: #6272a4;
+        color: #f8f8f2;
+        cursor: default;
+      }
+
       .tag-help {
         text-decoration: none;
         color: #F8F8F2;

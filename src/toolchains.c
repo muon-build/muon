@@ -990,32 +990,6 @@ toolchain_register_component(struct workspace *wk,
 	return true;
 }
 
-void
-compilers_init(struct workspace *wk)
-{
-	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
-		arr_init(wk->a, &wk->toolchain_registry.components[i], 16, struct toolchain_registry_component);
-		toolchain_register_component(wk, i, &(struct toolchain_registry_component){ .id = { .id = "empty" } } );
-	}
-
-#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_optimization_lvl, v);
-	vm_enum(wk, enum compiler_optimization_lvl);
-	FOREACH_COMPILER_OPTIMIZATION_LVL(TOOLCHAIN_ENUM)
-#undef TOOLCHAIN_ENUM
-#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_pgo_stage, v);
-	vm_enum(wk, enum compiler_pgo_stage);
-	FOREACH_COMPILER_PGO_STAGE(TOOLCHAIN_ENUM)
-#undef TOOLCHAIN_ENUM
-#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_warning_lvl, v);
-	vm_enum(wk, enum compiler_warning_lvl);
-	FOREACH_COMPILER_WARNING_LVL(TOOLCHAIN_ENUM)
-#undef TOOLCHAIN_ENUM
-#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_visibility_type, v);
-	vm_enum(wk, enum compiler_visibility_type);
-	FOREACH_COMPILER_VISIBILITY_TYPE(TOOLCHAIN_ENUM)
-#undef TOOLCHAIN_ENUM
-}
-
 enum toolchain_arg_arity {
 	toolchain_arg_arity_0,
 	toolchain_arg_arity_1i,
@@ -1027,131 +1001,278 @@ enum toolchain_arg_arity {
 	toolchain_arg_arity_1srb,
 };
 
-struct toolchain_arg_handler {
+struct toolchain_handler_info {
 	const char *name;
 	enum toolchain_arg_arity arity;
+	const char *desc;
+	const char *enum_arg;
+	struct args_norm an[4];
+	struct typecheck_capture_sig sig;
 };
 
 #define TOOLCHAIN_ARG_MEMBER_(name, comp, return_type, __type, params, names) { #name, toolchain_arg_arity_##__type },
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, comp, type)
-static struct toolchain_arg_handler toolchain_compiler_arg_handlers[] = { FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER) };
-static struct toolchain_arg_handler toolchain_linker_arg_handlers[] = { FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) };
-static struct toolchain_arg_handler toolchain_archiver_arg_handlers[]
+static struct toolchain_handler_info toolchain_compiler_handler_info[] = { FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER) };
+static struct toolchain_handler_info toolchain_linker_handler_info[] = { FOREACH_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) };
+static struct toolchain_handler_info toolchain_archiver_handler_info[]
 	= { FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER) };
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 
 static struct {
-	struct toolchain_arg_handler *handlers;
+	struct toolchain_handler_info *handlers;
 	uint32_t len;
 } toolchain_arg_handlers[] = {
 	[toolchain_component_compiler]
-	= { toolchain_compiler_arg_handlers, ARRAY_LEN(toolchain_compiler_arg_handlers) },
-	[toolchain_component_linker] = { toolchain_linker_arg_handlers, ARRAY_LEN(toolchain_linker_arg_handlers) },
+	= { toolchain_compiler_handler_info, ARRAY_LEN(toolchain_compiler_handler_info) },
+	[toolchain_component_linker] = { toolchain_linker_handler_info, ARRAY_LEN(toolchain_linker_handler_info) },
 	[toolchain_component_archiver]
-	= { toolchain_archiver_arg_handlers, ARRAY_LEN(toolchain_archiver_arg_handlers) },
+	= { toolchain_archiver_handler_info, ARRAY_LEN(toolchain_archiver_handler_info) },
 };
+
+static struct toolchain_handler_info *
+toolchain_handler_info_get(enum toolchain_component component, const char *n)
+{
+	const struct str *name = &STRL(n);
+	for (uint32_t i = 0; i < toolchain_arg_handlers[component].len; ++i) {
+		if (str_eql(&STRL(toolchain_arg_handlers[component].handlers[i].name), name)) {
+			return &toolchain_arg_handlers[component].handlers[i];
+		}
+	}
+	return 0;
+}
+
+static void
+toolchain_handler_info_doc(enum toolchain_component component, const char *name, const struct toolchain_handler_info *src)
+{
+	struct toolchain_handler_info *info;
+	if (!(info = toolchain_handler_info_get(component, name))) {
+		UNREACHABLE;
+	}
+
+	info->desc = src->desc;
+	info->enum_arg = src->enum_arg;
+}
+
+static void
+toolchain_handler_info_init(struct workspace *wk)
+{
+#define doc(name_, comp_, ...) \
+	toolchain_handler_info_doc(toolchain_component_##comp_, #name_, &(struct toolchain_handler_info){ __VA_ARGS__ })
+
+	// compiler
+	doc(always, compiler, .desc = "Arguments that are almost always passed, except in special cases such as detection.");
+	doc(argument_syntax, compiler, .desc = "Defines the return value of compiler.get_argument_syntax().");
+	doc(can_compile_llvm_ir, compiler, .desc = "True if this compiler can compile llvm_ir, e.g. clang.");
+	doc(check_ignored_option,
+		compiler,
+		.desc
+		= "Called for compiler.has_*_argument() with the compiler's output."
+		  " Useful if the compiler exits 0 but indicates on stderr or stdout that an option was ignored.");
+	doc(color_output, compiler, .desc = "`-fdiagnostics-color`");
+	doc(compile_only, compiler, .desc = "`-c`");
+	doc(coverage, compiler, .desc = "`--coverage`");
+	doc(crt, compiler, .desc = "Determine the C-runtime, e.g. for msvc.");
+	doc(debug, compiler, .desc = "`-g`");
+	doc(debugfile, compiler, .desc = "Used to tell msvc where to put pdb files.");
+	doc(define, compiler, .desc = "`-D`");
+	doc(deps, compiler, .desc = "Arguments that instruct the compiler to output extra dependencies such as headers.");
+	doc(deps_type, compiler, .desc = "Determines deps type that ninja to uses");
+	doc(do_linker_passthrough,
+		compiler,
+		.desc
+		= "`true` if the linker should only be invoked through the compiler driver, or `false` if the linker should be invoked directly.");
+	doc(dumpmachine, compiler, .desc = "Argument to output the compiler's target triple.");
+	doc(emit_pch, compiler, .desc = "");
+	doc(enable_lto, compiler, .desc = "`-flto`");
+	doc(force_language, compiler, .desc = "`-x`");
+	doc(include, compiler, .desc = "`-I`");
+	doc(include_dirafter, compiler, .desc = "`-idirafter`");
+	doc(include_pch, compiler, .desc = "");
+	doc(include_system, compiler, .desc = "`-isystem`");
+	doc(linker_delimiter, compiler, .desc = "`/link`");
+	doc(linker_passthrough, compiler, .desc = "Handles properly using `-Wl,` to pass arguments to the linker.");
+	doc(object_ext, compiler, .desc = "e.g. `.o` or `.obj`");
+	doc(optimization, compiler, .desc = "", .enum_arg = "enum compiler_optimization_lvl");
+	doc(output, compiler, .desc = "`-o`");
+	doc(pch_ext, compiler, .desc = "");
+	doc(permissive, compiler, .desc = "`-fpermissive`");
+	doc(pgo, compiler, .desc = "", .enum_arg = "enum compiler_pgo_stage");
+	doc(pic, compiler, .desc = "`-fPIC`");
+	doc(pie, compiler, .desc = "`-fPIE`");
+	doc(preprocess_only, compiler, .desc = "`-E`");
+	doc(print_search_dirs, compiler, .desc = "Instruct the compilerArgument to output the compiler's internal search directories.");
+	doc(sanitize, compiler, .desc = "`-fsanitize`");
+	doc(set_std, compiler, .desc = "`-std`");
+	doc(std_unsupported, compiler, .desc = "Return true if the passed in std is unsupported by the current compiler.");
+	doc(version, compiler, .desc = "`--version`");
+	doc(visibility, compiler, .desc = "", .enum_arg = "enum compiler_visibility_type");
+	doc(warn_everything, compiler, .desc = "`-Weverything`");
+	doc(warning_lvl, compiler, .desc = "", .enum_arg = "enum compiler_warning_lvl");
+	doc(werror, compiler, .desc = "`-Werror`");
+	doc(winvalid_pch, compiler, .desc = "");
+
+	// linker
+	doc(allow_shlib_undefined, linker, .desc = "Allow undefined symbols");
+	doc(always,
+		linker,
+		.desc = "Arguments that are almost always passed, except in special cases such as detection.");
+	doc(as_needed, linker, .desc = "");
+	doc(check_ignored_option,
+		linker,
+		.desc = "Called for compiler.has_link_argument() with the linker's output."
+			" Useful if the linker exits 0 but indicates on stderr or stdout that an option was ignored.");
+	doc(coverage, linker, .desc = "`--coverage`");
+	doc(debug, linker, .desc = "`/DEBUG`");
+	doc(def, linker, .desc = "`/DEF`");
+	doc(enable_lto, linker, .desc = "`-flto`");
+	doc(end_group, linker, .desc = "`--end-group`");
+	doc(export_dynamic, linker, .desc = "`-export-dynamic`");
+	doc(fatal_warnings, linker, .desc = "`--fatal-warnings`");
+	doc(fuse_ld, linker, .desc = "`-fuse-ld=`");
+	doc(implib, linker, .desc = "`/IMPLIB`");
+	doc(input_output, linker, .desc = "Passed in `input` and `output` and orders them properly, optionally adding additional flags.");
+	doc(lib, linker, .desc = "`-l`");
+	doc(no_undefined, linker, .desc = "`--no-undefined`");
+	doc(pgo, linker, .desc = "", .enum_arg = "enum compiler_pgo_stage");
+	doc(rpath, linker, .desc = "`-rpath`");
+	doc(sanitize, linker, .desc = "`-fsanitize`");
+	doc(shared, linker, .desc = "`-shared`");
+	doc(shared_module, linker, .desc = "");
+	doc(soname, linker, .desc = "`-soname`");
+	doc(start_group, linker, .desc = "`--start-group`");
+	doc(version, linker, .desc = "`-v`");
+	doc(whole_archive, linker, .desc = "`--whole-archive`");
+
+	// archiver
+	doc(always, archiver, .desc = "Arguments that are almost always passed, except in special cases such as detection.");
+	doc(base, archiver, .desc = "Arguments used to create an archive, e.g. `csr` for ar-posix.");
+	doc(input_output, archiver, .desc = "Passed in `input` and `output` and orders them properly, optionally adding additional flags.");
+	doc(needs_wipe, archiver, .desc = "`true` if this archiver cannot overwrite old archives and needs muon to remove them for it.");
+	doc(version, archiver, .desc = "`--version`");
+
+#undef doc
+
+	// make sure we didn't miss anything
+	for (uint32_t c = 0; c < toolchain_component_count; ++c) {
+		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
+			const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
+			assert(handler->desc);
+		}
+	}
+
+	const type_tag list_of_str = make_complex_type(wk, complex_type_nested, tc_array, tc_string);
+	for (uint32_t c = 0; c < toolchain_component_count; ++c) {
+		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
+			struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
+			handler->sig.return_type = list_of_str;
+			struct args_norm *an = handler->an;
+			an[0].type = tc_compiler;
+			an[1].type = ARG_TYPE_NULL;
+			an[2].type = ARG_TYPE_NULL;
+			an[3].type = ARG_TYPE_NULL;
+
+			switch (handler->arity) {
+			case toolchain_arg_arity_0: {
+				break;
+			}
+			case toolchain_arg_arity_1i: {
+				// arity 1i means it is an enum converted to an string obj on the C side, and
+				// a string on the meson side
+				assert(handler->enum_arg);
+				an[1].type = complex_type_enum_get_(wk, handler->enum_arg);
+				break;
+			}
+			case toolchain_arg_arity_1s: {
+				an[1].type = tc_string;
+				break;
+			}
+			case toolchain_arg_arity_2s: {
+				an[1].type = tc_string;
+				an[2].type = tc_string;
+				break;
+			}
+			case toolchain_arg_arity_1s1b: {
+				an[1].type = tc_string;
+				an[2].type = tc_bool;
+				break;
+			}
+			case toolchain_arg_arity_ns: {
+				an[1].type = list_of_str;
+				break;
+			}
+			case toolchain_arg_arity_0rb: {
+				handler->sig.return_type = tc_bool;
+				break;
+			}
+			case toolchain_arg_arity_1srb: {
+				an[1].type = tc_string;
+				handler->sig.return_type = tc_bool;
+				break;
+			}
+			default: UNREACHABLE;
+			}
+
+			handler->sig.an = an;
+		}
+	}
+}
+
+void
+toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct tstr *buf)
+{
+	tstr_pushs(wk, buf,
+			"|name|signature|description|\n"
+			"|---|---|---|\n");
+
+	for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
+		const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
+
+		TSTR(sig);
+		typecheck_capture_type_to_s(wk, &sig, &handler->sig);
+
+		tstr_pushf(wk, buf, "%s|`", handler->name);
+		for (uint32_t i = 0; i < sig.len; ++i) {
+			if (sig.buf[i] == '|') {
+				tstr_pushs(wk, buf, " / ");
+			} else {
+				tstr_push(wk, buf, sig.buf[i]);
+			}
+		}
+		tstr_pushf(wk, buf, "`|%s\n", handler->desc);
+	}
+}
 
 bool
 toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component)
 {
-	const struct toolchain_arg_handler *handler;
 	obj k, v;
 	obj_dict_for(wk, handlers, k, v) {
 		const struct str *name = get_str(wk, k);
-
-		{
-			uint32_t i;
-			for (i = 0; i < toolchain_arg_handlers[component].len; ++i) {
-				if (str_eql(&STRL(toolchain_arg_handlers[component].handlers[i].name), name)) {
-					handler = &toolchain_arg_handlers[component].handlers[i];
-					break;
-				}
-			}
-
-			if (i == toolchain_arg_handlers[component].len) {
-				vm_error_at(wk, ip, "unknown toolchain function %o", k);
-				return false;
-			}
-		}
-
-		const type_tag list_of_str = make_complex_type(wk, complex_type_nested, tc_array, tc_string);
-		type_tag return_type = list_of_str;
-		struct args_norm an[4] = { { tc_compiler }, { ARG_TYPE_NULL }, { ARG_TYPE_NULL }, { ARG_TYPE_NULL } };
-
-		switch (handler->arity) {
-		case toolchain_arg_arity_0: {
-			break;
-		}
-		case toolchain_arg_arity_1i: {
-			// arity 1i means it is an enum (i for integer) on the C side, and
-			// a string on the meson side
-			an[1].type = tc_string;
-			break;
-		}
-		case toolchain_arg_arity_1s: {
-			an[1].type = tc_string;
-			break;
-		}
-		case toolchain_arg_arity_2s: {
-			an[1].type = tc_string;
-			an[2].type = tc_string;
-			break;
-		}
-		case toolchain_arg_arity_1s1b: {
-			an[1].type = tc_string;
-			an[2].type = tc_bool;
-			break;
-		}
-		case toolchain_arg_arity_ns: {
-			an[1].type = list_of_str;
-			break;
-		}
-		case toolchain_arg_arity_0rb: {
-			return_type = tc_bool;
-			break;
-		}
-		case toolchain_arg_arity_1srb: {
-			an[1].type = tc_string;
-			return_type = tc_bool;
-			break;
-		}
-		default: UNREACHABLE;
+		const struct toolchain_handler_info *handler;
+		if (!(handler = toolchain_handler_info_get(component, name->s))) {
+			vm_error_at(wk, ip, "unknown toolchain function %o", k);
+			return false;
 		}
 
 		if (get_obj_type(wk, v) == obj_capture) {
-			if (!typecheck_capture(wk, ip, v, an, 0, return_type, get_str(wk, k)->s)) {
+			if (!typecheck_capture(wk, ip, v, &handler->sig, name->s)) {
 				return false;
 			}
 
-			if (handler->arity == toolchain_arg_arity_1i) {
-				// patch the function signature with the str argument swapped
-				// for the proper str_enum and re-analyze it
-				type_tag enum_type = 0;
-				if (str_eql(name, &STR("optimization"))) {
-					enum_type = complex_type_enum_get(wk, enum compiler_optimization_lvl);
-				} else if (str_eql(name, &STR("pgo"))) {
-					enum_type = complex_type_enum_get(wk, enum compiler_pgo_stage);
-				} else if (str_eql(name, &STR("visibility"))) {
-					enum_type = complex_type_enum_get(wk, enum compiler_visibility_type);
-				} else if (str_eql(name, &STR("warning_lvl"))) {
-					enum_type = complex_type_enum_get(wk, enum compiler_warning_lvl);
-				}
+			if (handler->enum_arg) {
+				struct obj_capture *capture = get_obj_capture(wk, v);
+				capture->func->an[1].type = handler->an[1].type;
 
-				if (enum_type) {
-					struct obj_capture *capture = get_obj_capture(wk, v);
-					capture->func->an[1].type = enum_type;
-
-					if (wk->vm.in_analyzer) {
-						az_analyze_func(wk, v);
-					}
+				if (wk->vm.in_analyzer) {
+					az_analyze_func(wk, v);
 				}
 			}
-		} else if (!typecheck_custom(wk, 0, v, return_type, 0)) {
+		} else if (!typecheck_custom(wk, 0, v, handler->sig.return_type, 0)) {
 			vm_error_at(wk,
 				ip,
 				"expected value type %s for handler %o with constant return value, got %s\n",
-				typechecking_type_to_s(wk, return_type),
+				typechecking_type_to_s(wk, handler->sig.return_type),
 				k,
 				obj_typestr(wk, v));
 			return false;
@@ -1427,3 +1548,37 @@ compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
 
 	return buf;
 }
+
+void
+compilers_init(struct workspace *wk)
+{
+	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
+		arr_init(wk->a, &wk->toolchain_registry.components[i], 16, struct toolchain_registry_component);
+		toolchain_register_component(wk, i, &(struct toolchain_registry_component){ .id = { .id = "empty" } } );
+	}
+
+#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_optimization_lvl, v);
+	vm_enum(wk, enum compiler_optimization_lvl);
+	FOREACH_COMPILER_OPTIMIZATION_LVL(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_pgo_stage, v);
+	vm_enum(wk, enum compiler_pgo_stage);
+	FOREACH_COMPILER_PGO_STAGE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_warning_lvl, v);
+	vm_enum(wk, enum compiler_warning_lvl);
+	FOREACH_COMPILER_WARNING_LVL(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+#define TOOLCHAIN_ENUM(v) vm_enum_value_prefixed(wk, compiler_visibility_type, v);
+	vm_enum(wk, enum compiler_visibility_type);
+	FOREACH_COMPILER_VISIBILITY_TYPE(TOOLCHAIN_ENUM)
+#undef TOOLCHAIN_ENUM
+
+	vm_enum(wk, enum toolchain_component);
+	vm_enum_value_prefixed(wk, toolchain_component, compiler);
+	vm_enum_value_prefixed(wk, toolchain_component, linker);
+	vm_enum_value_prefixed(wk, toolchain_component, archiver);
+
+	toolchain_handler_info_init(wk);
+}
+

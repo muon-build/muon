@@ -287,6 +287,8 @@ bool toolchain_detect(struct workspace *wk, obj *comp, enum machine_kind machine
 void compilers_init(struct workspace *wk);
 
 bool toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component);
+struct tstr;
+void toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct tstr *buf);
 
 struct toolchain_dump_opts {
 	const char *s1, *s2;

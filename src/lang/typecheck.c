@@ -625,13 +625,29 @@ typecheck_capture_arg(struct workspace *wk, type_tag a, type_tag b)
 	return type_tags_eql(wk, a, b);
 }
 
+void
+typecheck_capture_type_to_s(struct workspace *wk,
+	struct tstr *res,
+	const struct typecheck_capture_sig *sig)
+{
+	obj expected = make_obj(wk, obj_array);
+	if (sig->an) {
+		for (uint32_t i = 0; sig->an[i].type != ARG_TYPE_NULL; ++i) {
+			obj_array_push(wk, expected, typechecking_type_to_str(wk, sig->an[i].type));
+		}
+	}
+
+	obj joined;
+	obj_array_join(wk, false, expected, make_str(wk, ", "), &joined);
+
+	obj_asprintf(wk, res, "(%#o) -> %s", joined, typechecking_type_to_s(wk, sig->return_type));
+}
+
 bool
 typecheck_capture(struct workspace *wk,
 	uint32_t ip,
 	obj v,
-	struct args_norm *an,
-	struct args_kw *akw,
-	type_tag return_type,
+	const struct typecheck_capture_sig *sig,
 	const char *name)
 {
 	if (!typecheck(wk, ip, v, obj_capture)) {
@@ -642,23 +658,23 @@ typecheck_capture(struct workspace *wk,
 
 	uint32_t i;
 	for (i = 0; i < fn->nargs; ++i) {
-		if (!an || an[i].type == ARG_TYPE_NULL) {
+		if (!sig->an || sig->an[i].type == ARG_TYPE_NULL) {
 			// too many posargs
 			goto type_err;
 		}
 
-		if (!typecheck_capture_arg(wk, an[i].type, fn->an[i].type)) {
+		if (!typecheck_capture_arg(wk, sig->an[i].type, fn->an[i].type)) {
 			// posargs type mismatch
 			goto type_err;
 		}
 	}
 
-	if (an[i].type != ARG_TYPE_NULL) {
+	if (sig->an[i].type != ARG_TYPE_NULL) {
 		// too few posargs
 		goto type_err;
 	}
 
-	if (akw) {
+	if (sig->akw) {
 		vm_error_at(wk, ip, "kwarg typechecking not currently supported");
 		return false;
 	} else if (fn->nkwargs) {
@@ -666,7 +682,7 @@ typecheck_capture(struct workspace *wk,
 		goto type_err;
 	}
 
-	if (!type_tags_eql(wk, return_type, fn->return_type)) {
+	if (!type_tags_eql(wk, sig->return_type, fn->return_type)) {
 		// return type mistmatch
 		goto type_err;
 	}
@@ -674,22 +690,14 @@ typecheck_capture(struct workspace *wk,
 	return true;
 
 type_err: {
-	obj expected = make_obj(wk, obj_array);
-	if (an) {
-		for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
-			obj_array_push(wk, expected, typechecking_type_to_str(wk, an[i].type));
-		}
-	}
-
-	obj joined;
-	obj_array_join(wk, false, expected, make_str(wk, ", "), &joined);
+	TSTR(buf);
+	typecheck_capture_type_to_s(wk, &buf, sig);
 
 	vm_error_at(wk,
 		ip,
-		"function %s has an invalid signature, expected signature: (%#o) -> %s",
+		"function %s has an invalid signature, expected signature: %s",
 		fn->name ? fn->name : name,
-		joined,
-		typechecking_type_to_s(wk, return_type));
+		buf.buf);
 	return false;
 }
 }

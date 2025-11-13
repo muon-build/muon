@@ -157,12 +157,21 @@ type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset 
 type_tag complex_type_enum_get_(struct workspace *wk, const char *n);
 #define complex_type_enum_get(wk__, n__) complex_type_enum_get_(wk__, #n__)
 
+struct typecheck_capture_sig {
+	const struct args_norm *an;
+	const struct args_kw *akw;
+	type_tag return_type;
+};
+
 bool
 typecheck_capture(struct workspace *wk,
 	uint32_t ip,
 	obj v,
-	struct args_norm *an,
-	struct args_kw *akw,
-	type_tag return_type,
+	const struct typecheck_capture_sig *sig,
 	const char *name);
+
+void
+typecheck_capture_type_to_s(struct workspace *wk,
+	struct tstr *res,
+	const struct typecheck_capture_sig *sig);
 #endif

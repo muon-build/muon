@@ -242,6 +242,7 @@ struct vm {
 	bool run;
 	bool saw_disabler;
 	bool in_analyzer;
+	bool dumping_docs;
 	// When true, disable functions with the .fuzz_unsafe attribute set to true.
 	// This is useful when running `muon internal eval` on randomly generated
 	// files, where you don't want to accidentally execute `run_command('rm',

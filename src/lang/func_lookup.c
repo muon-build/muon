@@ -1035,6 +1035,8 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 void
 dump_function_docs(struct workspace *wk)
 {
+	wk->vm.dumping_docs = true;
+
 	TSTR(docs_external);
 	TSTR(docs_internal);
 	dump_function_docs_json(wk, &docs_external);
