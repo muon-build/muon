@@ -426,8 +426,8 @@ toolchain_component_detect_check_list(struct workspace *wk,
 			score = get_obj_number(wk, res);
 		}
 
-		if (score > candidate->score) {
-			L("%s new high score: %" PRId64, rc->id.id, score);
+		if (score > 0 && score > candidate->score) {
+			L("  '%s' new high score: %" PRId64, rc->id.id, score);
 			candidate->score = score;
 			candidate->idx = idx;
 			candidate->found = true;
@@ -463,7 +463,7 @@ toolchain_component_detect(struct workspace *wk,
 	obj comp,
 	bool *found)
 {
-	L("detecting component %s", toolchain_component_to_s(component));
+	L("> detecting component %s", toolchain_component_to_s(component));
 
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 	const struct arr *registry = &wk->toolchain_registry.components[component];
@@ -490,6 +490,7 @@ toolchain_component_detect(struct workspace *wk,
 				candidates = ar_maken(wk->a_scratch, obj, 1);
 				candidates_len = 1;
 				candidates[0] = cmd_arr->val;
+				LO("  using candidate exe from option %s: %o\n", opt_name.buf, candidates[0]);
 			}
 		}
 	}
@@ -517,6 +518,8 @@ toolchain_component_detect(struct workspace *wk,
 				LOG_E("no candidate executables defined for language %s", compiler_language_to_s(compiler->lang));
 				return false;
 			}
+
+			LO("  using candidate exe list: %o\n", exe_list);
 
 			candidates = ar_maken(wk->a_scratch, obj, candidates_len);
 			uint32_t i = 0;
@@ -570,6 +573,8 @@ toolchain_component_detect(struct workspace *wk,
 				candidates[0] = make_obj(wk, obj_array);
 				obj_array_push(wk, candidates[0], sub_component->exe);
 			}
+
+			LO("  using candidate: %o\n", candidates[0]);
 		}
 	}
 
@@ -652,6 +657,7 @@ toolchain_component_detect(struct workspace *wk,
 			};
 
 			if (!find_program(wk, &find_program_ctx, argv0) || !find_program_ctx.found) {
+				LO("  skipping candidate %o: unable to find argv0 program\n", c);
 				continue;
 			}
 
@@ -783,7 +789,7 @@ done:
 	run_cmd_ctx_destroy(&cmd_ctx);
 
 	if (!compiler->libdirs) {
-		L("populating libdirs using defaults");
+		L("  populating libdirs using defaults");
 
 		// TODO: make this a toolchain compiler handler
 		const char *libdirs[] = { "/usr/lib", "/usr/local/lib", "/lib", NULL };
@@ -834,7 +840,7 @@ toolchain_detect(struct workspace *wk,
 		return true;
 	}
 
-	L("detecting %s", compiler_language_to_s(lang));
+	L("detecting toolchain for language %s", compiler_language_to_s(lang));
 
 	*comp = make_obj(wk, obj_compiler);
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
