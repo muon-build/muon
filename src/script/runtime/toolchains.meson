@@ -580,6 +580,7 @@ toolchain.register_compiler(
     endfunc,
     handlers: {
         'warn_everything': ['-Wall'],
+        'do_archiver_passthrough': true,
     },
 )
 
