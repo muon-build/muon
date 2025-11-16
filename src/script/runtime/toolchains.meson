@@ -36,6 +36,9 @@ toolchain.register_archiver(
 toolchain.register_archiver(
     'lib',
     exe: 'lib',
+    detect: func(out str) -> int
+        return 'Microsoft' in out ? 100 : 0
+    endfunc,
     handlers: {
         'always': func(c compiler) -> list[str]
             m = c.machine().address_bits() == 64 ? '64' : '86'
