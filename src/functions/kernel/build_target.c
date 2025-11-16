@@ -900,6 +900,13 @@ create_target(struct workspace *wk,
 				return false;
 			}
 		}
+
+		if (!obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &_v)) {
+			vm_error(wk, "no %s compiler defined for link language %s",
+				machine_kind_to_s(tgt->machine),
+				compiler_language_to_s(tgt->dep_internal.link_language));
+			return false;
+		}
 	}
 
 	obj soname_install = 0, plain_name_install = 0;
