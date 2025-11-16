@@ -143,6 +143,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(define, compiler, TOOLCHAIN_PARAMS_1s)                 \
 	_(deps, compiler, TOOLCHAIN_PARAMS_2s)                   \
 	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)               \
+	_(do_archiver_passthrough, compiler, TOOLCHAIN_PARAMS_0rb) \
 	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0rb) \
 	_(dumpmachine, compiler, TOOLCHAIN_PARAMS_0) \
 	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)                \
