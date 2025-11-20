@@ -259,7 +259,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		goto ret;
 	}
 
-	{
+	if (!opts->dont_log_compiler_output) {
 		const uint32_t truncate_limit = BUF_SIZE_4k;
 		const struct str truncated_sep = STR("'\n" CLR(c_cyan) "[truncated]" CLR(0) "\n'");
 		LL("compiler stdout: '");
@@ -1387,6 +1387,8 @@ compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum comp
 	struct args_kw *akw;
 	struct compiler_check_opts opts = {
 		.mode = mode,
+		.output_is_stdout = mode == compiler_check_mode_preprocess,
+		.dont_log_compiler_output = mode == compiler_check_mode_preprocess,
 	};
 
 	if (!func_compiler_check_args_common(wk,

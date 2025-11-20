@@ -51,6 +51,7 @@ struct compiler_check_opts {
 	bool src_is_path;
 	bool keep_cmd_ctx;
 	bool output_is_stdout;
+	bool dont_log_compiler_output;
 	const char *output_path;
 
 	bool from_cache;
