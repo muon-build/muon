@@ -1326,38 +1326,50 @@ type_err:
 	object_stack_push(wk, res);
 }
 
-#define vm_simple_comparison_op_body(__op, __strop)                                                         \
-	obj a, b;                                                                                           \
-	b = object_stack_pop(&wk->vm.stack);                                                                \
-	a = object_stack_pop(&wk->vm.stack);                                                                \
-	binop_disabler_check(a, b);                                                                         \
-                                                                                                            \
-	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);                                 \
-	obj res = 0;                                                                                        \
-                                                                                                            \
-	switch (a_t) {                                                                                      \
-	case obj_number: {                                                                                  \
-		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);                                \
-                                                                                                            \
-		res = get_obj_number(wk, a) __op get_obj_number(wk, b) ? obj_bool_true : obj_bool_false;    \
-		break;                                                                                      \
-	}                                                                                                   \
-	case obj_typeinfo: {                                                                                \
-		struct check_obj_typeinfo_map map[obj_type_count] = {                                       \
-			[obj_number] = { tc_number, tc_bool },                                              \
-		};                                                                                          \
-		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {                                    \
-			goto type_err;                                                                      \
-		}                                                                                           \
-		break;                                                                                      \
-	}                                                                                                   \
-	default:                                                                                            \
-type_err:                                                                                                   \
-		vm_error(wk, __strop " not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b)); \
-		vm_push_dummy(wk);                                                                          \
-		return;                                                                                     \
-	}                                                                                                   \
-                                                                                                            \
+#define vm_simple_comparison_op_body(__op, __strop)                                                               \
+	obj a, b;                                                                                                 \
+	b = object_stack_pop(&wk->vm.stack);                                                                      \
+	a = object_stack_pop(&wk->vm.stack);                                                                      \
+	binop_disabler_check(a, b);                                                                               \
+                                                                                                                  \
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);                                       \
+	obj res = 0;                                                                                              \
+                                                                                                                  \
+	switch (a_t) {                                                                                            \
+	case obj_number: {                                                                                        \
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);                                      \
+                                                                                                                  \
+		res = get_obj_number(wk, a) __op get_obj_number(wk, b) ? obj_bool_true : obj_bool_false;          \
+		break;                                                                                            \
+	}                                                                                                         \
+	case obj_typeinfo: {                                                                                      \
+		struct check_obj_typeinfo_map map[obj_type_count] = {                                             \
+			[obj_number] = { tc_number, tc_bool },                                                    \
+		};                                                                                                \
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {                                          \
+			goto type_err;                                                                            \
+		}                                                                                                 \
+		break;                                                                                            \
+	}                                                                                                         \
+	default:                                                                                                  \
+type_err:                                                                                                         \
+		if ((a_t == obj_string || typecheck_typeinfo(wk, a, tc_string))                                   \
+			&& (b_t == obj_string || typecheck_typeinfo(wk, b, tc_string))) {                         \
+			vm_error(wk,                                                                              \
+				__strop " not defined for %s and %s, did you mean '%s'.version_compare('" __strop \
+					"%s')?",                                                                  \
+				obj_typestr(wk, a),                                                               \
+				obj_typestr(wk, b),                                                               \
+				a_t == obj_string ? get_str(wk, a)->s : "<str>",                                  \
+				b_t == obj_string ? get_str(wk, b)->s : "<version>");                             \
+			vm_push_dummy(wk);                                                                        \
+			return;                                                                                   \
+		}                                                                                                 \
+		vm_error(wk, __strop " not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));       \
+		vm_push_dummy(wk);                                                                                \
+		return;                                                                                           \
+	}                                                                                                         \
+                                                                                                                  \
 	object_stack_push(wk, res);
 
 static void
