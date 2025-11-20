@@ -328,6 +328,9 @@ FUNC_IMPL(meson, override_find_program, 0, func_impl_flag_impure)
 	}
 
 	obj_dict_set(wk, wk->find_program_overrides[machine], an[0].val, override);
+	if (!akw[kw_native].set) {
+		obj_dict_set(wk, wk->find_program_overrides[machine_kind_build], an[0].val, override);
+	}
 	return true;
 }
 
