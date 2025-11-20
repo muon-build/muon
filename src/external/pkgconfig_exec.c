@@ -80,21 +80,12 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 		}
 	}
 
-	info->compile_args = make_obj(wk, obj_array);
-	info->link_args = make_obj(wk, obj_array);
-	info->includes = make_obj(wk, obj_array);
-	info->libs = make_obj(wk, obj_array);
-	info->not_found_libs = make_obj(wk, obj_array);
-	obj libdirs = make_obj(wk, obj_array);
+	const char *flag_type_str[] = {
+		[muon_pkgconfig_fragment_source_cflags] = "--cflags",
+		[muon_pkgconfig_fragment_source_libs] = "--libs"
+	};
 
-	enum flag_type {
-		flag_type_cflags,
-		flag_type_libs,
-		flag_type_count,
-	} flag_type;
-	const char *flag_type_str[] = { "--cflags", "--libs" };
-
-	for (flag_type = 0; flag_type < flag_type_count; ++flag_type) {
+	for (uint32_t flag_type = 0; flag_type < ARRAY_LEN(flag_type_str); ++flag_type) {
 		obj args = make_obj(wk, obj_array);
 		obj_array_push(wk, args, make_str(wk, flag_type_str[flag_type]));
 		if (is_static) {
@@ -125,40 +116,12 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 				}
 			}
 
-			switch (type) {
-			case 'L': obj_array_push(wk, libdirs, arg); break;
-			case 'I': {
-				obj inc = make_obj(wk, obj_include_directory);
-				struct obj_include_directory *incp = get_obj_include_directory(wk, inc);
-				incp->path = arg;
-				incp->is_system = false;
-				obj_array_push(wk, info->includes, inc);
-				break;
-			}
-			case 'l': {
-				enum find_library_flag flags = is_static ? find_library_flag_prefer_static : 0;
-				struct find_library_result find_result
-					= find_library(wk, compiler, get_str(wk, arg)->s, libdirs, flags);
-				if (find_result.found) {
-					if (find_result.location == find_library_found_location_link_arg) {
-						obj_array_push(wk, info->not_found_libs, arg);
-					} else {
-						obj_array_push(wk, info->libs, find_result.found);
-					}
-				} else {
-					LOG_W("pkg-config-exec: dependency '%s' missing required library '%s'",
-						get_cstr(wk, name),
-						get_cstr(wk, arg));
-					obj_array_push(wk, info->not_found_libs, arg);
-				}
-				break;
-			}
-			default: {
-				obj push = (flag_type == flag_type_cflags) ? info->compile_args : info->link_args;
-				obj_array_push(wk, push, arg);
-				break;
-			}
-			}
+			struct muon_pkgconfig_fragment frag = {
+				.source = flag_type,
+				.type = type,
+				.data = arg,
+			};
+			muon_pkgconfig_parse_fragment(wk, &frag, info);
 
 			type = 0;
 		}

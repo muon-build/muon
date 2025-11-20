@@ -106,10 +106,7 @@ struct pkgconf_lookup_ctx {
 	apply_func apply_func;
 	struct workspace *wk;
 	struct pkgconfig_info *info;
-	obj compiler;
-	obj libdirs;
-	obj name;
-	bool is_static;
+	enum muon_pkgconfig_fragment_source frag_source;
 };
 
 static bool
@@ -120,7 +117,6 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 	int err;
 	pkgconf_node_t *node;
 	pkgconf_list_t list = PKGCONF_LIST_INITIALIZER;
-	obj str;
 	bool ret = true;
 
 	err = ctx->apply_func(client, world, &list, maxdepth);
@@ -136,56 +132,16 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 
 		/* L("got option: -'%c' '%s'", frag->type, frag->data); */
 
-		switch (frag->type) {
-		case 'I':
-			if (!pkgconf_fragment_has_system_dir(client, frag)) {
-				str = make_obj(ctx->wk, obj_include_directory);
-				struct obj_include_directory *o = get_obj_include_directory(ctx->wk, str);
-				o->path = make_str(ctx->wk, frag->data);
-				o->is_system = false;
-				obj_array_push(ctx->wk, ctx->info->includes, str);
-			}
-			break;
-		case 'L':
-			str = make_str(ctx->wk, frag->data);
-			obj_array_push(ctx->wk, ctx->libdirs, str);
-			break;
-		case 'l': {
-			enum find_library_flag flags = 0;
-			if (ctx->is_static) {
-				flags |= find_library_flag_prefer_static;
-			}
-
-			struct find_library_result find_result = find_library(ctx->wk, ctx->compiler, frag->data, ctx->libdirs, flags);
-
-			if (find_result.found) {
-				L("libpkgconf: dependency '%s' found required library '%s'",
-					get_cstr(ctx->wk, ctx->name),
-					get_cstr(ctx->wk, find_result.found));
-
-				if (find_result.location == find_library_found_location_link_arg) {
-					obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
-				} else {
-					obj_array_push(ctx->wk, ctx->info->libs, find_result.found);
-				}
-			} else {
-				LOG_W("libpkgconf: dependency '%s' missing required library '%s'",
-					get_cstr(ctx->wk, ctx->name),
-					frag->data);
-				obj_array_push(ctx->wk, ctx->info->not_found_libs, make_str(ctx->wk, frag->data));
-			}
-			break;
+		if (frag->type == 'I' && pkgconf_fragment_has_system_dir(client, frag)) {
+			continue;
 		}
-		default:
-			if (frag->type) {
-				obj_array_push(ctx->wk,
-					ctx->info->compile_args,
-					make_strf(ctx->wk, "-%c%s", frag->type, frag->data));
-			} else {
-				L("libpkgconf: skipping null pkgconf fragment: '%s'", frag->data);
-			}
-			break;
-		}
+
+		struct muon_pkgconfig_fragment muon_frag = {
+			.source = ctx->frag_source,
+			.type = frag->type,
+			.data = make_str(ctx->wk, frag->data),
+		};
+		muon_pkgconfig_parse_fragment(ctx->wk, &muon_frag, ctx->info);
 	}
 
 ret:
@@ -236,20 +192,14 @@ pkgconfig_libpkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool i
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
 	pkgconf_queue_push(&pkgq, get_cstr(wk, name));
 
-	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, .name = name, .is_static = is_static, .compiler = compiler, };
+	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, /*.name = name, .is_static = is_static, .compiler = compiler,*/ };
 
 	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_modversion, libpkgconf_maxdepth, &ctx)) {
 		ret = false;
 		goto ret;
 	}
 
-	info->compile_args = make_obj(wk, obj_array);
-	info->link_args = make_obj(wk, obj_array);
-	info->includes = make_obj(wk, obj_array);
-	info->libs = make_obj(wk, obj_array);
-	info->not_found_libs = make_obj(wk, obj_array);
-	ctx.libdirs = make_obj(wk, obj_array);
-
+	ctx.frag_source = muon_pkgconfig_fragment_source_libs;
 	ctx.apply_func = pkgconf_pkg_libs;
 	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_and_collect, libpkgconf_maxdepth, &ctx)) {
 		ret = false;
@@ -260,6 +210,7 @@ pkgconfig_libpkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool i
 	// which honors Requires.private if any cflags are requested.
 	pkgconf_client_set_flags(&c.client, flags | PKGCONF_PKG_PKGF_SEARCH_PRIVATE);
 
+	ctx.frag_source = muon_pkgconfig_fragment_source_cflags;
 	ctx.apply_func = pkgconf_pkg_cflags;
 	if (!pkgconf_queue_apply(&c.client, &pkgq, apply_and_collect, libpkgconf_maxdepth, &ctx)) {
 		ret = false;

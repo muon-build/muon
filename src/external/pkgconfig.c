@@ -9,6 +9,7 @@
 
 #include "error.h"
 #include "external/pkgconfig.h"
+#include "functions/compiler.h"
 #include "options.h"
 #include "platform/assert.h"
 
@@ -135,6 +136,16 @@ muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 {
 	muon_pkgconfig_init(wk);
 
+	info->name = name;
+	info->compile_args = make_obj(wk, obj_array);
+	info->link_args = make_obj(wk, obj_array);
+	info->includes = make_obj(wk, obj_array);
+	info->libs = make_obj(wk, obj_array);
+	info->not_found_libs = make_obj(wk, obj_array);
+	info->libdirs = make_obj(wk, obj_array);
+	info->compiler = compiler;
+	info->is_static = is_static;
+
 	return pkgconfig_impls[pkgconfig_state.type].lookup(wk, compiler, name, is_static, info);
 }
 
@@ -144,6 +155,55 @@ muon_pkgconfig_get_variable(struct workspace *wk, obj pkg_name, obj var_name, ob
 	muon_pkgconfig_init(wk);
 
 	return pkgconfig_impls[pkgconfig_state.type].get_variable(wk, pkg_name, var_name, defines, res);
+}
+
+bool
+muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_fragment *frag, struct pkgconfig_info *info)
+{
+	switch (frag->type) {
+	case 'L': {
+		if (!info->libdirs) {
+			make_obj(wk, info->libdirs);
+		}
+		obj_array_push(wk, info->libdirs, frag->data);
+		break;
+	}
+	case 'I': {
+		obj inc = make_obj(wk, obj_include_directory);
+		struct obj_include_directory *incp = get_obj_include_directory(wk, inc);
+		incp->path = frag->data;
+		obj_array_push(wk, info->includes, inc);
+		break;
+	}
+	case 'l': {
+		enum find_library_flag flags = info->is_static ? find_library_flag_prefer_static : 0;
+		struct find_library_result find_result
+			= find_library(wk, info->compiler, get_str(wk, frag->data)->s, info->libdirs, flags);
+		if (find_result.found) {
+			if (find_result.location == find_library_found_location_link_arg) {
+				obj_array_push(wk, info->not_found_libs, frag->data);
+			} else {
+				obj_array_push(wk, info->libs, find_result.found);
+			}
+		} else {
+			LOG_W("pkg-config-exec: dependency '%s' missing required library '%s'",
+				get_cstr(wk, info->name),
+				get_cstr(wk, frag->data));
+			obj_array_push(wk, info->not_found_libs, frag->data);
+		}
+		break;
+	}
+	default: {
+		obj arg = frag->data;
+		if (frag->type) {
+			arg = make_strf(wk, "-%c%s", frag->type, get_cstr(wk, frag->data));
+		}
+		obj dest = frag->source == muon_pkgconfig_fragment_source_cflags ? info->compile_args : info->link_args;
+		obj_array_push(wk, dest, arg);
+		break;
+	}
+	}
+	return true;
 }
 
 /*-----------------------------------------------------------------------------

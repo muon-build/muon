@@ -13,6 +13,10 @@
 struct pkgconfig_info {
 	char version[MAX_VERSION_LEN + 1];
 	obj includes, libs, not_found_libs, link_args, compile_args;
+
+	// Used internally during lookup
+	obj name, libdirs, compiler;
+	bool is_static;
 };
 
 enum pkgconfig_impl_type {
@@ -38,4 +42,19 @@ bool muon_pkgconfig_set_impl_type(struct workspace *wk, enum pkgconfig_impl_type
 const char *muon_pkgconfig_impl_type_to_s(enum pkgconfig_impl_type t);
 bool muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info);
 bool muon_pkgconfig_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res);
+
+enum muon_pkgconfig_fragment_source {
+	muon_pkgconfig_fragment_source_cflags,
+	muon_pkgconfig_fragment_source_libs,
+};
+
+struct muon_pkgconfig_fragment {
+	enum muon_pkgconfig_fragment_source source;
+	obj data;
+	char type;
+};
+
+bool muon_pkgconfig_parse_fragment(struct workspace *wk,
+	const struct muon_pkgconfig_fragment *frag,
+	struct pkgconfig_info *info);
 #endif
