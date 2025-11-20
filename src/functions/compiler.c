@@ -197,20 +197,20 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	// Set up linker arguments
-	if (opts->mode == compiler_check_mode_link) {
+	if (opts->mode == compiler_check_mode_link || opts->mode == compiler_check_mode_run) {
 		push_args(wk, compiler_args, toolchain_compiler_linker_delimiter(wk, comp));
 
 		push_args(wk,
 			compiler_args,
 			toolchain_compiler_linker_passthrough(wk, comp, toolchain_linker_fatal_warnings(wk, comp)));
-	}
 
-	if (have_dep) {
-		struct obj_build_target tgt = {
-			.dep_internal = dep,
-		};
-		ca_prepare_target_linker_args(wk, comp, 0, &tgt, false);
-		obj_array_extend_nodup(wk, compiler_args, dep.link_args);
+		if (have_dep) {
+			struct obj_build_target tgt = {
+				.dep_internal = dep,
+			};
+			ca_prepare_target_linker_args(wk, comp, 0, &tgt, false);
+			obj_array_extend_nodup(wk, compiler_args, dep.link_args);
+		}
 	}
 
 	// Add additional args here.  For compilers that support a linker delimiter
