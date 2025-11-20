@@ -205,6 +205,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 		argv0_str = tstr_into_str(wk, &argv0_resolved);
 		workspace_add_regenerate_dep(wk, argv0_str);
 	} else {
+		LOG_W("failed to resolve path to muon executable");
 		argv0_str = make_str(wk, argv0);
 	}
 	wk->argv0 = get_cstr(wk, argv0_str);
