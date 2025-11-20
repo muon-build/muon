@@ -92,6 +92,13 @@ option(
 )
 
 option(
+    'skip-cpp-tests',
+    type: 'boolean',
+    value: false,
+    description: 'skip c++ compiler tests',
+)
+
+option(
     'website',
     type: 'feature',
     value: 'auto',
