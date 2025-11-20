@@ -292,6 +292,7 @@ FUNC_IMPL(dependency, partial_dependency, tc_dependency, func_impl_flag_impure)
 
 	if (akw[kw_compile_args].set && get_obj_bool(wk, akw[kw_compile_args].val)) {
 		flags |= build_dep_flag_part_compile_args;
+		flags |= build_dep_flag_part_includes;
 	}
 
 	if (akw[kw_includes].set && get_obj_bool(wk, akw[kw_includes].val)) {
