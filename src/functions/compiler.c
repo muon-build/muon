@@ -260,27 +260,16 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	}
 
 	{
-		const char *out_buf = cmd_ctx.out.buf;
-		bool logged = false;
+		const uint32_t truncate_limit = BUF_SIZE_4k;
+		const struct str truncated_sep = STR("'\n" CLR(c_cyan) "[truncated]" CLR(0) "\n'");
+		LL("compiler stdout: '");
+		log_print_middle_truncated(log_debug, &TSTR_STR(&cmd_ctx.out), &truncated_sep, truncate_limit);
+		log_printn(log_debug, "'\n", 2);
 
-		if (opts->mode == compiler_check_mode_preprocess) {
-			const int view_size = BUF_SIZE_4k - 100;
-			int out_buf_len = strlen(out_buf);
-			if (out_buf_len > view_size) {
-				// View the first and last parts of the preprocessed output.
-				// Arguably begin is less useful than end, and could be omitted.
-				L("compiler stdout begin: '%s'", out_buf);
-				L("compiler stdout end: '%s'", out_buf + out_buf_len - view_size);
-				logged = true;
-			}
-		}
-
-		if (!logged) {
-			L("compiler stdout: '%s'", out_buf);
-		}
+		LL("compiler stderr: '");
+		log_print_middle_truncated(log_debug, &TSTR_STR(&cmd_ctx.err), &truncated_sep, truncate_limit);
+		log_printn(log_debug, "'\n", 2);
 	}
-
-	L("compiler stderr: '%s'", cmd_ctx.err.buf);
 
 	if (opts->mode == compiler_check_mode_run) {
 		if (cmd_ctx.status != 0) {

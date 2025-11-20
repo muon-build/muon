@@ -299,17 +299,16 @@ log_set_prefix(int32_t n)
 }
 
 static uint32_t
-log_print_prefix(enum log_level lvl, char *buf, uint32_t size)
+log_print_prefix(enum log_level lvl, char *buf, uint32_t buf_len)
 {
 	uint32_t len = 0;
 
 	for (uint32_t i = 0; i < log_cfg.prefix; ++i) {
-		len += snprintf(&buf[len], size - len, " ");
+		snprintf_append_(buf, buf_len, &len, " ");
 	}
 
 	if (*log_level_shortname[lvl]) {
-		len += snprintf(
-			&buf[len], BUF_SIZE_4k - len, "\033[%sm%s\033[0m", log_level_clr[lvl], log_level_shortname[lvl]);
+		snprintf_append_(buf, buf_len, &len, "\033[%sm%s\033[0m", log_level_clr[lvl], log_level_shortname[lvl]);
 	}
 
 	return len;
@@ -356,38 +355,86 @@ log_printn(enum log_level lvl, const char *buf, uint32_t len)
 }
 
 void
+log_print_middle_truncated(enum log_level lvl, const struct str *buf, const struct str *sep, uint32_t truncate_limit)
+{
+	if (buf->len > truncate_limit) {
+		const uint32_t truncate_half = truncate_limit / 2;
+		log_printn(lvl, buf->s, truncate_half);
+		log_printn(lvl, sep->s, sep->len);
+		log_printn(lvl, buf->s + (buf->len - truncate_half), truncate_half);
+	} else {
+		log_printn(lvl, buf->s, buf->len);
+	}
+}
+
+static char log_buf[(1024 * 16) + 16];
+
+enum log_format_flag {
+	log_format_flag_newline = 1 << 0,
+	log_format_flag_prefix = 1 << 1,
+};
+
+static uint32_t
+log_format(enum log_level lvl, const char *fmt, va_list ap, char *buf, const uint32_t buf_len, enum log_format_flag flags)
+{
+	uint32_t len = buf_len;
+	if (flags & log_format_flag_prefix) {
+		uint32_t prefix_len = log_print_prefix(lvl, buf, buf_len);
+		assert(prefix_len < buf_len);
+		len -= prefix_len;
+		buf += prefix_len;
+	}
+
+	const struct str truncate_suffix = STR(" [truncated]");
+	const uint32_t buf_reserve = truncate_suffix.len + 2;
+	assert(buf_len > buf_reserve);
+	uint32_t buf_avail = buf_len - buf_reserve;
+	uint32_t printed_len = vsnprintf(buf, buf_avail, fmt, ap);
+	if (printed_len >= buf_avail) {
+		buf += buf_avail;
+		len -= buf_avail;
+		memcpy(buf, truncate_suffix.s, truncate_suffix.len);
+		buf += truncate_suffix.len;
+		len -= truncate_suffix.len;
+	} else {
+		buf += printed_len;
+		len -= printed_len;
+	}
+
+	if (flags & log_format_flag_newline) {
+		buf[0] = '\n';
+		++buf;
+		--len;
+	}
+
+	buf[0] = 0;
+	return buf_len - len;
+}
+
+void
 log_printv(enum log_level lvl, const char *fmt, va_list ap)
 {
-	static char buf[BUF_SIZE_32k];
-	vsnprintf(buf, ARRAY_LEN(buf) - 1, fmt, ap);
-	log_printn(lvl, buf, strlen(buf));
+	uint32_t len = log_format(lvl, fmt, ap, log_buf, ARRAY_LEN(log_buf), 0);
+	log_printn(lvl, log_buf, len);
 }
 
 void
 log_print(bool nl, enum log_level lvl, const char *fmt, ...)
 {
-	static char buf[BUF_SIZE_4k + 3];
-
-	uint32_t len = log_print_prefix(lvl, buf, BUF_SIZE_4k);
-
+	uint32_t flags = log_format_flag_prefix;
+	if (nl) {
+		flags |= log_format_flag_newline;
+	}
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(&buf[len], BUF_SIZE_4k - len, fmt, ap);
+	uint32_t len = log_format(lvl, fmt, ap, log_buf, ARRAY_LEN(log_buf), flags);
 	va_end(ap);
-
-	len = strlen(buf);
-
-	if (nl && len < BUF_SIZE_4k) {
-		buf[len] = '\n';
-		buf[len + 1] = 0;
-		++len;
-	}
 
 	if (log_cfg.progress.init) {
 		log_raw("\033[K");
 	}
 
-	log_printn(lvl, buf, len);
+	log_printn(lvl, log_buf, len);
 }
 
 void

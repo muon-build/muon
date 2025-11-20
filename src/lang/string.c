@@ -1086,6 +1086,7 @@ snprintf_append_(char *buf, uint32_t buf_len, uint32_t *buf_i, const char *fmt, 
 	va_list args;
 
 	if (*buf_i >= buf_len) {
+		*buf_i = buf_len;
 		return;
 	}
 

@@ -63,6 +63,8 @@ void log_progress_set_style(const struct log_progress_style *style);
 void log_printn(enum log_level lvl, const char *buf, uint32_t len);
 void log_printv(enum log_level lvl, const char *fmt, va_list ap);
 void log_print(bool nl, enum log_level lvl, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+void
+log_print_middle_truncated(enum log_level lvl, const struct str *buf, const struct str *sep, uint32_t truncate_limit);
 void log_plain(enum log_level lvl, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 void log_raw(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
 void log_rawv(const char *fmt, va_list ap);
