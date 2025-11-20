@@ -259,7 +259,27 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		goto ret;
 	}
 
-	L("compiler stdout: '%s'", cmd_ctx.out.buf);
+	{
+		const char *out_buf = cmd_ctx.out.buf;
+		bool logged = false;
+
+		if (opts->mode == compiler_check_mode_preprocess) {
+			const int view_size = BUF_SIZE_4k - 100;
+			int out_buf_len = strlen(out_buf);
+			if (out_buf_len > view_size) {
+				// View the first and last parts of the preprocessed output.
+				// Arguably begin is less useful than end, and could be omitted.
+				L("compiler stdout begin: '%s'", out_buf);
+				L("compiler stdout end: '%s'", out_buf + out_buf_len - view_size);
+				logged = true;
+			}
+		}
+
+		if (!logged) {
+			L("compiler stdout: '%s'", out_buf);
+		}
+	}
+
 	L("compiler stderr: '%s'", cmd_ctx.err.buf);
 
 	if (opts->mode == compiler_check_mode_run) {
