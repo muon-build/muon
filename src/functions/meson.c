@@ -251,20 +251,21 @@ FUNC_IMPL(meson, override_dependency, 0, func_impl_flag_impure)
 
 	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
 
-	obj override_dict;
-
+	bool static_dep = false;
 	if (akw[kw_static].set) {
 		if (get_obj_bool(wk, akw[kw_static].val)) {
-			override_dict = wk->dep_overrides_static[machine];
+			static_dep = true;
 		} else {
-			override_dict = wk->dep_overrides_dynamic[machine];
+			static_dep = false;
 		}
 	} else {
 		switch (get_option_default_library(wk)) {
-		case tgt_static_library: override_dict = wk->dep_overrides_static[machine]; break;
-		default: override_dict = wk->dep_overrides_dynamic[machine]; break;
+		case tgt_static_library: static_dep = true; break;
+		default: static_dep = false; break;
 		}
 	}
+
+	obj *override_dicts = static_dep ? wk->dep_overrides_static : wk->dep_overrides_dynamic;
 
 	obj d = make_obj(wk, obj_dependency);
 	{
@@ -274,7 +275,12 @@ FUNC_IMPL(meson, override_dependency, 0, func_impl_flag_impure)
 		dep->name = an[0].val;
 	}
 
-	obj_dict_set(wk, override_dict, an[0].val, d);
+	obj_dict_set(wk, override_dicts[machine], an[0].val, d);
+
+	if (get_obj_dependency(wk, d)->machine == machine_kind_either && !akw[kw_native].set)
+	{
+		obj_dict_set(wk, override_dicts[machine_kind_build], an[0].val, d);
+	}
 	return true;
 }
 
