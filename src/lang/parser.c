@@ -361,13 +361,6 @@ parse_advance(struct parser *p)
 			p->current.type = token_type_eol;
 		}
 	}
-
-	/* LL("previous: %s, current: ", token_to_s(p->wk, &p->previous)); */
-	/* log_plain("%s\n", token_to_s(p->wk, &p->current)); */
-
-	/* obj_fprintf(p->wk, log_file(), "%o, %o\n", p->fmt.previous.ws, p->fmt.current.ws); */
-
-	/* list_line_range(p->src, p->current.location, 0); */
 }
 
 static bool
@@ -632,9 +625,7 @@ parse_binary(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	enum node_type t;
 	enum token_type prev = p->previous.type;
-	struct node *n, *r;
-
-	r = parse_prec(p, p->parse_rules[prev].precedence + 1);
+	struct node *n;
 
 	switch (prev) {
 	case '+': t = node_type_add; break;
@@ -657,7 +648,9 @@ parse_binary(struct parser *p, struct node *l, bool assignment_allowed)
 
 	n = make_node_t(p, t);
 	n->l = l;
-	n->r = r;
+	n->r = parse_prec(p, p->parse_rules[prev].precedence + 1);
+
+	n->location = source_location_merge(n->l->location, n->r->location);
 	return n;
 }
 
@@ -1054,7 +1047,7 @@ parse_prec(struct parser *p, enum parse_precedence prec)
 
 	if (!p->parse_rules[p->previous.type].prefix) {
 		parse_error(p, 0, "expected expression, got %s", token_type_to_s(p->previous.type));
-		return 0;
+		return make_node_t(p, node_type_id);
 	}
 
 	bool assignment_allowed = prec <= parse_precedence_assignment;

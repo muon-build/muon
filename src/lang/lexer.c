@@ -757,13 +757,10 @@ restart:
 		}
 		return;
 	case '(':
-	case '[':
-	case '{':
-		token->type = lexer->src[lexer->i];
-		lexer_push_pop_enclosed_state(lexer, token->type);
-		break;
 	case ')':
+	case '[':
 	case ']':
+	case '{':
 	case '}':
 		token->type = lexer->src[lexer->i];
 		lexer_push_pop_enclosed_state(lexer, token->type);

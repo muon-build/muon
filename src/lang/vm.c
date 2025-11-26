@@ -864,12 +864,14 @@ vm_dis(struct workspace *wk)
 		}
 		snprintf(loc_buf,
 			sizeof(loc_buf),
-			"%s:%3d:%02d-[%3d:%02d]",
+			"%s:%3d:%02d - %3d:%02d [%d,%d]",
 			src ? src->label : 0,
 			dloc.line,
 			dloc.col,
 			dloc.end_line,
-			dloc.end_col);
+			dloc.end_col,
+			loc.off,
+			loc.len);
 		log_plain(log_info, "%-*s%s\n", w, dis, loc_buf);
 
 		/* if (src) { */
