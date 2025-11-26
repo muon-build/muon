@@ -35,3 +35,29 @@ assert('@0@ < @INPUT@'.format('a') == 'a < @INPUT@')
 
 f = 'asdf'
 assert(f'HAVE_@f@'.to_upper() == 'HAVE_ASDF')
+
+func check_sort(a str, b str)
+    assert(a < b)
+    assert(b > a)
+endfunc
+
+check_sort('', 'a')
+check_sort('a', 'b')
+check_sort('cat', 'dog')
+check_sort('apple', 'apply')
+check_sort('app', 'apple')
+check_sort('Zebra', 'apple')
+check_sort('Banana', 'banana')
+check_sort('file10', 'file2')
+check_sort('100', '20')
+check_sort('0A', 'A')
+check_sort('!hello', 'hello')
+check_sort('A', 'a')
+check_sort(' ', 'a')
+check_sort('_', 'a')
+check_sort('a', 'a ')
+check_sort('4.0.0', '5')
+
+str = 'hello'
+assert(not (str < str))
+assert(not (str > str))

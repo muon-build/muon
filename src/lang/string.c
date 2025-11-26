@@ -421,6 +421,18 @@ str_eql(const struct str *ss1, const struct str *ss2)
 	return ss1->len == ss2->len && memcmp(ss1->s, ss2->s, ss1->len) == 0;
 }
 
+int32_t
+str_cmp(const struct str *ss1, const struct str *ss2)
+{
+	uint32_t i;
+	for (i = 0; i < ss1->len && i < ss2->len && ss1->s[i] == ss2->s[i]; ++i)
+	{
+	}
+
+	char l = i < ss1->len ? ss1->s[i] : 0, r = i < ss2->len ? ss2->s[i] : 0;
+	return l - r;
+}
+
 static bool
 str_eql_glob_impl(const struct str *ss1, const struct str *ss2, uint32_t *match_len, bool top)
 {
