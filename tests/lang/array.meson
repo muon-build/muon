@@ -89,3 +89,6 @@ assert(['A', 'B', 'C'].slice(1) == ['B', 'C'])
 assert(['A', 'B'].slice(1) == ['B'])
 assert(['A'].slice(1) == [])
 assert([].slice(1) == [])
+
+'A'.join(['B', ''])
+''.join(['B', ''])

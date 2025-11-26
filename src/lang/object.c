@@ -884,12 +884,12 @@ obj_array_join(struct workspace *wk, bool flat, obj arr, obj join, obj *res)
 			if (s->len) {
 				memmove(dest + i, s->s, s->len);
 				i += s->len;
-				assert(i < res_len);
+				assert(i <= res_len);
 			}
 			if (join_str->len) {
 				memmove(dest + i, join_str->s, join_str->len);
 				i += join_str->len;
-				assert(i < res_len);
+				assert(i <= res_len);
 			}
 		}
 		prev = v;
