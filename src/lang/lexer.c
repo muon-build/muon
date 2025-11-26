@@ -113,7 +113,7 @@ is_valid_start_of_identifier(const char c)
 	return c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
 }
 
-static bool
+bool
 is_digit(const char c)
 {
 	return '0' <= c && c <= '9';

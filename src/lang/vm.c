@@ -1326,6 +1326,42 @@ type_err:
 	object_stack_push(wk, res);
 }
 
+static bool
+vm_string_looks_like_version(const struct str *s)
+{
+	uint32_t i = 0;
+
+	for (; i < s->len && is_digit(s->s[i]); ++i) {
+	}
+
+	if (!i) {
+		return false;
+	}
+
+	return i < s->len && s->s[i] == '.';
+}
+
+static void
+vm_check_string_comparison_with_version(struct workspace *wk, obj a, enum obj_type a_t, obj b, enum obj_type b_t, const char *op)
+{
+	const struct str *s1 = &STR("str"), *s2 = &STR("str");
+	if (a_t == obj_string) {
+		s1 = get_str(wk, a);
+	}
+	if (b_t == obj_string) {
+		s2 = get_str(wk, b);
+	}
+
+	if (vm_string_looks_like_version(s1) || vm_string_looks_like_version(s2)) {
+		vm_warning(wk,
+			"suspicious use of lexicographic comparison with version string -- "
+			"did you mean '%s'.version_compare('%s%s')?",
+			a_t == obj_string ? get_str(wk, a)->s : "str",
+			op,
+			b_t == obj_string ? get_str(wk, b)->s : "version");
+	}
+}
+
 #define vm_simple_comparison_op_body(__op, __strop)                                                         \
 	obj a, b;                                                                                           \
 	b = object_stack_pop(&wk->vm.stack);                                                                \
@@ -1334,6 +1370,10 @@ type_err:
                                                                                                             \
 	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);                                 \
 	obj res = 0;                                                                                        \
+                                                                                                            \
+	if (wk->vm.in_analyzer && (a_t == obj_string || b_t == obj_string)) {                               \
+		vm_check_string_comparison_with_version(wk, a, a_t, b, b_t, __strop); \
+	}                                                                                                   \
                                                                                                             \
 	switch (a_t) {                                                                                      \
 	case obj_number: {                                                                                  \
