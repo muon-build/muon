@@ -105,7 +105,7 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 			if (!type) {
 				const struct str *arg_str = get_str(wk, arg);
 				if (arg_str->s[0] == '-' && arg_str->len > 1) {
-					if (strchr("LIl", arg_str->s[1])) {
+					if (strchr("Ll", arg_str->s[1])) {
 						type = arg_str->s[1];
 						if (arg_str->len > 2) {
 							arg = make_strn(wk, arg_str->s + 2, arg_str->len - 2);

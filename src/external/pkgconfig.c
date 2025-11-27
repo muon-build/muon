@@ -168,13 +168,6 @@ muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_
 		obj_array_push(wk, info->libdirs, frag->data);
 		break;
 	}
-	case 'I': {
-		obj inc = make_obj(wk, obj_include_directory);
-		struct obj_include_directory *incp = get_obj_include_directory(wk, inc);
-		incp->path = frag->data;
-		obj_array_push(wk, info->includes, inc);
-		break;
-	}
 	case 'l': {
 		enum find_library_flag flags = info->is_static ? find_library_flag_prefer_static : 0;
 		struct find_library_result find_result
