@@ -1,7 +1,6 @@
 [book]
 authors = ["Stone Tickle"]
 language = "en"
-multilingual = false
 src = "src"
 title = "Muon Docs"
 
