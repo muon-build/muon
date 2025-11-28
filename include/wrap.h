@@ -80,7 +80,7 @@ enum wrap_handle_mode {
 
 struct wrap_opts {
 	const char *subprojects;
-	bool allow_download, force_update, fail_if_update_skipped;
+	bool allow_download, force_update, fail_if_update_skipped, early_out_if_meson_build_exists;
 	enum wrap_handle_mode mode;
 	bool block;
 };

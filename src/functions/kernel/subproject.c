@@ -40,6 +40,7 @@ subproject_prepare(struct workspace *wk,
 			= { .opts = {
 				    .allow_download = get_option_wrap_mode(wk) != wrap_mode_nodownload,
 				    .subprojects = base_path.buf,
+				    .early_out_if_meson_build_exists = true,
 			    } };
 		if (!wrap_handle(wk, wrap_path.buf, &wrap_ctx)) {
 			goto done;

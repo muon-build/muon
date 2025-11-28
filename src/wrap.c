@@ -1020,6 +1020,15 @@ wrap_handle_default(struct workspace *wk, struct wrap_handle_ctx *ctx)
 	switch (ctx->opts.mode) {
 	case wrap_handle_mode_default: {
 		{
+			if (ctx->opts.early_out_if_meson_build_exists) {
+				TSTR(meson_build);
+				path_join(wk, &meson_build, ctx->wrap.dest_dir.buf, "meson.build");
+				if (fs_file_exists(meson_build.buf)) {
+					wrap_set_state(ctx, wrap_handle_state_apply_patch);
+					return true;
+				}
+			}
+
 			switch (ctx->wrap.type) {
 			case wrap_type_file:
 				if (!fs_dir_exists(ctx->wrap.dest_dir.buf) || ctx->opts.force_update) {
