@@ -3219,12 +3219,14 @@ vm_reflect_obj_field_(struct workspace *wk, enum obj_type t, const struct vm_ref
 			.off = offsetof(struct __type, __name), \
 			.size = sizeof(__field_type) })
 
+// NOTE: for vm_reflect_obj_field_simple offset is 0 because get_obj_internal
+// returns &o->val which is already offset to point at the value
 #define vm_reflect_obj_field_simple(__type, __field_type)          \
 	vm_reflect_obj_field_(wk,                                  \
 		__type,                                            \
 		&(struct vm_reflected_field){ .name = 0,           \
 			.type = #__field_type,                     \
-			.off = offsetof(struct obj_internal, val), \
+			.off = 0, \
 			.size = sizeof(__field_type) })
 
 #define vm_reflect_obj_field_for_each_toolchain_component(__type, __field_type, __name)   \
