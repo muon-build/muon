@@ -309,6 +309,11 @@ build_targets_extract_all_objects(struct workspace *wk, obj arr, obj *res)
 static bool
 build_target_extract_all_objects_recurse(struct workspace *wk, struct build_dep *dep, obj *res)
 {
+	if (dep->raw.flags & build_dep_flag_partial)
+	{
+		return true;
+	}
+
 	if (!build_targets_extract_all_objects(wk, dep->raw.link_with, res)) {
 		return false;
 	}
