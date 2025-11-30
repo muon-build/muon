@@ -665,6 +665,8 @@ parse_ternary(struct parser *p, struct node *l, bool assignment_allowed)
 	n->r->l = parse_prec(p, parse_precedence_assignment);
 	parse_expect(p, ':');
 	n->r->r = parse_prec(p, parse_precedence_assignment);
+
+	n->location = source_location_merge(n->l->location, n->r->r->location);
 	return n;
 }
 
@@ -989,6 +991,8 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 		n = make_node_t(p, node_type_member);
 		n->l = l;
 		n->r = id;
+
+		n->location = source_location_merge(l->location, n->r->location);
 
 		if (!((p->mode & vm_compile_mode_language_extended) || relaxed)) {
 			parse_expect_noadvance(p, '(');
