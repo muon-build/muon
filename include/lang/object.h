@@ -134,9 +134,9 @@ enum feature_opt_state {
 	_(unstable_cuda, "public/unstable-cuda", false)                         \
 	_(unstable_external_project, "public/unstable-external_project", false) \
 	_(unstable_icestorm, "public/unstable-icestorm", false)                 \
-	_(unstable_rust, "public/unstable-rust", false)                         \
+	_(rust, "public/rust", false)                                           \
 	_(unstable_simd, "public/unstable-simd", false)                         \
-	_(unstable_wayland, "public/unstable-wayland", false)                   \
+	_(unstable_wayland, "public/unstable-wayland", false)
 
 #define MODULE_ENUM(mod, path, implemented) module_##mod,
 enum module {
