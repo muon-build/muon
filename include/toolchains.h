@@ -25,7 +25,8 @@ struct obj_compiler;
 	_(objcpp)                            \
 	_(assembly)                          \
 	_(llvm_ir)                           \
-	_(nasm)
+	_(nasm)                              \
+	_(rust)
 
 #define TOOLCHAIN_ENUM(lang) compiler_language_##lang,
 enum compiler_language {

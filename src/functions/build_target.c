@@ -234,7 +234,8 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	case compiler_language_cpp:
 	case compiler_language_llvm_ir:
 	case compiler_language_objcpp:
-	case compiler_language_objc: break;
+	case compiler_language_objc:
+	case compiler_language_rust: break;
 	case compiler_language_null:
 	case compiler_language_count: UNREACHABLE;
 	}

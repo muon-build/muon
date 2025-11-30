@@ -301,6 +301,8 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 			return compiler_language_cpp;
 		}
 		break;
+	case compiler_language_rust:
+		return compiler_language_rust;
 	case compiler_language_count: UNREACHABLE;
 	}
 
