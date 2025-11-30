@@ -32,3 +32,11 @@ option(
     value: 'none',
     per_machine: true,
 )
+
+option(
+    'rust_std',
+    yield: true,
+    type: 'string',
+    value: 'none',
+    per_machine: true,
+)

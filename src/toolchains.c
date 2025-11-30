@@ -175,6 +175,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_assembly] = "assembly",
 	[compiler_language_llvm_ir] = "llvm_ir",
 	[compiler_language_nasm] = "nasm",
+	[compiler_language_rust] = "rust",
 };
 
 static const char *compiler_language_gcc_names[compiler_language_count] = {
