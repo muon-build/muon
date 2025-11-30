@@ -22,6 +22,7 @@ option(
     yield: true,
     type: 'string',
     value: 'none',
+    per_machine: true,
 )
 
 option(
@@ -29,4 +30,5 @@ option(
     yield: true,
     type: 'string',
     value: 'none',
+    per_machine: true,
 )

@@ -560,7 +560,7 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 }
 
 bool
-create_option(struct workspace *wk, obj opts, obj opt, obj val)
+create_option(struct workspace *wk, obj opts, obj opt, obj val, enum create_option_flag flags)
 {
 	if (!set_option(wk, opt, val, option_value_source_default, false)) {
 		return false;
@@ -578,7 +578,10 @@ create_option(struct workspace *wk, obj opts, obj opt, obj val)
 		proj = current_project(wk);
 	}
 
-	const struct str *name = get_str(wk, o->name);
+	const struct str *name;
+
+restart:
+	name = get_str(wk, o->name);
 	if (str_has_null(name) || strchr(name->s, ':')) {
 		vm_error(wk, "invalid option name %o", o->name);
 		return false;
@@ -588,6 +591,18 @@ create_option(struct workspace *wk, obj opts, obj opt, obj val)
 	}
 
 	obj_dict_set(wk, opts, o->name, opt);
+
+	if (flags & create_option_flag_per_machine) {
+		obj dup;
+		if (!obj_clone(wk, wk, opt, &dup)) {
+			return false;
+		}
+		o = get_obj_option(wk, dup);
+		o->name = make_strf(wk, "build.%s", name->s);
+		flags &= ~create_option_flag_per_machine;
+		goto restart;
+	}
+
 	return true;
 }
 
@@ -853,7 +868,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 }
 
 static void
-make_compiler_option(struct workspace *wk, obj name)
+make_compiler_option(struct workspace *wk, obj name, enum create_option_flag flags)
 {
 	obj opt = make_obj(wk, obj_option);
 	struct obj_option *o = get_obj_option(wk, opt);
@@ -862,7 +877,7 @@ make_compiler_option(struct workspace *wk, obj name)
 	o->ip = -1; // ?
 	o->builtin = true;
 
-	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array))) {
+	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array), flags)) {
 		UNREACHABLE;
 	}
 }
@@ -922,7 +937,7 @@ make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum
 
 	TSTR(env_opt);
 	toolchain_component_option_name_from_info(wk, &info, &env_opt);
-	make_compiler_option(wk, tstr_into_str(wk, &env_opt));
+	make_compiler_option(wk, tstr_into_str(wk, &env_opt), 0);
 
 	TSTR(env_var_suffixed);
 	tstr_pushf(wk, &env_var_suffixed, "%s%s", info.env_var, info.machine_suffix ? info.machine_suffix : "");
@@ -970,7 +985,7 @@ init_global_options(struct workspace *wk)
 	uint32_t i, machine;
 	for (i = 0; i < ARRAY_LEN(langs); ++i) {
 		obj args = make_strf(wk, "%s_args", langs[i].name);
-		make_compiler_option(wk, args);
+		make_compiler_option(wk, args, create_option_flag_per_machine);
 		if (compile_opt_env_var[langs[i].l][toolchain_component_compiler]) {
 			set_compile_opt_from_env(wk,
 				get_str(wk, args)->s,
@@ -978,7 +993,7 @@ init_global_options(struct workspace *wk)
 		}
 
 		obj link_args = make_strf(wk, "%s_link_args", langs[i].name);
-		make_compiler_option(wk, link_args);
+		make_compiler_option(wk, link_args, create_option_flag_per_machine);
 		if (compile_opt_env_var[langs[i].l][toolchain_component_linker]) {
 			set_compile_opt_from_env(wk,
 				get_str(wk, link_args)->s,

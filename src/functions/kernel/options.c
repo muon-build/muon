@@ -75,6 +75,7 @@ FUNC_IMPL(kernel, option, 0, true)
 		kw_deprecated,
 		kwargs_count,
 		kw_kind = kwargs_count,
+		kw_per_machine,
 	};
 
 	struct args_kw akw[] = { [kw_type] = { "type", obj_string },
@@ -86,10 +87,12 @@ FUNC_IMPL(kernel, option, 0, true)
 		[kw_yield] = { "yield", obj_bool },
 		[kw_deprecated] = { "deprecated", COMPLEX_TYPE_PRESET(tc_cx_options_deprecated_kw) },
 		[kw_kind] = { 0 },
+		[kw_per_machine] = { 0 },
 		0 };
 
 	if (initializing_builtin_options) {
 		akw[kw_kind] = (struct args_kw){ "kind", tc_string };
+		akw[kw_per_machine] = (struct args_kw){ "per_machine", tc_bool };
 	}
 
 	if (!pop_args(wk, an, akw)) {
@@ -207,8 +210,12 @@ FUNC_IMPL(kernel, option, 0, true)
 	} else {
 		opts = wk->global_opts;
 	}
+	enum create_option_flag flags = 0;
+	if (get_obj_bool_with_default(wk, akw[kw_per_machine].val, false)) {
+		flags |= create_option_flag_per_machine;
+	}
 
-	if (!create_option(wk, opts, opt, val)) {
+	if (!create_option(wk, opts, opt, val, flags)) {
 		return false;
 	}
 

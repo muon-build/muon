@@ -18,7 +18,11 @@ struct option_override {
 	bool obj_value;
 };
 
-bool create_option(struct workspace *wk, obj opts, obj opt, obj val);
+enum create_option_flag {
+	create_option_flag_per_machine = 1 << 0,
+};
+
+bool create_option(struct workspace *wk, obj opts, obj opt, obj val, enum create_option_flag flags);
 bool set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source source, bool coerce);
 bool get_option(struct workspace *wk, const struct project *proj, const struct str *name, obj *res);
 bool get_option_overridable(struct workspace *wk,

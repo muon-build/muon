@@ -139,6 +139,7 @@ option(
     type: 'array',
     value: [],
     description: 'List of additional prefixes for cmake to search',
+    per_machine: true,
 ) # TODO
 option(
     'debug',
@@ -179,6 +180,7 @@ option(
     type: 'array',
     value: [],
     description: 'List of additional paths for pkg-config to search',
+    per_machine: true,
 )
 option(
     'stdsplit',
@@ -359,39 +361,46 @@ option(
     'c_winlibs',
     type: 'array',
     value: [],
+    per_machine: true,
 )
 option(
     'c_thread_count',
     type: 'integer',
     value: 4,
     min: 0,
+    per_machine: true,
 ) # TODO
 option(
     'cpp_debugstl',
     type: 'boolean',
     value: false,
+    per_machine: true,
 ) # TODO
 option(
     'cpp_eh',
     type: 'combo',
     value: 'default',
     choices: ['none', 'default', 'a', 's', 'sc'],
+    per_machine: true,
 ) # TODO
 option(
     'cpp_rtti',
     type: 'boolean',
     value: true,
+    per_machine: true,
 ) # TODO
 option(
     'cpp_thread_count',
     type: 'integer',
     value: 4,
     min: 0,
+    per_machine: true,
 ) # TODO
 option(
     'cpp_winlibs',
     type: 'array',
     value: [],
+    per_machine: true,
 ) # TODO
 option(
     'prefer_static',
