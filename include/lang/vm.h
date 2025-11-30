@@ -56,6 +56,7 @@ enum op {
 	// Analyzer only ops
 	op_az_branch,
 	op_az_merge,
+	op_az_noop,
 
 	op_count,
 };
@@ -122,7 +123,7 @@ struct vm_compiler_state {
 	uint32_t loop_depth;
 	obj breakpoints;
 	enum vm_compile_mode mode;
-	bool err;
+	bool err, had_effect;
 };
 
 struct vm_dbg_state {

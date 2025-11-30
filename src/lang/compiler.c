@@ -68,6 +68,7 @@ push_op_store(struct workspace *wk, enum op_store_flags flags)
 }
 
 static void vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+
 static void
 vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...)
 {
@@ -79,6 +80,19 @@ vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...)
 	va_end(args);
 
 	wk->vm.compiler_state.err = true;
+}
+
+static void vm_comp_warning(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+
+static void
+vm_comp_warning(struct workspace *wk, struct node *n, const char *fmt, ...)
+{
+	struct source *src = arr_peek(&wk->vm.src, 1);
+
+	va_list args;
+	va_start(args, fmt);
+	error_messagev(wk, src, n->location, log_warn, fmt, args);
+	va_end(args);
 }
 
 static void
@@ -439,8 +453,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	}
 	case node_type_continue: {
 		if (wk->vm.in_analyzer) {
-			push_code(wk, op_constant);
-			push_constant(wk, 0);
+			push_code(wk, op_az_noop);
 			break;
 		}
 
@@ -450,8 +463,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	}
 	case node_type_break: {
 		if (wk->vm.in_analyzer) {
-			push_code(wk, op_constant);
-			push_constant(wk, 0);
+			push_code(wk, op_az_noop);
 			break;
 		}
 
@@ -814,6 +826,23 @@ vm_compile_expr(struct workspace *wk, struct node *n)
 	vm_visit_nodes(wk, n, privelaged, ARRAY_LEN(privelaged), vm_comp_node);
 }
 
+static bool
+vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
+{
+	for (uint32_t i = start; i < end; i += OP_WIDTH(wk->vm.code.e[i])) {
+		switch (wk->vm.code.e[i]) {
+			case op_az_noop:
+			case op_call:
+			case op_call_native:
+			case op_return:
+			case op_store:
+				return true;
+			default: break;
+		}
+	}
+	return false;
+}
+
 static void
 vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags)
 {
@@ -824,7 +853,13 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
+		uint32_t expr_start = wk->vm.code.len;
 		vm_compile_expr(wk, n->l);
+		if (wk->vm.in_analyzer) {
+			if (!vm_op_range_had_effect(wk, expr_start, wk->vm.code.len)) {
+				vm_comp_warning(wk, n->l, "statment has no effect");
+			}
+		}
 
 		if (n->l->type == node_type_if) {
 			// don't pop

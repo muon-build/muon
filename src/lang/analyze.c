@@ -1292,6 +1292,12 @@ az_op_store(struct workspace *wk)
 	}
 }
 
+static void
+az_op_noop(struct workspace *wk)
+{
+	object_stack_push(wk, 0);
+}
+
 /******************************************************************************
  * eval trace helpers
  ******************************************************************************/
@@ -1565,6 +1571,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.ops.ops[op_store] = az_op_store;
 	wk->vm.ops.ops[op_constant_dict] = az_op_constant_dict;
 	wk->vm.ops.ops[op_add] = az_op_add;
+	wk->vm.ops.ops[op_az_noop] = az_op_noop;
 
 	error_diagnostic_store_init(wk);
 
