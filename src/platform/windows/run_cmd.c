@@ -146,7 +146,7 @@ copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 			}
 		}
 
-		pipe = (struct win_pipe_inst*)pipe_ptr;
+		pipe = (struct win_pipe_inst *)pipe_ptr;
 
 		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
 		if (!copy_pipe(wk, ctx, pipe, tstr, &count_read)) {
@@ -464,7 +464,7 @@ run_cmd_internal(struct workspace *wk, struct run_cmd_ctx *ctx, const struct str
 	}
 
 	res = CreateProcessA(NULL,
-		(char*)cmd->s,
+		(char *)cmd->s,
 		NULL,
 		NULL,
 		/* inherit handles */ TRUE,
