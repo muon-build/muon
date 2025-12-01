@@ -65,8 +65,7 @@ struct az_assignment {
 	const char *name;
 	obj o;
 	bool accessed, default_var;
-	struct source_location location;
-	uint32_t ip, src_idx;
+	uint32_t ip;
 
 	uint32_t ep_stacks_i;
 	uint32_t ep_stack_len;

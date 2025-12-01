@@ -354,7 +354,11 @@ check_reassign_to_different_type(struct workspace *wk,
 			typechecking_type_to_s(wk, t2));
 
 		if (new_a) {
-			error_diagnostic_store_push(wk, new_a->src_idx, new_a->location, log_warn, buf);
+			struct source_location loc;
+			uint32_t src_idx;
+			vm_lookup_inst_location_src_idx(&wk->vm, new_a->ip, &loc, &src_idx);
+
+			error_diagnostic_store_push(wk, src_idx, loc, log_warn, buf);
 		} else {
 			vm_warning_at(wk, n_id, "%s", buf);
 		}
@@ -366,11 +370,8 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 {
 	// initialize source location to 0 since some variables don't have
 	// anything to put there, like builtin variables
-	uint32_t src_idx, ep_stack_len = 0, ep_stacks_i = 0;
+	uint32_t ep_stack_len = 0, ep_stacks_i = 0;
 	copy_az_entrypoint_stack(wk, &ep_stacks_i, &ep_stack_len);
-
-	struct source_location loc;
-	vm_lookup_inst_location_src_idx(&wk->vm, ip, &loc, &src_idx);
 
 	// Add the new assignment to the current scope and return its index as
 	// an obj (for storage in the scope dict)
@@ -380,8 +381,6 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 			.name = name,
 			.o = o,
 			.ip = ip,
-			.location = loc,
-			.src_idx = src_idx,
 			.ep_stacks_i = ep_stacks_i,
 			.ep_stack_len = ep_stack_len,
 		});
@@ -550,8 +549,6 @@ pop_scope_group(struct workspace *wk)
 
 				b = scope_assign(wk, a->name, a->o, a->ip, assign_local);
 				b->accessed = a->accessed;
-				b->location = a->location;
-				b->src_idx = a->src_idx;
 
 				a->accessed = true;
 			}
@@ -1644,7 +1641,10 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			if (!a->default_var && !a->accessed && *a->name != '_') {
 				const char *msg = get_cstr(wk, make_strf(wk, "unused variable %s", a->name));
 				enum log_level lvl = log_warn;
-				error_diagnostic_store_push(wk, a->src_idx, a->location, lvl, msg);
+				struct source_location loc;
+				uint32_t src_idx;
+				vm_lookup_inst_location_src_idx(&wk->vm, a->ip, &loc, &src_idx);
+				error_diagnostic_store_push(wk, src_idx, loc, lvl, msg);
 
 				if (analyzer.opts->subdir_error && a->ep_stack_len) {
 					mark_az_entrypoint_as_containing_diagnostic(a->ep_stacks_i, lvl);
