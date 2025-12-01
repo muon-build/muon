@@ -122,6 +122,7 @@ copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 {
 	DWORD _bytes_read;
 	OVERLAPPED *_overlapped;
+	ULONG_PTR pipe_ptr;
 	struct win_pipe_inst *pipe;
 	uint32_t count_read = 0;
 
@@ -134,7 +135,7 @@ copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 	}
 
 	while (!(ctx->pipe_out.is_eof && ctx->pipe_err.is_eof)) {
-		if (!GetQueuedCompletionStatus(ctx->ioport, &_bytes_read, (PULONG_PTR)&pipe, &_overlapped, 100)) {
+		if (!GetQueuedCompletionStatus(ctx->ioport, &_bytes_read, &pipe_ptr, &_overlapped, 100)) {
 			if (GetLastError() == WAIT_TIMEOUT) {
 				if (all) {
 					continue;
@@ -145,13 +146,15 @@ copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 			}
 		}
 
+		pipe = (struct win_pipe_inst *)pipe_ptr;
+
 		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
 		if (!copy_pipe(wk, ctx, pipe, tstr, &count_read)) {
 			return false;
 		}
 
 		if (!all && count_read >= ctx->count_read_threshold) {
-			uint64_t new_threshold = ctx->count_read_threshold * 2;
+			uint64_t new_threshold = (uint64_t)ctx->count_read_threshold * 2;
 			if (new_threshold > (uint64_t)UINT32_MAX) {
 				new_threshold = UINT32_MAX;
 			}
@@ -461,7 +464,7 @@ run_cmd_internal(struct workspace *wk, struct run_cmd_ctx *ctx, const struct str
 	}
 
 	res = CreateProcessA(NULL,
-		(char*)cmd->s,
+		(char *)cmd->s,
 		NULL,
 		NULL,
 		/* inherit handles */ TRUE,

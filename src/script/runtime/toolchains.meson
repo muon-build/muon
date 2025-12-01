@@ -466,15 +466,15 @@ toolchain.register_compiler(
         'object_ext': ['.obj'],
         'optimization': func(_c compiler, lvl str) -> list[str]
             if lvl == '0'
-                return ['/0d']
+                return ['/Od']
             elif lvl == '1'
-                return ['/01']
+                return ['/O1']
             elif lvl == '2'
-                return ['/02']
+                return ['/O2']
             elif lvl == '3'
-                return ['/02', '/Gw']
+                return ['/O2', '/Gw']
             elif lvl == 's'
-                return ['/01', '/Gw']
+                return ['/O1', '/Gw']
             else
                 return []
             endif

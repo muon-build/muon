@@ -1338,7 +1338,7 @@ eval_trace_print_level(struct workspace *wk, struct eval_trace_print_ctx *ctx, o
 			.len = eval_trace_arr_len(wk, v),
 		};
 		if (ctx->i <= ctx->len - 1) {
-			subctx.bars |= (1 << (ctx->indent - 1));
+			subctx.bars |= (uint64_t)(1 << (ctx->indent - 1));
 		}
 
 		obj sub_v;
@@ -1351,7 +1351,7 @@ eval_trace_print_level(struct workspace *wk, struct eval_trace_print_ctx *ctx, o
 		uint32_t i;
 		for (i = 0; i < ctx->indent; ++i) {
 			if (i < ctx->indent - 1) {
-				if (ctx->bars & (1 << i)) {
+				if (ctx->bars & (uint64_t)(1 << i)) {
 					printf("│   ");
 				} else {
 					printf("    ");

@@ -258,7 +258,7 @@ samu_depsinit(struct samu_ctx *ctx, const char *builddir)
 				samu_warn("invalid size, must be greater than 4: %" PRIu32, sz);
 				goto rewrite;
 			}
-			if (ctx->deps.entrieslen != ~buf[sz / 4 - 1]) {
+			if (ctx->deps.entrieslen != (size_t)~buf[sz / 4 - 1]) {
 				samu_warn("corrupt deps log, bad checksum");
 				goto rewrite;
 			}

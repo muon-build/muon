@@ -92,6 +92,8 @@ foreach native : [false, true]
             # Occurs spuriously due to /std:c11 enabling a
             # standards-conformant preprocessor
             '/wd5105', # macro expansion producing 'defined' has undefined behavior
+
+            '/wd4116', # unnamed type definition in parentheses
         ]
     else
         project_arguments += [
