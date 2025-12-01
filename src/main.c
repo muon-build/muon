@@ -1294,12 +1294,16 @@ cont:
 static bool
 cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	printf("muon %s%s%s\nmeson compatibility version %s\nenabled features:\n",
+	printf("muon %s%s%s\nmeson compatibility version %s\n",
 		muon_version.version,
 		*muon_version.vcs_tag ? "-" : "",
 		muon_version.vcs_tag,
 		muon_version.meson_compat);
-	printf("compiled with: %s, for platform: %s\n", muon_version.compiler, muon_version.platform);
+	printf("compiled with: %s, for platform: %s, release build: %s\n",
+		muon_version.compiler,
+		muon_version.platform,
+		MUON_RELEASE ? "yes" : "no");
+	printf("enabled features:\n");
 
 	const struct {
 		const char *name;
@@ -1316,6 +1320,9 @@ cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 #endif
 #ifdef __SANITIZE_UNDEFINED__
 		{ "ubsan", true },
+#endif
+#ifdef __SANITIZE_MEMORY__
+		{ "msan", true },
 #endif
 	};
 
@@ -1491,8 +1498,10 @@ main(int argc, char *argv[])
 
 	int ret = res ? 0 : 1;
 
+#if !MUON_RELEASE
 	ar_destroy(&a);
 	ar_destroy(&a_scratch);
+#endif
 
 #ifdef TRACY_ENABLE
 	sleep(1);

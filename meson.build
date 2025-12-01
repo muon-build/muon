@@ -119,7 +119,10 @@ foreach native : [false, true]
 
     project_arguments = machine_cc.get_supported_arguments(project_arguments)
 
-    project_arguments += '-DMUON_BOOTSTRAPPED'
+    project_arguments += [
+        '-DMUON_BOOTSTRAPPED',
+        '-DMUON_RELEASE=@0@'.format(get_option('buildtype') == 'release' ? 1 : 0)
+    ]
 
     if machine.system() == 'windows'
         project_arguments += ['-D_CRT_SECURE_NO_WARNINGS', '-D_CRT_NONSTDC_NO_DEPRECATE']

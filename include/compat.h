@@ -30,3 +30,13 @@
 #define __SANITIZE_UNDEFINED__
 #endif
 #endif
+
+#if !defined(__SANITIZE_MEMORY__) && defined(__has_feature)
+#if __has_feature(memory_sanitizer)
+#define __SANITIZE_MEMORY__
+#endif
+
+#ifndef MUON_RELEASE
+#define MUON_RELEASE 0
+#endif
+#endif
