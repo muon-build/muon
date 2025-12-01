@@ -861,7 +861,16 @@ az_execute_loop(struct workspace *wk)
 		cip = wk->vm.ip;
 		++wk->vm.ip;
 		analyzer.visited_ops.e[cip] = 1;
+
+		// TracyCZoneN(tctx, "op", true);
+		// {
+		// 	const char *op_name = vm_op_to_s(wk->vm.code.e[cip]);
+		// 	TracyCZoneName(tctx, op_name, strlen(op_name));
+		// }
+
 		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
+
+		// TracyCZoneEnd(tctx);
 	}
 }
 

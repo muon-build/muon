@@ -696,7 +696,7 @@ vm_get_constant(uint8_t *code, uint32_t *ip)
  * disassembler
  ******************************************************************************/
 
-static const char *
+const char *
 vm_op_to_s(uint8_t op)
 {
 #define op_case(__op) \
@@ -742,6 +742,7 @@ vm_op_to_s(uint8_t op)
 	op_case(op_typecheck)
 	op_case(op_az_branch)
 	op_case(op_az_merge)
+	op_case(op_az_noop)
 	op_case(op_dbg_break)
 	case op_count: UNREACHABLE;
 	}

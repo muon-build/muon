@@ -64,6 +64,7 @@ enum op {
 extern const uint32_t op_operands[op_count];
 extern const uint32_t op_operand_size;
 #define OP_WIDTH(op) (1 + op_operand_size * op_operands[op])
+const char *vm_op_to_s(uint8_t op);
 
 struct workspace;
 
