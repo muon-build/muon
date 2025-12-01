@@ -1486,9 +1486,9 @@ str_jaro_winkler_distance(const struct str *s1, const struct str *s2)
 	for (int32_t i = 0; i < length1; ++i) {
 		int32_t last = i + range;
 		for (int32_t j = i >= range ? i - range : 0; j < last; ++j) {
-			if (!(flags2 & (1 << j)) && str_char_to_lower(s1->s[i]) == str_char_to_lower(s2->s[j])) {
-				flags1 |= 1 << i;
-				flags2 |= 1 << j;
+			if (!(flags2 & (uint64_t)(1 << j)) && str_char_to_lower(s1->s[i]) == str_char_to_lower(s2->s[j])) {
+				flags1 |= (uint64_t)(1 << i);
+				flags2 |= (uint64_t)(1 << j);
 				m += 1;
 				break;
 			}
@@ -1501,12 +1501,12 @@ str_jaro_winkler_distance(const struct str *s1, const struct str *s2)
 
 	int32_t k = 0;
 	for (int32_t i = 0; i < length1; ++i) {
-		if ((flags1 & (1 << i))) {
+		if ((flags1 & (uint64_t)(1 << i))) {
 			int32_t index = k;
 			for (int32_t j = k; j < length2; ++j) {
 				index = j;
 
-				if ((flags2 & (1 << j))) {
+				if ((flags2 & (uint64_t)(1 << j))) {
 					k = j + 1;
 					break;
 				}

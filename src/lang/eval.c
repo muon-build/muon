@@ -561,7 +561,7 @@ determine_build_file(struct workspace *wk, const char *cwd, enum build_language 
 	*out_lang = names[i].lang;
 
 	if (!quiet && *out_lang == build_language_cmake) {
-		vm_warning_at(wk, -1, "using experimental cmake compat mode, this will probably break");
+		vm_warning_at(wk, (uint32_t)-1, "using experimental cmake compat mode, this will probably break");
 	}
 
 	return get_cstr(wk, tstr_into_str(wk, &name));

@@ -850,7 +850,7 @@ make_compiler_option(struct workspace *wk, obj name)
 	struct obj_option *o = get_obj_option(wk, opt);
 	o->name = name;
 	o->type = op_shell_array;
-	o->ip = -1; // ?
+	o->ip = (uint32_t)-1; // ?
 	o->builtin = true;
 
 	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array))) {
