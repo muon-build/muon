@@ -121,7 +121,7 @@ foreach native : [false, true]
 
     project_arguments += [
         '-DMUON_BOOTSTRAPPED',
-        '-DMUON_RELEASE=@0@'.format(get_option('buildtype') == 'release' ? 1 : 0)
+        '-DMUON_RELEASE=@0@'.format(get_option('buildtype') == 'release' ? 1 : 0),
     ]
 
     if machine.system() == 'windows'
