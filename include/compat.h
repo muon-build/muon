@@ -35,8 +35,8 @@
 #if __has_feature(memory_sanitizer)
 #define __SANITIZE_MEMORY__
 #endif
+#endif
 
 #ifndef MUON_RELEASE
 #define MUON_RELEASE 0
-#endif
 #endif
