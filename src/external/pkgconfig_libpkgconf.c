@@ -12,7 +12,6 @@
 #include <string.h>
 
 #include "external/pkgconfig.h"
-#include "functions/compiler.h"
 #include "lang/object.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
@@ -37,7 +36,7 @@ error_handler(const char *msg, const pkgconf_client_t *client, void *data)
 }
 
 static bool
-muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
+muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c, enum machine_kind for_machine)
 {
 	TracyCZoneAutoS;
 	c->personality = pkgconf_cross_personality_default();
@@ -46,7 +45,7 @@ muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c)
 	struct obj_array *pkg_config_path;
 	{
 		obj opt;
-		get_option_value(wk, current_project(wk), "pkg_config_path", &opt);
+		get_option_value_for_machine_overridable(wk, current_project(wk), 0, "pkg_config_path", for_machine, &opt);
 		pkg_config_path = get_obj_array(wk, opt);
 	}
 
@@ -167,12 +166,12 @@ apply_modversion(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int
 }
 
 static bool
-pkgconfig_libpkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info)
+pkgconfig_libpkgconf_lookup(struct workspace *wk, struct pkgconfig_info *info)
 {
 	TracyCZoneAutoS;
-	L("libpkgconf: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
+	L("libpkgconf: looking up %s %s", get_cstr(wk, info->name), info->is_static ? "static" : "dynamic");
 	struct pkgconf_client c = { 0 };
-	if (!muon_pkgconf_init(wk, &c)) {
+	if (!muon_pkgconf_init(wk, &c, info->for_machine)) {
 		return false;
 	}
 
@@ -182,7 +181,7 @@ pkgconfig_libpkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool i
 	flags |= PKGCONF_PKG_PKGF_REDEFINE_PREFIX;
 #endif
 
-	if (is_static) {
+	if (info->is_static) {
 		flags |= (PKGCONF_PKG_PKGF_SEARCH_PRIVATE | PKGCONF_PKG_PKGF_MERGE_PRIVATE_FRAGMENTS);
 	}
 
@@ -190,7 +189,7 @@ pkgconfig_libpkgconf_lookup(struct workspace *wk, obj compiler, obj name, bool i
 
 	bool ret = true;
 	pkgconf_list_t pkgq = PKGCONF_LIST_INITIALIZER;
-	pkgconf_queue_push(&pkgq, get_cstr(wk, name));
+	pkgconf_queue_push(&pkgq, get_cstr(wk, info->name));
 
 	struct pkgconf_lookup_ctx ctx = { .wk = wk, .info = info, /*.name = name, .is_static = is_static, .compiler = compiler,*/ };
 
@@ -253,10 +252,10 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 }
 
 static bool
-pkgconfig_libpkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
+pkgconfig_libpkgconf_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, enum machine_kind m, obj *res)
 {
 	struct pkgconf_client c = { 0 };
-	if (!muon_pkgconf_init(wk, &c)) {
+	if (!muon_pkgconf_init(wk, &c, m)) {
 		return false;
 	}
 

@@ -10,7 +10,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "external/pkgconfig.h"
-#include "functions/compiler.h"
+#include "functions/environment.h"
 #include "functions/kernel.h"
 #include "lang/object_iterators.h"
 #include "log.h"
@@ -19,7 +19,7 @@
 #include "platform/run_cmd.h"
 
 static bool
-pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
+pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args, enum machine_kind m)
 {
 	obj cmd = make_obj(wk, obj_array);
 
@@ -30,7 +30,7 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 		struct find_program_ctx ctx = {
 			.res = &prog,
 			.requirement = requirement_auto,
-			.machine = machine_kind_host,
+			.machine = m,
 		};
 		if (!find_program_check_override(wk, &ctx, make_str(wk, "pkg-config"))) {
 			return false;
@@ -55,21 +55,32 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args)
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, cmd);
 
-	return run_cmd_checked(wk, rctx, argstr, argc, 0, 0);
+
+	const char *envstr;
+	uint32_t envc;
+	{
+		obj env = make_obj_environment(wk, make_obj_environment_flag_no_default_vars);
+		obj opt;
+		get_option_value_for_machine_overridable(wk, current_project(wk), 0, "pkg_config_path", m, &opt);
+		environment_set(wk, env, environment_set_mode_set, make_str(wk, "PKG_CONFIG_PATH"), opt, 0);
+		env_to_envstr(wk, &envstr, &envc, env);
+	}
+
+	return run_cmd_checked(wk, rctx, argstr, argc, envstr, envc);
 }
 
 static bool
-pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info)
+pkgconfig_exec_lookup(struct workspace *wk, struct pkgconfig_info *info)
 {
-	L("pkg-config-exec: looking up %s %s", get_cstr(wk, name), is_static ? "static" : "dynamic");
+	L("pkg-config-exec: looking up %s %s", get_cstr(wk, info->name), info->is_static ? "static" : "dynamic");
 
 	{
 		obj args = make_obj(wk, obj_array);
 		obj_array_push(wk, args, make_str(wk, "--modversion"));
-		obj_array_push(wk, args, name);
+		obj_array_push(wk, args, info->name);
 
 		struct run_cmd_ctx rctx = { 0 };
-		bool ok = pkgconfig_cmd(wk, &rctx, args);
+		bool ok = pkgconfig_cmd(wk, &rctx, args, info->for_machine);
 		if (ok) {
 			tstr_trim_trailing_newline(&rctx.out);
 			cstr_copy(info->version, &TSTR_STR(&rctx.out));
@@ -88,13 +99,13 @@ pkgconfig_exec_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 	for (uint32_t flag_type = 0; flag_type < ARRAY_LEN(flag_type_str); ++flag_type) {
 		obj args = make_obj(wk, obj_array);
 		obj_array_push(wk, args, make_str(wk, flag_type_str[flag_type]));
-		if (is_static) {
+		if (info->is_static) {
 			obj_array_push(wk, args, make_str(wk, "--static"));
 		}
-		obj_array_push(wk, args, name);
+		obj_array_push(wk, args, info->name);
 
 		struct run_cmd_ctx rctx = { 0 };
-		bool ok = pkgconfig_cmd(wk, &rctx, args);
+		bool ok = pkgconfig_cmd(wk, &rctx, args, info->for_machine);
 		if (!ok) {
 			goto cleanup;
 		}
@@ -137,7 +148,7 @@ cleanup:
 }
 
 static bool
-pkgconfig_exec_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
+pkgconfig_exec_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, enum machine_kind m, obj *res)
 {
 	obj args = make_obj(wk, obj_array);
 	obj_array_push(wk, args, make_str(wk, "--variable"));
@@ -153,7 +164,7 @@ pkgconfig_exec_get_variable(struct workspace *wk, obj pkg_name, obj var_name, ob
 	}
 
 	struct run_cmd_ctx rctx = { 0 };
-	bool ok = pkgconfig_cmd(wk, &rctx, args);
+	bool ok = pkgconfig_cmd(wk, &rctx, args, m);
 	if (ok) {
 		tstr_trim_trailing_newline(&rctx.out);
 		if (!rctx.out.len) {

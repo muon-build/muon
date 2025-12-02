@@ -132,7 +132,7 @@ muon_pkgconfig_impl_type_to_s(enum pkgconfig_impl_type t)
 }
 
 bool
-muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info)
+muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, enum machine_kind for_machine, struct pkgconfig_info *info)
 {
 	muon_pkgconfig_init(wk);
 
@@ -145,16 +145,22 @@ muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_stat
 	info->libdirs = make_obj(wk, obj_array);
 	info->compiler = compiler;
 	info->is_static = is_static;
+	info->for_machine = for_machine;
 
-	return pkgconfig_impls[pkgconfig_state.type].lookup(wk, compiler, name, is_static, info);
+	return pkgconfig_impls[pkgconfig_state.type].lookup(wk, info);
 }
 
 bool
-muon_pkgconfig_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
+muon_pkgconfig_get_variable(struct workspace *wk,
+	obj pkg_name,
+	obj var_name,
+	obj defines,
+	enum machine_kind machine,
+	obj *res)
 {
 	muon_pkgconfig_init(wk);
 
-	return pkgconfig_impls[pkgconfig_state.type].get_variable(wk, pkg_name, var_name, defines, res);
+	return pkgconfig_impls[pkgconfig_state.type].get_variable(wk, pkg_name, var_name, defines, machine, res);
 }
 
 bool
@@ -204,14 +210,14 @@ muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_
  *---------------------------------------------------------------------------*/
 
 static bool
-pkgconfig_null_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info)
+pkgconfig_null_lookup(struct workspace *wk, struct pkgconfig_info *info)
 {
 	LOG_W("pkg-config support not enabled");
 	return false;
 }
 
 static bool
-pkgconfig_null_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res)
+pkgconfig_null_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, enum machine_kind m, obj *res)
 {
 	LOG_W("pkg-config support not enabled");
 	return false;

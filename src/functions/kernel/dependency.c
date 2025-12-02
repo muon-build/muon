@@ -307,6 +307,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		    get_dependency_c_compiler(wk, ctx->machine),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
+			ctx->machine,
 		    &info)) {
 		return true;
 	}

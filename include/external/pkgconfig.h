@@ -16,6 +16,7 @@ struct pkgconfig_info {
 
 	// Used internally during lookup
 	obj name, libdirs, compiler;
+	enum machine_kind for_machine;
 	bool is_static;
 };
 
@@ -27,8 +28,8 @@ enum pkgconfig_impl_type {
 #define pkgconfig_impl_type_count 3
 
 struct pkgconfig_impl {
-	bool (*lookup)(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info);
-	bool (*get_variable)(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res);
+	bool (*lookup)(struct workspace *wk, struct pkgconfig_info *info);
+	bool (*get_variable)(struct workspace *wk, obj pkg_name, obj var_name, obj defines, enum machine_kind machine, obj *res);
 };
 
 extern const struct pkgconfig_impl pkgconfig_impl_null;
@@ -40,8 +41,13 @@ extern struct pkgconfig_impl pkgconfig_impls[pkgconfig_impl_type_count];
 void muon_pkgconfig_init(struct workspace *wk);
 bool muon_pkgconfig_set_impl_type(struct workspace *wk, enum pkgconfig_impl_type t);
 const char *muon_pkgconfig_impl_type_to_s(enum pkgconfig_impl_type t);
-bool muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, struct pkgconfig_info *info);
-bool muon_pkgconfig_get_variable(struct workspace *wk, obj pkg_name, obj var_name, obj defines, obj *res);
+bool muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, enum machine_kind for_machine, struct pkgconfig_info *info);
+bool muon_pkgconfig_get_variable(struct workspace *wk,
+	obj pkg_name,
+	obj var_name,
+	obj defines,
+	enum machine_kind machine,
+	obj *res);
 
 enum muon_pkgconfig_fragment_source {
 	muon_pkgconfig_fragment_source_cflags,
