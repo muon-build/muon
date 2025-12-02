@@ -36,6 +36,8 @@ void get_option_value_overridable(struct workspace *wk,
 	obj overrides,
 	const char *name,
 	obj *res);
+void
+get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res);
 
 enum parse_and_set_option_flag {
 	parse_and_set_option_flag_override = 1 << 0,

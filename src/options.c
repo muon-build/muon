@@ -39,6 +39,8 @@ const char *build_option_type_to_s[build_option_type_count] = {
 	[op_shell_array] = "shell_array",
 };
 
+static const char *option_group_build = "build";
+
 static bool
 parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo, bool key_only)
 {
@@ -598,7 +600,7 @@ restart:
 			return false;
 		}
 		o = get_obj_option(wk, dup);
-		o->name = make_strf(wk, "build.%s", name->s);
+		o->name = make_strf(wk, "%s.%s", option_group_build, name->s);
 		flags &= ~create_option_flag_per_machine;
 		goto restart;
 	}
@@ -643,6 +645,35 @@ void
 get_option_value(struct workspace *wk, const struct project *proj, const char *name, obj *res)
 {
 	get_option_value_overridable(wk, proj, 0, name, res);
+}
+
+static bool
+get_option_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const struct str *name, enum machine_kind m, obj *res)
+{
+	if (m == machine_kind_host) {
+		return get_option_overridable(wk, proj, overrides, name, res);
+	}
+
+	TSTR(n);
+	tstr_pushf(wk, &n, "%s.%s", option_group_build, name->s);
+	return get_option_overridable(wk, proj, overrides, name, res);
+}
+
+void
+get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
+{
+	obj opt;
+	if (!get_option_for_machine_overridable(wk, proj, overrides, &STRL(name), m, &opt)) {
+		LOG_E("attempted to get unknown option '%s'", name);
+		UNREACHABLE;
+	}
+
+	struct obj_option *o = get_obj_option(wk, opt);
+	if (m == machine_kind_build && o->source <= option_value_source_default) {
+		get_option_value_for_machine_overridable(wk, proj, overrides, name, machine_kind_host, res);
+		return;
+	}
+	*res = o->val;
 }
 
 static bool
