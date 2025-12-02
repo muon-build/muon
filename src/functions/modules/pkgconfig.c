@@ -959,14 +959,30 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		if (akw[kw_install_dir].set) {
 			install_dir = get_cstr(wk, akw[kw_install_dir].val);
 		} else {
-			obj install_base;
 			if (pc.dataonly) {
-				get_option_value(wk, current_project(wk), "datadir", &install_base);
+				obj val;
+				get_option_value(wk, current_project(wk), "datadir", &val);
+				path_push(wk, &install_dir_buf, get_cstr(wk, val));
 			} else {
-				get_option_value(wk, current_project(wk), "libdir", &install_base);
+				if (host_machine.sys == machine_system_freebsd) {
+					obj val;
+					get_option_value(wk, current_project(wk), "prefix", &val);
+					path_push(wk, &install_dir_buf, get_cstr(wk, val));
+					path_push(wk, &install_dir_buf, "libdata");
+				} else if (host_machine.sys == machine_system_haiku) {
+					obj val;
+					get_option_value(wk, current_project(wk), "prefix", &val);
+					path_push(wk, &install_dir_buf, get_cstr(wk, val));
+					path_push(wk, &install_dir_buf, "develop");
+					path_push(wk, &install_dir_buf, "lib");
+				} else {
+					obj val;
+					get_option_value(wk, current_project(wk), "libdir", &val);
+					path_push(wk, &install_dir_buf, get_cstr(wk, val));
+				}
 			}
 
-			path_join(wk, &install_dir_buf, get_cstr(wk, install_base), "pkgconfig");
+			path_push(wk, &install_dir_buf, "pkgconfig");
 			install_dir = install_dir_buf.buf;
 		}
 
