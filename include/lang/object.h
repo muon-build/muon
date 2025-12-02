@@ -566,7 +566,6 @@ struct obj_iterator {
 struct obj_clear_mark {
 	struct bucket_arr_save objs, chrs, dict_elems, dict_hashes, array_elems;
 	struct bucket_arr_save obj_aos[obj_type_count - _obj_aos_start];
-	uint64_t arena_pos;
 };
 
 obj make_obj(struct workspace *wk, enum obj_type type);

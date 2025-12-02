@@ -45,7 +45,6 @@ struct az_srv {
 	} req;
 
 	struct workspace *wk;
-	obj file_override;
 	obj diagnostics_to_clear;
 	struct az_opts opts;
 };

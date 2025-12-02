@@ -182,7 +182,6 @@ language_mode_from_optarg(const char *arg, enum language_mode *langmode)
 	struct {
 		const char *short_name, *long_name;
 		enum language_mode mode;
-		bool fmt;
 	} modes[] = {
 		{ "n", "normal", language_external },
 		{ "s", "script", language_internal },

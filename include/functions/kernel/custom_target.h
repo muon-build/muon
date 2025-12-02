@@ -20,7 +20,7 @@ struct make_custom_target_opts {
 	obj extra_args;
 	bool capture;
 	bool feed;
-	bool extra_args_valid, extra_args_used;
+	bool extra_args_valid;
 };
 
 bool make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, obj *res);

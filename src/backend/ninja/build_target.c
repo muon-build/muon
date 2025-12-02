@@ -30,7 +30,6 @@ struct write_tgt_source_ctx {
 	obj order_deps;
 	obj implicit_deps;
 	bool have_order_deps;
-	bool have_link_language;
 };
 
 enum write_tgt_src_flag {

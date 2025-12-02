@@ -69,7 +69,6 @@ struct log_progress {
 static struct {
 	FILE *file, *debug_file;
 	enum log_level level;
-	uint32_t filter;
 	bool file_is_a_tty;
 	uint32_t prefix;
 	struct workspace *tstr_wk;

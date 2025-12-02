@@ -12,7 +12,6 @@
 struct subprojects_common_ctx {
 	struct arr handlers;
 	struct timer duration;
-	uint32_t failed;
 	bool force, print;
 	obj *res;
 };

@@ -124,7 +124,7 @@ struct vm_compiler_state {
 	uint32_t loop_depth;
 	obj breakpoints;
 	enum vm_compile_mode mode;
-	bool err, had_effect;
+	bool err;
 };
 
 struct vm_dbg_state {

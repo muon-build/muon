@@ -115,7 +115,6 @@ enum complex_type {
 
 struct obj_typechecking_type_to_obj_type {
 	enum obj_type type;
-	type_tag tc;
 };
 
 type_tag get_obj_typechecking_type(struct workspace *wk, obj got_obj);

@@ -70,7 +70,7 @@ struct fmt_ctx {
 	struct tstr *out_buf;
 	obj raw_blocks;
 	uint32_t indent, raw_block_idx, measured_len;
-	bool trailing_comment, fmt_on, measuring, line_has_content, is_enclosed;
+	bool fmt_on, measuring, line_has_content, is_enclosed;
 
 	struct bucket_arr frags;
 

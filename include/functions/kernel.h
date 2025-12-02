@@ -6,12 +6,11 @@
 #ifndef MUON_FUNCTIONS_KERNEL_H
 #define MUON_FUNCTIONS_KERNEL_H
 #include "lang/func_lookup.h"
-#include "coerce.h"
 
 struct find_program_ctx {
 	struct args_kw *default_options;
 	obj *res;
-	uint32_t node, version_node;
+	uint32_t node;
 	obj version, version_argument;
 	obj dirs;
 	enum requirement_type requirement;

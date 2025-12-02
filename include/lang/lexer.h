@@ -95,7 +95,6 @@ enum cm_token_subtype {
 };
 
 union literal_data {
-	obj literal;
 	obj str;
 	int64_t num;
 	uint64_t type;

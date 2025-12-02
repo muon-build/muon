@@ -21,7 +21,6 @@
 
 static struct {
 	const struct az_opts *opts;
-	struct obj_func *fp;
 	uint32_t impure_loop_depth;
 	bool error;
 
@@ -50,7 +49,6 @@ union branch_map {
 	struct branch_map_data {
 		uint8_t taken, not_taken, impure, type;
 	} data;
-	uint64_t u64;
 };
 
 struct bucket_arr assignments;
