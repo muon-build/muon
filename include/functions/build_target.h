@@ -21,5 +21,10 @@ bool tgt_src_to_pch_path(struct workspace *wk,
 
 bool build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, obj *res, bool recursive);
 
+void tgt_fixup_implib_suffix(struct workspace *wk, struct obj_build_target *tgt);
+
+#define MUON_DEFAULT_IMPLIB_SUFFIX "-implib.lib"
+#define MUON_DEFAULT_IMPLIB_SUFFIX_LEN (sizeof(MUON_DEFAULT_IMPLIB_SUFFIX) - 1)
+
 FUNC_REGISTER(build_target);
 #endif

@@ -35,11 +35,18 @@ endif
 
 test_dir = meson.current_build_dir()
 
+# Enable this option when testing tcc.
+skip_cpp_tests = get_option('skip-cpp-tests')
+
 foreach t : tests
     name = t[0]
     props = t.get(1, {})
 
     if 'skip' in props
+        continue
+    endif
+
+    if skip_cpp_tests and 'cpp' in props
         continue
     endif
 

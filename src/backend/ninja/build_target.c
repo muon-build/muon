@@ -280,6 +280,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 	if (tgt->implib) {
 		obj rel;
+		tgt_fixup_implib_suffix(wk, tgt);
 		ca_relativize_path(wk, tgt->implib, true, &rel);
 		fprintf(wctx->out, " | %s", get_cstr(wk, rel));
 	}

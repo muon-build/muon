@@ -568,7 +568,8 @@ toolchain_component_detect(struct workspace *wk,
 				return true;
 			}
 
-			if (component == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, comp)) {
+			if ((component == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, comp))
+				|| (component == toolchain_component_archiver && toolchain_compiler_do_archiver_passthrough(wk, comp))) {
 				do_linker_passthrough = true;
 				candidates[0] = compiler->cmd_arr[toolchain_component_compiler];
 			} else {
@@ -1089,6 +1090,10 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(define, compiler, .desc = "`-D`");
 	doc(deps, compiler, .desc = "Arguments that instruct the compiler to output extra dependencies such as headers.");
 	doc(deps_type, compiler, .desc = "Determines deps type that ninja to uses");
+	doc(do_archiver_passthrough,
+		compiler,
+		.desc
+		= "`true` if the archiver is the same executable as the compiler (e.g. tcc)");
 	doc(do_linker_passthrough,
 		compiler,
 		.desc
@@ -1142,6 +1147,7 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(fatal_warnings, linker, .desc = "`--fatal-warnings`");
 	doc(fuse_ld, linker, .desc = "`-fuse-ld=`");
 	doc(implib, linker, .desc = "`/IMPLIB`");
+	doc(implib_suffix, linker, .desc = "Linker specific import library suffix for DLLs. Defaults to '-implib.lib' if not provided.");
 	doc(input_output, linker, .desc = "Passed in `input` and `output` and orders them properly, optionally adding additional flags.");
 	doc(lib, linker, .desc = "`-l`");
 	doc(no_undefined, linker, .desc = "`--no-undefined`");
