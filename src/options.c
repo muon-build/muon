@@ -965,6 +965,7 @@ toolchain_component_option_info(struct workspace *wk, enum compiler_language l, 
 		[compiler_language_objc] = { "OBJC", "OBJC_LD", "AR" },
 		[compiler_language_objcpp] = { "OBJCXX", "OBJCXX_LD", "AR" },
 		[compiler_language_nasm] = { "NASM", "NASM_LD", "AR" },
+		[compiler_language_vala] = { "VALAC", "VALAC_LD", "AR" },
 	};
 
 	const char *n = option_names[l][c];

@@ -122,7 +122,8 @@ project_add_language(struct workspace *wk,
 	switch (l) {
 	case compiler_language_assembly:
 	case compiler_language_nasm:
-	case compiler_language_objc: {
+	case compiler_language_objc:
+	case compiler_language_vala: {
 		obj c_compiler;
 		if (!obj_dict_geti(wk, current_project(wk)->toolchains[machine], compiler_language_c, &c_compiler)
 			&& !obj_dict_geti(
