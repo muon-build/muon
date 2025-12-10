@@ -184,68 +184,195 @@ func compile_resources(
     return resources
 endfunc
 
-# func generate_gir(
-#     targets glob[exe|both_libs],
-#     install bool: false,
-#     build_by_default bool: true,
-#     extra_args listify[str]: ,
-#     dependencies listify[dep]: ,
-#     export_packages listify[list|str]: ,
-#     fatal_warnings bool: false,
-#     header listify[list|str]: ,
-#     identifier_prefix listify[list|str]: ,
-#     include_directories listify[str]: ,
-#     install_gir bool: ,
-#     install_typelib bool: ,
-#     link_with listify[both_libs]: ,
-#     namespace str: ,
-#     nsversion str: ,
-#     sources listify[custom_tgt|file|generated_list|str]: ,
-#     symbol_prefix listify[str]: ,
-# ) -> list[custom_tgt]
-#     if is_null(namespace)
-#         error('namespace kwarg required')
-#     endif
-#
-#     if is_null(nsversion)
-#         error('nsversion kwarg required')
-#     endif
-#
-#     add_language('c')
-#
-#     if len(targets) > 1
-#         isexe = false
-#         foreach t : targets
-#             if typeof(t) == 'exe'
-#                 isexe = true
-#             endif
-#         endforeach
-#         if not isexe
-#             error('generate_gir only accepts a single argument when one of the arguments is an executable')
-#         endif
-#     endif
-#
-#     gir_dep = dependency('gobject-introspection-1.0')
-#     scanner = find_program('g-ir-scanner')
-#     compiler = find_program('g-ir-compiler')
-#
-#     file = '@0@-@1@.gir'.format(namepsace, nsversion)
-#     depends = [ targets, gir_dep.sources ]
-#
-#     langs_compilers = []
-#     cflags = []
-#     internal_ldflags = []
-#     external_ldflags = []
-#
-#     foreach t : targets
-#        foreach lang, compiler : t
-#            if lang in ['c', 'cpp', 'objc', 'objcpp', 'd']
-#                langs_compilers += [lang, compiler]
-#                cflags +=
-#            endif
-#        endforeach
-#     endforeach
-# endfunc
+func generate_gir(
+    targets glob[exe|both_libs|build_tgt],
+    install bool: true,
+    build_by_default bool: true,
+    extra_args listify[str]: [],
+    dependencies listify[dep]: [],
+    export_packages listify[str]: [],
+    fatal_warnings bool: false,
+    header listify[str]: [],
+    identifier_prefix listify[str]: [],
+    include_directories listify[inc]: [],
+    includes listify[str]: [],
+    install_gir bool:,
+    install_typelib bool:,
+    install_dir_gir str:,
+    install_dir_typelib str:,
+    link_with listify[both_libs|build_tgt]: [],
+    namespace str:,
+    nsversion str:,
+    sources listify[custom_tgt|file|generated_list|str]: [],
+    symbol_prefix listify[str]: [],
+) -> list[custom_tgt]
+
+    add_languages('c')
+
+    if is_null(namespace)
+        error('namespace kwarg is required')
+    endif
+
+    if is_null(nsversion)
+        error('nsversion kwarg is required')
+    endif
+
+    # Determine install directories
+    if is_null(install_dir_gir)
+        install_dir_gir = get_option('datadir') / 'gir-1.0'
+    endif
+
+    if is_null(install_dir_typelib)
+        install_dir_typelib = get_option('libdir') / 'girepository-1.0'
+    endif
+
+    if is_null(install_gir)
+        install_gir = install
+    endif
+
+    if is_null(install_typelib)
+        install_typelib = install
+    endif
+
+    # Find required programs
+    scanner = find_program('g-ir-scanner')
+    compiler_prog = find_program('g-ir-compiler')
+
+    # Output filenames
+    gir_file = '@0@-@1@.gir'.format(namespace, nsversion)
+    typelib_file = '@0@-@1@.typelib'.format(namespace, nsversion)
+
+    # Build scanner command
+    scan_command = [
+        scanner,
+        '--quiet',
+        '--no-libtool',
+        '--warn-all',
+        '--namespace=' + namespace,
+        '--nsversion=' + nsversion,
+    ]
+
+    scan_command += extra_args
+
+    # Add warnings
+    if fatal_warnings
+        scan_command += ['--warn-error']
+    endif
+
+    # Add identifier prefixes
+    foreach prefix : identifier_prefix
+        scan_command += ['--identifier-prefix=' + prefix]
+    endforeach
+
+    # Add symbol prefixes
+    foreach prefix : symbol_prefix
+        scan_command += ['--symbol-prefix=' + prefix]
+    endforeach
+
+    # Add export packages
+    foreach pkg : export_packages
+        scan_command += ['--pkg-export=' + pkg]
+    endforeach
+
+    # Add includes
+    foreach inc : includes
+        scan_command += ['--include=' + inc]
+    endforeach
+
+    # Add include directories
+    foreach inc_dir : include_directories
+        scan_command += ['-I' + inc_dir.full_path()]
+    endforeach
+
+    # Process dependencies
+    foreach dep : dependencies
+        if typeof(dep) == 'dep'
+            dep_includes = dep.partial_dependency(includes: true).get_variable('include_directories')
+            foreach inc : dep_includes
+                scan_command += ['-I' + inc.full_path()]
+            endforeach
+        endif
+    endforeach
+
+    # Process targets
+    gir_targets = []
+    foreach target : targets
+        actual_target = target
+        if typeof(target) == 'both_libs'
+            actual_target = target.get_shared_lib()
+        endif
+
+        gir_targets += actual_target
+
+        # Add library or program
+        if typeof(actual_target) != 'exe'
+            scan_command += ['--library=' + actual_target.name()]
+        else
+            scan_command += ['--program=' + actual_target.full_path()]
+        endif
+
+        # Add -L flag for library directory
+        scan_command += ['-L' + fs.parent(actual_target.full_path())]
+    endforeach
+
+    # Add link_with libraries
+    foreach lib : link_with
+        actual_lib = lib
+        if typeof(lib) == 'both_libs'
+            actual_lib = lib.get_shared_lib()
+        endif
+        scan_command += ['-l' + actual_lib.name()]
+        scan_command += ['-L' + fs.parent(actual_lib.full_path())]
+    endforeach
+
+    # Add headers
+    foreach hdr : header
+        scan_command += ['--c-include=' + hdr]
+    endforeach
+
+    # Convert sources to files
+    source_files = []
+    foreach src : sources
+        if typeof(src) == 'str'
+            source_files += files(src)
+        else
+            source_files += src
+        endif
+    endforeach
+
+    # Generate GIR file
+    scan_command += ['@INPUT@', '--output', '@OUTPUT@']
+
+    gir_target = custom_target(
+        gir_file,
+        build_by_default: build_by_default,
+        depends: gir_targets,
+        input: source_files,
+        output: gir_file,
+        install: install_gir,
+        install_dir: install_dir_gir,
+        install_tag: 'devel',
+        command: scan_command,
+    )
+
+    # Generate typelib file
+    typelib_target = custom_target(
+        typelib_file,
+        build_by_default: build_by_default,
+        input: gir_target,
+        output: typelib_file,
+        install: install_typelib,
+        install_dir: install_dir_typelib,
+        install_tag: 'runtime',
+        command: [
+            compiler_prog,
+            '@INPUT@',
+            '--output', '@OUTPUT@',
+        ],
+    )
+
+    return [gir_target, typelib_target]
+endfunc
 
 func compile_schemas(
     build_by_default bool: true,
@@ -636,6 +763,7 @@ endfunc
 return {
     'post_install': post_install,
     'compile_resources': compile_resources,
+    'generate_gir': generate_gir,
     'compile_schemas': compile_schemas,
     'gdbus_codegen': gdbus_codegen,
     'mkenums': mkenums,
