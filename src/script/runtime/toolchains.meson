@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-only
 
 toolchain = import('toolchain')
@@ -663,4 +664,50 @@ toolchain.register_compiler(
     detect: func(out str) -> int
         return 'yasm' in out ? 100 : 0
     endfunc,
+)
+
+toolchain.register_compiler(
+    'valac',
+    exe: {'vala': 'valac'},
+    detect: func(out str) -> int
+        return 'Vala' in out ? 100 : 1
+    endfunc,
+    linker: 'ld-posix',
+    archiver: 'ar-posix',
+    handlers: {
+        'version': ['--version'],
+        'always': func(_c compiler) -> list[str]
+            return []
+        endfunc,
+        'compile_only': ['--ccode'],
+        'output': func(_c compiler, s str) -> list[str]
+            # valac --ccode generates .c file with basename of input
+            # Use -d to specify output directory
+            parts = s.split('/')
+            if parts.length() > 1
+                # Output path has directory component (e.g., hello.p/hello.vala.c)
+                # Extract directory and use -d
+                return ['-d', parts[0]]
+            else
+                return []
+            endif
+        endfunc,
+        'debug': toolchain.handler('compiler', 'posix', 'debug'),
+        'define': toolchain.handler('compiler', 'posix', 'define'),
+        'include': func(_c compiler, s str) -> list[str]
+            return ['--vapidir', s]
+        endfunc,
+        'include_system': func(_c compiler, s str) -> list[str]
+            return ['--vapidir', s]
+        endfunc,
+        'object_ext': ['.o'],
+        'define': func(_c compiler, s str) -> list[str]
+            return ['-D', s]
+        endfunc,
+        'optimization': func(_c compiler, _lvl str) -> list[str]
+            return []
+        endfunc,
+        'do_linker_passthrough': true,
+        'linker_passthrough': toolchain.handler('compiler', 'posix', 'linker_passthrough'),
+    },
 )

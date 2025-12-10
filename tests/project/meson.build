@@ -9,6 +9,7 @@ tests = [
     ['muon/python', {'python': true}],
     ['muon/script_module'],
     ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
+    ['muon/vala', {'vala': true}],
 
     # project tests imported from meson unit tests
     # TODO: move this to meson-tests
@@ -41,6 +42,9 @@ disable_test_language_cpp = 'cpp' in disable_test_languages
 # TODO: add objc / objcpp compiler detection and skip based on that instead
 disable_test_language_objc = 'objc' in disable_test_languages or host_machine.system() != 'darwin'
 
+valac = find_program('valac', required: false)
+disable_test_language_vala = 'vala' in disable_test_languages or not valac.found()
+
 foreach t : tests
     name = t[0]
     props = t.get(1, {})
@@ -53,6 +57,9 @@ foreach t : tests
         continue
     endif
     if disable_test_language_objc and 'objc' in props
+        continue
+    endif
+    if disable_test_language_vala and 'vala' in props
         continue
     endif
 

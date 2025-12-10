@@ -249,6 +249,12 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 
 	build_tgt_inc_required_compiler(wk, tgt, lang);
 
+	// Vala requires two-stage compilation: Vala -> C -> obj
+	// so we need both Vala and C compilers
+	if (lang == compiler_language_vala) {
+		build_tgt_inc_required_compiler(wk, tgt, compiler_language_c);
+	}
+
 	obj_array_push(wk, ctx->res, val);
 	return ir_cont;
 }
