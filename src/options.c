@@ -124,7 +124,7 @@ subproj_name_matches(struct workspace *wk, const char *name, const char *test)
 }
 
 static void
-log_option_override(enum log_level lvl, struct workspace *wk, struct option_override *oo)
+log_option_override(enum log_level lvl, struct workspace *wk, const struct option_override *oo)
 {
 	log_plain(lvl, "'");
 	if (oo->proj) {
@@ -244,6 +244,30 @@ check_deprecated_option_iter(struct workspace *wk, void *_ctx, obj old, obj new)
 }
 
 static bool
+option_overrides_equal(struct workspace *wk, const struct option_override *a, const struct option_override *b)
+{
+	return a->source == b->source && obj_equal(wk, a->proj, b->proj) && obj_equal(wk, a->name, b->name);
+}
+
+static void
+push_option_override(struct workspace *wk, const struct option_override *oo_new)
+{
+	uint32_t i;
+	struct option_override *oo;
+
+	for (i = 0; i < wk->option_overrides.len; ++i) {
+		oo = arr_get(&wk->option_overrides, i);
+
+		if (option_overrides_equal(wk, oo, oo_new)) {
+			*oo = *oo_new;
+			return;
+		}
+	}
+
+	arr_push(wk->a, &wk->option_overrides, oo_new);
+}
+
+static bool
 check_deprecated_option(struct workspace *wk, struct obj_option *opt, obj sval, obj *val)
 {
 	struct check_deprecated_option_ctx ctx = {
@@ -278,7 +302,7 @@ check_deprecated_option(struct workspace *wk, struct obj_option *opt, obj sval, 
 				.source = option_value_source_deprecated_rename,
 			};
 
-			arr_push(wk->a, &wk->option_overrides, &oo);
+			push_option_override(wk, &oo);
 		}
 		break;
 	}
@@ -1057,7 +1081,7 @@ parse_and_set_cmdline_option(struct workspace *wk, char *lhs)
 		return false;
 	}
 
-	arr_push(wk->a, &wk->option_overrides, &oo);
+	push_option_override(wk, &oo);
 	return true;
 }
 
@@ -1100,7 +1124,7 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 
 		if ((params->flags & parse_and_set_option_flag_for_subproject) || oo_for_subproject) {
 			oo.source = option_value_source_subproject_default_options;
-			arr_push(wk->a, &wk->option_overrides, &oo);
+			push_option_override(wk, &oo);
 			return true;
 		}
 	}
