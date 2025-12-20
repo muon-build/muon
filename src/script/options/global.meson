@@ -360,7 +360,7 @@ option(
     'b_largefile',
     type: 'feature',
     value: 'disabled',
-    description: 'Enable largefile source'
+    description: 'Enable largefile source',
 )
 
 # Compiler options
