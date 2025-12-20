@@ -19,7 +19,8 @@
 static uint32_t
 sl_log2i(uint32_t i)
 {
-#if defined(__GNUC__) && 0
+	// TODO: change this to a configure time check
+#if defined(__GNUC__)
 	return 63 - __builtin_clzll((unsigned long long)i);
 #else
 	// right propogate
