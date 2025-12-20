@@ -157,5 +157,14 @@ dependency('expat', native : false)
 
 But will break with a dependency not found error during a cross build.
 
+## largefile source
+
+[Meson always adds] `-D_FILE_OFFSET_BITS=64` to the list of compile arguments
+for all targets on certain compiler/platform combinations.  muon does not pass
+this by default, but can match meson's behavior if the `b_largefile` option is
+set to `auto`. The `muon meson` wrapper automatically passes
+`-Db_largefile=auto`.
+
 [ignores the native keyword]: https://github.com/mesonbuild/meson/pull/8582#issue-841311146
 [meson's own tests]: https://github.com/mesonbuild/meson/blob/6b99eeb2c99d4af4be2562b25507541bfd842692/test%20cases/common/240%20dependency%20native%20host%20%3D%3D%20build/meson.build#L15
+[Meson always adds]: https://github.com/mesonbuild/meson/blob/4bbd1ef923e995cd88c255cef65649ab8b07cfc6/mesonbuild/compilers/compilers.py#L1169
