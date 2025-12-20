@@ -355,6 +355,14 @@ option(
     ],
 )
 
+# This is a muon extension.  Meson has no option to control this behavior
+option(
+    'b_largefile',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable largefile source'
+)
+
 # Compiler options
 
 option(

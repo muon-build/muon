@@ -438,6 +438,8 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 
 	obj_array_push(wk, ctx->argv, make_str(wk, "setup"));
 
+	obj_array_push(wk, ctx->argv, make_str(wk, "-Db_largefile=auto"));
+
 	if (!translate_meson_opts_parser(
 		    wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_setup_callback)) {
 		return false;

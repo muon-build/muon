@@ -290,26 +290,30 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	if (get_obj_bool(wk, opt)) {
 		push_args(wk, args, toolchain_compiler_coverage(wk, comp));
 	}
-}
 
-static void
-ca_setup_largefile_args(struct workspace *wk, obj comp, const struct obj_build_target *tgt, obj args)
-{
-	const struct machine_definition *machine = machine_definitions[tgt->machine];
+	ca_get_option_value_for_tgt(wk, proj, tgt, "b_largefile", &opt);
+	enum feature_opt_state b_largefile = get_obj_feature_opt(wk, opt);
+	if (b_largefile != feature_opt_disabled) {
+		bool enable = true;
+		if (b_largefile == feature_opt_auto) {
+			const struct machine_definition *machine = machine_definitions[tgt->machine];
 
-	// Enable transparent large-file-support for 32-bit UNIX systems.
-	// This matches Meson's behavior for compatibility.
-	// Reference: https://github.com/mesonbuild/meson/blob/4bbd1ef923e995cd88c255cef65649ab8b07cfc6/mesonbuild/compilers/compilers.py#L1169
-	//
-	// Skip for MSVC (uses explicit 64-bit APIs) and macOS (64-bit only).
-	// glibc, musl, uclibc, and all BSD libcs support this.
-	// On Android, support for transparent LFS is available depending on Bionic version.
-	const struct args *arg_syntax = toolchain_compiler_argument_syntax(wk, comp);
-	bool is_msvc = arg_syntax && arg_syntax->len > 0 && strcmp(arg_syntax->args[0], "msvc") == 0;
-	bool is_darwin = machine->sys == machine_system_darwin;
+			// Enable transparent large-file-support for 32-bit UNIX systems.
+			// This matches Meson's behavior for compatibility.
+			// Reference: https://github.com/mesonbuild/meson/blob/4bbd1ef923e995cd88c255cef65649ab8b07cfc6/mesonbuild/compilers/compilers.py#L1169
+			//
+			// Skip for MSVC (uses explicit 64-bit APIs) and macOS (64-bit only).
+			// glibc, musl, uclibc, and all BSD libcs support this.
+			// On Android, support for transparent LFS is available depending on Bionic version.
+			const struct args *arg_syntax = toolchain_compiler_argument_syntax(wk, comp);
+			bool is_msvc = arg_syntax && arg_syntax->len > 0 && strcmp(arg_syntax->args[0], "msvc") == 0;
+			bool is_darwin = machine->sys == machine_system_darwin;
+			enable = !is_msvc && !is_darwin && machine->address_bits == 32;
+		}
 
-	if (!is_msvc && !is_darwin && machine->address_bits == 32) {
-		push_args(wk, args, toolchain_compiler_define(wk, comp, "_FILE_OFFSET_BITS=64"));
+		if (enable) {
+			push_args(wk, args, toolchain_compiler_define(wk, comp, "_FILE_OFFSET_BITS=64"));
+		}
 	}
 }
 
@@ -336,7 +340,6 @@ ca_get_base_compiler_args(struct workspace *wk,
 	ca_get_werror_args(wk, comp, proj, tgt, args);
 
 	ca_setup_optional_b_args_compiler(wk, comp, proj, tgt, &buildtype, args);
-	ca_setup_largefile_args(wk, comp, tgt, args);
 
 	{ /* option args (from option('x_args')) */
 		ca_get_option_compile_args(wk, comp, proj, tgt, args);
