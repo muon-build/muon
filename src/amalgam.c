@@ -39,6 +39,7 @@
 #include "formats/ansi.c"
 #include "formats/editorconfig.c"
 #include "formats/ini.c"
+#include "formats/ini_cfg.c"
 #include "formats/json.c"
 #include "formats/lines.c"
 #include "formats/tap.c"

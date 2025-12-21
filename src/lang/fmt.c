@@ -13,7 +13,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "formats/editorconfig.h"
-#include "formats/ini.h"
+#include "formats/ini_cfg.h"
 #include "lang/fmt.h"
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
@@ -1402,8 +1402,9 @@ fmt_block(struct fmt_ctx *f, struct node *n)
  ******************************************************************************/
 
 static void
-fmt_cfg_parse_indent_by(struct fmt_ctx *f, void *val)
+fmt_cfg_parse_indent_by(void *ctx, void *val)
 {
+	struct fmt_ctx *f = ctx;
 	const char *indent_by = *(const char **)val;
 
 	if (!*indent_by) {
@@ -1422,181 +1423,47 @@ fmt_cfg_parse_indent_by(struct fmt_ctx *f, void *val)
 }
 
 static bool
-fmt_cfg_parse_cb(void *_ctx,
-	struct source *src,
-	const char *sect,
-	const char *k,
-	const char *v,
-	struct source_location location)
+fmt_cfg_parse(struct workspace *wk, struct fmt_ctx *f, const char *cfg_path)
 {
-	struct fmt_ctx *ctx = _ctx;
-
-	enum val_type {
-		type_uint,
-		type_str,
-		type_bool,
-		type_enum,
-	};
-
-	struct fmt_cfg_enum {
-		const char *name;
-		uint32_t val;
-	};
-
-	struct fmt_cfg_enum indent_style_tbl[]
+	struct ini_cfg_enum indent_style_tbl[]
 		= { { "tab", fmt_indent_style_tab }, { "space", fmt_indent_style_space }, 0 };
 
-	struct fmt_cfg_enum end_of_line_tbl[]
+	struct ini_cfg_enum end_of_line_tbl[]
 		= { { "lf", fmt_end_of_line_lf }, { "cr", fmt_end_of_line_cr }, { "crlf", fmt_end_of_line_crlf }, 0 };
 
-	const struct {
-		const char *name;
-		enum val_type type;
-		uint32_t off;
-		bool deprecated;
-		void((*deprecated_action)(struct fmt_ctx *f, void *val));
-		struct fmt_cfg_enum *enum_tbl;
-	} keys[] = {
-		{ "max_line_len", type_uint, offsetof(struct fmt_opts, max_line_len) },
-		{ "space_array", type_bool, offsetof(struct fmt_opts, space_array) },
-		{ "kwargs_force_multiline", type_bool, offsetof(struct fmt_opts, kwargs_force_multiline) },
-		{ "wide_colon", type_bool, offsetof(struct fmt_opts, wide_colon) },
-		{ "no_single_comma_function", type_bool, offsetof(struct fmt_opts, no_single_comma_function) },
-		{ "insert_final_newline", type_bool, offsetof(struct fmt_opts, insert_final_newline) },
-		{ "sort_files", type_bool, offsetof(struct fmt_opts, sort_files) },
-		{ "group_arg_value", type_bool, offsetof(struct fmt_opts, group_arg_value) },
-		{ "simplify_string_literals", type_bool, offsetof(struct fmt_opts, simplify_string_literals) },
-		{ "use_editor_config", type_bool, offsetof(struct fmt_opts, use_editor_config) },
-		{ "indent_before_comments", type_str, offsetof(struct fmt_opts, indent_before_comments) },
-		{ "indent_size", type_uint, offsetof(struct fmt_opts, indent_size) },
-		{ "tab_width", type_uint, offsetof(struct fmt_opts, tab_width) },
-		{ "indent_style", type_enum, offsetof(struct fmt_opts, indent_style), .enum_tbl = indent_style_tbl },
-		{ "end_of_line", type_enum, offsetof(struct fmt_opts, end_of_line), .enum_tbl = end_of_line_tbl },
-		{ "sticky_parens", type_bool, offsetof(struct fmt_opts, sticky_parens) },
-		{ "continuation_indent", type_bool, offsetof(struct fmt_opts, continuation_indent) },
+	const struct ini_cfg_key keys[] = {
+		{ "max_line_len", ini_cfg_type_uint, offsetof(struct fmt_opts, max_line_len) },
+		{ "space_array", ini_cfg_type_bool, offsetof(struct fmt_opts, space_array) },
+		{ "kwargs_force_multiline", ini_cfg_type_bool, offsetof(struct fmt_opts, kwargs_force_multiline) },
+		{ "wide_colon", ini_cfg_type_bool, offsetof(struct fmt_opts, wide_colon) },
+		{ "no_single_comma_function", ini_cfg_type_bool, offsetof(struct fmt_opts, no_single_comma_function) },
+		{ "insert_final_newline", ini_cfg_type_bool, offsetof(struct fmt_opts, insert_final_newline) },
+		{ "sort_files", ini_cfg_type_bool, offsetof(struct fmt_opts, sort_files) },
+		{ "group_arg_value", ini_cfg_type_bool, offsetof(struct fmt_opts, group_arg_value) },
+		{ "simplify_string_literals", ini_cfg_type_bool, offsetof(struct fmt_opts, simplify_string_literals) },
+		{ "use_editor_config", ini_cfg_type_bool, offsetof(struct fmt_opts, use_editor_config) },
+		{ "indent_before_comments", ini_cfg_type_str, offsetof(struct fmt_opts, indent_before_comments) },
+		{ "indent_size", ini_cfg_type_uint, offsetof(struct fmt_opts, indent_size) },
+		{ "tab_width", ini_cfg_type_uint, offsetof(struct fmt_opts, tab_width) },
+		{ "indent_style",
+			ini_cfg_type_enum,
+			offsetof(struct fmt_opts, indent_style),
+			.enum_tbl = indent_style_tbl },
+		{ "end_of_line",
+			ini_cfg_type_enum,
+			offsetof(struct fmt_opts, end_of_line),
+			.enum_tbl = end_of_line_tbl },
+		{ "sticky_parens", ini_cfg_type_bool, offsetof(struct fmt_opts, sticky_parens) },
+		{ "continuation_indent", ini_cfg_type_bool, offsetof(struct fmt_opts, continuation_indent) },
 
 		// deprecated options
-		{ "indent_by", type_str, .deprecated = true, .deprecated_action = fmt_cfg_parse_indent_by },
-		{ "kwa_ml", type_bool, offsetof(struct fmt_opts, kwargs_force_multiline), .deprecated = true },
+		{ "indent_by", ini_cfg_type_str, .deprecated = true, .deprecated_action = fmt_cfg_parse_indent_by },
+		{ "kwa_ml", ini_cfg_type_bool, offsetof(struct fmt_opts, kwargs_force_multiline), .deprecated = true },
 
 		0,
 	};
 
-	if (!k || !*k) {
-		error_messagef(ctx->wk, src, location, log_error, "missing key");
-		return false;
-	} else if (!v || !*v) {
-		error_messagef(ctx->wk, src, location, log_error, "missing value");
-		return false;
-	} else if (sect) {
-		error_messagef(ctx->wk, src, location, log_error, "invalid section");
-		return false;
-	}
-
-	uint32_t i;
-	for (i = 0; keys[i].name; ++i) {
-		if (strcmp(k, keys[i].name) != 0) {
-			continue;
-		}
-
-		void *val_dest = (((uint8_t *)(&ctx->opts)) + keys[i].off);
-
-		if (keys[i].deprecated) {
-			error_messagef(ctx->wk, src, location, log_warn, "option %s is deprecated", keys[i].name);
-		}
-
-		switch (keys[i].type) {
-		case type_uint: {
-			char *endptr = NULL;
-			long long lval = strtoll(v, &endptr, 10);
-			if (*endptr) {
-				error_messagef(ctx->wk, src, location, log_error, "unable to parse integer");
-				return false;
-			} else if (lval < 0 || lval > (long long)UINT32_MAX) {
-				error_messagef(ctx->wk, src, location, log_error, "integer outside of range 0-%u", UINT32_MAX);
-				return false;
-			}
-
-			uint32_t val = lval;
-
-			if (keys[i].deprecated_action) {
-				keys[i].deprecated_action(ctx, &val);
-			} else {
-				memcpy(val_dest, &val, sizeof(uint32_t));
-			}
-			break;
-		}
-		case type_str: {
-			char *start, *end;
-			start = strchr(v, '\'');
-			end = strrchr(v, '\'');
-
-			if (!start || !end || start == end) {
-				error_messagef(ctx->wk, src, location, log_error, "expected single-quoted string");
-				return false;
-			}
-
-			*end = 0;
-			++start;
-
-			if (keys[i].deprecated_action) {
-				keys[i].deprecated_action(ctx, &start);
-			} else {
-				memcpy(val_dest, &start, sizeof(char *));
-			}
-			break;
-		}
-		case type_bool: {
-			bool val;
-			if (strcmp(v, "true") == 0) {
-				val = true;
-			} else if (strcmp(v, "false") == 0) {
-				val = false;
-			} else {
-				error_messagef(ctx->wk, src, location, log_error, "invalid value for bool, expected true/false");
-				return false;
-			}
-
-			if (keys[i].deprecated_action) {
-				keys[i].deprecated_action(ctx, &val);
-			} else {
-				memcpy(val_dest, &val, sizeof(bool));
-			}
-			break;
-		}
-		case type_enum: {
-			assert(keys[i].enum_tbl);
-
-			uint32_t j, val = 0;
-			for (j = 0; keys[i].enum_tbl[j].name; ++j) {
-				if (strcmp(v, keys[i].enum_tbl[j].name) == 0) {
-					val = keys[i].enum_tbl[j].val;
-					break;
-				}
-			}
-
-			if (!keys[i].enum_tbl[j].name) {
-				error_messagef(ctx->wk, src, location, log_error, "invalid value for %s: %s", keys[i].name, v);
-				return false;
-			}
-
-			if (keys[i].deprecated_action) {
-				keys[i].deprecated_action(ctx, &val);
-			} else {
-				memcpy(val_dest, &val, sizeof(uint32_t));
-			}
-		}
-		}
-
-		break;
-	}
-
-	if (!keys[i].name) {
-		error_messagef(ctx->wk, src, location, log_error, "unknown config key: %s", k);
-		return false;
-	}
-
-	return true;
+	return ini_cfg_parse(wk, cfg_path, keys, f, &f->opts);
 }
 
 static enum fmt_end_of_line
@@ -1732,10 +1599,8 @@ fmt(struct arena *a,
 		try_parse_editorconfig(&wk, src, &f.opts);
 	}
 
-	char *cfg_buf = NULL;
-	struct source cfg_src = { 0 };
 	if (cfg_path) {
-		if (!ini_parse(f.wk, cfg_path, &cfg_src, &cfg_buf, fmt_cfg_parse_cb, &f)) {
+		if (!fmt_cfg_parse(&wk, &f, cfg_path)) {
 			return false;
 		}
 	}

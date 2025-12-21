@@ -21,6 +21,7 @@ src = files(
     'formats/ansi.c',
     'formats/editorconfig.c',
     'formats/ini.c',
+    'formats/ini_cfg.c',
     'formats/json.c',
     'formats/lines.c',
     'formats/tap.c',
