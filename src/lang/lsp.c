@@ -1055,7 +1055,7 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 
 	bool ok = true;
 
-	LOG_I("muon lsp listening...");
+	LOG_I("muon %s%s%s lsp listening...", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
 	TSTR(in_buf);
 	srv.transport.in_buf = &in_buf;
