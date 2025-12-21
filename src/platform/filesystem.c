@@ -554,3 +554,43 @@ fs_copy_metadata(const char *src, const char *dest)
 
 	return true;
 }
+
+static bool
+fs_xdg_base_dir(struct workspace *wk, struct tstr *path, const char *xdg_name, const char *fallback, bool mkdir)
+{
+	tstr_clear(path);
+
+	const char *base;
+	if ((base = os_get_env(xdg_name))) {
+		path_copy(wk, path, base);
+	} else {
+		if (!(base = fs_user_home())) {
+			base = ".";
+		}
+		path_copy(wk, path, base);
+		path_push(wk, path, fallback);
+	}
+
+	path_push(wk, path, "muon");
+
+	if (!fs_dir_exists(path->buf)) {
+		if (mkdir) {
+			return fs_mkdir_p(wk, path->buf);
+		} else {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool
+fs_path_config_base(struct workspace *wk, struct tstr *path, bool mkdir)
+{
+	return fs_xdg_base_dir(wk, path, "XDG_CONFIG_HOME", ".config", mkdir);
+}
+
+bool
+fs_path_state_base(struct workspace *wk, struct tstr *path, bool mkdir)
+{
+	return fs_xdg_base_dir(wk, path, "XDG_STATE_HOME", ".local/state", mkdir);
+}
