@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "formats/ini_cfg.h"
 #include "formats/json.h"
 #include "functions/modules.h"
 #include "lang/analyze.h"
@@ -989,6 +990,17 @@ az_srv_dbg_break_cb(struct workspace *wk)
 	}
 }
 
+static bool
+az_srv_cfg_parse(struct workspace *wk, struct az_opts *dest, const char *cfg_path)
+{
+	const struct ini_cfg_key keys[] = {
+		{ "debug_log", ini_cfg_type_bool, offsetof(struct az_opts, lsp.debug_log) },
+		0,
+	};
+
+	return ini_cfg_parse(wk, cfg_path, keys, 0, dest);
+}
+
 bool
 analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 {
@@ -997,6 +1009,18 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 	if (cmdline_opts->lsp.wait_for_debugger) {
 		LOG_I("muon lsp waiting for debugger...");
 		while (!os_is_debugger_attached()) { }
+	}
+
+	{
+		TSTR(config);
+		if (fs_path_config_base(srv_wk, &config, false)) {
+			path_push(srv_wk, &config, "lsp.ini");
+			if (fs_file_exists(config.buf)) {
+				if (!az_srv_cfg_parse(srv_wk, cmdline_opts, config.buf)) {
+					return false;
+				}
+			}
+		}
 	}
 
 	FILE *debug_log = 0;
