@@ -692,7 +692,7 @@ az_srv_get_func_completions(struct az_srv *srv,
 		}
 
 		uint32_t i;
-		for (i = 0; impl_group[m].impls[i].name; ++i) {
+		for (i = 0; i < impl_group[m].len; ++i) {
 			const struct func_impl *impl = &impl_group[m].impls[i];
 			if (str_startswith(&STRL(impl->name), prefix)) {
 				obj f;
@@ -955,11 +955,10 @@ az_srv_dbg_break_cb(struct workspace *wk)
 
 #if 0
 	L("hit breakpoint");
-	for (uint32_t i = 0; i < 32;) {
-		L("%s", vm_dis_inst(wk, wk->vm.code.e, ip + i));
-
-		i += OP_WIDTH(wk->vm.code.e[ip + i]);
+	for (uint32_t i = ip; i < wk->vm.code.len; i += OP_WIDTH(wk->vm.code.e[i])) {
+		L("%s", vm_dis_inst(wk, wk->vm.code.e, i));
 	}
+	L("---");
 #endif
 
 	struct az_srv_break_info info = { 0 };
@@ -995,6 +994,7 @@ az_srv_cfg_parse(struct workspace *wk, struct az_opts *dest, const char *cfg_pat
 {
 	const struct ini_cfg_key keys[] = {
 		{ "debug_log", ini_cfg_type_bool, offsetof(struct az_opts, lsp.debug_log) },
+		{ "wait_for_debugger", ini_cfg_type_bool, offsetof(struct az_opts, lsp.wait_for_debugger) },
 		0,
 	};
 
@@ -1006,11 +1006,6 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 {
 	log_set_file(srv_wk, stderr);
 
-	if (cmdline_opts->lsp.wait_for_debugger) {
-		LOG_I("muon lsp waiting for debugger...");
-		while (!os_is_debugger_attached()) { }
-	}
-
 	{
 		TSTR(config);
 		if (fs_path_config_base(srv_wk, &config, false)) {
@@ -1021,6 +1016,11 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 				}
 			}
 		}
+	}
+
+	if (cmdline_opts->lsp.wait_for_debugger) {
+		LOG_I("muon lsp waiting for debugger...");
+		while (!os_is_debugger_attached()) { }
 	}
 
 	FILE *debug_log = 0;

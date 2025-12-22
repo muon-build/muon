@@ -887,6 +887,10 @@ struct az_pop_args_ctx {
 
 FUNC_IMPL(analyzer, injected_native_func, tc_any)
 {
+	if (!res) {
+		return false;
+	}
+
 	pop_args_ctx.encountered_error = false;
 
 	// discard all arguments
