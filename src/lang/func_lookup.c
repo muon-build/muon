@@ -615,6 +615,8 @@ dump_function_signatures(struct workspace *wk)
  * docs generation
  ******************************************************************************/
 
+static const bool dump_docs_warn_missing = false;
+
 struct meson_doc_entry_common {
 	const char *name, *description, *type;
 };
@@ -679,9 +681,11 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 			desc = an->desc;
 		} else if (function_sig_dump.meson_doc_entry) {
 			if (an_idx >= function_sig_dump.meson_doc_entry->posargs_len) {
-				LOG_W("missing documentation for %s posarg %d",
-					function_sig_dump.meson_doc_entry->common.name,
-					an_idx);
+				if (dump_docs_warn_missing) {
+					LOG_W("missing documentation for %s posarg %d",
+						function_sig_dump.meson_doc_entry->common.name,
+						an_idx);
+				}
 			} else {
 				struct meson_doc_entry_arg *arg
 					= &meson_doc_posargs[function_sig_dump.meson_doc_entry->posargs_start + an_idx];
@@ -705,7 +709,7 @@ dump_function_arg(struct workspace *wk, struct args_norm *an, uint32_t an_idx, s
 
 			if (arg) {
 				desc = arg->common.description;
-			} else {
+			} else if (dump_docs_warn_missing) {
 				LOG_W("missing documentation for %s kwarg %s",
 					function_sig_dump.meson_doc_entry->common.name,
 					kw->key);
@@ -855,7 +859,7 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 
 	if (desc) {
 		obj_dict_set(wk, res, make_str(wk, "desc"), make_str(wk, desc));
-	} else {
+	} else if (dump_docs_warn_missing) {
 		LOG_W("missing documentation for %s.%s",
 			opts->module_func ? opts->module : obj_type_to_s(opts->rcvr_t),
 			opts->impl->name);
@@ -884,7 +888,6 @@ dump_function_native(struct workspace *wk, enum obj_type t, const struct func_im
 		function_sig_dump.meson_doc_entry = meson_doc_lookup_function(t, impl->name);
 	}
 
-	L("%s", impl->name);
 	if (strcmp(impl->name, "executable") || strcmp(impl->name, "build_target")
 		|| strcmp(impl->name, "shared_library") || strcmp(impl->name, "static_library")
 		|| strcmp(impl->name, "both_libraries")) {
@@ -952,8 +955,6 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 	doc = make_obj(wk, obj_array);
 
 	struct func_impl_group *g;
-
-	L("-----------");
 
 	uint32_t i;
 	{
