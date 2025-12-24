@@ -29,9 +29,9 @@ endforeach
 if host_machine.system() == 'windows'
     include_dir += include_directories('../../include/platform/windows')
     platform_sources += files(
+        'null/backtrace.c',
         'windows/rpath_fixer.c',
         'windows/win32_error.c',
-        'null/backtrace.c',
     )
 endif
 
@@ -47,7 +47,12 @@ if platform == 'posix'
         libdl = cc.find_library('dl', required: false)
 
         native_backtrace = (
-            cc.has_function('dladdr', prefix: '#include <dlfcn.h>', args: ['-D_BSD_SOURCE'], dependencies: libdl)
+            cc.has_function(
+                'dladdr',
+                prefix: '#include <dlfcn.h>',
+                args: ['-D_BSD_SOURCE'],
+                dependencies: libdl,
+            )
             and cc.has_function('backtrace', prefix: '#include <execinfo.h>')
         )
 
