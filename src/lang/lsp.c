@@ -1125,11 +1125,9 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 			} else {
 				az_srv_all_diagnostics(&srv, &wk);
 			}
-		}
 
-		if (debug_log) {
-			fflush(debug_log);
 		}
+		log_flush();
 
 		workspace_scratch_end(srv_wk);
 

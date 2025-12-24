@@ -466,6 +466,9 @@ log_flush(void)
 	if (log_cfg.file) {
 		fflush(log_cfg.file);
 	}
+	if (log_cfg.debug_file) {
+		fflush(log_cfg.debug_file);
+	}
 }
 
 void
