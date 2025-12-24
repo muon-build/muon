@@ -106,16 +106,18 @@ foreach native : [false, true]
             '-Wno-missing-field-initializers',
             '-Wno-unused-parameter',
             '-Wold-style-definition',
+            '-Wno-frame-address',
             '-Woverflow',
             '-Wstrict-aliasing=2',
             '-Wstrict-prototypes',
             '-Wundef',
             '-Wvla',
             '-fstrict-aliasing',
-            '-std=c99',
+            '-fno-omit-frame-pointer',
             '-fmacro-prefix-map=@0@/='.format(
                 fs.relative_to(meson.current_source_dir(), meson.current_build_dir()),
             ),
+            '-std=c99',
         ]
     endif
 
@@ -139,6 +141,7 @@ foreach native : [false, true]
 endforeach
 
 include_dir = [include_directories('include')]
+muon_export_dynamic = false
 
 subdir('tools')
 subdir('src')
@@ -195,6 +198,7 @@ muon = executable(
     c_args: muon_c_args,
     cpp_args: muon_c_args,
     install: true,
+    export_dynamic: muon_export_dynamic,
 )
 
 subdir('tests')

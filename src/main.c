@@ -36,6 +36,7 @@
 #include "options.h"
 #include "opts.h"
 #include "platform/assert.h"
+#include "platform/backtrace.h"
 #include "platform/init.h"
 #include "platform/os.h"
 #include "platform/path.h"
@@ -1324,6 +1325,7 @@ cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 #ifdef __SANITIZE_MEMORY__
 		{ "msan", true },
 #endif
+		{ "native backtrace", have_platform_backtrace_capture },
 	};
 
 	uint32_t i;
@@ -1467,6 +1469,16 @@ signal_handler(int signal, const char *signal_name, void *_ctx)
 
 	LOG_I("caught signal %d (%s)", signal, signal_name);
 
+	struct platform_backtrace bt = { 0 };
+	platform_backtrace_capture(wk->a, &bt);
+
+	LOG_I("native backtrace (%d frames):", bt.frames.len);
+	for (uint32_t i = 0; i < bt.frames.len; i++) {
+		const struct platform_backtrace_frame *frame = arr_get(&bt.frames, i);
+		LOG_I("%p <%s+%d> at %s", frame->addr, frame->symbol_name, (int)frame->offset, frame->file_name);
+	}
+
+	log_flush();
 
 	if (wk->vm.run) {
 		vm_error(wk, "encountered unhandled runtime error");
@@ -1475,6 +1487,7 @@ signal_handler(int signal, const char *signal_name, void *_ctx)
 		backend_print_stack(wk);
 	}
 
+	log_flush();
 }
 
 int

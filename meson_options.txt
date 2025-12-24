@@ -55,6 +55,13 @@ option(
     description: 'select readline implementation',
 )
 
+option(
+    'native_backtrace',
+    type: 'feature',
+    value: 'auto',
+    description: 'enable native backtrace capture',
+)
+
 ################################################################################
 # build settings
 ################################################################################

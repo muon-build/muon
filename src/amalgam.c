@@ -117,6 +117,7 @@
 #include "platform/assert.c"
 #include "platform/filesystem.c"
 #include "platform/mem.c"
+#include "platform/null/backtrace.c"
 #include "platform/os.c"
 #include "platform/path.c"
 #include "platform/run_cmd.c"
