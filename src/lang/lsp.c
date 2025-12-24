@@ -42,11 +42,15 @@ struct az_srv {
 	struct {
 		obj id;
 		obj result;
+		obj path_str;
+		const char *path;
+		const char *root_path;
 		enum az_srv_req_type type;
 	} req;
 
-	struct workspace *wk;
-	obj diagnostics_to_clear;
+	struct workspace *srv_wk;
+	struct hash diagnostics_map;
+	struct arr diagnostics_to_clear;
 	struct az_opts opts;
 };
 
@@ -107,7 +111,7 @@ az_srv_read_bytes(struct az_srv *srv)
 	struct tstr *buf = srv->transport.in_buf;
 
 	if (buf->cap - buf->len < 16) {
-		tstr_grow(srv->wk, buf, 1024);
+		tstr_grow(srv->srv_wk, buf, 1024);
 	}
 
 	const uint32_t space_available = buf->cap - buf->len;
@@ -326,8 +330,8 @@ az_srv_range(struct workspace *wk, const struct source *src, struct source_locat
 	return range;
 }
 
-static const char *
-az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
+static obj
+az_srv_uri_to_str(struct workspace *wk, const struct str *_uri_s)
 {
 	struct str uri_s = *_uri_s;
 	{
@@ -353,7 +357,15 @@ az_srv_uri_to_path(struct workspace *wk, const struct str *_uri_s)
 	}
 
 
-	return get_str(wk, tstr_into_str(wk, &res))->s;
+	return tstr_into_str(wk, &res);
+}
+
+static void
+az_srv_set_request_path(struct az_srv *srv, struct workspace *wk, const struct str *_uri_s)
+{
+	if ((srv->req.path_str = az_srv_uri_to_str(wk, _uri_s))) {
+		srv->req.path = get_str(wk, srv->req.path_str)->s;
+	}
 }
 
 static obj
@@ -373,7 +385,7 @@ az_srv_path_to_uri(struct workspace *wk, const struct str *path)
 }
 
 static void
-az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source *src, obj list)
+az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source *src, obj list, struct arr *diagnostics_to_clear)
 {
 	if (src->type != source_type_file) {
 		return;
@@ -385,26 +397,44 @@ az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source
 	obj_dict_set(wk, params, make_str(wk, "diagnostics"), list ? list : make_obj(wk, obj_array));
 	az_srv_request(srv, wk, "textDocument/publishDiagnostics", params);
 
-	if (list) {
-		obj_array_push(srv->wk, srv->diagnostics_to_clear, make_str(srv->wk, src->label));
+	if (diagnostics_to_clear) {
+		const struct str *label = get_str(srv->srv_wk, make_str(srv->srv_wk, src->label));
+		arr_push(srv->srv_wk->a, diagnostics_to_clear, &label);
 	}
 }
 
 static void
 az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 {
+	struct workspace *srv_wk = srv->srv_wk;
+	struct arr *diagnostics_to_clear = 0;
 	{
-		obj diagnostics_to_clear;
-		obj_clone(srv->wk, wk, srv->diagnostics_to_clear, &diagnostics_to_clear);
-		obj_array_clear(srv->wk, srv->diagnostics_to_clear);
+		uint64_t *val;
+		if ((val = hash_get_strn(&srv->diagnostics_map, srv->req.root_path, strlen(srv->req.root_path)))) {
+			diagnostics_to_clear = arr_get(&srv->diagnostics_to_clear, *val);
+		} else {
+			const char *root_path = get_str(srv->srv_wk, make_str(srv->srv_wk, srv->req.root_path))->s;
 
-		az_srv_log(srv, wk, "clearing diagnostics from %o", diagnostics_to_clear);
-
-		obj uri;
-		obj_array_for(wk, diagnostics_to_clear, uri) {
-			az_srv_diagnostics(
-				srv, wk, &(struct source){ .type = source_type_file, .label = get_cstr(wk, uri) }, 0);
+			const uint64_t diagnostics_to_clear_i = srv->diagnostics_to_clear.len;
+			hash_set_strn(srv_wk->a,
+				srv_wk->a_scratch,
+				&srv->diagnostics_map,
+				root_path,
+				strlen(root_path),
+				diagnostics_to_clear_i);
+			arr_grow_by(srv_wk->a, &srv->diagnostics_to_clear, 1);
+			diagnostics_to_clear = arr_get(&srv->diagnostics_to_clear, diagnostics_to_clear_i);
+			arr_init(srv_wk->a, diagnostics_to_clear, 16, struct str *);
 		}
+	}
+
+	for (uint32_t i = 0; i < diagnostics_to_clear->len; ++i) {
+		const struct str *uri = *(struct str **)arr_get(diagnostics_to_clear, i);
+
+		az_srv_log(srv, wk, "clearing diagnostics from %s", uri->s);
+
+		az_srv_diagnostics(
+			srv, wk, &(struct source){ .type = source_type_file, .label = uri->s }, 0, 0);
 	}
 
 	const struct arr *diagnostics = &wk->diagnostic_store->messages;
@@ -421,7 +451,7 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 		cur_src = msg->src_idx == UINT32_MAX ? &null_src : arr_get(&wk->vm.src, msg->src_idx);
 		if (cur_src != last_src) {
 			if (last_src) {
-				az_srv_diagnostics(srv, wk, last_src, d);
+				az_srv_diagnostics(srv, wk, last_src, d, diagnostics_to_clear);
 				obj_array_clear(wk, d);
 			}
 
@@ -436,20 +466,17 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 	}
 
 	if (last_src) {
-		az_srv_diagnostics(srv, wk, last_src, d);
+		az_srv_diagnostics(srv, wk, last_src, d, diagnostics_to_clear);
 	}
 }
 
 static void
 az_srv_set_src_override(struct az_srv *srv, struct workspace *wk, const struct str *uri_s, const struct str *content)
 {
-	const char *path;
-	if (!(path = az_srv_uri_to_path(wk, uri_s))) {
-		return;
-	}
+	az_srv_set_request_path(srv, wk, uri_s);
 
 	srv->should_analyze = true;
-	analyze_opts_push_override(srv->wk, &srv->opts, path, 0, content);
+	analyze_opts_push_override(srv->srv_wk, &srv->opts, srv->req.path, 0, content);
 }
 
 static void
@@ -462,9 +489,9 @@ az_srv_handle_push_breakpoint_from_msg(struct az_srv *srv, struct workspace *wk,
 	int64_t line = obj_dict_index_as_number(wk, position, "line");
 	int64_t col = obj_dict_index_as_number(wk, position, "character");
 
-	const char *path = az_srv_uri_to_path(wk, uri);
-	if (path && line >= 0 && col >= 0) {
-		vm_dbg_push_breakpoint(wk, make_str(wk, path), line + 1, col + 1);
+	az_srv_set_request_path(srv, wk, uri);
+	if (srv->req.path && line >= 0 && col >= 0) {
+		vm_dbg_push_breakpoint(wk, srv->req.path_str, line + 1, col + 1);
 		srv->should_analyze = true;
 	} else {
 		LOG_E("unable to push breakpoint for %s:%d:%d", uri->s, (int32_t)line, (int32_t)col);
@@ -478,12 +505,14 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 	const struct str *method = obj_dict_index_as_str(wk, msg, "method");
 
 	if (str_eql(method, &STR("initialize"))) {
-		obj params = obj_dict_index_as_obj(wk, msg, "params");
-		obj root_uri = obj_dict_index_as_obj(wk, params, "rootUri");
-		if (root_uri) {
-			const char *root = az_srv_uri_to_path(wk, get_str(wk, root_uri));
-			if (root) {
-				path_chdir(wk, root);
+		if (false) {
+			obj params = obj_dict_index_as_obj(wk, msg, "params");
+			obj root_uri = obj_dict_index_as_obj(wk, params, "rootUri");
+			if (root_uri) {
+				az_srv_set_request_path(srv, wk, get_str(wk, root_uri));
+				if (srv->req.path) {
+					path_chdir(wk, srv->req.path);
+				}
 			}
 		}
 
@@ -1023,6 +1052,9 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		while (!os_is_debugger_attached()) { }
 	}
 
+	TSTR(original_cwd);
+	path_copy_cwd(srv_wk, &original_cwd);
+
 	FILE *debug_log = 0;
 	if (cmdline_opts->lsp.debug_log) {
 		TSTR(path);
@@ -1042,11 +1074,13 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 			.in = 0, // STDIN_FILENO
 			.out = stdout,
 		},
-		.wk = srv_wk,
-		.diagnostics_to_clear = make_obj(srv_wk, obj_array),
+		.srv_wk = srv_wk,
 	};
 
-	analyze_opts_init(srv.wk, &srv.opts);
+	hash_init_str(srv_wk->a, &srv.diagnostics_map, 256);
+	arr_init(srv_wk->a, &srv.diagnostics_to_clear, 16, struct arr);
+
+	analyze_opts_init(srv.srv_wk, &srv.opts);
 	srv.opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
 
 	struct arena a, a_scratch;
@@ -1087,7 +1121,27 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		az_srv_handle(&srv, &wk, msg);
 
 		if (srv.should_analyze) {
+			bool did_chdir = false;
+
 			struct az_opts opts = { 0 };
+
+			if (srv.req.path) {
+				if (str_endswith(get_str(&wk, srv.req.path_str), &STR(".meson"))) {
+					srv.req.root_path = srv.req.path;
+					opts.single_file = srv.req.path;
+					opts.lang_mode = language_extended;
+				} else {
+					if ((srv.req.root_path = determine_project_root(&wk, srv.req.path))) {
+						// TODO: it would be nice to not rely on chdiring at
+						// all here
+						if (!path_chdir(&wk, srv.req.root_path)) {
+							goto analyze_done;
+						}
+						did_chdir = true;
+					}
+				}
+			}
+
 			opts.file_override = make_obj(&wk, obj_dict);
 			opts.file_override_src = srv.opts.file_override_src;
 			opts.enabled_diagnostics = srv.opts.enabled_diagnostics;
@@ -1099,8 +1153,8 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 
 			{
 				obj path, idx;
-				obj_dict_for(srv.wk, srv.opts.file_override, path, idx) {
-					obj_dict_set(&wk, opts.file_override, str_clone(srv.wk, &wk, path), idx);
+				obj_dict_for(srv.srv_wk, srv.opts.file_override, path, idx) {
+					obj_dict_set(&wk, opts.file_override, str_clone(srv.srv_wk, &wk, path), idx);
 				}
 			}
 
@@ -1126,7 +1180,12 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 				az_srv_all_diagnostics(&srv, &wk);
 			}
 
+			if (did_chdir) {
+				path_chdir(&wk, original_cwd.buf);
+			}
 		}
+analyze_done:
+
 		log_flush();
 
 		workspace_scratch_end(srv_wk);
