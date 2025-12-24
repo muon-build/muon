@@ -7,16 +7,16 @@
 
 #ifdef _WIN32
 #include <process.h>
+#else
+#include <stdlib.h>
+#endif
 
 #include "log.h"
-#endif
 
 #include "platform/assert.h"
 
-#ifdef _WIN32
-__declspec(noreturn) void win_assert_fail(const char *msg, const char *file, uint32_t line, const char *func)
+MUON_NORETURN void muon_assert_fail(const char *msg, const char *file, uint32_t line, const char *func)
 {
-	LOG_E("%s:%d %s: %s", file, line, func, msg);
+	LOG_E("%s:%d %s assertion failed: %s", file, line, func, msg);
 	abort();
 }
-#endif

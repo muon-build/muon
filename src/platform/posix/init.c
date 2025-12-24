@@ -5,38 +5,55 @@
 
 #include "compat.h"
 
+#include <errno.h>
 #include <signal.h>
+#include <string.h>
 
+#include "log.h"
 #include "platform/init.h"
 
 static struct {
-	void((*handler)(void *ctx));
+	platform_signal_handler_fn handler;
 	void *ctx;
-} platform_sigabrt_handler_ctx;
+} platform_signal_handler_ctx;
 
-void
-platform_sigabrt_handler(int signo, siginfo_t *info, void *ctx)
+static void
+platform_signal_handler(int signo, siginfo_t *info, void *_ctx)
 {
-	if (platform_sigabrt_handler_ctx.handler) {
-		platform_sigabrt_handler_ctx.handler(platform_sigabrt_handler_ctx.ctx);
+	if (platform_signal_handler_ctx.handler) {
+		const char *name = "unknown";
+		switch (signo) {
+		case SIGABRT: name = "abort"; break;
+		case SIGSEGV: name = "segmentation fault"; break;
+		case SIGBUS: name = "bus error"; break;
+		}
+		platform_signal_handler_ctx.handler(signo, name, platform_signal_handler_ctx.ctx);
+	}
+}
+
+static void
+platform_sigaction(int sig)
+{
+	struct sigaction act = {
+		.sa_flags = SA_SIGINFO | SA_RESETHAND,
+		.sa_sigaction = platform_signal_handler,
+	};
+	if (sigaction(sig, &act, 0) == -1) {
+		LOG_W("failed to install signal handler: %s", strerror(errno));
 	}
 }
 
 void
 platform_init(void)
 {
-	{
-		struct sigaction act = {
-			.sa_flags = SA_SIGINFO,
-			.sa_sigaction = platform_sigabrt_handler,
-		};
-		sigaction(SIGABRT, &act, 0);
-	}
+	platform_sigaction(SIGABRT);
+	platform_sigaction(SIGSEGV);
+	platform_sigaction(SIGBUS);
 }
 
 void
-platform_set_abort_handler(void((*handler)(void *ctx)), void *ctx)
+platform_set_signal_handler(platform_signal_handler_fn handler, void *ctx)
 {
-	platform_sigabrt_handler_ctx.handler = handler;
-	platform_sigabrt_handler_ctx.ctx = ctx;
+	platform_signal_handler_ctx.handler = handler;
+	platform_signal_handler_ctx.ctx = ctx;
 }

@@ -19,7 +19,6 @@
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
-#include "platform/init.h"
 #include "platform/run_cmd.h"
 #include "tracy.h"
 
@@ -61,7 +60,7 @@ ret:
 	return ret;
 }
 
-static void
+void
 backend_print_stack(struct workspace *wk)
 {
 	log_plain(log_info, "stack trace:\n");
@@ -69,14 +68,6 @@ backend_print_stack(struct workspace *wk)
 	obj_array_for(wk, wk->backend_output_stack, v) {
 		log_plain(log_info, " -> %s\n", get_cstr(wk, v));
 	}
-}
-
-static void
-backend_abort_handler(void *_ctx)
-{
-	struct workspace *wk = _ctx;
-	LOG_E("an unhandled error occured during backend output");
-	backend_print_stack(wk);
 }
 
 static obj
@@ -227,7 +218,6 @@ backend_output(struct workspace *wk)
 	TracyCZoneAutoS;
 
 	wk->backend_output_stack = make_obj(wk, obj_array);
-	platform_set_abort_handler(backend_abort_handler, wk);
 
 	bool ok = true;
 

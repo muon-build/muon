@@ -22,6 +22,6 @@ platform_init(void)
 }
 
 void
-platform_set_abort_handler(void((*handler)(void *ctx)), void *ctx)
+platform_set_signal_handler(platform_signal_handler_fn handler, void *ctx)
 {
 }

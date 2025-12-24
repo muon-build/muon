@@ -40,3 +40,11 @@
 #ifndef MUON_RELEASE
 #define MUON_RELEASE 0
 #endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#define MUON_NORETURN __attribute__((noreturn))
+#elif defined(_MSC_VER)
+#define MUON_NORETURN __declspec(noreturn)
+#else
+#define MUON_NORETURN
+#endif

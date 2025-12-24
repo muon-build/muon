@@ -8,4 +8,5 @@
 #include "lang/workspace.h"
 
 bool backend_output(struct workspace *wk);
+void backend_print_stack(struct workspace *wk);
 #endif

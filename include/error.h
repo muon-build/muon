@@ -40,7 +40,7 @@ struct error_diagnostic_store  {
 };
 
 
-void error_unrecoverable(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
+MUON_NORETURN void error_unrecoverable(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
 void error_message(struct workspace *wk, const struct source *src, struct source_location location, enum log_level lvl, enum error_message_flag flags, const char *msg);
 void error_message_flush_coalesced_message(struct workspace *wk);
 void

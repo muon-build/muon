@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/backend.h"
 #include "backend/common_args.h"
 #include "backend/ninja.h"
 #include "backend/output.h"
@@ -1459,6 +1460,23 @@ cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[])
 	return commands[cmd_i].cmd(wk, argc, argi, argv);
 }
 
+static void
+signal_handler(int signal, const char *signal_name, void *_ctx)
+{
+	struct workspace *wk = _ctx;
+
+	LOG_I("caught signal %d (%s)", signal, signal_name);
+
+
+	if (wk->vm.run) {
+		vm_error(wk, "encountered unhandled runtime error");
+	} else if (wk->backend_output_stack) {
+		LOG_E("an unhandled error occured during backend output");
+		backend_print_stack(wk);
+	}
+
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1470,6 +1488,8 @@ main(int argc, char *argv[])
 	arena_init(&a_scratch, );
 	struct workspace wk;
 	workspace_init_arena(&wk, &a, &a_scratch);
+
+	platform_set_signal_handler(signal_handler, &wk);
 
 	log_set_file(&wk, stdout);
 	log_set_lvl(log_info);

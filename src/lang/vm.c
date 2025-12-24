@@ -22,7 +22,6 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
-#include "platform/init.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -2465,13 +2464,6 @@ vm_op_dbg_break(struct workspace *wk)
  * vm_execute
  ******************************************************************************/
 
-static void
-vm_abort_handler(void *ctx)
-{
-	struct workspace *wk = ctx;
-	vm_error(wk, "encountered unhandled error");
-}
-
 bool
 vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
 {
@@ -2565,8 +2557,6 @@ vm_execute(struct workspace *wk)
 {
 	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
-
-	platform_set_abort_handler(vm_abort_handler, wk);
 
 	stack_push(&wk->stack, wk->vm.run, true);
 

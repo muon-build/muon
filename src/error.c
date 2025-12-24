@@ -165,7 +165,7 @@ error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_
 	return !ok;
 }
 
-void
+MUON_NORETURN void
 error_unrecoverable(const char *fmt, ...)
 {
 	va_list ap;
@@ -176,7 +176,7 @@ error_unrecoverable(const char *fmt, ...)
 	log_plain(log_error, "\n");
 	va_end(ap);
 
-	assert(false);
+	abort();
 }
 
 MUON_ATTR_FORMAT(printf, 4, 5)
