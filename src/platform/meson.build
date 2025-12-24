@@ -48,8 +48,7 @@ if platform == 'posix'
 
         native_backtrace = (
             cc.has_function('dladdr', prefix: '#include <dlfcn.h>', args: ['-D_BSD_SOURCE'], dependencies: libdl)
-            and cc.has_function('__builtin_frame_address')
-            and cc.has_function('__builtin_return_address')
+            and cc.has_function('backtrace', prefix: '#include <execinfo.h>')
         )
 
         if native_backtrace and libdl.found()
