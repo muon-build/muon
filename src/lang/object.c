@@ -125,7 +125,7 @@ get_obj_bool(struct workspace *wk, obj o)
 	} else if (o == obj_bool_false) {
 		return false;
 	} else {
-		UNREACHABLE;
+		UNREACHABLE_RETURN;
 	}
 
 	/* return *(bool *)get_obj_internal(wk, o, obj_bool); */

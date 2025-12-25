@@ -999,7 +999,7 @@ wrap_handle_git(struct workspace *wk, struct wrap_handle_ctx *ctx)
 		wrap_set_state(ctx, wrap_handle_state_apply_patch);
 		return true;
 	}
-	default: UNREACHABLE;
+	default: UNREACHABLE_RETURN;
 	}
 }
 

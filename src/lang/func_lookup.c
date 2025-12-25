@@ -334,7 +334,7 @@ kwargs_arr_index(struct workspace *wk, struct arr *arr, const char *name)
 		}
 	}
 
-	UNREACHABLE;
+	UNREACHABLE_RETURN;
 }
 
 void

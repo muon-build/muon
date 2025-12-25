@@ -1314,7 +1314,7 @@ get_option_backend(struct workspace *wk)
 	} else if (str_eql(backend_str, &STR("xcode"))) {
 		return backend_xcode;
 	} else {
-		UNREACHABLE;
+		UNREACHABLE_RETURN;
 	}
 }
 

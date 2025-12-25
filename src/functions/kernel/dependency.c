@@ -81,7 +81,7 @@ dependency_lookup_method_to_s(enum dependency_lookup_method method)
 		}
 	}
 
-	UNREACHABLE;
+	UNREACHABLE_RETURN;
 }
 
 enum dep_lib_mode {
