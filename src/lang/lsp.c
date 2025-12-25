@@ -437,6 +437,8 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 			srv, wk, &(struct source){ .type = source_type_file, .label = uri->s }, 0, 0);
 	}
 
+	arr_clear(diagnostics_to_clear);
+
 	const struct arr *diagnostics = &wk->diagnostic_store->messages;
 
 	uint32_t i;
