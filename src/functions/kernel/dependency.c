@@ -1466,6 +1466,18 @@ FUNC_IMPL(kernel, declare_dependency, tc_dependency, func_impl_flag_impure)
 		return false;
 	}
 
+	// coerce sources here so that re-evaluation of this dependency doesn't
+	// attempt to re-coerce which will fail if the sources are relative path
+	// strings and the dependency is used in a different directory.
+	if (akw[kw_sources].set) {
+		obj result;
+		if (!coerce_files(wk, akw[kw_sources].node, akw[kw_sources].val, &result)) {
+			return false;
+		}
+
+		akw[kw_sources].val = result;
+	}
+
 	if (akw[kw_include_directories].set) {
 		obj inc_dirs;
 		if (!coerce_include_dirs(
