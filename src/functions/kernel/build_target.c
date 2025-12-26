@@ -9,6 +9,7 @@
 
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "functions/build_target.h"
@@ -352,12 +353,20 @@ static bool
 setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const char *plain_name, struct args_kw *akw)
 {
 	{
+		const char *suffix = "-implib.lib";
+		obj comp = 0;
+		obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp);
+		if (comp) {
+			const struct args *suffix_args = toolchain_linker_implib_suffix(wk, comp);
+			if (suffix_args && suffix_args->len) {
+				suffix = suffix_args->args[0];
+			}
+		}
 		TSTR(implib);
-		tstr_pushf(wk, &implib, "%s" MUON_DEFAULT_IMPLIB_SUFFIX, plain_name);
+		tstr_pushf(wk, &implib, "%s%s", plain_name, suffix);
 		TSTR(path);
 		path_join(wk, &path, get_cstr(wk, tgt->build_dir), implib.buf);
 		tgt->implib = tstr_into_str(wk, &path);
-		tgt_fixup_implib_suffix(wk, tgt);
 	}
 
 	if (akw[bt_kw_vs_module_defs].set)
@@ -663,16 +672,6 @@ create_target(struct workspace *wk,
 			}
 		}
 
-		if (akw[bt_kw_export_dynamic].set && get_obj_bool(wk, akw[bt_kw_export_dynamic].val)) {
-			tgt->flags |= build_tgt_flag_export_dynamic;
-
-			if (machine_definitions[tgt->machine]->is_windows) {
-				if (!setup_implib_and_defs(wk, tgt, plain_name, akw)) {
-					return false;
-				}
-			}
-		}
-
 		if (!akw[bt_kw_build_by_default].set || get_obj_bool(wk, akw[bt_kw_build_by_default].val)) {
 			tgt->flags |= build_tgt_flag_build_by_default;
 		}
@@ -887,6 +886,16 @@ create_target(struct workspace *wk,
 
 	if (!build_tgt_determine_linker(wk, an[0].node, tgt)) {
 		return false;
+	}
+
+	if (akw[bt_kw_export_dynamic].set && get_obj_bool(wk, akw[bt_kw_export_dynamic].val)) {
+		tgt->flags |= build_tgt_flag_export_dynamic;
+
+		if (machine_definitions[tgt->machine]->is_windows) {
+			if (!setup_implib_and_defs(wk, tgt, plain_name, akw)) {
+				return false;
+			}
+		}
 	}
 
 	{ // Verify required compilers

@@ -369,29 +369,6 @@ build_target_extract_all_objects(struct workspace *wk, uint32_t ip, obj self, ob
 	return build_target_extract_all_objects_impl(wk, self, res, recursive);
 }
 
-void
-tgt_fixup_implib_suffix(struct workspace *wk, struct obj_build_target *tgt)
-{
-	if (tgt->implib) {
-		obj comp = 0;
-		obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp);
-		// fallthrough: comp being zero is not an error. Other fixups will be performed later.
-		if (comp) {
-			const struct args *suffix_args = toolchain_linker_implib_suffix(wk, comp);
-			if (suffix_args && suffix_args->len) {
-				const char *suffix = suffix_args->args[0];
-				const struct str *str = get_str(wk, tgt->implib);
-				if (str_endswith(str, &STR(MUON_DEFAULT_IMPLIB_SUFFIX))) {
-					TSTR(implib);
-					tstr_pushn(wk, &implib, str->s, str->len - MUON_DEFAULT_IMPLIB_SUFFIX_LEN);
-					tstr_pushs(wk, &implib, suffix);
-					tgt->implib = tstr_into_str(wk, &implib);
-				}
-			}
-		}
-	}
-}
-
 FUNC_IMPL(build_target, extract_all_objects, tc_array, func_impl_flag_impure)
 {
 	enum kwargs {
