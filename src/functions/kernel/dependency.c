@@ -1893,7 +1893,6 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 		const struct obj_build_target *tgt = get_obj_build_target(wk, val);
 		obj link_to = tgt->build_path;
 		if (tgt->implib) {
-			tgt_fixup_implib_suffix(wk, (struct obj_build_target*)tgt);
 			link_to = tgt->implib;
 		}
 
