@@ -5,6 +5,10 @@
 
 #include "compat.h"
 
+#if defined(_WIN32) && defined(__TINYC__)
+#include <ws2tcpip.h> /* socklen_t */
+#endif
+
 #include <curl/curl.h>
 #include <stdbool.h>
 #include <string.h>

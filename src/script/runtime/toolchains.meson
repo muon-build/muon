@@ -51,6 +51,21 @@ toolchain.register_archiver(
     },
 )
 
+toolchain.register_archiver(
+    'ar-tcc',
+    inherit: 'ar-posix',
+    exe: 'tcc',
+    detect: func(out str) -> int
+        return 'tcc' in out ? 100 : 0
+    endfunc,
+    handlers: {
+        'version': ['--version'],
+        'always': ['-ar'],
+        'base': ['csr'],
+        'needs_wipe': true,
+    },
+)
+
 ################################################################################
 # linkers
 ################################################################################
@@ -96,6 +111,7 @@ toolchain.register_linker(
         'implib': func(_c compiler, s1 str) -> list[str]
             return ['--out-implib,' + s1]
         endfunc,
+        'implib_suffix': ['.dll.a'],
         'no_undefined': ['--no-undefined'],
         'pgo': func(_c compiler, stage str) -> list[str]
             if stage == 'generate'
@@ -214,6 +230,36 @@ toolchain.register_linker(
     },
 )
 
+toolchain.register_linker(
+    'ld-tcc',
+    inherit: 'ld-posix',
+    exe: 'tcc',
+    handlers: {
+        'def': func(_c compiler, s1 str) -> list[str]
+            # Apparently the tcc linker needs -L. to find any .def files.
+            return ['-L.', '-l' + s1]
+        endfunc,
+        'export_dynamic': ['-rdynamic'],
+        'implib': [],
+        'implib_suffix': ['.def'],
+        'input_output': func(_c compiler, input str, output str) -> list[str]
+            return [output, input]
+        endfunc,
+        'lib': func(_c compiler, lib str) -> list[str]
+            return ['-l', lib]
+        endfunc,
+        'shared': ['-shared'],
+        'shared_module': ['-shared'],
+        'soname': func(_c compiler, s1 str) -> list[str]
+            return ['-soname', s1]
+        endfunc,
+        'version': ['-v'],
+        'whole_archive': func(_c compiler, s1 str) -> list[str]
+            return ['--whole-archive', s1, '--no-whole-archive']
+        endfunc,
+    },
+)
+
 ################################################################################
 # compilers
 ################################################################################
@@ -231,7 +277,7 @@ toolchain.register_compiler(
             if len == 0
                 return args
             elif len == 1
-                if args[0] in ['-shared', '-bundle', '-dynamiclib'] or args[0].startswith('-fuse-ld=')
+                if args[0] in ['-shared', '-bundle', '-dynamiclib', '-rdynamic'] or args[0].startswith('-fuse-ld=')
                     return args
                 endif
 
@@ -520,6 +566,20 @@ toolchain.register_compiler(
             endif
         endfunc,
         'werror': ['/WX'],
+    },
+)
+
+toolchain.register_compiler(
+    'tcc',
+    inherit: 'posix',
+    exe: {'c': 'tcc'},
+    linker: 'ld-tcc',
+    archiver: 'ar-tcc',
+    detect: func(out str) -> int
+        return 'tcc' in out ? 100 : 0
+    endfunc,
+    handlers: {
+        'warn_everything': ['-Wall'],
     },
 )
 

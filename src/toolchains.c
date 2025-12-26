@@ -1147,6 +1147,7 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(fatal_warnings, linker, .desc = "`--fatal-warnings`");
 	doc(fuse_ld, linker, .desc = "`-fuse-ld=`");
 	doc(implib, linker, .desc = "`/IMPLIB`");
+	doc(implib_suffix, linker, .desc = "Linker specific import library suffix for DLLs. Defaults to '-implib.lib' if not provided.");
 	doc(input_output, linker, .desc = "Passed in `input` and `output` and orders them properly, optionally adding additional flags.");
 	doc(lib, linker, .desc = "`-l`");
 	doc(no_undefined, linker, .desc = "`--no-undefined`");
