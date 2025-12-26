@@ -39,7 +39,7 @@ const char *build_option_type_to_s[build_option_type_count] = {
 	[op_shell_array] = "shell_array",
 };
 
-static const char *option_group_build = "build";
+static const char *option_group_build = "build.";
 
 static bool
 parse_config_string(struct workspace *wk, const struct str *ss, struct option_override *oo, bool key_only)
@@ -624,7 +624,7 @@ restart:
 			return false;
 		}
 		o = get_obj_option(wk, dup);
-		o->name = make_strf(wk, "%s.%s", option_group_build, name->s);
+		o->name = make_strf(wk, "%s%s", option_group_build, name->s);
 		flags &= ~create_option_flag_per_machine;
 		goto restart;
 	}
@@ -679,7 +679,7 @@ get_option_for_machine_overridable(struct workspace *wk, const struct project *p
 	}
 
 	TSTR(n);
-	tstr_pushf(wk, &n, "%s.%s", option_group_build, name->s);
+	tstr_pushf(wk, &n, "%s%s", option_group_build, name->s);
 	return get_option_overridable(wk, proj, overrides, name, res);
 }
 
@@ -718,20 +718,23 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 	return true;
 }
 
-static void
-set_compile_opt_from_env(struct workspace *wk, const char *name, const char *flags)
+static bool
+set_compile_opt_from_env(struct workspace *wk, const char *envvar, const char *dest)
 {
 	obj opt;
-	if (!get_option(wk, NULL, &STRL(name), &opt)) {
+	if (!get_option(wk, NULL, &STRL(dest), &opt)) {
 		UNREACHABLE;
 	}
 
-	if ((flags = os_get_env(flags)) && *flags) {
-		extend_array_option(wk,
-			opt,
-			str_shell_split(wk, &STRL(flags), shell_type_for_host_machine()),
-			option_value_source_environment);
+	const char *v;
+	if (!(v = os_get_env(envvar)) || !*v) {
+		return false;
 	}
+
+	extend_array_option(
+		wk, opt, str_shell_split(wk, &STRL(v), shell_type_for_host_machine()), option_value_source_environment);
+
+	return true;
 }
 
 static void
@@ -937,13 +940,30 @@ make_compiler_option(struct workspace *wk, obj name, enum create_option_flag fla
 	}
 }
 
-struct toolchain_component_option_info {
+struct option_env_var_mapping {
 	const char *env_var;
 	const char *machine_suffix;
 };
 
+static void
+option_env_var_mapping_to_env_var(struct workspace *wk, const struct option_env_var_mapping *mapping, struct tstr *var)
+{
+	tstr_pushf(wk, var, "%s%s", mapping->env_var, mapping->machine_suffix ? mapping->machine_suffix : "");
+}
+
+static void
+option_env_var_mapping_for_machine(const char *env_var,
+	enum machine_kind machine,
+	struct option_env_var_mapping *mapping)
+{
+	*mapping = (struct option_env_var_mapping){
+		.env_var = env_var,
+		.machine_suffix = machine == machine_kind_build ? "_FOR_BUILD" : 0,
+	};
+}
+
 static bool
-toolchain_component_option_info(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct toolchain_component_option_info *info)
+toolchain_component_option_info(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct option_env_var_mapping *mapping)
 {
 	const char *option_names[compiler_language_count][toolchain_component_count] = {
 		[compiler_language_c] = { "CC", "CC_LD", "AR" },
@@ -958,44 +978,49 @@ toolchain_component_option_info(struct workspace *wk, enum compiler_language l, 
 		return false;
 	}
 
-	*info = (struct toolchain_component_option_info) {
-		.env_var = n,
-		.machine_suffix = machine == machine_kind_build ? "_FOR_BUILD" : 0,
-	};
+	option_env_var_mapping_for_machine(n, machine, mapping);
 
 	return true;
 }
 
-void toolchain_component_option_name_from_info(struct workspace *wk, const struct toolchain_component_option_info *info, struct tstr *dest)
+static void
+toolchain_component_option_name_from_info(struct workspace *wk,
+	const struct option_env_var_mapping *mapping,
+	struct tstr *dest)
 {
-	tstr_pushf(wk, dest, "env.%s%s", info->env_var, info->machine_suffix ? info->machine_suffix : "");
+	tstr_pushf(wk, dest, "env.%s%s", mapping->env_var, mapping->machine_suffix ? mapping->machine_suffix : "");
 }
 
-bool toolchain_component_option_name(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct tstr *dest)
+bool
+toolchain_component_option_name(struct workspace *wk,
+	enum compiler_language l,
+	enum toolchain_component c,
+	enum machine_kind machine,
+	struct tstr *dest)
 {
-	struct toolchain_component_option_info info;
-	if (!toolchain_component_option_info(wk, l, c, machine, &info)) {
+	struct option_env_var_mapping mapping;
+	if (!toolchain_component_option_info(wk, l, c, machine, &mapping)) {
 		return false;
 	}
 
-	toolchain_component_option_name_from_info(wk, &info, dest);
+	toolchain_component_option_name_from_info(wk, &mapping, dest);
 	return true;
 }
 
 static void
 make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp, enum machine_kind m)
 {
-	struct toolchain_component_option_info info;
-	if (!toolchain_component_option_info(wk, lang, comp, m, &info)) {
+	struct option_env_var_mapping mapping;
+	if (!toolchain_component_option_info(wk, lang, comp, m, &mapping)) {
 		return;
 	}
 
 	TSTR(env_opt);
-	toolchain_component_option_name_from_info(wk, &info, &env_opt);
+	toolchain_component_option_name_from_info(wk, &mapping, &env_opt);
 	make_compiler_option(wk, tstr_into_str(wk, &env_opt), 0);
 
 	TSTR(env_var_suffixed);
-	tstr_pushf(wk, &env_var_suffixed, "%s%s", info.env_var, info.machine_suffix ? info.machine_suffix : "");
+	option_env_var_mapping_to_env_var(wk, &mapping, &env_var_suffixed);
 
 	if (!set_binary_from_env(wk, env_var_suffixed.buf, env_opt.buf)) {
 		if (m == machine_kind_build) {
@@ -1004,7 +1029,7 @@ make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum
 			//
 			// This lets CC=clang apply to the host machine and build machine
 			// as long as no CC_FOR_BUILD is set.
-			set_binary_from_env(wk, info.env_var, env_opt.buf);
+			set_binary_from_env(wk, mapping.env_var, env_opt.buf);
 		}
 	}
 }
@@ -1039,24 +1064,37 @@ init_global_options(struct workspace *wk)
 
 	uint32_t i, machine;
 	for (i = 0; i < ARRAY_LEN(langs); ++i) {
-		obj args = make_strf(wk, "%s_args", langs[i].name);
-		make_compiler_option(wk, args, create_option_flag_per_machine);
-		if (compile_opt_env_var[langs[i].l][toolchain_component_compiler]) {
-			set_compile_opt_from_env(wk,
-				get_str(wk, args)->s,
-				compile_opt_env_var[langs[i].l][toolchain_component_compiler]);
-		}
+		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine) {
+			const char *option_prefix = machine == machine_kind_build ? option_group_build : "";
 
-		obj link_args = make_strf(wk, "%s_link_args", langs[i].name);
-		make_compiler_option(wk, link_args, create_option_flag_per_machine);
-		if (compile_opt_env_var[langs[i].l][toolchain_component_linker]) {
-			set_compile_opt_from_env(wk,
-				get_str(wk, link_args)->s,
-				compile_opt_env_var[langs[i].l][toolchain_component_linker]);
-		}
+			struct {
+				obj option;
+				const char *env_var;
+			} custom_env_options[] = {
+				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), compile_opt_env_var[langs[i].l][toolchain_component_compiler] },
+				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), compile_opt_env_var[langs[i].l][toolchain_component_linker] },
+			};
 
-		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine)
-		{
+			for (uint32_t i = 0; i < ARRAY_LEN(custom_env_options); ++i) {
+				make_compiler_option(wk, custom_env_options[i].option, 0);
+				if (custom_env_options[i].env_var) {
+					TSTR(env_var);
+					struct option_env_var_mapping mapping;
+					option_env_var_mapping_for_machine(
+						custom_env_options[i].env_var, machine, &mapping);
+					option_env_var_mapping_to_env_var(wk, &mapping, &env_var);
+					const char *option = get_str(wk, custom_env_options[i].option)->s;
+
+					if (!set_compile_opt_from_env(wk, env_var.buf, option)) {
+						if (machine == machine_kind_build) {
+							// If this is a build machine opt but no _FOR_BUILD envvar was set,
+							// propogate the plain envvar's value to the _FOR_BUILD option.
+							set_compile_opt_from_env(wk, mapping.env_var, option);
+						}
+					}
+				}
+			}
+
 			make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler, machine);
 			make_compiler_env_option(wk, langs[i].l, toolchain_component_linker, machine);
 		}
