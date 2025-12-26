@@ -41,7 +41,6 @@ disable_test_language_cpp = 'cpp' in disable_test_languages
 # TODO: add objc / objcpp compiler detection and skip based on that instead
 disable_test_language_objc = 'objc' in disable_test_languages or host_machine.system() != 'darwin'
 
-
 foreach t : tests
     name = t[0]
     props = t.get(1, {})
