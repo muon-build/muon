@@ -99,6 +99,14 @@ option(
 )
 
 option(
+    'disable-test-languages',
+    type: 'array',
+    value: [],
+    choices: ['cpp', 'objc'],
+    description: 'select languages to disable project tests for',
+)
+
+option(
     'website',
     type: 'feature',
     value: 'auto',

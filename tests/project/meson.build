@@ -35,6 +35,13 @@ endif
 
 test_dir = meson.current_build_dir()
 
+disable_test_languages = get_option('disable-test-languages')
+disable_test_language_cpp = 'cpp' in disable_test_languages
+# skip objc tests on non darwin platforms
+# TODO: add objc / objcpp compiler detection and skip based on that instead
+disable_test_language_objc = 'objc' in disable_test_languages or host_machine.system() != 'darwin'
+
+
 foreach t : tests
     name = t[0]
     props = t.get(1, {})
@@ -43,15 +50,16 @@ foreach t : tests
         continue
     endif
 
+    if disable_test_language_cpp and 'cpp' in props
+        continue
+    endif
+    if disable_test_language_objc and 'objc' in props
+        continue
+    endif
+
     test_source = props.get('source_root', meson.current_source_dir()) / name
     kwargs = props.get('kwargs', {})
     suites = ['project', name.split('/')[0]]
-
-    # skip objc tests on non darwin platforms
-    # TODO: add objc / objcpp compiler detection and skip based on that instead
-    if props.get('objc', false) and host_machine.system() != 'darwin'
-        continue
-    endif
 
     if props.get('python', false) and not python3.found()
         continue
