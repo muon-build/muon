@@ -378,18 +378,24 @@ log_format(enum log_level lvl, const char *fmt, va_list ap, char *buf, const uin
 {
 	uint32_t len = buf_len;
 	if (flags & log_format_flag_prefix) {
-		uint32_t prefix_len = log_print_prefix(lvl, buf, buf_len);
-		assert(prefix_len < buf_len);
-		len -= prefix_len;
+		uint32_t prefix_len = log_print_prefix(lvl, buf, len);
+		assert(prefix_len < len);
 		buf += prefix_len;
+		len -= prefix_len;
 	}
 
 	const struct str truncate_suffix = STR(" [truncated]");
 	const uint32_t buf_reserve = truncate_suffix.len + 2;
-	assert(buf_len > buf_reserve);
-	uint32_t buf_avail = buf_len - buf_reserve;
-	uint32_t printed_len = vsnprintf(buf, buf_avail, fmt, ap);
-	if (printed_len >= buf_avail) {
+	assert(len > buf_reserve);
+	uint32_t buf_avail = len - buf_reserve;
+	int printed_len = vsnprintf(buf, buf_avail, fmt, ap);
+
+	// vsnprintf returns negative on error
+	if (printed_len < 0) {
+		printed_len = 0;
+	}
+
+	if ((uint32_t)printed_len >= buf_avail) {
 		buf += buf_avail;
 		len -= buf_avail;
 		memcpy(buf, truncate_suffix.s, truncate_suffix.len);
