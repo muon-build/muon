@@ -52,5 +52,5 @@ jobs:
         build/muon.exe version
     - name: 'Tests'
       run: |
-        CC="${{ matrix.cc }}" CXX="${{ matrix.cxx }}" ./build/muon.exe -C build test -R -v -ddots -t 2
+        CC="${{ matrix.cc }}" CXX="${{ matrix.cxx }}" ./build/muon.exe -C build test -R -v -ddots
         ./build/muon.exe internal eval tools/project_test_timings.meson build
