@@ -1174,6 +1174,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	case wrap_handle_state_check_dirty: {
 		if (!fs_dir_exists(ctx->wrap.dest_dir.buf)) {
 			wrap_handle_check_dirty_next_state(wk, ctx);
+			wrap_log(ctx, log_debug, "wrap outdated: dir %s does not exist", ctx->wrap.dest_dir.buf);
 			ctx->wrap.outdated = true;
 			return true;
 		}
@@ -1196,9 +1197,21 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 					if (fs_read_entire_file(wk->a_scratch, hash_path.buf, &src)) {
 						if (src.len >= 64 && memcmp(buf, src.src, 64) == 0) {
 							ctx->wrap.outdated = false;
+						} else {
+							wrap_log(ctx,
+								log_debug,
+								"wrap outdated: hash mismatch %.*s != %s",
+								src.len < 64 ? (int)src.len : 64,
+								src.src,
+								buf);
 						}
+					} else {
+						wrap_log(ctx, log_debug, "wrap outdated: failed to read %s", hash_path.buf);
 					}
+				} else {
+					wrap_log(ctx, log_debug, "wrap outdated: %s does not exist", hash_path.buf);
 				}
+
 			}
 
 			wrap_handle_check_dirty_next_state(wk, ctx);
@@ -1207,6 +1220,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		case wrap_type_git: {
 			if (!is_git_dir(wk, ctx->wrap.dest_dir.buf)) {
 				wrap_handle_check_dirty_next_state(wk, ctx);
+				wrap_log(ctx, log_debug, "wrap outdated: %s is not a git repository", ctx->wrap.dest_dir.buf);
 				ctx->wrap.outdated = true;
 				return true;
 			}
@@ -1230,12 +1244,13 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 		ctx->wrap.outdated = true;
 
 		if (str_eqli(&STR("HEAD"), &STRL(ctx->wrap.fields[wf_revision]))) {
-			// head is always outdated
+			wrap_log(ctx, log_debug, "wrap outdated: HEAD is always outdated");
 			wrap_handle_check_dirty_next_state(wk, ctx);
 			return true;
 		}
 
 		if (!wrap_git_rev_parse(wk, ctx, ctx->wrap.dest_dir.buf, "HEAD", &ctx->bufs[0])) {
+			wrap_log(ctx, log_debug, "wrap outdated: failed to git rev-parse HEAD");
 			wrap_handle_check_dirty_next_state(wk, ctx);
 			return true;
 		}
@@ -1246,6 +1261,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 	case wrap_handle_state_check_dirty_git_parse_rev: {
 		if (!wrap_git_rev_parse(
 			    wk, ctx, ctx->wrap.dest_dir.buf, ctx->wrap.fields[wf_revision], &ctx->bufs[1])) {
+			wrap_log(ctx, log_debug, "wrap outdated: failed to git rev-parse %s", ctx->wrap.fields[wf_revision]);
 			wrap_handle_check_dirty_next_state(wk, ctx);
 			return true;
 		}
@@ -1258,6 +1274,8 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 
 		if (head_rev->len == wrap_rev->len && memcmp(head_rev->buf, wrap_rev->buf, head_rev->len) == 0) {
 			ctx->wrap.outdated = false;
+		} else {
+			wrap_log(ctx, log_debug, "wrap outdated: HEAD revision (%s) != wrap revison (%s)", head_rev->buf, wrap_rev->buf);
 		}
 
 		wrap_handle_check_dirty_next_state(wk, ctx);
