@@ -185,7 +185,7 @@ func compile_resources(
 endfunc
 
 func generate_gir(
-    targets glob[exe|both_libs|build_tgt],
+    targets glob[exe],
     install bool: true,
     build_by_default bool: true,
     extra_args listify[str]: [],
