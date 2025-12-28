@@ -47,7 +47,7 @@ jobs:
     - name: 'Build'
       run: |
         CC="${{ matrix.cc }} -std=c99"  ./bootstrap.sh build
-        CC="${{ matrix.cc }}" ./build/muon-bootstrap.exe setup ${{ matrix.args }} build
+        CC="${{ matrix.cc }}" ./build/muon-bootstrap.exe -v setup ${{ matrix.args }} build
         build/muon-bootstrap.exe -C build samu
         build/muon.exe version
     - name: 'Tests'
