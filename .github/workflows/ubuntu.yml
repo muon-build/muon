@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - master
-      - '[0-9]+.[0-9]+'
+      - "[0-9]+.[0-9]+"
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened]
@@ -68,8 +68,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libglib2.0-0 libglib2.0-dev libgirepository1.0-dev valac
+            libglib2.0-dev libgirepository1.0-dev valac
 
+      - name: Set PKG_CONFIG_PATH
+        run: |
+          MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
+          echo "PKG_CONFIG_PATH=/usr/lib/$MULTIARCH/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
 
       # Bootstrap basic build.
       - name: Bootstrap
