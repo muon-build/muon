@@ -27,7 +27,7 @@ FUNC_IMPL(module_util, repr, tc_string, .desc = "return a string representing th
 	return true;
 }
 
-FUNC_IMPL(module_util, serial_load, tc_any)
+FUNC_IMPL(module_util, serial_load, tc_any, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -58,7 +58,7 @@ ret:
 	return ret;
 }
 
-FUNC_IMPL(module_util, serial_dump, .flags = func_impl_flag_sandbox_disable)
+FUNC_IMPL(module_util, serial_dump, 0, func_impl_flag_impure | func_impl_flag_sandbox_disable)
 {
 	struct args_norm an[] = { { tc_string | tc_file }, { tc_any }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
@@ -87,7 +87,7 @@ ret:
 	return ret;
 }
 
-FUNC_IMPL(module_util, exit, 0)
+FUNC_IMPL(module_util, exit, 0, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { tc_number }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
