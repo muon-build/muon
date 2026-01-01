@@ -1077,8 +1077,10 @@ parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 			n->l = make_node_t(p, node_type_list);
 			n->l->l = p->previous.type == token_type_else ? 0 : parse_expr(p);
 			parse_expect(p, token_type_eol);
-			n->l->r = parse_block(
-				p, (enum token_type[]){ token_type_elif, token_type_else, token_type_endif }, 3, 0);
+			n->l->r = parse_block(p,
+				(enum token_type[]){ token_type_elif, token_type_else, token_type_endif },
+				3,
+				parse_stmt_flag_eol_optional);
 
 			if (!(parse_accept(p, token_type_elif) || parse_accept(p, token_type_else))) {
 				break;
@@ -1108,7 +1110,7 @@ parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 		parse_expect(p, token_type_eol);
 
 		++p->inside_loop;
-		n->r = parse_block(p, (enum token_type[]){ token_type_endforeach }, 1, 0);
+		n->r = parse_block(p, (enum token_type[]){ token_type_endforeach }, 1, parse_stmt_flag_eol_optional);
 		--p->inside_loop;
 
 		parse_expect(p, token_type_endforeach);
