@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-project('test script_modules')
+project('test script_modules', module_dir: '.')
 
-m = import('_test')
+m = import('test_module')
 
 # test basic functions
 assert(m.identity(32) == 32)
@@ -92,7 +92,11 @@ assert(m.multi_return('c') == 0)
 m.returns_null()
 
 # test meson.project()
-p(m.project())
 assert('c' not in m.project()['toolchains']['host'])
 add_languages('c')
 assert('c' in m.project()['toolchains']['host'])
+
+# subprojects with modules
+sub = subproject('foo')
+assert(sub.import('m').baz() == 42)
+assert(sub.import('bar', required: false).found() == false)

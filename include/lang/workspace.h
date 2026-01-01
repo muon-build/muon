@@ -27,6 +27,7 @@ struct project {
 		obj frameworks[machine_kind_count];
 	} dep_cache;
 	obj wrap_provides_deps, wrap_provides_exes;
+	obj module_exports;
 
 	// string
 	obj rule_prefix;

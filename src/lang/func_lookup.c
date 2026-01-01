@@ -997,8 +997,6 @@ dump_function_docs_json(struct workspace *wk, struct tstr *sb)
 			str = &STRL(files[i].name);
 			if (!str_startswith(str, prefix)) {
 				continue;
-			} else if (str_eql(str, &STR("modules/_test.meson"))) {
-				continue;
 			}
 
 			TSTR(mod_name);

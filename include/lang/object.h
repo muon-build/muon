@@ -122,9 +122,7 @@ enum feature_opt_state {
 	_(time, "private/time", true)                                           \
 	_(cmake, "public/cmake", false)                                         \
 	_(dlang, "public/dlang", false)                                         \
-	_(gnome, "public/gnome", false)                                         \
 	_(hotdoc, "public/hotdoc", false)                                       \
-	_(i18n, "public/i18n", false)                                           \
 	_(java, "public/java", false)                                           \
 	_(modtest, "public/modtest", false)                                     \
 	_(qt, "public/qt", false)                                               \

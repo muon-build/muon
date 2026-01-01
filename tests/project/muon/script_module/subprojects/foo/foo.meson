@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+bar = import('bar')
+
+M = {}
+
+M.baz = func() -> int
+    return 42 + bar.bar()
+endfunc
+
+M.bar = bar.bar
+
+return M

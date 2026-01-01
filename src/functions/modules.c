@@ -5,8 +5,6 @@
 
 #include "compat.h"
 
-#include <string.h>
-
 #include "buf_size.h"
 #include "embedded.h"
 #include "functions/modules.h"
@@ -25,6 +23,7 @@
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
+#include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -112,7 +111,7 @@ ret:
 	return ret;
 }
 
-const char *module_paths[] = {
+static const char *default_module_paths[] = {
 	[language_external] = "embedded:modules/%.meson;builtin:public/%",
 	[language_internal] = "embedded:lib/%.meson;builtin:private/%;builtin:public/%",
 	[language_opts] = "",
@@ -145,8 +144,9 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 
 		{
 			struct project *proj;
-			if (wk->vm.lang_mode == language_external && (proj = current_project(wk)) && proj->module_dir) {
-				tstr_pushs(wk, &module_path, module_paths[wk->vm.lang_mode]);
+			if ((wk->vm.lang_mode == language_external || wk->vm.lang_mode == language_extended)
+				&& (proj = current_project(wk)) && proj->module_dir) {
+				tstr_pushs(wk, &module_path, default_module_paths[wk->vm.lang_mode]);
 
 				tstr_pushs(wk, &module_path, ";file:");
 
@@ -157,7 +157,7 @@ module_import(struct workspace *wk, const char *name, bool encapsulate, obj *res
 				tstr_pushn(wk, &module_path, new_module_path.buf, new_module_path.len);
 				p = module_path.buf;
 			} else {
-				p = module_paths[wk->vm.lang_mode];
+				p = default_module_paths[wk->vm.lang_mode];
 			}
 		}
 

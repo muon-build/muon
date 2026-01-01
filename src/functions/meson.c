@@ -127,6 +127,21 @@ FUNC_IMPL(meson, current_build_dir, tc_string, func_impl_flag_impure)
 	return true;
 }
 
+FUNC_IMPL(meson, export_module, 0, func_impl_flag_impure | func_impl_flag_extension)
+{
+	struct args_norm an[] = { { obj_string }, { obj_module }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	struct project *proj = current_project(wk);
+	if (!proj->module_exports) {
+		proj->module_exports = make_obj(wk, obj_dict);
+	}
+	obj_dict_set(wk, proj->module_exports, an[0].val, an[1].val);
+	return true;
+}
+
 FUNC_IMPL(meson, project_source_root, tc_string, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
@@ -849,6 +864,7 @@ FUNC_REGISTER(meson)
 	FUNC_IMPL_REGISTER_ALIAS(meson, can_run_host_binaries, has_exe_wrapper);
 	FUNC_IMPL_REGISTER(meson, current_build_dir);
 	FUNC_IMPL_REGISTER(meson, current_source_dir);
+	FUNC_IMPL_REGISTER(meson, export_module);
 	FUNC_IMPL_REGISTER(meson, get_compiler);
 	FUNC_IMPL_REGISTER(meson, get_cross_property);
 	FUNC_IMPL_REGISTER(meson, get_external_property);

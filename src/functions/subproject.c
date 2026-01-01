@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "coerce.h"
 #include "functions/subproject.h"
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
@@ -65,8 +66,47 @@ FUNC_IMPL(subproject, found, tc_bool, func_impl_flag_impure)
 	return true;
 }
 
+FUNC_IMPL(subproject, import, tc_module, func_impl_flag_impure)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_required,
+	};
+	struct args_kw akw[] = {
+		[kw_required] = { "required", tc_required_kw },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	enum requirement_type requirement;
+	if (!coerce_requirement(wk, &akw[kw_required], &requirement)) {
+		return false;
+	}
+
+	if (requirement == requirement_skip) {
+		*res = make_obj(wk, obj_module);
+		return true;
+	}
+
+	struct project *proj = arr_get(&wk->projects, get_obj_subproject(wk, self)->id);
+	if (proj->module_exports && obj_dict_index(wk, proj->module_exports, an[0].val, res)) {
+		return true;
+	}
+
+	if (requirement == requirement_required) {
+		vm_error_at(wk, an[0].node, "subproject does not export module %o", an[0].val);
+		return false;
+	}
+
+	*res = make_obj(wk, obj_module);
+	return true;
+}
+
 FUNC_REGISTER(subproject)
 {
 	FUNC_IMPL_REGISTER(subproject, found);
 	FUNC_IMPL_REGISTER(subproject, get_variable);
+	FUNC_IMPL_REGISTER(subproject, import);
 }

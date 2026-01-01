@@ -16,7 +16,6 @@ foreach s : [
     'html/docs.html',
     'html/test_out.html',
     'lib/cmake_prelude.meson',
-    'modules/_test.meson',
     'modules/gnome.meson',
     'modules/i18n.meson',
     'modules/windows.meson',
