@@ -52,6 +52,7 @@ struct test_result {
 };
 
 struct run_test_ctx {
+	struct workspace *wk;
 	struct test_options *opts;
 	obj proj_name;
 	obj collected_tests;
@@ -214,10 +215,19 @@ sort_jobs(const void *_a, const void *_b, void *_ctx)
 
 	const struct test_result *res_a = &ctx->jobs[*a], *res_b = &ctx->jobs[*b];
 
-	if (res_a->dur > res_b->dur) {
+	double diff = res_a->dur - res_b->dur;
+	const double epsilon = 0.01;
+
+	if (res_a->busy && res_b->busy) {
+		if (-epsilon <= diff && diff <= epsilon) {
+			return strcmp(get_str(ctx->wk, res_a->test->name)->s, get_str(ctx->wk, res_b->test->name)->s);
+		} else if (diff > epsilon) {
+			return -1;
+		} else {
+			return 1;
+		}
+	} else if (res_a->busy) {
 		return -1;
-	} else if (res_a->dur < res_b->dur) {
-		return 1;
 	} else {
 		return 0;
 	}
@@ -285,30 +295,37 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		ctx->busy_jobs);
 
 	log_raw("%s[", info);
-	const float pct_scale = (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
-	uint32_t pct_done = (float)(ctx->stats.test_i) * pct_scale;
-	uint32_t pct_working = (float)(ctx->stats.test_i + ctx->busy_jobs) * pct_scale;
+	if (ctx->stats.term_width > pad) {
+		const float pct_scale = (float)(ctx->stats.term_width - pad) / (float)ctx->stats.test_len;
+		uint32_t pct_done = (float)(ctx->stats.test_i) * pct_scale;
+		uint32_t pct_working = (float)(ctx->stats.test_i + ctx->busy_jobs) * pct_scale;
 
-	for (i = 0; i < ctx->stats.term_width - pad; ++i) {
-		if (i <= pct_done) {
-			log_raw("=");
-		} else if (i < pct_working) {
-			log_raw("-");
-		} else if (i == pct_working) {
-			log_raw(">");
-		} else {
-			log_raw(" ");
+		for (i = 0; i < ctx->stats.term_width - pad; ++i) {
+			if (i <= pct_done) {
+				log_raw("=");
+			} else if (i < pct_working) {
+				log_raw("-");
+			} else if (i == pct_working) {
+				log_raw(">");
+			} else {
+				log_raw(" ");
+			}
 		}
 	}
 	log_raw("]");
 
 	log_raw("\n");
 
-	arr_sort(&ctx->jobs_sorted, ctx, sort_jobs);
-
 	const uint32_t term_height = ctx->stats.term_height - 2;
 	const uint32_t max_jobs_to_display = MIN(term_height, ctx->opts->jobs);
 	uint32_t jobs_displayed = 0;
+
+	if (ctx->stats.term_height < 4) {
+		goto done;
+	}
+
+	char job_display_buf[1024];
+	arr_sort(&ctx->jobs_sorted, ctx, sort_jobs);
 
 	for (i = 0; i < ctx->opts->jobs; ++i) {
 		res = &ctx->jobs[*(uint32_t *)arr_get(&ctx->jobs_sorted, i)];
@@ -329,28 +346,36 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 			}
 		}
 
-		log_raw("%6.2fs %s", res->dur, get_cstr(wk, res->test->name));
+		uint32_t bufi = 0;
+		snprintf_append(job_display_buf, &bufi, "%6.2fs %s", res->dur, get_cstr(wk, res->test->name));
 
 		if (tap.have) {
-			log_raw(" (%d/", tap.result.pass + tap.result.fail + tap.result.skip);
+			snprintf_append(
+				job_display_buf, &bufi, " (%d/", tap.result.pass + tap.result.fail + tap.result.skip);
 			if (tap.result.have_plan) {
-				log_raw("%d", tap.result.total);
+				snprintf_append(job_display_buf, &bufi, "%d", tap.result.total);
 			} else {
-				log_raw("?");
+				snprintf_append(job_display_buf, &bufi, "%s", "?");
 			}
 
 			if (tap.result.fail) {
-				log_raw(" f:%d", tap.result.fail);
+				snprintf_append(job_display_buf, &bufi, " f:%d", tap.result.fail);
 			}
 
 			if (tap.result.skip) {
-				log_raw(" s:%d", tap.result.skip);
+				snprintf_append(job_display_buf, &bufi, " s:%d", tap.result.skip);
 			}
 
-			log_raw(")");
+			snprintf_append(job_display_buf, &bufi, "%s", ")");
 		}
 
-		log_raw("\033[K\n");
+		if (bufi >= ctx->stats.term_width) {
+			const struct str sep = STR("...");
+			uint32_t len = (ctx->stats.term_width - (1 + sep.len)) / 2;
+			log_raw("%.*s%s%.*s\033[K\n", len, job_display_buf, sep.s, len, job_display_buf + (bufi - len));
+		} else {
+			log_raw("%s\033[K\n", job_display_buf);
+		}
 
 		++jobs_displayed;
 		if (jobs_displayed >= max_jobs_to_display) {
@@ -361,6 +386,7 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		log_raw("\033[K\n");
 	}
 
+done:
 	log_raw("\033[%dA", MAX(jobs_displayed, ctx->stats.prev_jobs_displayed) + 1);
 
 	ctx->stats.prev_jobs_displayed = jobs_displayed;
@@ -1163,6 +1189,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	}
 
 	struct run_test_ctx ctx = {
+		.wk = wk,
 		.opts = opts,
 		.setup = { .timeout_multiplier = opts->timeout_multiplier, },
 	};
