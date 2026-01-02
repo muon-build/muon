@@ -1351,13 +1351,30 @@ compiler_check_header(struct workspace *wk,
 	obj *res)
 {
 	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"%s\n"
-		"#include <%s>\n"
-		"int main(void) {}\n",
-		prefix,
-		hdr);
+
+	if (opts->mode == compiler_check_mode_preprocess) {
+		snprintf(src,
+			BUF_SIZE_4k,
+			"%s\n"
+			"#ifdef __has_include\n"
+			" #if !__has_include(\"%s\")\n"
+			"  #error \"header '%s' could not be found\"\n"
+			" #endif\n"
+			"#else\n"
+			" #include <%s>\n"
+			"#endif\n"
+			"int main(void) {}\n",
+			prefix,
+			hdr, hdr, hdr);
+	} else {
+		snprintf(src,
+			BUF_SIZE_4k,
+			"%s\n"
+			"#include <%s>\n"
+			"int main(void) {}\n",
+			prefix,
+			hdr);
+	}
 
 	bool ok;
 	if (!compiler_check(wk, opts, src, err_node, &ok)) {
