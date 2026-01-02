@@ -926,7 +926,7 @@ setup_project_options(struct workspace *wk, const char *cwd)
 }
 
 static void
-make_compiler_option(struct workspace *wk, obj name, enum create_option_flag flags)
+make_compiler_option(struct workspace *wk, obj name)
 {
 	obj opt = make_obj(wk, obj_option);
 	struct obj_option *o = get_obj_option(wk, opt);
@@ -935,7 +935,7 @@ make_compiler_option(struct workspace *wk, obj name, enum create_option_flag fla
 	o->ip = (uint32_t)-1; // ?
 	o->builtin = true;
 
-	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array), flags)) {
+	if (!create_option(wk, wk->global_opts, opt, make_obj(wk, obj_array), 0)) {
 		UNREACHABLE;
 	}
 }
@@ -944,12 +944,6 @@ struct option_env_var_mapping {
 	const char *env_var;
 	const char *machine_suffix;
 };
-
-static void
-option_env_var_mapping_to_env_var(struct workspace *wk, const struct option_env_var_mapping *mapping, struct tstr *var)
-{
-	tstr_pushf(wk, var, "%s%s", mapping->env_var, mapping->machine_suffix ? mapping->machine_suffix : "");
-}
 
 static void
 option_env_var_mapping_for_machine(const char *env_var,
@@ -1007,6 +1001,32 @@ toolchain_component_option_name(struct workspace *wk,
 	return true;
 }
 
+typedef bool (*set_env_option_with_fallback_fn)(struct workspace *wk, const char *envvar, const char *dest);
+
+void
+set_env_option_with_fallback(struct workspace *wk,
+	const char *src,
+	const char *dest,
+	enum machine_kind m,
+	set_env_option_with_fallback_fn fn)
+{
+	TSTR(env_var);
+	struct option_env_var_mapping mapping;
+	option_env_var_mapping_for_machine(src, m, &mapping);
+	tstr_pushf(wk, &env_var, "%s%s", mapping.env_var, mapping.machine_suffix ? mapping.machine_suffix : "");
+
+	if (!fn(wk, env_var.buf, dest)) {
+		if (m == machine_kind_build) {
+			// If this is a build machine opt but no _FOR_BUILD envvar was set,
+			// propogate the plain envvar's value to the _FOR_BUILD option.
+			//
+			// This lets CC=clang apply to the host machine and build machine
+			// as long as no CC_FOR_BUILD is set.
+			fn(wk, mapping.env_var, dest);
+		}
+	}
+}
+
 static void
 make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp, enum machine_kind m)
 {
@@ -1017,21 +1037,9 @@ make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum
 
 	TSTR(env_opt);
 	toolchain_component_option_name_from_info(wk, &mapping, &env_opt);
-	make_compiler_option(wk, tstr_into_str(wk, &env_opt), 0);
+	make_compiler_option(wk, tstr_into_str(wk, &env_opt));
 
-	TSTR(env_var_suffixed);
-	option_env_var_mapping_to_env_var(wk, &mapping, &env_var_suffixed);
-
-	if (!set_binary_from_env(wk, env_var_suffixed.buf, env_opt.buf)) {
-		if (m == machine_kind_build) {
-			// If this is a build machine opt but no _FOR_BUILD envvar was set,
-			// propogate the plain envvar's value to the _FOR_BUILD option.
-			//
-			// This lets CC=clang apply to the host machine and build machine
-			// as long as no CC_FOR_BUILD is set.
-			set_binary_from_env(wk, mapping.env_var, env_opt.buf);
-		}
-	}
+	set_env_option_with_fallback(wk, mapping.env_var, env_opt.buf, m, set_binary_from_env);
 }
 
 bool
@@ -1055,43 +1063,40 @@ init_global_options(struct workspace *wk)
 #undef TOOLCHAIN_ENUM
 	};
 
-	static const char *compile_opt_env_var[compiler_language_count][toolchain_component_count] = {
-		[compiler_language_c] = { "CFLAGS", "LDFLAGS" },
-		[compiler_language_cpp] = { "CXXFLAGS", "LDFLAGS" },
-		[compiler_language_objc] = { "OBJCFLAGS", "LDFLAGS" },
-		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS" },
+	static const struct compile_opt_env_var {
+		const char *compile_flags;
+		const char *link_flags;
+		const char *preprocess_flags;
+	} compile_opt_env_var[compiler_language_count] = {
+		[compiler_language_c] = { "CFLAGS", "LDFLAGS", "CPPFLAGS" },
+		[compiler_language_cpp] = { "CXXFLAGS", "LDFLAGS", "CPPFLAGS" },
+		[compiler_language_objc] = { "OBJCFLAGS", "LDFLAGS", "CPPFLAGS" },
+		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS", "CPPFLAGS" },
 	};
 
 	uint32_t i, machine;
 	for (i = 0; i < ARRAY_LEN(langs); ++i) {
 		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine) {
 			const char *option_prefix = machine == machine_kind_build ? option_group_build : "";
+			const struct compile_opt_env_var *ev = &compile_opt_env_var[langs[i].l];
 
 			struct {
 				obj option;
-				const char *env_var;
+				const char *env_var[2];
 			} custom_env_options[] = {
-				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), compile_opt_env_var[langs[i].l][toolchain_component_compiler] },
-				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), compile_opt_env_var[langs[i].l][toolchain_component_linker] },
+				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), { ev->compile_flags, ev->preprocess_flags } },
+				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), { ev->link_flags, ev->preprocess_flags } },
 			};
 
 			for (uint32_t i = 0; i < ARRAY_LEN(custom_env_options); ++i) {
-				make_compiler_option(wk, custom_env_options[i].option, 0);
-				if (custom_env_options[i].env_var) {
-					TSTR(env_var);
-					struct option_env_var_mapping mapping;
-					option_env_var_mapping_for_machine(
-						custom_env_options[i].env_var, machine, &mapping);
-					option_env_var_mapping_to_env_var(wk, &mapping, &env_var);
-					const char *option = get_str(wk, custom_env_options[i].option)->s;
+				make_compiler_option(wk, custom_env_options[i].option);
+				const char *option = get_str(wk, custom_env_options[i].option)->s;
 
-					if (!set_compile_opt_from_env(wk, env_var.buf, option)) {
-						if (machine == machine_kind_build) {
-							// If this is a build machine opt but no _FOR_BUILD envvar was set,
-							// propogate the plain envvar's value to the _FOR_BUILD option.
-							set_compile_opt_from_env(wk, mapping.env_var, option);
-						}
-					}
+				for (uint32_t j = 0;
+					j < ARRAY_LEN(custom_env_options->env_var) && custom_env_options->env_var[j];
+					++j) {
+					set_env_option_with_fallback(
+						wk, custom_env_options->env_var[j], option, machine, set_compile_opt_from_env);
 				}
 			}
 
