@@ -139,9 +139,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
 	case compiler_check_mode_compile:
+	case compiler_check_mode_preprocess:
 		ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
-	/* fallthrough */
-	case compiler_check_mode_preprocess: break;
+		break;
 	}
 
 	bool have_dep = false;
