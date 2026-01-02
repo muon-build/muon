@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
-# SPDX-License-Identifier: GPL-3.0-only
-
-class MuonVersion:
-	version = "@version@"
-	vcs_tag = "@vcs_tag@"
-	meson_compat = "@meson_compat@"

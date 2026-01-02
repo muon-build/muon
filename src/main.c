@@ -26,8 +26,8 @@
 #include "external/pkgconfig.h"
 #include "external/samurai.h"
 #include "lang/analyze.h"
+#include "lang/docs.h"
 #include "lang/fmt.h"
-#include "lang/func_lookup.h"
 #include "lang/lsp.h"
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
@@ -603,21 +603,6 @@ cmd_repl(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 }
 
 static bool
-cmd_dump_signatures(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
-{
-	OPTSTART("") {
-	}
-	OPTEND(argv[argi], "", "", NULL, 0)
-
-	workspace_init_runtime(wk);
-	workspace_init_startup_files(wk);
-	make_dummy_project(wk, true);
-
-	dump_function_signatures(wk);
-	return true;
-}
-
-static bool
 cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	log_set_file(wk, stderr);
@@ -813,7 +798,6 @@ cmd_internal(struct workspace *wk, uint32_t argc, uint32_t argi, char *const arg
 {
 	static const struct command commands[] = {
 		{ "check", cmd_check, "check if a meson file parses" },
-		{ "dump_funcs", cmd_dump_signatures, "output all supported functions and arguments" },
 		{ "dump_toolchains", cmd_dump_toolchains, "output toolchain arguments" },
 		{ "dump_docs", cmd_dump_docs, "output docs" },
 		{ "eval", cmd_eval, "evaluate a file" },

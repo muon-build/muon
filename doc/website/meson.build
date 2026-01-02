@@ -15,40 +15,6 @@ foreach name, tgt : man_page_targets
     )
 endforeach
 
-if meson_docs_proj.found()
-    muon_signatures = custom_target(
-        'muon_signatures.txt',
-        output: 'muon_signatures.txt',
-        command: [muon, 'internal', 'dump_funcs'],
-        capture: true,
-    )
-
-    meson_signatures = meson_docs_proj.get_variable('signatures')
-
-    configure_file(
-        configuration: version_info,
-        input: 'version_info.py.in',
-        output: 'version_info.py',
-    )
-
-    env = environment()
-    env.append('PYTHONPATH', meson.current_build_dir())
-
-    custom_target(
-        'status.html',
-        output: 'status.html',
-        command: [
-            python3,
-            files('signatures_to_html.py'),
-            muon_signatures,
-            meson_signatures,
-        ],
-        capture: true,
-        build_by_default: true,
-        env: env,
-    )
-endif
-
 foreach f : [
     'index.html',
     'muon_ci.html',

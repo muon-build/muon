@@ -93,6 +93,7 @@
 #include "install.c"
 #include "lang/analyze.c"
 #include "lang/compiler.c"
+#include "lang/docs.c"
 #include "lang/eval.c"
 #include "lang/fmt.c"
 #include "lang/func_lookup.c"

@@ -65,6 +65,7 @@ struct func_impl_group {
 };
 
 extern struct func_impl native_funcs[];
+extern struct func_impl_group func_impl_groups[obj_type_count][language_mode_count];
 
 void build_func_impl_tables(struct workspace *wk);
 
@@ -80,11 +81,4 @@ void kwargs_arr_init(struct workspace *wk, struct arr *arr);
 void kwargs_arr_push(struct workspace *wk, struct arr *arr, const struct args_kw *kw);
 void kwargs_arr_del(struct workspace *wk, struct arr *arr, const char *name);
 struct args_kw *kwargs_arr_get(struct workspace *wk, struct arr *arr, const char *name);
-
-void dump_function_signatures(struct workspace *wk);
-void dump_function_docs(struct workspace *wk);
-
-obj dump_function_native(struct workspace *wk, enum obj_type t, const struct func_impl *impl);
-obj dump_module_function_native(struct workspace *wk, enum module module, const struct func_impl *impl);
-obj dump_module_function_capture(struct workspace *wk, const char *module, obj name, obj o);
 #endif

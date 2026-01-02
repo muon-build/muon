@@ -73,6 +73,7 @@ src = files(
     'functions/subproject.c',
     'lang/analyze.c',
     'lang/compiler.c',
+    'lang/docs.c',
     'lang/eval.c',
     'lang/fmt.c',
     'lang/func_lookup.c',

@@ -12,7 +12,7 @@
 #include "formats/json.h"
 #include "functions/modules.h"
 #include "lang/analyze.h"
-#include "lang/func_lookup.h"
+#include "lang/docs.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
