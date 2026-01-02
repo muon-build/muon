@@ -199,7 +199,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *dump_funcs* - output all supported functions and arguments
 
 ## internal check
-	*muon* *internal* *check* [*-p*|*-d*] [*-m* <mode>] <filename>
+	*muon* *internal* *check* [*-p*|*-d*] [*-rf*] [*-m* <mode>] <filename>
 
 	Check if _filename_ parses.
 
@@ -208,6 +208,7 @@ All commands accept a *-h* option which prints a brief summary of their usage.
 	- *-d* - print the dissasembly
 	- *-m* <mode> - set the compilation mode
 	- *-f* - parse in formatting mode
+	- *-r* - parse in relaxed mode
 
 ## internal eval
 	*muon* *internal* *eval* [*-e*] [*-s*] *-c* <command> | <filename> [<args>]

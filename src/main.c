@@ -216,7 +216,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		enum vm_compile_mode compile_mode;
 	} opts = { 0 };
 
-	OPTSTART("pdm:b:f") {
+	OPTSTART("pdm:b:fr") {
 	case 'p': opts.print_ast = true; break;
 	case 'd': opts.print_dis = true; break;
 	case 'b': opts.breakpoint = optarg; break;
@@ -232,13 +232,15 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		break;
 	}
 	case 'f': opts.compile_mode |= vm_compile_mode_fmt; break;
+	case 'r': opts.compile_mode |= vm_compile_mode_relaxed_parse; break;
 	}
 	OPTEND(argv[argi],
 		" <filename>",
 		"  -p - print parsed ast\n"
 		"  -d - print dissasembly\n"
 		"  -m <mode> - parse with language mode <mode>\n"
-		"  -f - parse in formatting mode\n",
+		"  -f - parse in formatting mode\n"
+		"  -r - parse in relaxed mode\n",
 		NULL,
 		1)
 
