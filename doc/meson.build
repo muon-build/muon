@@ -28,13 +28,17 @@ if get_option('man-pages').disable_auto_if(not scdoc.found()).allowed()
         man_page_targets += {name: tgt}
     endforeach
 
-    if meson_docs_proj.found()
-        man_page_targets += {
-            'meson-reference.3': meson_docs_proj.get_variable('meson_reference_3'),
-        }
-    else
-        warning('meson-docs not found, meson-reference.3 will not be built')
-    endif
+endif
+
+if not get_option('man-pages').disabled()
+    custom_target(
+        output: 'meson-reference.3',
+        command: [muon, 'internal', 'dump_docs', '-oman'],
+        capture: true,
+        build_by_default: true,
+        install: true,
+        install_dir: get_option('mandir') / 'man3',
+    )
 endif
 
 if get_option('website').enabled()
@@ -43,7 +47,7 @@ if get_option('website').enabled()
 
     custom_target(
         output: 'reference.html',
-        command: [muon, 'internal', 'dump_docs'],
+        command: [muon, 'internal', 'dump_docs', '-ohtml'],
         capture: true,
         build_by_default: true,
     )
