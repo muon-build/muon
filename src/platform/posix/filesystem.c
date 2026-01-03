@@ -521,7 +521,20 @@ fs_has_extension(const char *path, const char *ext)
 FILE *
 fs_make_tmp_file(const char *name, const char *suffix, char *buf, uint32_t len)
 {
-	return 0;
+	char template[256];
+	snprintf(template, sizeof(template), "/tmp/muon_tmp_%s_%s_XXXXXX", name, suffix);
+	int fd = mkstemp(template);
+	if (fd == -1) {
+		LOG_E("mkstemp: %s", strerror(errno));
+		return 0;
+	}
+	cstr_copy_(buf, &STRL(template), len);
+	FILE *r = fdopen(fd, "w+b");
+	if (!r) {
+		LOG_E("fdopen: %s", strerror(errno));
+		unlink(template);
+	}
+	return r;
 }
 
 bool

@@ -219,19 +219,19 @@ SPDX-License-Identifier: GPL-3.0-only
         <span id="navVer" class="nav-version"></span>
       </div>
       <div id="sectModules">
-        <h2>Modules</h1>
+        <h2>Modules</h2>
         <ul id="listModules" class="columns"></ul>
       </div>
       <div id="sectObjects">
-        <h2>Objects</h1>
+        <h2>Objects</h2>
         <ul id="listObjects" class="columns"></ul>
       </div>
       <div id="sectFunctions">
-        <h2>Functions</h1>
+        <h2>Functions</h2>
         <ul id="listFunctions" class="columns"></ul>
       </div>
       <div id="sectFunction">
-        <h2>Function</h1>
+        <h2>Function</h2>
         <pre><code id="funcProto"></code></pre>
         <div class="func-source">
           <div id="funcSource"></div>
@@ -240,7 +240,7 @@ SPDX-License-Identifier: GPL-3.0-only
         <div id="funcDesc" class="markdown"></div>
 
         <div id="sectFunctionParams">
-          <h2>Parameters</h1>
+          <h2>Parameters</h2>
           <dl id="listFunctionParams"></dl>
         </div>
       </div>
@@ -274,46 +274,26 @@ SPDX-License-Identifier: GPL-3.0-only
           </li>
           <li>
             Documentation
-            <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16></img>
-            <img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" height=16></img>
-            <img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" height=16></img>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/by.svg" height=16>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/sa.svg" height=16>
           </li>
           <li>
             Code samples
-            <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16></img>
-            <img src="https://mirrors.creativecommons.org/presskit/icons/zero.svg" height=16></img>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg" height=16>
+            <img src="https://mirrors.creativecommons.org/presskit/icons/zero.svg" height=16>
           </li>
         </ul>
       </div>
     </div>
 
-    <script type="application/json" id="data_external">%s</script>
-    <script type="application/json" id="data_internal">%s</script>
-    <script type="application/json" id="version">%s</script>
+    <script type="application/json" id="docs_json">%s</script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script>
-      let dataExternal = JSON.parse(document.getElementById("data_external").innerHTML);
-      let dataInternal = JSON.parse(document.getElementById("data_internal").innerHTML);
-      let version = JSON.parse(document.getElementById("version").innerHTML);
+      let docs_json = JSON.parse(document.getElementById("docs_json").innerHTML);
+      let data = docs_json.functions;
+      let version = docs_json.version;
       let forge = '';
-
-      const funcKey = (f) => `${f.rcvr}${f.module}${f.name}`;
-      let map = {};
-      let data = [];
-      for (const f of dataExternal) {
-        map[funcKey(f)] = f;
-        f.modes = {external: true};
-        data.push(f);
-      }
-      for (const f of dataInternal) {
-        const key = funcKey(f);
-        if (key in map) {
-          map[key].modes.internal = true;
-        } else {
-          f.modes = {internal: true};
-          data.push(f);
-        }
-      }
 
       function forgeSet(newForge, skipRender) {
         if (forge !== '') {

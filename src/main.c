@@ -606,8 +606,26 @@ static bool
 cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	log_set_file(wk, stderr);
+	struct {
+		enum dump_function_docs_output output;
+	} opts = {
+		.output = dump_function_docs_output_html,
+	};
 
-	OPTSTART("") {
+	OPTSTART("o:") {
+	case 'o': {
+		if (strcmp(optarg, "html") == 0) {
+			opts.output = dump_function_docs_output_html;
+		} else if (strcmp(optarg, "json") == 0) {
+			opts.output = dump_function_docs_output_json;
+		} else if (strcmp(optarg, "man") == 0) {
+			opts.output = dump_function_docs_output_man;
+		} else {
+			LOG_E("unknown output type: %s", optarg);
+			return false;
+		}
+		break;
+	}
 	}
 	OPTEND(argv[argi], "", "", NULL, 0)
 
@@ -615,7 +633,11 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 	workspace_init_startup_files(wk);
 	make_dummy_project(wk, true);
 
-	dump_function_docs(wk);
+	struct dump_function_docs_opts dump_opts = {
+		.type = opts.output,
+		.out = stdout,
+	};
+	dump_function_docs(wk, &dump_opts);
 
 	return true;
 }
@@ -1279,6 +1301,51 @@ cont:
 }
 
 static bool
+cmd_help(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	// struct {
+	// 	char *const *query;
+	// } opts = { 0 };
+
+	OPTSTART("") {
+	}
+	OPTEND(argv[argi], "", "", NULL, -1)
+
+	workspace_init_runtime(wk);
+	workspace_init_startup_files(wk);
+	make_dummy_project(wk, true);
+
+	char tmp_path[512] = { 0 };
+	FILE *tmp = 0;
+	if (!(tmp = fs_make_tmp_file("help", "", tmp_path, sizeof(tmp_path)))) {
+		return false;
+	}
+
+	struct dump_function_docs_opts dump_opts = {
+		.type = dump_function_docs_output_man,
+		.out = tmp,
+	};
+	dump_function_docs(wk, &dump_opts);
+	fs_fclose(tmp);
+	tmp = 0;
+
+	struct run_cmd_ctx cmd_ctx = { 0 };
+	cmd_ctx.stdin_path = tmp_path;
+	cmd_ctx.flags = run_cmd_ctx_flag_dont_capture;
+	char *const mandoc_args[] = { "mandoc", "-a", NULL };
+	bool ok = run_cmd_argv(wk, &cmd_ctx, mandoc_args, 0, 0);
+	run_cmd_ctx_destroy(&cmd_ctx);
+
+	if (tmp) {
+		fs_fclose(tmp);
+	}
+	if (*tmp_path) {
+		fs_remove(tmp_path);
+	}
+	return ok;
+}
+
+static bool
 cmd_version(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	printf("muon %s%s%s\nmeson compatibility version %s\n",
@@ -1402,6 +1469,7 @@ cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *argv[])
 		{ "build", cmd_build, "setup and build in a single step" },
 		{ "devenv", cmd_devenv, "run commands in developer environment" },
 		{ "fmt", cmd_format, "format meson source file" },
+		{ "help", cmd_help, "get help" },
 		{ "info", cmd_info, NULL },
 		{ "install", cmd_install, "install files" },
 		{ "internal", cmd_internal, "internal subcommands" },
