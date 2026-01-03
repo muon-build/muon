@@ -189,6 +189,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(fatal_warnings, linker, TOOLCHAIN_PARAMS_0)          \
 	_(fuse_ld, linker, TOOLCHAIN_PARAMS_0)                 \
 	_(implib, linker, TOOLCHAIN_PARAMS_1s)                 \
+	_(implib_suffix, linker, TOOLCHAIN_PARAMS_0)           \
 	_(input_output, linker, TOOLCHAIN_PARAMS_2s)           \
 	_(lib, linker, TOOLCHAIN_PARAMS_1s)                    \
 	_(no_undefined, linker, TOOLCHAIN_PARAMS_0)            \
