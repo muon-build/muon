@@ -836,7 +836,9 @@ dump_function_docs_man(struct workspace *wk, struct tstr *buf)
 {
 	obj fn, functions = dump_function_docs_obj(wk);
 
-	mw_title(wk, buf, "meson-reference", 3, "2026-01-03");
+	char version_buf[256];
+	snprintf(version_buf, sizeof(version_buf), "muon %s%s%s", muon_version.version, muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
+	mw_title(wk, buf, "meson-reference", 3, version_buf);
 
 	mw_section(wk, buf, "NAME");
 	mw_paragraph(wk, buf, "meson-reference %s - a reference for meson functions and objects", muon_version.meson_compat);
@@ -885,6 +887,8 @@ dump_function_docs_man(struct workspace *wk, struct tstr *buf)
 		"and is released under Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). "
 		"Code samples are released under CC0 1.0 Universal (CC0 1.0).");
 	mw_paragraph(wk, buf, "Meson is a registered trademark of Jussi Pakkanen.");
+
+	mw_paragraph(wk, buf, "Generated with %s", version_buf);
 }
 
 /*******************************************************************************
