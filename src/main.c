@@ -1303,13 +1303,19 @@ cont:
 static bool
 cmd_help(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	// struct {
-	// 	char *const *query;
-	// } opts = { 0 };
+	struct {
+		const char *query;
+	} opts = { 0 };
 
 	OPTSTART("") {
 	}
 	OPTEND(argv[argi], "", "", NULL, -1)
+
+	if (argi + 1 == argc) {
+		opts.query = argv[argi];
+	} else if (argi < argc) {
+		return check_operands(argc, argi, 1);
+	}
 
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
@@ -1324,6 +1330,7 @@ cmd_help(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	struct dump_function_docs_opts dump_opts = {
 		.type = dump_function_docs_output_man,
 		.out = tmp,
+		.query = opts.query,
 	};
 	dump_function_docs(wk, &dump_opts);
 	fs_fclose(tmp);

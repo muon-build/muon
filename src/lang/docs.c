@@ -377,10 +377,11 @@ dump_function_docs_fn_key(struct workspace *wk, struct tstr *buf, obj fn)
 
 	tstr_pushf(wk,
 		buf,
-		"%s%s%s",
+		"%s%s%s%s",
 		rcvr ? get_str(wk, rcvr)->s : "",
 		module ? get_str(wk, module)->s : "",
-		name ? get_str(wk, name)->s : "");
+		rcvr || module ? "." : "",
+		get_str(wk, name)->s);
 
 }
 
@@ -832,7 +833,7 @@ mw_function(struct workspace *wk, struct tstr *buf, obj fn)
 }
 
 static void
-dump_function_docs_man(struct workspace *wk, struct tstr *buf)
+dump_function_docs_man(struct workspace *wk, struct tstr *buf, const char *query)
 {
 	obj fn, functions = dump_function_docs_obj(wk);
 
@@ -841,22 +842,39 @@ dump_function_docs_man(struct workspace *wk, struct tstr *buf)
 	mw_title(wk, buf, "meson-reference", 3, version_buf);
 
 	mw_section(wk, buf, "NAME");
-	mw_paragraph(wk, buf, "meson-reference %s - a reference for meson functions and objects", muon_version.meson_compat);
+	if (query) {
+		mw_paragraph(wk, buf, "results for '%s'", query);
+	} else {
+		mw_paragraph(wk, buf, "meson-reference %s - a reference for meson functions and objects", muon_version.meson_compat);
+	}
 
-	mw_section(wk, buf, "DESCRIPTION");
-	mw_paragraph(wk,
-		buf,
-		"This manual is divided into three sections, *KERNEL FUNCTIONS*, *OBJECT METHODS*, and *MODULE FUNCTIONS*. "
-		"*KERNEL FUNCTIONS* contains all builtin meson functions and methods. "
-		"Methods and module functions are denoted by [[object / module name]].[[method_name]]().");
+	if (!query) {
+		mw_section(wk, buf, "DESCRIPTION");
+		mw_paragraph(wk,
+			buf,
+			"This manual is divided into three sections, *KERNEL FUNCTIONS*, *OBJECT METHODS*, and *MODULE FUNCTIONS*. "
+			"*KERNEL FUNCTIONS* contains all builtin meson functions and methods. "
+			"Methods and module functions are denoted by [[object / module name]].[[method_name]]().");
+	}
 
-	obj prev_rcvr = 0, prev_module = 0, rcvr, module;
-	mw_section(wk, buf, "KERNEL FUNCTIONS");
+	obj prev_rcvr = 1, prev_module = 0, rcvr, module;
 	obj_array_for(wk, functions, fn) {
+		if (query) {
+			TSTR(key);
+			dump_function_docs_fn_key(wk, &key, fn);
+			if (!strstr(key.buf, query)) {
+				continue;
+			}
+		}
+
 		rcvr = obj_dict_index_as_obj(wk, fn, "rcvr");
 		module = obj_dict_index_as_obj(wk, fn, "module");
 
 		if (!obj_equal(wk, rcvr, prev_rcvr) || !obj_equal(wk, module, prev_module)) {
+			if (!rcvr && !module) {
+				mw_section(wk, buf, "KERNEL FUNCTIONS");
+			}
+
 			if (!prev_rcvr && rcvr) {
 				mw_section(wk, buf, "OBJECT METHODS");
 			}
@@ -880,15 +898,15 @@ dump_function_docs_man(struct workspace *wk, struct tstr *buf)
 
 	// mw_section(wk, buf, "SEE ALSO");
 
-	mw_section(wk, buf, "COPYRIGHT");
-	mw_paragraph(wk,
-		buf,
-		"Documentation comes from muon (https://muon.build/) and the meson project (https://mesonbuild.com) "
-		"and is released under Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). "
-		"Code samples are released under CC0 1.0 Universal (CC0 1.0).");
-	mw_paragraph(wk, buf, "Meson is a registered trademark of Jussi Pakkanen.");
-
-	mw_paragraph(wk, buf, "Generated with %s", version_buf);
+	if (!query) {
+		mw_section(wk, buf, "COPYRIGHT");
+		mw_paragraph(wk,
+			buf,
+			"Documentation comes from muon (https://muon.build/) and the meson project (https://mesonbuild.com) "
+			"and is released under Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). "
+			"Code samples are released under CC0 1.0 Universal (CC0 1.0).");
+		mw_paragraph(wk, buf, "Meson is a registered trademark of Jussi Pakkanen.");
+	}
 }
 
 /*******************************************************************************
@@ -903,7 +921,7 @@ dump_function_docs(struct workspace *wk, const struct dump_function_docs_opts* o
 	switch (opts->type) {
 	case dump_function_docs_output_html: dump_function_docs_html(wk, &buf); break;
 	case dump_function_docs_output_json: dump_function_docs_json(wk, &buf); break;
-	case dump_function_docs_output_man: dump_function_docs_man(wk, &buf); break;
+	case dump_function_docs_output_man: dump_function_docs_man(wk, &buf, opts->query); break;
 	}
 
 	fprintf(opts->out, "%s", buf.buf);

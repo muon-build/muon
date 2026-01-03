@@ -20,6 +20,7 @@ enum dump_function_docs_output {
 struct dump_function_docs_opts {
 	enum dump_function_docs_output type;
 	FILE* out;
+	const char *query;
 };
 
 void dump_function_docs(struct workspace *wk, const struct dump_function_docs_opts* opts);
