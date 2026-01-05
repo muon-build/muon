@@ -34,7 +34,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: CI in OpenIndiana
-      uses: vmactions/omios-vm@v1
+      uses: vmactions/omios-vm@a95608c38e4b1d1ef252a466ddf17da445988f22
       with:
         usesh: true
         prepare: |
