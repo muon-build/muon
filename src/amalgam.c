@@ -18,6 +18,7 @@
 #include "backend/ninja/alias_target.c"
 #include "backend/ninja/build_target.c"
 #include "backend/ninja/coverage.c"
+#include "backend/ninja/clang_format.c"
 #include "backend/ninja/custom_target.c"
 #include "backend/ninja/rules.c"
 #include "backend/output.c"

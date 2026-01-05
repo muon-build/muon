@@ -12,6 +12,7 @@
 #include "backend/ninja.h"
 #include "backend/ninja/alias_target.h"
 #include "backend/ninja/build_target.h"
+#include "backend/ninja/clang_format.h"
 #include "backend/ninja/coverage.h"
 #include "backend/ninja/custom_target.h"
 #include "backend/ninja/rules.h"
@@ -100,7 +101,8 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 	struct check_tgt_ctx check_ctx = { 0 };
 
 	bool coverage_enabled = ninja_coverage_is_enabled_and_available(wk);
-	check_ctx.need_phony = coverage_enabled;
+	bool clang_format_enabled = ninja_clang_format_is_enabled_and_available(wk);
+	check_ctx.need_phony = coverage_enabled || clang_format_enabled;
 
 	uint32_t i;
 	for (i = 0; i < wk->projects.len; ++i) {
@@ -136,6 +138,10 @@ ninja_write_build(struct workspace *wk, void *_ctx, FILE *out)
 
 	if (coverage_enabled) {
 		ninja_coverage_write_targets(wk, out);
+	}
+
+	if (clang_format_enabled) {
+		ninja_clang_format_write_targets(wk, out);
 	}
 
 	{ // Add install target for compatibility with meson
