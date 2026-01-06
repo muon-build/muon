@@ -588,6 +588,29 @@ ca_push_linker_args(struct workspace *wk,
 	push_args(wk, tgt->dep_internal.link_args, args);
 }
 
+// Check if we should warn about using sanitizers with b_lundef on shared libraries.
+// The --no-undefined flag can cause link failures because sanitizer runtimes may
+// have undefined symbols that are resolved at program load time.
+// Only warn on Clang as GCC's sanitizers don't have this issue.
+static bool
+should_warn_sanitizer_lundef(struct workspace *wk, obj comp, const struct project *proj, const struct obj_build_target *tgt)
+{
+	obj sanitize_opt;
+	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &sanitize_opt);
+	bool has_sanitizer = strcmp(get_cstr(wk, sanitize_opt), "none") != 0;
+
+	if (!has_sanitizer || !(tgt->type & tgt_dynamic_library)) {
+		return false;
+	}
+
+	// Only warn for Clang-based compilers
+	const struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+	const struct toolchain_id *comp_id = toolchain_component_type_to_id(
+		wk, toolchain_component_compiler, compiler->type[toolchain_component_compiler]);
+
+	return strstr(comp_id->id, "clang") != NULL;
+}
+
 static bool
 ca_setup_optional_b_args_linker(struct workspace *wk,
 	obj comp,
@@ -613,7 +636,9 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
 	if (strcmp(get_cstr(wk, opt), "none") != 0) {
-		push_args(wk, args, toolchain_linker_sanitize(wk, comp, get_cstr(wk, opt)));
+		// Sanitizer flags must be passed to compiler driver without -Wl, passthrough
+		const struct args *san_args = toolchain_compiler_sanitize(wk, comp, get_cstr(wk, opt));
+		push_args(wk, args, san_args);
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
@@ -675,7 +700,17 @@ ca_prepare_target_linker_args(struct workspace *wk,
 
 	if (proj) {
 		if (!(tgt->type & tgt_shared_module)) {
-			ca_push_linker_args(wk, comp, tgt, toolchain_linker_no_undefined(wk, comp));
+			obj opt;
+			ca_get_option_value_for_tgt(wk, proj, tgt, "b_lundef", &opt);
+			if (get_obj_bool(wk, opt)) {
+				if (should_warn_sanitizer_lundef(wk, comp, proj, tgt)) {
+					vm_warning(wk,
+						"target '%s': using clang with b_sanitize and b_lundef together can cause link errors",
+						get_cstr(wk, tgt->name));
+				}
+
+				ca_push_linker_args(wk, comp, tgt, toolchain_linker_no_undefined(wk, comp));
+			}
 		}
 
 		if (tgt->flags & build_tgt_flag_export_dynamic) {
