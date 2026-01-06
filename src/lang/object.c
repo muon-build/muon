@@ -8,12 +8,11 @@
 #include "compat.h"
 
 #include <inttypes.h>
-#include <stdarg.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "buf_size.h"
 #include "error.h"
+#include "lang/func_lookup.h"
 #include "lang/object.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
@@ -2103,7 +2102,8 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 				loc.line,
 				loc.col);
 		} else {
-			tstr_pushf(wk, sb, "unknown)>");
+			const struct func_impl *n = &native_funcs[c->native_func];
+			tstr_pushf(wk, sb, "%s) @ [native] %s:%d>", n->name, n->file, n->line);
 		}
 		break;
 	}
