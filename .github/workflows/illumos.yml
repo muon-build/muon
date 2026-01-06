@@ -23,7 +23,7 @@ jobs:
       with:
         usesh: true
         run: |
-          ./bootstrap.sh build
+          CC=cc ./bootstrap.sh build
           ./build/muon-bootstrap build build
 
   # openindiana:
