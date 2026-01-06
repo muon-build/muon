@@ -288,9 +288,11 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 					vm_error(wk, "unknown %s type %s", toolchain_component_to_s(sub_component), get_cstr(wk, kw->val));
 					return false;
 				}
+				base.sub_components[sub_component].fn = 0;
 				base.sub_components[sub_component].type = type;
 			} else {
 				base.sub_components[sub_component].fn = kw->val;
+				base.sub_components[sub_component].type = 0;
 			}
 		}
 	}
