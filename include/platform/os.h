@@ -23,20 +23,14 @@
 #ifndef S_ISREG
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
 #endif
-extern char *optarg;
-extern int opterr, optind, optopt;
-#else
-#include <unistd.h>
 #endif
-
-#include "lang/object.h"
-
-int os_getopt(int argc, char *const argv[], const char *optstring);
 
 // Returns the number of jobs to spawn.  This number should be slightly larger
 // than the number of cpus.
 uint32_t os_parallel_job_count(void);
 
+struct workspace;
+struct str;
 void os_set_env(struct workspace *wk, const struct str *k, const struct str *v);
 const char *os_get_env(const char *k);
 bool os_is_debugger_attached(void);

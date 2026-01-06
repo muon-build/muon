@@ -14,6 +14,7 @@
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "opts.h"
 #include "platform/path.h"
 #include "version.h"
 
@@ -610,167 +611,390 @@ dump_function_docs_html(struct workspace *wk, struct tstr *buf)
  * man generator
  ******************************************************************************/
 
+enum man_text_style {
+	man_text_style_regular,
+	man_text_style_bold,
+	man_text_style_italic,
+};
+
+struct man_writer {
+	struct workspace *wk;
+	struct tstr *buf;
+	enum man_text_style text_style;
+};
+
 static void
-mw_reset_font(struct workspace *wk, struct tstr *buf)
+mw_raw(struct man_writer *mw, const char *s)
 {
-	tstr_pushs(wk, buf, ".P\n");
+	tstr_pushs(mw->wk, mw->buf, s);
 }
 
 static void
-mw_title(struct workspace *wk, struct tstr *buf, const char *name, uint32_t section, const char *date)
+mw_rawc(struct man_writer *mw, char s)
 {
-	mw_reset_font(wk, buf);
-	tstr_pushf(wk, buf, ".TH \"%s\" \"%d\" \"%s\"\n", name, section, date);
+	tstr_push(mw->wk, mw->buf, s);
 }
 
 static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_section(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
-{
-	mw_reset_font(wk, buf);
-
-	tstr_pushs(wk, buf, ".SH ");
-	va_list args;
-	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
-	va_end(args);
-	tstr_push(wk, buf, '\n');
-}
-
-static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_subsection(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
-{
-	mw_reset_font(wk, buf);
-
-	tstr_pushs(wk, buf, ".SS ");
-	va_list args;
-	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
-	va_end(args);
-	tstr_push(wk, buf, '\n');
-}
-
-static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_paragraph(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
-{
-	mw_reset_font(wk, buf);
-	va_list args;
-	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
-	va_end(args);
-	tstr_push(wk, buf, '\n');
-}
-
-static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_bold(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
-{
-	tstr_pushs(wk, buf, "\\fB");
-	va_list args;
-	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
-	va_end(args);
-	tstr_pushs(wk, buf, "\\fR");
-}
-
-static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_italic(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
-{
-	tstr_pushs(wk, buf, "\\fI");
-	va_list args;
-	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
-	va_end(args);
-	tstr_pushs(wk, buf, "\\fR");
-}
-
-static void
-mw_indent(struct workspace *wk, struct tstr *buf, uint32_t amount)
-{
-	tstr_pushf(wk, buf, ".RS %d\n", amount * 4);
-}
-
-static void
-mw_unindent(struct workspace *wk, struct tstr *buf)
-{
-	tstr_pushf(wk, buf, ".RE\n");
-}
-
-static void
-mw_br(struct workspace *wk, struct tstr *buf)
-{
-	tstr_pushf(wk, buf, ".br\n");
-}
-
-static void
-mw_nl(struct workspace *wk, struct tstr *buf)
-{
-	tstr_pushf(wk, buf, "\n");
-}
-
-static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_line(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
+MUON_ATTR_FORMAT(printf, 2, 3) mw_rawf(struct man_writer *mw, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
-	va_end(args);
-	tstr_push(wk, buf, '\n');
-}
-
-static void
-MUON_ATTR_FORMAT(printf, 3, 4) mw_raw(struct workspace *wk, struct tstr *buf, const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	tstr_vpushf(wk, buf, fmt, args);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
 	va_end(args);
 }
 
 static void
-mw_description(struct workspace *wk, struct tstr *buf, const char *desc)
+mw_paragraph(struct man_writer *mw)
 {
-	mw_line(wk, buf, "%s", desc);
+	mw_raw(mw, ".PP\n");
 }
 
 static void
-mw_subsubsection(struct workspace *wk, struct tstr *buf, const char *title, const char *desc)
+mw_title(struct man_writer *mw, const char *name, uint32_t section)
 {
-	mw_bold(wk, buf, "%s", title);
-	mw_nl(wk, buf);
-	mw_indent(wk, buf, 1);
-	mw_description(wk, buf, desc);
-	mw_unindent(wk, buf);
+	char version_buf[256];
+	snprintf(version_buf,
+		sizeof(version_buf),
+		"muon %s%s%s",
+		muon_version.version,
+		muon_version.vcs_tag ? "-" : "",
+		muon_version.vcs_tag);
+	mw_rawf(mw, ".TH \"%s\" \"%d\" \"%s\"\n", name, section, version_buf);
 }
 
 static void
-mw_function_args(struct workspace *wk, struct tstr *buf, const char *title, obj args)
+MUON_ATTR_FORMAT(printf, 2, 3) mw_section(struct man_writer *mw, const char *fmt, ...)
+{
+	mw_rawf(mw, ".SH ");
+	va_list args;
+	va_start(args, fmt);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
+	va_end(args);
+	mw_raw(mw, "\n");
+}
+
+static void
+MUON_ATTR_FORMAT(printf, 2, 3) mw_subsection(struct man_writer *mw, const char *fmt, ...)
+{
+	mw_rawf(mw, ".SS ");
+	va_list args;
+	va_start(args, fmt);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
+	va_end(args);
+	mw_raw(mw, "\n");
+}
+
+static void
+MUON_ATTR_FORMAT(printf, 2, 3) mw_paragraph_text(struct man_writer *mw, const char *fmt, ...)
+{
+	mw_paragraph(mw);
+	va_list args;
+	va_start(args, fmt);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
+	va_end(args);
+	mw_raw(mw, "\n");
+}
+
+static void
+mw_paragraph_linesep(struct man_writer *mw, int32_t n)
+{
+	if (n == -1){
+		mw_raw(mw, ".PD\n");
+	} else {
+		mw_rawf(mw, ".PD %d\n", n);
+	}
+}
+
+static void
+mw_fmt_bold(struct man_writer *mw)
+{
+	mw_raw(mw, "\\fB");
+	mw->text_style = man_text_style_bold;
+}
+
+static void
+mw_fmt_italic(struct man_writer *mw)
+{
+	mw_raw(mw, "\\fI");
+	mw->text_style = man_text_style_italic;
+}
+
+static void
+mw_fmt_regular(struct man_writer *mw)
+{
+	mw_raw(mw, "\\fR");
+	mw->text_style = man_text_style_regular;
+}
+
+static void
+MUON_ATTR_FORMAT(printf, 2, 3) mw_bold(struct man_writer *mw, const char *fmt, ...)
+{
+	mw_fmt_bold(mw);
+	va_list args;
+	va_start(args, fmt);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
+	va_end(args);
+	mw_fmt_regular(mw);
+}
+
+static void
+MUON_ATTR_FORMAT(printf, 2, 3) mw_italic(struct man_writer *mw, const char *fmt, ...)
+{
+	mw_fmt_italic(mw);
+	va_list args;
+	va_start(args, fmt);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
+	va_end(args);
+	mw_fmt_regular(mw);
+}
+
+static void
+mw_indent(struct man_writer *mw, uint32_t amount)
+{
+	mw_rawf(mw, ".RS %d\n", amount * 4);
+}
+
+static void
+mw_unindent(struct man_writer *mw)
+{
+	mw_raw(mw, ".RE\n");
+}
+
+static void
+mw_paragraph_fill(struct man_writer *mw)
+{
+	mw_raw(mw, ".fi\n");
+}
+
+static void
+mw_paragraph_nofill(struct man_writer *mw)
+{
+	mw_raw(mw, ".nf\n");
+}
+
+static void
+mw_nl(struct man_writer *mw)
+{
+	mw_raw(mw, "\n");
+}
+
+static void
+mw_bullet(struct man_writer *mw)
+{
+	mw_raw(mw, ".IP \\(bu 4\n");
+}
+
+static void
+mw_md(struct man_writer *mw, const char *text)
+{
+	bool in_code_block = false, in_inline_code = false, in_list = false;
+	bool sol = true;
+
+	char prev = 0;
+	for (const char *p = text; *p; prev = *p, ++p) {
+		bool ignore_format = (in_code_block || in_inline_code);
+
+		switch (*p) {
+		case '*':
+		case '-':
+			if (sol && p[1] == ' ') {
+				++p;
+				if (!in_list) {
+					in_list = true;
+					mw_paragraph_linesep(mw, 0);
+				}
+				mw_bullet(mw);
+				sol = false;
+				continue;
+			} else if (*p == '*') {
+				if (ignore_format) {
+					break;
+				}
+				if (mw->text_style == man_text_style_bold) {
+					mw_fmt_regular(mw);
+				} else {
+					mw_fmt_bold(mw);
+				}
+				continue;
+			}
+			break;
+		case '[':
+			if (ignore_format) {
+				break;
+			}
+			if (p[1] == '[') {
+				++p;
+			}
+			break;
+		case ']':
+			if (ignore_format) {
+				break;
+			}
+			if (p[1] == ']') {
+				++p;
+			}
+			mw_raw(mw, "]");
+			if (p[1] == '(') {
+				for (; *p != ')'; ++p) {
+				}
+			}
+			continue;
+		case '<':
+			if (ignore_format) {
+				break;
+			}
+			mw_rawc(mw, *p);
+			mw_fmt_italic(mw);
+			continue;
+		case '>':
+			if (ignore_format) {
+				break;
+			}
+			mw_fmt_regular(mw);
+			mw_rawc(mw, *p);
+			continue;
+		case '_':
+			if (ignore_format) {
+				break;
+			}
+			if (mw->text_style == man_text_style_italic && p[1] == ' ') {
+				mw_fmt_regular(mw);
+			} else if (prev == ' ') {
+				mw_fmt_italic(mw);
+			}
+			continue;
+		case '.':
+			mw_raw(mw, ".\\&");
+			continue;
+		case '`':
+			if (p[1] == '`' && p[2] == '`') {
+				for (; *p && *p != '\n'; ++p) {
+				}
+				if (in_code_block) {
+					mw_nl(mw);
+					mw_paragraph_fill(mw);
+					mw_unindent(mw);
+					mw_paragraph(mw);
+					in_code_block = false;
+					sol = true;
+				} else {
+					mw_paragraph_nofill(mw);
+					mw_indent(mw, 1);
+					in_code_block = true;
+				}
+				continue;
+			} else if (in_code_block) {
+				break;
+			} else if (in_inline_code) {
+				in_inline_code = false;
+			} else {
+				in_inline_code = true;
+			}
+			continue;
+		case '\n':
+			if (in_code_block) {
+				break;
+			} else if (p[1] == '\n') {
+				p += 1;
+				mw_nl(mw);
+				sol = true;
+				if (in_list) {
+					mw_paragraph_linesep(mw, -1);
+					in_list = false;
+				}
+				mw_paragraph(mw);
+			} else if (in_list) {
+				if (p[1] == ' ' && p[2] == ' ') {
+					p += 2;
+					mw_rawc(mw, ' ');
+				} else {
+					mw_nl(mw);
+					sol = true;
+				}
+			} else {
+				if (!sol) {
+					mw_rawc(mw, ' ');
+				}
+			}
+			continue;
+		}
+
+		mw_rawc(mw, *p);
+		if (sol) {
+			sol = false;
+			if (in_list) {
+				mw_paragraph_linesep(mw, -1);
+				in_list = false;
+			}
+		}
+	}
+}
+
+static void
+mw_br(struct man_writer *mw)
+{
+	mw_raw(mw, ".br\n");
+}
+
+static void
+MUON_ATTR_FORMAT(printf, 2, 3) mw_line(struct man_writer *mw, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	tstr_vpushf(mw->wk, mw->buf, fmt, args);
+	va_end(args);
+	mw_raw(mw, "\n");
+}
+
+static void
+mw_description(struct man_writer *mw, const char *desc)
+{
+	mw_paragraph(mw);
+	mw_md(mw, desc);
+	mw_nl(mw);
+}
+
+static void
+mw_subsubsection(struct man_writer *mw, const char *title, const char *desc)
+{
+	mw_bold(mw, "%s", title);
+	mw_nl(mw);
+	mw_indent(mw, 1);
+	mw_description(mw, desc);
+	mw_unindent(mw);
+}
+
+static void
+mw_function_args(struct workspace *wk, struct man_writer *mw, const char *title, obj args)
 {
 	if (!args) {
 		return;
 	}
 
-	mw_bold(wk, buf, "%s", title);
-	mw_nl(wk, buf);
-	mw_indent(wk, buf, 1);
+	mw_bold(mw, "%s", title);
+	mw_nl(mw);
+	mw_indent(mw, 1);
 	obj v;
 	obj_array_for(wk, args, v) {
-		mw_bold(wk, buf, "%s", obj_dict_index_as_str(wk, v, "name")->s);
-		mw_raw(wk, buf, " ");
-		mw_italic(wk, buf, "%s", obj_dict_index_as_str(wk, v, "type")->s);
-		mw_nl(wk, buf);
+		mw_bold(mw, "%s", obj_dict_index_as_str(wk, v, "name")->s);
+		mw_raw(mw, " ");
+		mw_italic(mw, "%s", obj_dict_index_as_str(wk, v, "type")->s);
+		mw_nl(mw);
 		const struct str *desc;
 		if ((desc = obj_dict_index_as_str(wk, v, "desc"))) {
-			mw_br(wk, buf);
-			mw_indent(wk, buf, 1);
-			mw_description(wk, buf, desc->s);
-			mw_unindent(wk, buf);
-			mw_nl(wk, buf);
+			mw_br(mw);
+			mw_indent(mw, 1);
+			mw_description(mw, desc->s);
+			mw_unindent(mw);
+			mw_nl(mw);
 		}
 	}
-	mw_unindent(wk, buf);
+	mw_unindent(mw);
 }
 
 static void
-mw_function(struct workspace *wk, struct tstr *buf, obj fn)
+mw_function(struct workspace *wk, struct man_writer *mw, obj fn)
 {
 	obj posargs, kwargs, v;
 	const char *fname = obj_dict_index_as_str(wk, fn, "name")->s;
@@ -780,78 +1004,81 @@ mw_function(struct workspace *wk, struct tstr *buf, obj fn)
 			rcvr = obj_dict_index_as_str(wk, fn, "module");
 		}
 
-		mw_subsection(wk, buf, "%s%s%s()", rcvr ? rcvr->s : "", rcvr ? "." : "", fname);
+		mw_subsection(mw, "%s%s%s()", rcvr ? rcvr->s : "", rcvr ? "." : "", fname);
 	}
-	mw_indent(wk, buf, 0);
+	mw_indent(mw, 0);
 
-	mw_bold(wk, buf, "SYNOPSIS");
-	mw_nl(wk, buf);
+	mw_bold(mw, "SYNOPSIS");
+	mw_nl(mw);
+	mw_indent(mw, 1);
 
 	posargs = obj_dict_index_as_obj(wk, fn, "posargs");
 	kwargs = obj_dict_index_as_obj(wk, fn, "kwargs");
 
 	{ // signature
-		mw_line(wk, buf, "%s(", fname);
-		mw_br(wk, buf);
-		mw_indent(wk, buf, 1);
+		mw_line(mw, "%s(", fname);
+		mw_br(mw);
+		mw_indent(mw, 1);
 
 		if (posargs) {
 			obj_array_for(wk, posargs, v) {
-				mw_italic(wk, buf, "%s", obj_dict_index_as_str(wk, v, "type")->s);
-				mw_raw(wk, buf, ",\n");
-				mw_br(wk, buf);
+				mw_italic(mw, "%s", obj_dict_index_as_str(wk, v, "type")->s);
+				mw_raw(mw, ",\n");
+				mw_br(mw);
 			}
 		}
 
 		if (kwargs) {
 			obj_array_for(wk, kwargs, v) {
-				mw_raw(wk, buf, "%s ", obj_dict_index_as_str(wk, v, "name")->s);
-				mw_italic(wk, buf, "%s", obj_dict_index_as_str(wk, v, "type")->s);
-				mw_raw(wk, buf, ":,\n");
-				mw_br(wk, buf);
+				mw_rawf(mw, "%s ", obj_dict_index_as_str(wk, v, "name")->s);
+				mw_italic(mw, "%s", obj_dict_index_as_str(wk, v, "type")->s);
+				mw_raw(mw, ":,\n");
+				mw_br(mw);
 			}
 		}
 
-		mw_unindent(wk, buf);
-		mw_raw(wk, buf, ") -> ");
-		mw_italic(wk, buf, "%s", obj_dict_index_as_str(wk, fn, "type")->s);
-		mw_nl(wk, buf);
+		mw_unindent(mw);
+		mw_raw(mw, ")");
+		const struct str *type = obj_dict_index_as_str(wk, fn, "type");
+		if (!str_eql(type, &STR("null"))) {
+			mw_raw(mw, " -> ");
+			mw_italic(mw, "%s", type->s);
+		}
+		mw_nl(mw);
 	}
 
-	mw_nl(wk, buf);
+	mw_nl(mw);
+	mw_unindent(mw);
 
 	const struct str *desc;
 	if ((desc = obj_dict_index_as_str(wk, fn, "desc"))) {
-		mw_subsubsection(wk, buf, "DESCRIPTION", desc->s);
+		mw_subsubsection(mw, "DESCRIPTION", desc->s);
 	}
-	mw_nl(wk, buf);
+	mw_nl(mw);
 
-	mw_function_args(wk, buf, "POSARGS", posargs);
-	mw_function_args(wk, buf, "KWARGS", kwargs);
+	mw_function_args(wk, mw, "POSARGS", posargs);
+	mw_function_args(wk, mw, "KWARGS", kwargs);
 
-	mw_unindent(wk, buf);
+	mw_unindent(mw);
 }
 
 static void
-dump_function_docs_man(struct workspace *wk, struct tstr *buf, const char *query)
+dump_function_docs_man(struct workspace *wk, struct man_writer *mw, const char *query)
 {
 	obj fn, functions = dump_function_docs_obj(wk);
 
-	char version_buf[256];
-	snprintf(version_buf, sizeof(version_buf), "muon %s%s%s", muon_version.version, muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
-	mw_title(wk, buf, "meson-reference", 3, version_buf);
+	mw_title(mw, "meson-reference", 3);
 
-	mw_section(wk, buf, "NAME");
+	mw_section(mw, "NAME");
 	if (query) {
-		mw_paragraph(wk, buf, "results for '%s'", query);
+		mw_paragraph_text(mw, "results for '%s'", query);
 	} else {
-		mw_paragraph(wk, buf, "meson-reference %s - a reference for meson functions and objects", muon_version.meson_compat);
+		mw_paragraph_text(mw, "meson-reference %s - a reference for meson functions and objects", muon_version.meson_compat);
 	}
 
 	if (!query) {
-		mw_section(wk, buf, "DESCRIPTION");
-		mw_paragraph(wk,
-			buf,
+		mw_section(mw, "DESCRIPTION");
+		mw_description(mw,
 			"This manual is divided into three sections, *KERNEL FUNCTIONS*, *OBJECT METHODS*, and *MODULE FUNCTIONS*. "
 			"*KERNEL FUNCTIONS* contains all builtin meson functions and methods. "
 			"Methods and module functions are denoted by [[object / module name]].[[method_name]]().");
@@ -872,40 +1099,39 @@ dump_function_docs_man(struct workspace *wk, struct tstr *buf, const char *query
 
 		if (!obj_equal(wk, rcvr, prev_rcvr) || !obj_equal(wk, module, prev_module)) {
 			if (!rcvr && !module) {
-				mw_section(wk, buf, "KERNEL FUNCTIONS");
+				mw_section(mw, "KERNEL FUNCTIONS");
 			}
 
 			if (!prev_rcvr && rcvr) {
-				mw_section(wk, buf, "OBJECT METHODS");
+				mw_section(mw, "OBJECT METHODS");
 			}
 			if (rcvr) {
-				mw_section(wk, buf, "%s", get_str(wk, rcvr)->s);
+				mw_section(mw, "%s", get_str(wk, rcvr)->s);
 			}
 
 			if (!prev_module && module) {
-				mw_section(wk, buf, "MODULE FUNCTIONS");
+				mw_section(mw, "MODULE FUNCTIONS");
 			}
 			if (module) {
-				mw_section(wk, buf, "%s", get_str(wk, module)->s);
+				mw_section(mw, "%s", get_str(wk, module)->s);
 			}
 		}
 
-		mw_function(wk, buf, fn);
+		mw_function(wk, mw, fn);
 
 		prev_rcvr = rcvr;
 		prev_module = module;
 	}
 
-	// mw_section(wk, buf, "SEE ALSO");
+	// mw_section(mw, "SEE ALSO");
 
 	if (!query) {
-		mw_section(wk, buf, "COPYRIGHT");
-		mw_paragraph(wk,
-			buf,
+		mw_section(mw, "COPYRIGHT");
+		mw_paragraph_text(mw,
 			"Documentation comes from muon (https://muon.build/) and the meson project (https://mesonbuild.com) "
 			"and is released under Attribution-ShareAlike 4.0 International (CC BY-SA 4.0). "
 			"Code samples are released under CC0 1.0 Universal (CC0 1.0).");
-		mw_paragraph(wk, buf, "Meson is a registered trademark of Jussi Pakkanen.");
+		mw_paragraph_text(mw, "Meson is a registered trademark of Jussi Pakkanen.");
 	}
 }
 
@@ -921,7 +1147,252 @@ dump_function_docs(struct workspace *wk, const struct dump_function_docs_opts* o
 	switch (opts->type) {
 	case dump_function_docs_output_html: dump_function_docs_html(wk, &buf); break;
 	case dump_function_docs_output_json: dump_function_docs_json(wk, &buf); break;
-	case dump_function_docs_output_man: dump_function_docs_man(wk, &buf, opts->query); break;
+	case dump_function_docs_output_man: {
+		struct man_writer mw = { .wk = wk, .buf = &buf };
+		dump_function_docs_man(wk, &mw, opts->query);
+	} break;
+	}
+
+	fprintf(opts->out, "%s", buf.buf);
+}
+
+static void
+mw_cli_option_value(struct man_writer *mw, const struct opt_match_opts *opt)
+{
+	if (opt->enum_table_len) {
+		mw_raw(mw, " <");
+		mw_italic(mw, "%s", opt->enum_table[0].long_name);
+		for (uint32_t i = 1; i < opt->enum_table_len; ++i) {
+			mw_raw(mw, "|");
+			mw_italic(mw, "%s", opt->enum_table[i].long_name);
+		}
+		mw_raw(mw, ">");
+	} else if (opt->value_name) {
+		mw_raw(mw, " <");
+		mw_fmt_italic(mw);
+		mw_md(mw, opt->value_name);
+		mw_fmt_regular(mw);
+		mw_raw(mw, ">");
+	}
+}
+
+static void
+mw_cli_options(struct man_writer *mw, const struct arr *opts)
+{
+	mw_paragraph_linesep(mw, 0);
+	for (uint32_t i = 0; i < opts->len; ++i) {
+		const struct opt_match_opts *opt = arr_get(opts, i);
+		mw_bullet(mw);
+		mw_bold(mw, "-%c", opt->c);
+		mw_cli_option_value(mw, opt);
+		mw_raw(mw, " - ");
+		mw_md(mw, opt->desc);
+		if (opt->desc_long) {
+			mw_raw(mw, " ");
+			mw_md(mw, opt->desc_long);
+		}
+		mw_nl(mw);
+	}
+	mw_paragraph_linesep(mw, -1);
+}
+
+static void
+mw_synopsis(struct man_writer *mw, const struct opt_gathered_command *cmd, const char *cmd_name)
+{
+	const struct arr *opts = &cmd->opts;
+	mw_bold(mw, "muon %s", cmd_name);
+	if (opts->len) {
+		bool any_opt_requires_no_value = false;
+
+		for (uint32_t i = 0; i < opts->len; ++i) {
+			const struct opt_match_opts *opt = arr_get(opts, i);
+			if (opt->c == 'h') {
+				continue;
+			}
+			if (!opt->enum_table_len && !opt->value_name) {
+				any_opt_requires_no_value = true;
+				break;
+			}
+		}
+
+		if (any_opt_requires_no_value) {
+			mw_raw(mw, " [");
+			mw_bold(mw, "-");
+			for (uint32_t i = 0; i < opts->len; ++i) {
+				const struct opt_match_opts *opt = arr_get(opts, i);
+				if (opt->c == 'h') {
+					continue;
+				}
+				if (!opt->enum_table_len && !opt->value_name) {
+					mw_bold(mw, "%c", opt->c);
+				}
+			}
+			mw_raw(mw, "]");
+		}
+
+		for (uint32_t i = 0; i < opts->len; ++i) {
+			const struct opt_match_opts *opt = arr_get(opts, i);
+			if (!opt->enum_table_len && !opt->value_name) {
+				continue;
+			}
+
+			mw_raw(mw, " [");
+			mw_bold(mw, "-%c", opt->c);
+			mw_cli_option_value(mw, opt);
+			mw_raw(mw, "]");
+		}
+	}
+
+	if (cmd->usage_post) {
+		mw_md(mw, cmd->usage_post);
+	}
+
+	if (cmd->commands) {
+		mw_md(mw, " <command>");
+	}
+}
+
+static void
+dump_cli_docs_man(struct workspace *wk, struct man_writer *mw, const char *query, const struct arr *commands)
+{
+	mw_title(mw, "muon", 1);
+
+	mw_section(mw, "NAME");
+	if (query) {
+		mw_paragraph_text(mw, "results for '%s'", query);
+	} else {
+		mw_paragraph_text(mw, "muon - a meson-compatible build system");
+	}
+
+	if (!query) {
+		mw_section(mw, "SYNOPSIS");
+
+		mw_description(mw, "*muon* [*-vh*] [*-C* <chdir>] <command> [<args>]");
+		mw_br(mw);
+		mw_nl(mw);
+		mw_md(mw, "*muon* *setup* [*-D*[subproject*:*]option*=*value...] build");
+		mw_nl(mw);
+		mw_br(mw);
+		mw_md(mw, "*cd* build");
+		mw_nl(mw);
+		mw_br(mw);
+		mw_md(mw, "<invoke backend build tool>");
+		mw_nl(mw);
+		mw_br(mw);
+		mw_md(mw, "*muon* *test* [options]");
+		mw_nl(mw);
+		mw_br(mw);
+		mw_md(mw, "*muon* *install* [options]");
+		mw_nl(mw);
+		mw_br(mw);
+
+		mw_section(mw, "DESCRIPTION");
+
+		mw_description(mw,
+			"*muon* interprets _source files_ written in the _meson dsl_ and produces "
+			"_buildfiles_ for a backend. "
+			"\n\n"
+			"When building *meson* projects with *muon*, you typically first start by "
+			"running the *setup* command in the project root.  This will create _buildfiles_ "
+			"for the backend in the _build dir_ you specify.  You then invoke the backend, "
+			"e.g. "
+			"\n\n"
+			"```\n"
+			"ninja -C <build dir>\n"
+			"```"
+			"\n\n"
+			"If the project defines tests, you may run them with the *test* subcommand, and "
+			"finally install the project with the *install* subcommand.");
+
+		mw_section(mw, "OPTIONS");
+		const struct opt_gathered_command *root_cmd = arr_get(commands, 0);
+		mw_cli_options(mw, &root_cmd->opts);
+	}
+
+	mw_section(mw, "COMMANDS");
+
+	if (!query) {
+		mw_paragraph(mw);
+		mw_description(mw, "*muon* requires a command");
+
+		mw_paragraph(mw);
+		mw_description(mw, "All commands accept a *-h* option which prints a brief summary of their usage.");
+	}
+
+	for (uint32_t i = 1; i < commands->len; ++i) {
+		const struct opt_gathered_command *cmd = arr_get(commands, i);
+
+		obj joined;
+		obj_array_join(wk, false, cmd->trace, make_str(wk, " "), &joined);
+		const char *cmd_name = get_str(wk, joined)->s;
+		if (query && !strstr(cmd_name, query)) {
+			continue;
+		}
+		mw_subsection(mw, "%s", cmd_name);
+		mw_indent(mw, 1);
+
+		mw_synopsis(mw, cmd, cmd_name);
+		mw_nl(mw);
+		mw_br(mw);
+
+		mw_description(mw, cmd->desc);
+		mw_br(mw);
+
+		if (cmd->desc_long) {
+			mw_description(mw, cmd->desc_long);
+			mw_br(mw);
+		}
+
+		if (cmd->opts.len) {
+			mw_paragraph(mw);
+			mw_bold(mw, "OPTIONS");
+			mw_nl(mw);
+			mw_cli_options(mw, &cmd->opts);
+		}
+
+		if (cmd->commands) {
+			mw_paragraph(mw);
+			mw_bold(mw, "COMMANDS");
+			mw_nl(mw);
+			mw_paragraph_linesep(mw, 0);
+			for (uint32_t i = 0; cmd->commands[i].name; ++i) {
+				const struct opt_command *sub = &cmd->commands[i];
+				if (sub->desc && !sub->skip_gather) {
+					mw_bullet(mw);
+					mw_bold(mw, "%s", sub->name);
+					mw_raw(mw, " - ");
+					mw_md(mw, sub->desc);
+					mw_nl(mw);
+				}
+			}
+			mw_paragraph_linesep(mw, -1);
+		}
+	}
+
+	if (!query) {
+		mw_section(mw, "SEE ALSO");
+		mw_description(mw, "meson.build(5) meson-reference(3) meson(1)");
+
+		mw_section(mw, "AUTHORS");
+		mw_description(mw,
+			"Maintained by Stone Tickle <lattis@mochiro.moe>, who is assisted by other open "
+			"source contributors.  For more information about muon development, see "
+			"<https://sr.ht/~lattis/muon>.");
+	}
+}
+
+void
+dump_cli_docs(struct workspace *wk, const struct dump_function_docs_opts* opts, const struct arr *commands)
+{
+	TSTR(buf);
+
+	switch (opts->type) {
+	case dump_function_docs_output_html: UNREACHABLE; break;
+	case dump_function_docs_output_json: UNREACHABLE; break;
+	case dump_function_docs_output_man: {
+		struct man_writer mw = { .wk = wk, .buf = &buf };
+		dump_cli_docs_man(wk, &mw, opts->query, commands);
+	} break;
 	}
 
 	fprintf(opts->out, "%s", buf.buf);

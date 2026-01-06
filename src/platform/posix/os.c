@@ -7,7 +7,6 @@
 #include "compat.h"
 
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #if defined(__APPLE__) && defined(MUON_BOOTSTRAPPED)
@@ -32,12 +31,6 @@ char *
 os_getcwd(char *buf, size_t size)
 {
 	return getcwd(buf, size);
-}
-
-int
-os_getopt(int argc, char *const argv[], const char *optstring)
-{
-	return getopt(argc, argv, optstring);
 }
 
 int32_t

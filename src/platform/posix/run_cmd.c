@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "error.h"
 #include "lang/workspace.h"

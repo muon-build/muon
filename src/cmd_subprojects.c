@@ -11,7 +11,6 @@
 #include "cmd_subprojects.h"
 #include "lang/analyze.h"
 #include "opts.h"
-#include "platform/os.h"
 #include "platform/path.h"
 #include "wrap.h"
 
@@ -67,13 +66,12 @@ cmd_subprojects_update(struct workspace *wk, uint32_t argc, uint32_t argi, char 
 {
 	bool required = false;
 
-	OPTSTART("f") {
-	case 'f': {
-		required = true;
-		break;
+	opt_for(-1, .usage_post = " <list of subprojects>") {
+		if (opt_match('f', "fail if any subproject fails to update")) {
+			required = true;
+		}
 	}
-	}
-	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
+	opt_end();
 
 	obj extra_args = 0;
 	if (required) {
@@ -87,9 +85,9 @@ cmd_subprojects_update(struct workspace *wk, uint32_t argc, uint32_t argi, char 
 static bool
 cmd_subprojects_list(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	OPTSTART("") {
+	opt_for(-1, .usage_post = " <list of subprojects>") {
 	}
-	OPTEND(argv[argi], " <list of subprojects>", "", NULL, -1)
+	opt_end();
 
 	obj extra_args = make_obj(wk, obj_array);
 	obj_array_push(wk, extra_args, make_str(wk, "print: true"));
@@ -102,10 +100,12 @@ cmd_subprojects_clean(struct workspace *wk, uint32_t argc, uint32_t argi, char *
 {
 	bool force = false;
 
-	OPTSTART("f") {
-	case 'f': force = true; break;
+	opt_for(-1, .usage_post = " <list of subprojects>") {
+		if (opt_match('f', "actually perform the removal")) {
+			force = true;
+		}
 	}
-	OPTEND(argv[argi], " <list of subprojects>", "  -f - force the operation\n", NULL, -1)
+	opt_end();
 
 	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
 
@@ -118,16 +118,14 @@ cmd_subprojects_clean(struct workspace *wk, uint32_t argc, uint32_t argi, char *
 static bool
 cmd_subprojects_fetch(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	bool force = false;
 	const char *subprojects = 0;
 
-	OPTSTART("fo:") {
-	case 'f': force = true; break;
-	case 'o': subprojects = optarg; break;
+	opt_for(-1, .usage_post = " <subproject.wrap>") {
+		if (opt_match('o', "the directory to fetch into, e.g. subprojects", "directory")) {
+			subprojects = opt_ctx.optarg;
+		}
 	}
-	OPTEND(argv[argi], " <subproject.wrap>", "  -f - force the operation\n", NULL, 1)
-
-	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
+	opt_end();
 
 	obj extra_args = make_obj(wk, obj_array);
 
@@ -139,8 +137,6 @@ cmd_subprojects_fetch(struct workspace *wk, uint32_t argc, uint32_t argi, char *
 		}
 	}
 
-	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
-
 	return cmd_subprojects_eval_cmd(wk, 0, 0, 0, "fetch", extra_args);
 }
 
@@ -151,7 +147,7 @@ struct cmd_subprojects_ctx {
 bool
 cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
-	static const struct command commands[] = {
+	static struct opt_command commands[] = {
 		{ "update", cmd_subprojects_update, "update subprojects with .wrap files" },
 		{ "list", cmd_subprojects_list, "list subprojects with .wrap files and their status" },
 		{ "clean", cmd_subprojects_clean, "clean wrap-git subprojects" },
@@ -163,13 +159,15 @@ cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const 
 		const char *dir;
 	} opts = { 0 };
 
-	OPTSTART("d:") {
-	case 'd': opts.dir = optarg; break;
+	opt_for(-1, commands) {
+		if (opt_match('d', "manually specify subprojects directory", "directory")) {
+			opts.dir = opt_ctx.optarg;
+		}
 	}
-	OPTEND(argv[0], "", "  -d <directory> - manually specify subprojects directory\n", commands, -1)
+	opt_end();
 
 	uint32_t cmd_i;
-	if (!find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
+	if (!opt_find_cmd(commands, &cmd_i, argc, argi, argv, false)) {
 		return false;
 	}
 

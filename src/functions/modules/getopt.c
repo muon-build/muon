@@ -14,8 +14,8 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "opts.h"
 #include "platform/assert.h"
-#include "platform/os.h"
 #include "platform/run_cmd.h"
 
 struct getopt_handler {
@@ -23,6 +23,8 @@ struct getopt_handler {
 	bool seen;
 	obj action;
 	const struct str *desc;
+	char c;
+	bool has_value;
 };
 
 static bool
@@ -92,18 +94,11 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 	}
 
 	obj handlers = an[1].val;
-	char optstring[256] = { 0 };
+	struct arr unpacked_handlers;
+	arr_init(wk->a_scratch, &unpacked_handlers, 16, struct getopt_handler);
 	{
-		const uint32_t optstring_max = sizeof(optstring) - 3;
-		uint32_t optstring_i = 0;
-
 		obj k, v;
 		obj_dict_for(wk, handlers, k, v) {
-			if (optstring_i >= optstring_max) {
-				vm_error(wk, "too many options");
-				return false;
-			}
-
 			const struct str *s = get_str(wk, k);
 			if (s->len != 1) {
 				vm_error(wk, "option %o invalid, must be a single character", k);
@@ -130,16 +125,13 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 				return false;
 			}
 
-			optstring[optstring_i] = *s->s;
-			++optstring_i;
 			if (getopt_handler_requires_optarg(wk, &handler)) {
-				optstring[optstring_i] = ':';
-				++optstring_i;
+				handler.has_value = true;
 			}
-		}
 
-		if (!strchr(optstring, 'h')) {
-			optstring[optstring_i] = 'h';
+			handler.c = *s->s;
+
+			arr_push(wk->a_scratch, &unpacked_handlers, &handler);
 		}
 	}
 
@@ -151,12 +143,30 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 		argstr_to_argv(wk, joined, argc, 0, &argv);
 	}
 
-	signed char opt;
-	opterr = 1;
-	optind = 1;
-	optarg = 0;
-	while ((opt = os_getopt(argc, argv, optstring)) != -1) {
-		struct getopt_handler handler = { 0 };
+	uint32_t argi = 0;
+	opt_for(-1) {
+		for (uint32_t i = 0; i < unpacked_handlers.len; ++i) {
+			struct getopt_handler *handler = arr_get(&unpacked_handlers, i);
+
+			if (opt_match(handler->c, handler->desc->s, handler->has_value ? "value" : "")) {
+				handler->seen = true;
+
+				obj capture_res;
+				struct args_norm capture_an[] = { { ARG_TYPE_NULL }, ARG_TYPE_NULL };
+				if (handler->has_value) {
+					capture_an[0].node = 0;
+					capture_an[0].type = tc_string;
+					capture_an[0].val = make_str(wk, opt_ctx.optarg);
+				}
+
+				if (!vm_eval_capture(wk, handler->action, capture_an, 0, &capture_res)) {
+					return false;
+				}
+			}
+		}
+	}
+
+#if 0
 		{
 			obj v;
 			char opt_as_str[] = { opt, 0 };
@@ -175,38 +185,18 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 				obj_dict_set(wk, v, make_str(wk, "seen"), obj_bool_true);
 			}
 		}
-
-		{
-			obj capture_res;
-			struct args_norm capture_an[] = { { ARG_TYPE_NULL }, ARG_TYPE_NULL };
-			if (optarg) {
-				capture_an[0].node = 0;
-				capture_an[0].type = tc_string;
-				capture_an[0].val = make_str(wk, optarg);
-			}
-
-			if (!vm_eval_capture(wk, handler.action, capture_an, 0, &capture_res)) {
-				return false;
-			}
-		}
-
-		optarg = 0;
-	}
+#endif
 
 	*res = make_obj(wk, obj_array);
-	for (uint32_t i = optind; i < argc; ++i) {
+	for (uint32_t i = *opt_ctx.argi; i < argc; ++i) {
 		obj_array_push(wk, *res, make_str(wk, argv[i]));
 	}
 
-	{
-		obj k, v;
-		obj_dict_for(wk, handlers, k, v) {
-			struct getopt_handler handler = { 0 };
-			vm_obj_to_struct(wk, getopt_handler, v, &handler);
-			if (handler.required && !handler.seen) {
-				obj_lprintf(wk, log_info, "missing required option %o\n", k);
-				func_module_getopt_usage(wk, argv[0], handlers, 1);
-			}
+	for (uint32_t i = 0; i < unpacked_handlers.len; ++i) {
+		const struct getopt_handler *handler = arr_get(&unpacked_handlers, i);
+		if (handler->required && !handler->seen) {
+			obj_lprintf(wk, log_info, "missing required option %c\n", handler->c);
+			func_module_getopt_usage(wk, argv[0], handlers, 1);
 		}
 	}
 

@@ -19,7 +19,7 @@ foreach f : [
     'index.html',
     'muon_ci.html',
     'man-style.css',
-    'status.css',
+    'ci-style.css',
     'main.css',
     'muon_logo.svg',
 ]

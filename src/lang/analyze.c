@@ -1619,6 +1619,11 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	if (wk->vm.lang_mode == language_internal) {
 		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0, assign_local);
 		a->default_var = true;
+		if (!opts->single_file) {
+			LOG_E("cannot analyze multi-file in script mode");
+			res = false;
+			goto done;
+		}
 	} else {
 		workspace_init_runtime(wk);
 		workspace_init_startup_files(wk);
@@ -1751,6 +1756,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		}
 	}
 
+done:
 	TracyCZoneAutoE;
 	return res;
 }

@@ -578,14 +578,7 @@ FUNC_IMPL(module_subprojects, fetch, 0, func_impl_flag_impure | func_impl_flag_s
 		{ tc_string, .optional = true, .desc = "The directory to fetch into" },
 		ARG_TYPE_NULL,
 	};
-	enum kwargs {
-		kw_force,
-	};
-	struct args_kw akw[] = {
-		[kw_force] = { "force", tc_bool, .desc = "Force the operation." },
-		0,
-	};
-	if (!pop_args(wk, an, akw)) {
+	if (!pop_args(wk, an, 0)) {
 		return false;
 	}
 

@@ -135,6 +135,7 @@ void str_strip_in_place(struct str *ss, const struct str *strip, enum str_strip_
 obj str_strip(struct workspace *wk, const struct str *ss, const struct str *strip, enum str_strip_flag flags);
 obj str_split_strip(struct workspace *wk, const struct str *ss, const struct str *split, const struct str *strip);
 bool str_split_in_two(const struct str *s, struct str *l, struct str *r, char split);
+uint8_t str_char_to_lower(uint8_t c);
 void str_to_lower(struct str *str);
 bool str_try_remove_prefix(struct str *s, const struct str *prefix);
 
