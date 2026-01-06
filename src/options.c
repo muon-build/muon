@@ -1088,15 +1088,15 @@ init_global_options(struct workspace *wk)
 				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), { ev->link_flags, ev->preprocess_flags } },
 			};
 
-			for (uint32_t i = 0; i < ARRAY_LEN(custom_env_options); ++i) {
-				make_compiler_option(wk, custom_env_options[i].option);
-				const char *option = get_str(wk, custom_env_options[i].option)->s;
+			for (uint32_t o = 0; o < ARRAY_LEN(custom_env_options); ++o) {
+				make_compiler_option(wk, custom_env_options[o].option);
+				const char *option = get_str(wk, custom_env_options[o].option)->s;
 
 				for (uint32_t j = 0;
-					j < ARRAY_LEN(custom_env_options->env_var) && custom_env_options->env_var[j];
+					j < ARRAY_LEN(custom_env_options[o].env_var) && custom_env_options[o].env_var[j];
 					++j) {
 					set_env_option_with_fallback(
-						wk, custom_env_options->env_var[j], option, machine, set_compile_opt_from_env);
+						wk, custom_env_options[o].env_var[j], option, machine, set_compile_opt_from_env);
 				}
 			}
 
