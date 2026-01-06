@@ -66,6 +66,17 @@ toolchain.register_archiver(
     },
 )
 
+toolchain.register_archiver(
+    'ar-solaris',
+    exe: 'ar',
+    handlers: {
+        'version': ['-V'],
+        'base': ['-csr'],
+        'needs_wipe': true,
+    },
+)
+
+
 ################################################################################
 # linkers
 ################################################################################
@@ -349,7 +360,14 @@ toolchain.register_compiler(
             return 'ld'
         endif
     endfunc,
-    archiver: 'ar-gnu',
+    archiver: func(c compiler) -> str
+        m = c.machine()
+        if m.system() == 'sunos'
+            return 'ar-solaris'
+        else
+            return 'ar-gnu'
+        endif
+    endfunc,
     inherit: 'posix',
     detect: func(out str) -> int
         return 'Free Software Foundation' in out ? 100 : 0
