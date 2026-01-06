@@ -5,6 +5,12 @@
 
 #include "compat.h"
 
+#ifdef __NetBSD__
+// for symlink
+#define _NETBSD_SOURCE
+#endif
+
+
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
