@@ -20,7 +20,7 @@ if not get_option('man-pages').disabled()
                 build_by_default: true,
                 install: true,
                 install_dir: get_option('mandir') / f'man@section@',
-            )
+            ),
         }
     endforeach
 
@@ -35,8 +35,8 @@ if not get_option('man-pages').disabled()
                 feed: true,
                 command: scdoc,
                 install: true,
-                install_dir: get_option('mandir') / 'man5'
-            )
+                install_dir: get_option('mandir') / 'man5',
+            ),
         }
     endif
 endif
