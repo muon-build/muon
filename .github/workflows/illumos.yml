@@ -19,7 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: CI in OmniOS
-      uses: vmactions/omios-vm@v1
+      uses: vmactions/omnios-vm@v1
       with:
         usesh: true
         prepare: |
