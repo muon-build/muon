@@ -8,7 +8,7 @@ build=$1
 cd "$build/doc"
 
 mkdir man
-cp meson.build.5 muon.1 man
+cp muon.1 meson-reference.3 meson.build.5 man
 tar cvf man.tar man/*
 gzip man.tar
 
