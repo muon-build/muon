@@ -14,5 +14,3 @@ gzip man.tar
 
 mkdir docs
 mv reference.html man.tar.gz docs
-
-rm -r website/version_info.py website/__pycache__
