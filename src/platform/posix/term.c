@@ -8,7 +8,6 @@
 #ifdef __sun
 /* for struct winsize on Solaris */
 #define __EXTENSIONS__
-#include <stropts.h>
 #include <termios.h>
 #endif
 
