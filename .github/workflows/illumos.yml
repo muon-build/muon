@@ -22,6 +22,8 @@ jobs:
       uses: vmactions/omnios-vm@v1
       with:
         usesh: true
+        prepare: |
+          pkg install developer/gcc14
         run: |
           CC=cc ./bootstrap.sh build
           ./build/muon-bootstrap build build
