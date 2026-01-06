@@ -22,11 +22,9 @@ jobs:
       uses: vmactions/omnios-vm@v1
       with:
         usesh: true
-        prepare: |
-          pkg install curl libarchive pkgconf
         run: |
-          bootstrap.sh build
-          ./build/muon-bootstrap.exe setup build
+          ./bootstrap.sh build
+          ./build/muon-bootstrap build build
 
   # openindiana:
   #   name: OpenIndiana
