@@ -27,18 +27,4 @@ jobs:
         run: |
           CC=gcc ./bootstrap.sh build
           ./build/muon-bootstrap -v build build
-
-  # openindiana:
-  #   name: OpenIndiana
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-  #   - name: CI in OpenIndiana
-  #     uses: vmactions/omios-vm@affa9744a4f240f181f67d0962ba9d685333999e # v1.1.2
-  #     with:
-  #       usesh: true
-  #       prepare: |
-  #         pkg install curl libarchive pkgconf
-  #       run: |
-  #         bootstrap.sh build
-  #         ./build/muon-bootstrap.exe setup build
+          ./build/muon -C build test -d dots || exit 0
