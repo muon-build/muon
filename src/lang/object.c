@@ -2070,29 +2070,41 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 	case obj_capture: {
 		tstr_pushf(wk, sb, "<capture (");
 		struct obj_capture *c = get_obj_capture(wk, o);
-		for (uint32_t i = 0; i < c->func->nargs; ++i) {
-			tstr_pushf(wk, sb, "%s %s", c->func->an[i].name, typechecking_type_to_s(wk, c->func->an[i].type));
-			if (i < c->func->nargs - 1 || c->func->nkwargs) {
-				tstr_pushf(wk, sb, ", ");
+		if (c->func) {
+			for (uint32_t i = 0; i < c->func->nargs; ++i) {
+				tstr_pushf(wk,
+					sb,
+					"%s %s",
+					c->func->an[i].name,
+					typechecking_type_to_s(wk, c->func->an[i].type));
+				if (i < c->func->nargs - 1 || c->func->nkwargs) {
+					tstr_pushf(wk, sb, ", ");
+				}
 			}
-		}
-		for (uint32_t i = 0; i < c->func->nkwargs; ++i) {
-			tstr_pushf(wk, sb, " %s %s:,", c->func->akw[i].key, typechecking_type_to_s(wk, c->func->an[i].type));
-			if (i < c->func->nkwargs - 1) {
-				tstr_pushf(wk, sb, ", ");
+			for (uint32_t i = 0; i < c->func->nkwargs; ++i) {
+				tstr_pushf(wk,
+					sb,
+					" %s %s:,",
+					c->func->akw[i].key,
+					typechecking_type_to_s(wk, c->func->akw[i].type));
+				if (i < c->func->nkwargs - 1) {
+					tstr_pushf(wk, sb, ", ");
+				}
 			}
-		}
 
-		struct vm_inst_location loc = { 0 };
-		vm_inst_location(wk, c->func->entry, &loc);
-		tstr_pushf(wk,
-			sb,
-			") -> %s @ %s%s:%d:%d>",
-			typechecking_type_to_s(wk, c->func->return_type),
-			loc.embedded ? "[embedded] " : "",
-			loc.file,
-			loc.line,
-			loc.col);
+			struct vm_inst_location loc = { 0 };
+			vm_inst_location(wk, c->func->entry, &loc);
+			tstr_pushf(wk,
+				sb,
+				") -> %s @ %s%s:%d:%d>",
+				typechecking_type_to_s(wk, c->func->return_type),
+				loc.embedded ? "[embedded] " : "",
+				loc.file,
+				loc.line,
+				loc.col);
+		} else {
+			tstr_pushf(wk, sb, "unknown)>");
+		}
 		break;
 	}
 	default: tstr_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
