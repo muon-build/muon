@@ -949,7 +949,7 @@ vm_resolve_breakpoint_cb(struct workspace *wk, struct node *n)
 		struct node *o = node ? (void *)(intptr_t)get_obj_number(wk, node) : 0;
 		bool in_range = n->location.off <= off && off <= n->location.off + n->location.len;
 		if (in_range && (!o || n->location.len < o->location.len)) {
-			obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, make_number(wk, (int64_t)n));
+			obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, make_number(wk, (uintptr_t)n));
 		}
 	}
 }

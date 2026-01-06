@@ -252,7 +252,7 @@ ar_alloc(struct arena *a, uint64_t count, uint64_t objsize, uint64_t align)
 
 	int64_t pad, size_unpadded, size;
 retry:
-	pad = ((uint64_t)a->tail->end & (align - 1));
+	pad = ((uintptr_t)a->tail->end & (align - 1));
 	pad = pad ? align - pad : 0;
 	size_unpadded = objsize * count;
 	size = size_unpadded + pad;
