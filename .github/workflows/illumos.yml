@@ -25,7 +25,7 @@ jobs:
         prepare: |
           pkg install developer/gcc14
         run: |
-          CC=cc ./bootstrap.sh build
+          CC=gcc ./bootstrap.sh build
           ./build/muon-bootstrap build build
 
   # openindiana:
