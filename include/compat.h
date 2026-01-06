@@ -19,6 +19,10 @@
 #include <stdarg.h>
 #endif
 
+#if defined(__NetBSD__) && !defined(_NETBSD_SOURCE)
+#define _NETBSD_SOURCE 1
+#endif
+
 #if !defined(__SANITIZE_ADDRESS__) && defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define __SANITIZE_ADDRESS__

@@ -5,11 +5,6 @@
 
 #include "compat.h"
 
-#ifdef __NetBSD__
-// for SA_RESETHAND
-#define _NETBSD_SOURCE
-#endif
-
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
