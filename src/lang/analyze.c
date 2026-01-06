@@ -1283,11 +1283,12 @@ az_op_store(struct workspace *wk)
 				}
 			} else {
 				uint64_t *hv;
-				if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-					UNREACHABLE;
+				// tgt should only be missing from analyzer.dict_locations in
+				// the case of a dict created in native code, e.g. returned
+				// from a native function.
+				if ((hv = hash_get(&analyzer.dict_locations, &tgt))) {
+					obj_dict_dup_light(wk, *hv, &dup);
 				}
-
-				obj_dict_dup_light(wk, *hv, &dup);
 			}
 		}
 	}
