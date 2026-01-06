@@ -260,6 +260,14 @@ toolchain.register_linker(
     },
 )
 
+toolchain.register_linker(
+    'ld-solaris',
+    exe: 'ld',
+    inherit: 'ld-posix',
+    handlers: {
+        'version': ['-V'],
+    }
+)
 ################################################################################
 # compilers
 ################################################################################
@@ -333,7 +341,14 @@ toolchain.register_compiler(
 toolchain.register_compiler(
     'gcc',
     exe: {'c': 'gcc', 'objc': 'gcc', 'cpp': 'g++', 'objcpp': 'g++'},
-    linker: 'ld',
+    linker: func(c compiler) -> str
+        m = c.machine()
+        if m.system() == 'sunos'
+            return 'ld-solaris'
+        else
+            return 'ld'
+        endif
+    endfunc,
     archiver: 'ar-gnu',
     inherit: 'posix',
     detect: func(out str) -> int
