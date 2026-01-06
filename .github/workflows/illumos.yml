@@ -27,4 +27,4 @@ jobs:
         run: |
           CC=gcc ./bootstrap.sh build
           ./build/muon-bootstrap -v build build
-          ./build/muon -C build test -d dots || exit 0
+          ./build/muon -C build test -d dots
