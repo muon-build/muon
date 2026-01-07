@@ -59,7 +59,7 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 
 	if ((flags & write_tgt_src_flag_pch)) {
 		if (get_obj_type(wk, val) == obj_build_target) {
-			goto done;
+			return dest;
 		}
 	} else {
 		obj_array_push(wk, ctx->object_names, dest);
