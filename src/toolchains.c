@@ -158,6 +158,11 @@ toolchain_component_from_s(const char *name, uint32_t *res)
 		}
 	}
 
+	if (strcmp(name, "static_linker") == 0) {
+		*res = toolchain_component_archiver;
+		return true;
+	}
+
 	return false;
 }
 
