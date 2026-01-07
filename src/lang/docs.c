@@ -1270,19 +1270,13 @@ dump_cli_docs_man(struct workspace *wk, struct man_writer *mw, const char *query
 		mw_description(mw, "*muon* [*-vh*] [*-C* <chdir>] <command> [<args>]");
 		mw_br(mw);
 		mw_nl(mw);
-		mw_md(mw, "*muon* *setup* [*-D*[subproject*:*]option*=*value...] build");
+		mw_md(mw, "*muon* *build* [*-D*[subproject*:*]option*=*value...] <build dir>");
 		mw_nl(mw);
 		mw_br(mw);
-		mw_md(mw, "*cd* build");
+		mw_md(mw, "*muon* -C <build dir> *test* [options]");
 		mw_nl(mw);
 		mw_br(mw);
-		mw_md(mw, "<invoke backend build tool>");
-		mw_nl(mw);
-		mw_br(mw);
-		mw_md(mw, "*muon* *test* [options]");
-		mw_nl(mw);
-		mw_br(mw);
-		mw_md(mw, "*muon* *install* [options]");
+		mw_md(mw, "*muon* -C <build dir> *install* [options]");
 		mw_nl(mw);
 		mw_br(mw);
 

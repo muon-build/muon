@@ -1454,7 +1454,7 @@ cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		{ "build",
 			cmd_build,
 			"setup and build in a single step",
-			"Invoke muon setup + ninja in a single command.  Additionally setup will only "
+			"Invoke muon setup and build in a single command.  Additionally, setup will only "
 			"run if the passed options have changed, including options implicitly set "
 			"using environment variables."
 		},
