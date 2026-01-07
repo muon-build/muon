@@ -2402,7 +2402,7 @@ FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 	}
 
 	uint32_t component;
-	if (!toolchain_component_from_s(get_cstr(wk, an[0].val), &component)) {
+	if (!toolchain_component_from_s(wk, get_cstr(wk, an[0].val), &component)) {
 		vm_error(wk, "unknown toolchain component %o", an[0].val);
 		return false;
 	}

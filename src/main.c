@@ -668,7 +668,7 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 			uint32_t component;
 			const char *type = sep + 1;
 
-			if (!toolchain_component_from_s(opt_ctx.optarg, &component)) {
+			if (!toolchain_component_from_s(wk, opt_ctx.optarg, &component)) {
 				LOG_E("unknown toolchain component: %s", opt_ctx.optarg);
 				return false;
 			}

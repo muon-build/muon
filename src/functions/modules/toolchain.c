@@ -38,6 +38,7 @@ FUNC_IMPL(module_toolchain,
 			tc_string | tc_compiler,
 			.desc
 			= "The archiver component to inherit from.  Can be either a compiler object or static linker type name." },
+		// TODO: tag keywords as deprecated?
 		[kw_inherit_static_linker] = { "inherit_static_linker",
 			tc_string | tc_compiler,
 			.desc = "Deprecated.  Please use inherit_archiver instead" },
@@ -57,15 +58,18 @@ FUNC_IMPL(module_toolchain,
 		akw[kw_inherit_archiver].set = true;
 		akw[kw_inherit_archiver].val = akw[kw_inherit_static_linker].val;
 		akw[kw_inherit_archiver].node = akw[kw_inherit_static_linker].node;
+
+		vm_deprecation_at(wk, akw[kw_inherit_static_linker].node, "0.6.0", "static_linker has been renamed to archiver");
 	}
 
 	struct {
 		const char *old, *new;
+		enum toolchain_component component;
 	} deprecated_name_map[] = {
-		{ "clang-apple", "clang" },
-		{ "ld-apple", "lld-apple" },
-		{ "posix", "ar-posix" },
-		{ "ar", "ar-gnu" },
+		{ "clang-apple", "clang", toolchain_component_compiler },
+		{ "ld-apple", "lld-apple", toolchain_component_linker },
+		{ "posix", "ar-posix", toolchain_component_archiver },
+		{ "ar", "ar-gnu", toolchain_component_archiver },
 	};
 
 	{
@@ -98,8 +102,14 @@ FUNC_IMPL(module_toolchain,
 			if (get_obj_type(wk, akw[toolchain_elem[i].kw].val) == obj_string) {
 				const char *s = get_cstr(wk, akw[toolchain_elem[i].kw].val);
 				for (uint32_t i = 0; i < ARRAY_LEN(deprecated_name_map); ++i) {
-					if (strcmp(deprecated_name_map[i].old, s) == 0) {
+					if (deprecated_name_map[i].component == component && strcmp(deprecated_name_map[i].old, s) == 0) {
 						s = deprecated_name_map[i].new;
+						vm_deprecation_at(wk,
+							akw[kw_inherit_static_linker].node,
+							"0.6.0",
+							"%s has been renamed to %s",
+							deprecated_name_map[i].old,
+							deprecated_name_map[i].new);
 						break;
 					}
 				}
@@ -396,7 +406,7 @@ FUNC_IMPL(module_toolchain, handler, tc_capture | tc_array, func_impl_flag_impur
 
 
 	uint32_t component;
-	if (!toolchain_component_from_s(get_cstr(wk, an[0].val), &component)) {
+	if (!toolchain_component_from_s(wk, get_cstr(wk, an[0].val), &component)) {
 		vm_error_at(wk, an[0].node, "unknown component %o", an[0].val);
 		return false;
 	}

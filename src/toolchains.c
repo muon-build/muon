@@ -148,7 +148,7 @@ toolchain_component_to_s(enum toolchain_component comp)
 }
 
 bool
-toolchain_component_from_s(const char *name, uint32_t *res)
+toolchain_component_from_s(struct workspace *wk, const char *name, uint32_t *res)
 {
 	uint32_t i;
 	for (i = 0; i < ARRAY_LEN(toolchain_component_name); ++i) {
@@ -159,6 +159,7 @@ toolchain_component_from_s(const char *name, uint32_t *res)
 	}
 
 	if (strcmp(name, "static_linker") == 0) {
+		vm_deprecation_at(wk, 0, "0.6.0", "static_linker has been renamed to archiver");
 		*res = toolchain_component_archiver;
 		return true;
 	}

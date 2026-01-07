@@ -267,7 +267,7 @@ void compiler_check_cache_set(struct workspace *wk, obj key, const struct compil
 bool toolchain_component_type_from_s(struct workspace *wk, enum toolchain_component comp, const char *name, uint32_t *res);
 const struct toolchain_id *toolchain_component_type_to_id(struct workspace *wk, enum toolchain_component comp, uint32_t val);
 const char *toolchain_component_to_s(enum toolchain_component comp);
-bool toolchain_component_from_s(const char *name, uint32_t *res);
+bool toolchain_component_from_s(struct workspace *wk, const char *name, uint32_t *res);
 
 enum compiler_language compiler_language_to_hdr(enum compiler_language lang);
 const char *compiler_language_to_s(enum compiler_language l);

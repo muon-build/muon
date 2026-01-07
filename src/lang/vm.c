@@ -329,6 +329,18 @@ vm_warning_at(struct workspace *wk, uint32_t ip, const char *fmt, ...)
 }
 
 void
+vm_deprecation_at(struct workspace *wk, uint32_t ip, const char *since, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	static char buf[1024];
+	obj_vsnprintf(wk, buf, ARRAY_LEN(buf), fmt, args);
+	va_end(args);
+
+	vm_diagnostic(wk, 0, log_warn, 0, "deprecated since %s: %s", since, buf);
+}
+
+void
 vm_error(struct workspace *wk, const char *fmt, ...)
 {
 	va_list args;
