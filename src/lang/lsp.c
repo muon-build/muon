@@ -17,6 +17,7 @@
 #include "lang/typecheck.h"
 #include "log.h"
 #include "memmem.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/os.h"
 #include "platform/path.h"
@@ -937,24 +938,60 @@ az_srv_get_definition_info(struct az_srv *srv, struct workspace *wk, struct az_s
 		break;
 	}
 	case az_srv_break_type_native_call: {
-		if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name), &STR("subdir"))) {
-			if (info->dat.native_call.nargs == 1) {
-				obj tgt = object_stack_peek(&wk->vm.stack, (info->dat.native_call.nkwargs * 2) + 1);
-				if (get_obj_type(wk, tgt) == obj_string) {
-					TSTR(tmp);
-					path_copy(wk, &tmp, get_cstr(wk, current_project(wk)->cwd));
-					path_push(wk, &tmp, get_cstr(wk, tgt));
-					path_push(wk, &tmp, "meson.build");
+		if (info->dat.native_call.nargs >= 1) {
+			obj tgt = object_stack_peek(&wk->vm.stack, (info->dat.native_call.nkwargs * 2) + 1);
+			if (get_obj_type(wk, tgt) == obj_string) {
+				const struct str fname = STRL(native_funcs[info->dat.native_call.idx].name);
+				uint32_t line = 1, col = 1;
+				TSTR(path);
+				if (str_eql(&fname, &STR("subdir"))) {
+					path_copy(wk, &path, get_cstr(wk, current_project(wk)->cwd));
+					path_push(wk, &path, get_cstr(wk, tgt));
+					path_push(wk, &path, "meson.build");
+				} else if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name),
+						   &STR("import"))) {
+					const struct project *proj = current_project(wk);
+					if (proj->module_dir) {
+						path_copy(wk, &path, get_cstr(wk, proj->source_root));
+						path_push(wk, &path, get_cstr(wk, proj->module_dir));
+						path_push(wk, &path, get_cstr(wk, tgt));
+						tstr_pushs(wk, &path, ".meson");
+					}
+				} else if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name),
+						   &STR("get_option"))) {
+					obj opt;
+					if (get_option(wk, current_project(wk), get_str(wk, tgt), &opt)) {
+						struct obj_option *o = get_obj_option(wk, opt);
+						struct vm_inst_location loc = { 0 };
+						vm_inst_location(wk, o->ip, &loc);
+						if (!loc.embedded) {
+							path_copy(wk, &path, loc.file);
+							line = loc.line;
+							col = loc.col;
+						}
+					}
+				} else if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name),
+						   &STR("subproject"))) {
+					// TODO: this doesn't handle wrap files pointing to different dirs
+					const struct project *proj = current_project(wk);
+					path_copy(wk, &path, get_cstr(wk, proj->source_root));
+					path_push(wk, &path, get_cstr(wk, proj->subprojects_dir));
+					path_push(wk, &path, get_cstr(wk, tgt));
+					path_push(wk, &path, "meson.build");
+				}
 
+				if (path.len && fs_file_exists(path.buf)) {
 					srv->req.result = make_obj(wk, obj_dict);
-					obj_dict_set(wk, srv->req.result, make_str(wk, "uri"), az_srv_path_to_uri(wk, &TSTR_STR(&tmp)));
+					obj_dict_set(wk,
+						srv->req.result,
+						make_str(wk, "uri"),
+						az_srv_path_to_uri(wk, &TSTR_STR(&path)));
 					obj range = make_obj(wk, obj_dict);
-					obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, 1, 1));
-					obj_dict_set(wk, range, make_str(wk, "end"), az_srv_position(wk, 1, 1));
+					obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, line, col));
+					obj_dict_set(wk, range, make_str(wk, "end"), az_srv_position(wk, line, col));
 					obj_dict_set(wk, srv->req.result, make_str(wk, "range"), range);
 				}
 			}
-		} else if (str_eql(&STRL(native_funcs[info->dat.native_call.idx].name), &STR("import"))) {
 		}
 		break;
 	}
