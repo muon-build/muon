@@ -2392,7 +2392,7 @@ FUNC_IMPL(compiler, configure, 0, func_impl_flag_impure)
 	struct args_kw akw[] = {
 		[kw_overwrite] = { "overwrite", tc_bool },
 		[kw_cmd_array] = { "cmd_array", TYPE_TAG_LISTIFY | tc_string },
-		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_override_find_program) },
+		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides) },
 		[kw_libdirs] = { "libdirs", TYPE_TAG_LISTIFY | tc_string },
 		[kw_version] = { "version", tc_string },
 		0,
