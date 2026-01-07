@@ -7,6 +7,7 @@
 
 #include "buf_size.h"
 #include "functions/modules/toolchain.h"
+#include "lang/analyze.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -49,11 +50,6 @@ FUNC_IMPL(module_toolchain,
 		return false;
 	}
 
-	*res = make_obj(wk, obj_compiler);
-	struct obj_compiler *c = get_obj_compiler(wk, *res);
-	c->ver[toolchain_component_compiler] = make_str(wk, "unknown");
-	c->libdirs = make_obj(wk, obj_array);
-
 	if (!akw[kw_inherit_archiver].set && akw[kw_inherit_static_linker].set) {
 		akw[kw_inherit_archiver].set = true;
 		akw[kw_inherit_archiver].val = akw[kw_inherit_static_linker].val;
@@ -61,6 +57,16 @@ FUNC_IMPL(module_toolchain,
 
 		vm_deprecation_at(wk, akw[kw_inherit_static_linker].node, "0.6.0", "static_linker has been renamed to archiver");
 	}
+
+	if (wk->vm.in_analyzer) {
+		*res = make_typeinfo(wk, tc_compiler);
+		return true;
+	}
+
+	*res = make_obj(wk, obj_compiler);
+	struct obj_compiler *c = get_obj_compiler(wk, *res);
+	c->ver[toolchain_component_compiler] = make_str(wk, "unknown");
+	c->libdirs = make_obj(wk, obj_array);
 
 	struct {
 		const char *old, *new;
