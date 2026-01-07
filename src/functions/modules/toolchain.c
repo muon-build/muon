@@ -22,6 +22,7 @@ FUNC_IMPL(module_toolchain,
 		kw_inherit_compiler,
 		kw_inherit_linker,
 		kw_inherit_archiver,
+		kw_inherit_static_linker,
 	};
 	struct args_kw akw[] = {
 		[kw_inherit] = { "inherit", tc_compiler, .desc = "A toolchain to inherit from" },
@@ -36,7 +37,10 @@ FUNC_IMPL(module_toolchain,
 		[kw_inherit_archiver] = { "inherit_archiver",
 			tc_string | tc_compiler,
 			.desc
-			= "The static linker component to inherit from.  Can be either a compiler object or static linker type name." },
+			= "The archiver component to inherit from.  Can be either a compiler object or static linker type name." },
+		[kw_inherit_static_linker] = { "inherit_static_linker",
+			tc_string | tc_compiler,
+			.desc = "Deprecated.  Please use inherit_archiver instead" },
 		0,
 	};
 
@@ -48,6 +52,21 @@ FUNC_IMPL(module_toolchain,
 	struct obj_compiler *c = get_obj_compiler(wk, *res);
 	c->ver[toolchain_component_compiler] = make_str(wk, "unknown");
 	c->libdirs = make_obj(wk, obj_array);
+
+	if (!akw[kw_inherit_archiver].set && akw[kw_inherit_static_linker].set) {
+		akw[kw_inherit_archiver].set = true;
+		akw[kw_inherit_archiver].val = akw[kw_inherit_static_linker].val;
+		akw[kw_inherit_archiver].node = akw[kw_inherit_static_linker].node;
+	}
+
+	struct {
+		const char *old, *new;
+	} deprecated_name_map[] = {
+		{ "clang-apple", "clang" },
+		{ "ld-apple", "lld-apple" },
+		{ "posix", "ar-posix" },
+		{ "ar", "ar-gnu" },
+	};
 
 	{
 		const struct {
@@ -61,6 +80,8 @@ FUNC_IMPL(module_toolchain,
 
 		uint32_t i;
 		for (i = 0; i < ARRAY_LEN(toolchain_elem); ++i) {
+			const enum toolchain_component component = toolchain_elem[i].component;
+
 			if (!akw[toolchain_elem[i].kw].set) {
 				if (akw[kw_inherit].set) {
 					akw[toolchain_elem[i].kw].val = akw[kw_inherit].val;
@@ -75,27 +96,38 @@ FUNC_IMPL(module_toolchain,
 			obj cmd_array = 0;
 
 			if (get_obj_type(wk, akw[toolchain_elem[i].kw].val) == obj_string) {
+				const char *s = get_cstr(wk, akw[toolchain_elem[i].kw].val);
+				for (uint32_t i = 0; i < ARRAY_LEN(deprecated_name_map); ++i) {
+					if (strcmp(deprecated_name_map[i].old, s) == 0) {
+						s = deprecated_name_map[i].new;
+						break;
+					}
+				}
+
 				uint32_t compiler_type;
-				if (!toolchain_component_type_from_s(wk, toolchain_elem[i].component, get_cstr(wk, akw[toolchain_elem[i].kw].val), &compiler_type)) {
+				if (!toolchain_component_type_from_s(wk, component, s, &compiler_type)) {
 					vm_error_at(wk,
 						akw[toolchain_elem[i].kw].node,
 						"unknown %s type: %o",
-						toolchain_component_to_s(toolchain_elem[i].component),
+						toolchain_component_to_s(component),
 						akw[toolchain_elem[i].kw].val);
 					return false;
 				}
 
+				const struct arr *registry = &wk->toolchain_registry.components[component];
 				type = compiler_type;
+				const struct toolchain_registry_component *rc = arr_get(registry, compiler_type);
+				override = rc->overrides;
 			} else {
 				const struct obj_compiler *base = get_obj_compiler(wk, akw[toolchain_elem[i].kw].val);
-				type = base->type[i];
-				override = base->overrides[i];
-				cmd_array = base->cmd_arr[i];
+				type = base->type[component];
+				override = base->overrides[component];
+				cmd_array = base->cmd_arr[component];
 			}
 
-			c->type[i] = type;
-			c->overrides[i] = override;
-			c->cmd_arr[i] = cmd_array;
+			c->type[component] = type;
+			c->overrides[component] = override;
+			c->cmd_arr[component] = cmd_array;
 		}
 	}
 
