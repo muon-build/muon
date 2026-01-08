@@ -18,6 +18,7 @@ jobs:
       matrix:
         compiler:
           - {c: 'cl', cpp: 'cl'}
+          - {c: 'clang-cl', cpp: 'clang-cl'}
           - {c: 'clang', cpp: 'clang++'}
     name: ${{ matrix.compiler.c }}
     runs-on: windows-2022
