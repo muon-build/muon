@@ -615,13 +615,6 @@ toolchain.register_compiler(
             endif
         endfunc,
         'werror': ['/WX'],
-        'pch_ext': ['.pch'],
-        'emit_pch': ['/Yc'],
-        'include_pch': func(_c compiler, s1 str) -> list[str]
-            name = fs.name(s1)
-            assert(name.endswith('.pch'))
-            return ['/Yu', s1]
-        endfunc,
     },
 )
 
