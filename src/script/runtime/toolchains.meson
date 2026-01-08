@@ -554,6 +554,9 @@ toolchain.register_compiler(
         'include': func(_c compiler, s str) -> list[str]
             return ['/I', s]
         endfunc,
+        'include_system': func(_c compiler, s str) -> list[str]
+            return ['/external:I', s]
+        endfunc,
         'linker_delimiter': ['/link'],
         'object_ext': ['.obj'],
         'optimization': func(_c compiler, lvl str) -> list[str]
