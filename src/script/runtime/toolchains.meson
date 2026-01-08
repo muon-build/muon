@@ -240,7 +240,6 @@ toolchain.register_linker(
     exe: 'lld-link',
     handlers: {
         'lib': toolchain.handler('linker', 'ld-posix', 'lib'),
-        'fuse_ld': ['-fuse-ld=lld-link'],
         'check_ignored_option': func(c compiler, s str) -> bool
             return (
                 toolchain.handler('linker', 'link', 'check_ignored_option')(c, s)
