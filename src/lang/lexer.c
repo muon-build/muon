@@ -705,6 +705,22 @@ lexer_push_pop_enclosed_state(struct lexer *lexer, enum token_type type)
 	}
 }
 
+static bool
+lexer_check_eof(struct lexer *lexer, struct token *token)
+{
+	if (lexer->i >= lexer->source->len) {
+		if (lexer->fmt.in_raw_block) {
+			lexer_push_fmt_raw_block(lexer, lexer->i + 1);
+			lexer->fmt.in_raw_block = false;
+		}
+
+		token->type = token_type_eof;
+		return true;
+	}
+
+	return false;
+}
+
 static void
 lexer_next_impl(struct lexer *lexer, struct token *token)
 {
@@ -715,13 +731,7 @@ restart:
 		.location = (struct source_location){ .off = lexer->i, .len = 1 },
 	};
 
-	if (lexer->i >= lexer->source->len) {
-		if (lexer->fmt.in_raw_block) {
-			lexer_push_fmt_raw_block(lexer, lexer->i + 1);
-			lexer->fmt.in_raw_block = false;
-		}
-
-		token->type = token_type_eof;
+	if (lexer_check_eof(lexer, token)) {
 		return;
 	}
 
@@ -871,6 +881,10 @@ restart:
 	} else if (is_digit(lexer->src[lexer->i])) {
 		lex_number(lexer, token);
 		token->location.len = lexer->i - token->location.off;
+		return;
+	}
+
+	if (lexer_check_eof(lexer, token)) {
 		return;
 	}
 
