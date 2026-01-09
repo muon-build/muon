@@ -1187,7 +1187,7 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 
 		char *sep;
 		struct fmt_range fmt_range = { 0 };
-		if ((sep = strchr(opts.filenames[i], ':'))) {
+		if ((sep = strchr(opts.filenames[i], '#'))) {
 			*sep = 0;
 			const char *range = sep + 1;
 			if (!(sep = strchr(range, '-'))) {
