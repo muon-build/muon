@@ -1629,18 +1629,23 @@ fmt(const struct fmt_params *params)
 	if (params->range.start) {
 		range = &_range;
 		uint32_t line = 1;
+		struct {
+			bool start, end;
+		} set = { 0 };
 		for (uint32_t i = 0; i < params->src->len; ++i) {
-			if (!range->start && line >= params->range.start) {
+			if (!set.start && line >= params->range.start) {
 				range->start = i;
-			} else if (!range->end && line >= params->range.end) {
+				set.start = true;
+			} else if (!set.end && line >= params->range.end) {
 				range->end = i - 1;
+				set.end = true;
 				break;
 			}
 			if (params->src->src[i] == '\n') {
 				++line;
 			}
 		}
-		if (!range->end) {
+		if (!set.end) {
 			range->end = params->src->len;
 		}
 
