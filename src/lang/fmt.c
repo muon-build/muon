@@ -23,7 +23,7 @@
 #include "log.h"
 #include "platform/assert.h"
 
-const static bool fmt_debug = false;
+static const bool fmt_debug = false;
 
 enum fmt_frag_flag {
 	fmt_frag_flag_add_trailing_comma = 1 << 1,
