@@ -58,6 +58,9 @@ install_packages_()
 	queue_package_ python3 # for meson-tests, meson-docs, and parts of the website
 	queue_package_ linux-headers # used in a few project tests
 	queue_package_ py3-yaml # for meson-docs
+	queue_package_ boost-dev # for boost dependency tests
+	queue_package_ ncurses-dev # for curses dependency tests
+	queue_package_ libpcap-dev # for pcap dependency tests
 
 	if [ "$cfg_website" ]; then
 		queue_package_ scdoc # for meson.build.5 and muon.1

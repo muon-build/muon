@@ -15,11 +15,19 @@ on:
 jobs:
   with-sanitizers:
     runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
     steps:
       # Checkout muon source and install dependencies.
       - uses: actions/checkout@master
         with:
           fetch-depth: 0
+      # Install test dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-dev libboost-filesystem-dev libncurses-dev libpcap-dev
 
       # Bootstrap basic build.
       - name: Bootstrap
@@ -68,7 +76,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libglib2.0-dev libgirepository1.0-dev valac
+            libglib2.0-dev libgirepository1.0-dev valac \
+            libboost-dev libboost-filesystem-dev libncurses-dev libpcap-dev
 
       - name: Set PKG_CONFIG_PATH
         run: |

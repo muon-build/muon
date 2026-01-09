@@ -13,7 +13,6 @@
 #include "coerce.h"
 #include "error.h"
 #include "external/pkgconfig.h"
-#include "functions/dependency.h"
 #include "functions/kernel/dependency.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"

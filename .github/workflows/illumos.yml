@@ -23,8 +23,9 @@ jobs:
       with:
         usesh: true
         prepare: |
-          pkg install developer/gcc14
+          pkg install developer/gcc14 library/ncurses
         run: |
+          export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig
           CC=gcc ./bootstrap.sh build
           ./build/muon-bootstrap -v build build
           ./build/muon -C build test -d dots

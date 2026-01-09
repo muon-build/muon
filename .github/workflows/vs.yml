@@ -24,12 +24,17 @@ jobs:
     defaults:
       run:
         shell: cmd
+    env:
+      PKG_CONFIG_PATH: C:/vcpkg/installed/x64-windows/lib/pkgconfig
     steps:
       - uses: actions/checkout@v4
+      - name: install dependencies
+        run: vcpkg install boost-filesystem:x64-windows pdcurses:x64-windows libpcap:x64-windows
       - name: set env vars
         run: >
           echo CC=${{ matrix.compiler.c }} >> %GITHUB_ENV%
           && echo CXX=${{ matrix.compiler.cpp }} >> %GITHUB_ENV%
+          && echo CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake >> %GITHUB_ENV%
       - name: bootstrap
         run: >
           bootstrap.bat build

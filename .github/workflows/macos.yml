@@ -19,8 +19,14 @@ jobs:
   macos:
     runs-on: macos-latest
     environment: master
+    env:
+      PKG_CONFIG_PATH: /opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/pkgconfig
     steps:
     - uses: actions/checkout@v3
+    # Install dependencies for testing
+    - name: install dependencies
+      run: |
+        brew install boost ncurses libpcap
     # Uninstall homebrew packages so we don't pull in any of them
     - name: uninstall homebrew packages
       run: |

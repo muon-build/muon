@@ -10,6 +10,21 @@ tests = [
     ['muon/script_module'],
     ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
     ['muon/vala', {'vala': true}],
+    [
+        'muon/pcap',
+        {
+            'skip_if': host_machine.system() == 'sunos'
+            or host_machine.system() == 'windows',
+        },
+    ],
+    ['muon/threads'],
+    [
+        'muon/curses',
+        {
+            'skip_if': host_machine.system() == 'sunos',
+        },
+    ],
+    ['muon/boost', {'cpp': true}],
 
     # project tests imported from meson unit tests
     # TODO: move this to meson-tests
@@ -50,6 +65,10 @@ foreach t : tests
     props = t.get(1, {})
 
     if 'skip' in props
+        continue
+    endif
+
+    if 'skip_if' in props and props['skip_if']
         continue
     endif
 

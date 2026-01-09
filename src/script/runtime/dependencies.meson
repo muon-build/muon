@@ -118,6 +118,7 @@ meson.register_dependency_handler(
         return declare_dependency(
             compile_args: compile_args,
             link_args: link_args,
+
             version: version,
         )
     endfunc,
@@ -185,6 +186,830 @@ meson.register_dependency_handler(
         if cc.has_header('dlfcn.h')
             return cc.find_library('dl', required: false)
         endif
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'atomic',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+        code = '#include <stdatomic.h>\nint main() { atomic_int x = 0; atomic_init(&x, 0); return 0; }'
+
+        return cc.links(code) ? declare_dependency() : not_found()
+    endfunc,
+    system: func(static bool:, native bool:, _ glob[any]:) -> dep
+        return clike_compiler(native).find_library(
+            'atomic',
+            has_headers: ['stdatomic.h'],
+            static: static,
+            required: false,
+        )
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'blocks',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+
+        is_clang = false
+        if cc.get_id() == 'clang' or cc.get_internal_id().startswith('clang') or cc.get_internal_id().startswith('clang-apple')
+            is_clang = true
+        endif
+
+        if is_clang
+            return declare_dependency(compile_args: ['-fblocks'])
+        endif
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'coarray',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        if meson.has_compiler('fortran', native: native)
+            return declare_dependency()
+        endif
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'gl',
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        dep = dependency('gl', method: 'pkg-config', native: native, kwargs: kwargs)
+        if dep.found()
+            return dep
+        endif
+
+        return dependency('opengl', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+    system: func(native bool:, static bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+
+        if cc.get_internal_id() == 'clang-apple'
+            return declare_dependency(link_args: ['-framework', 'OpenGL'])
+        endif
+
+        return cc.find_library(
+            'GL',
+            has_headers: ['GL/gl.h', 'GL/glx.h'],
+            static: static,
+            required: false,
+        )
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'libwmf',
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        prog = find_program('libwmf-config', native: native, required: false)
+
+        if not prog.found()
+            return not_found()
+        endif
+
+        cflags = []
+        r = run_command([prog, '--cflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    cflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([prog, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        version = ''
+        r = run_command([prog, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: libs,
+            version: version,
+        )
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('libwmf', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'netcdf',
+    pkgconfig: func(language str: 'c', kwargs glob[any]:) -> dep
+        name = 'netcdf'
+        if language == 'cpp'
+            name = 'netcdf-cxx4'
+        elif language == 'fortran'
+            name = 'netcdf-fortran'
+        endif
+
+        return dependency(name, method: 'pkg-config', kwargs: kwargs)
+    endfunc,
+    config_tool: func(language str: 'c', _ glob[any]:) -> dep
+        prog = null
+        if language == 'c'
+            prog = find_program('nc-config', required: false)
+        elif language == 'cpp'
+            prog = find_program('nc-config', required: false)
+        elif language == 'fortran'
+            prog = find_program('nf-config', required: false)
+        endif
+
+        if prog == null or not prog.found()
+            return not_found()
+        endif
+
+        r = run_command([prog, '--fflags'], check: false)
+        fflags = []
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    fflags += p
+                endif
+            endforeach
+        endif
+
+        r = run_command([prog, '--libs'], check: false)
+        libs = []
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        return declare_dependency(compile_args: fflags, link_args: libs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'numpy',
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('numpy', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        py = find_program('python3', native: native, required: false)
+        if not py.found()
+            return not_found()
+        endif
+
+        r = run_command(
+            [py, '-c', 'import numpy; print(numpy.get_include())'],
+            check: false,
+        )
+        if r.returncode() != 0
+            return not_found()
+        endif
+
+        inc = r.stdout().strip()
+        return declare_dependency(include_directories: [inc])
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'openmp',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+        id = cc.get_id()
+        internal = cc.get_internal_id()
+
+        if id == 'msvc' or internal.startswith('msvc')
+            # Only return if the flag is actually supported
+            if cc.has_argument('/openmp')
+                return declare_dependency(compile_args: ['/openmp'], link_args: ['/openmp'])
+            endif
+            return not_found()
+        endif
+
+        candidates = [
+            ['-fopenmp'],
+            ['-fopenmp', '-lomp'],
+            ['-fopenmp=libomp'],
+            ['-qopenmp'],
+        ]
+
+        code = '#include <omp.h>\nint main() { return (int)omp_get_num_threads(); }'
+
+        foreach args : candidates
+            if cc.links(code, args: args)
+                return declare_dependency(compile_args: args, link_args: args)
+            endif
+        endforeach
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'shaderc',
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        names = ['shaderc', 'shaderc_combined', 'shaderc_static']
+        foreach n : names
+            d = dependency(n, method: 'pkg-config', native: native, kwargs: kwargs)
+            if d.found()
+                return d
+            endif
+        endforeach
+
+        return not_found()
+    endfunc,
+    system: func(native bool:, static bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+
+        if static
+            candidates = ['shaderc_combined', 'shaderc_static']
+        else
+            candidates = ['shaderc', 'shaderc_shared', 'shaderc_combined']
+        endif
+
+        foreach c : candidates
+            d = cc.find_library(c, required: false, static: static)
+            if d.found()
+                return d
+            endif
+        endforeach
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'valgrind',
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('valgrind', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'vulkan',
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('vulkan', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+    system: func(native bool:, static bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+
+        # Try to find via standard library name
+        d = cc.find_library(
+            'vulkan',
+            has_headers: ['vulkan/vulkan.h'],
+            static: static,
+            required: false,
+        )
+        if d.found()
+            return d
+        endif
+
+        # Try VULKAN_SDK environment variable
+        r = run_command(['bash', '-lc', 'printf "%s" "$VULKAN_SDK"'], check: false)
+        if r.returncode() == 0 and r.stdout().strip() != ''
+            sdk = r.stdout().strip()
+            return declare_dependency(
+                include_directories: [sdk / 'include'],
+                link_args: ['-L' + (sdk / 'lib')],
+            )
+        endif
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'curses',
+    order: ['config-tool', 'pkg-config', 'system'],
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        candidates = [
+            'ncursesw6-config',
+            'ncursesw5-config',
+            'ncurses6-config',
+            'ncurses5-config',
+            'ncurses5.4-config',
+        ]
+
+        foreach cand : candidates
+            prog = find_program(cand, native: native, required: false)
+            if not prog.found()
+                continue
+            endif
+
+            cflags = []
+            libs = []
+            version = ''
+
+            r = run_command([prog, '--cflags'], check: false)
+            if r.returncode() == 0
+                foreach p : r.stdout().strip().split(' ')
+                    if p != ''
+                        cflags += p
+                    endif
+                endforeach
+            endif
+
+            r = run_command([prog, '--libs'], check: false)
+            if r.returncode() == 0
+                foreach p : r.stdout().strip().split(' ')
+                    if p != ''
+                        libs += p
+                    endif
+                endforeach
+            endif
+
+            r = run_command([prog, '--version'], check: false)
+            if r.returncode() == 0
+                version = r.stdout().strip()
+            endif
+
+            return declare_dependency(
+                compile_args: cflags,
+                link_args: libs,
+                version: version,
+            )
+        endforeach
+
+        return not_found()
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        dep = dependency('ncursesw', method: 'pkg-config', native: native, kwargs: kwargs)
+        if dep.found()
+            return dep
+        endif
+
+        return dependency('ncurses', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+    system: func(native bool:, static bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+        libs = ['pdcurses', 'ncursesw', 'ncurses', 'curses']
+
+        foreach l : libs
+            d = cc.find_library(
+                l,
+                has_headers: ['curses.h', 'ncurses.h'],
+                static: static,
+                required: false,
+            )
+            if d.found()
+                return d
+            endif
+        endforeach
+
+        return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'ncurses',
+    builtin: func(kwargs glob[any]:) -> dep
+        return dependency('curses', kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'pcap',
+    order: ['config-tool', 'pkg-config'],
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        pcapconfig = find_program('pcap-config', native: native, required: false)
+
+        if not pcapconfig.found()
+            return not_found()
+        endif
+
+        version = ''
+        r = run_command([pcapconfig, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        cflags = []
+        r = run_command([pcapconfig, '--cflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    cflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([pcapconfig, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: libs,
+            version: version,
+        )
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('libpcap', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'llvm',
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        prog = find_program('llvm-config', native: native, required: false)
+
+        if not prog.found()
+            return not_found()
+        endif
+
+        version = ''
+        r = run_command([prog, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        compile_args = []
+        r = run_command([prog, '--cxxflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    compile_args += p
+                endif
+            endforeach
+        endif
+
+        ldflags = []
+        r = run_command([prog, '--ldflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    ldflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([prog, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        syslibs = []
+        r = run_command([prog, '--system-libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    syslibs += p
+                endif
+            endforeach
+        endif
+
+        link_args = ldflags + libs + syslibs
+
+        return declare_dependency(
+            compile_args: compile_args,
+            link_args: link_args,
+            version: version,
+        )
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'threads',
+    builtin: func(native bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+
+        # Detect MSVC: compilers identify as 'msvc'
+        is_msvc = false
+        if cc.get_id() == 'msvc' or cc.get_internal_id().startswith('msvc')
+            is_msvc = true
+        endif
+
+        if is_msvc
+            return declare_dependency()
+        endif
+
+        return declare_dependency(
+            compile_args: ['-pthread'],
+            link_args: ['-pthread'],
+        )
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'gcrypt',
+    order: ['config-tool', 'pkg-config'],
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        prog = find_program('libgcrypt-config', native: native, required: false)
+
+        if not prog.found()
+            return not_found()
+        endif
+
+        version = ''
+        r = run_command([prog, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        cflags = []
+        r = run_command([prog, '--cflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    cflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([prog, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: libs,
+            version: version,
+        )
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('libgcrypt', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'gpgme',
+    order: ['config-tool', 'pkg-config'],
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        prog = find_program('gpgme-config', native: native, required: false)
+
+        if not prog.found()
+            return not_found()
+        endif
+
+        version = ''
+        r = run_command([prog, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        cflags = []
+        r = run_command([prog, '--cflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    cflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([prog, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: libs,
+            version: version,
+        )
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('gpgme', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'cups',
+    order: ['config-tool', 'pkg-config'],
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        prog = find_program('cups-config', native: native, required: false)
+
+        if not prog.found()
+            return not_found()
+        endif
+
+        version = ''
+        r = run_command([prog, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        cflags = []
+        r = run_command([prog, '--cflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    cflags += p
+                endif
+            endforeach
+        endif
+
+        ldflags = []
+        r = run_command([prog, '--ldflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    ldflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([prog, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: ldflags + libs,
+            version: version,
+        )
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('cups', method: 'pkg-config', native: native, kwargs: kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'wxwidgets',
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        prog = find_program('wx-config', native: native, required: false)
+
+        if not prog.found()
+            return not_found()
+        endif
+
+        version = ''
+        r = run_command([prog, '--version'], check: false)
+        if r.returncode() == 0
+            version = r.stdout().strip()
+        endif
+
+        cflags = []
+        r = run_command([prog, '--cxxflags'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    cflags += p
+                endif
+            endforeach
+        endif
+
+        libs = []
+        r = run_command([prog, '--libs'], check: false)
+        if r.returncode() == 0
+            foreach p : r.stdout().strip().split(' ')
+                if p != ''
+                    libs += p
+                endif
+            endforeach
+        endif
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: libs,
+            version: version,
+        )
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'appleframeworks',
+    builtin: func(_native bool:, _ glob[any]:) -> dep
+        # Alias handler for macOS frameworks; act as a passthrough
+        return declare_dependency()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'boost',
+    order: ['pkg-config', 'system'],
+    pkgconfig: func(modules list[str]: null, kwargs glob[any]:) -> dep
+        # When specific Boost modules are requested (e.g. 'filesystem'),
+        # pkg-config usually does not expose the corresponding libraries.
+        # In that case, report not_found() so the 'system' handler can
+        # locate the proper libboost_* libraries and provide link_args.
+        if not is_null(modules)
+            return not_found()
+        endif
+
+        return dependency('boost', method: 'pkg-config', kwargs: kwargs)
+    endfunc,
+    system: func(modules list[str]: null, native bool:, static bool:, _ glob[any]:) -> dep
+        cc = clike_compiler(native)
+
+        if not is_null(modules)
+            message('Boost: searching for modules:', modules)
+        endif
+
+        candidates = ['/usr', '/usr/local', '/opt/local']
+
+        foreach root : candidates
+            # Look for boost headers
+            inc_candidates = [root / 'include', root / 'include/boost', root]
+            found_inc = ''
+            foreach ic : inc_candidates
+                if fs.is_file(ic / 'boost' / 'version.hpp') or fs.is_dir(ic / 'boost')
+                    found_inc = ic
+                    break
+                endif
+            endforeach
+
+            if found_inc == ''
+                continue
+            endif
+
+            # Collect library paths and link arguments for requested modules
+            link_args = []
+            lib_dirs = []
+            if not is_null(modules)
+                foreach m : modules
+                    lib_found = false
+
+                    # Search for library in common locations
+                    foreach libdir : [root / 'lib', root / 'lib64']
+                        if fs.is_dir(libdir)
+                            lib_dep = cc.find_library(
+                                'boost_' + m,
+                                dirs: [libdir],
+                                required: false,
+                                static: static,
+                            )
+                            if lib_dep.found()
+                                lib_found = true
+                                if lib_dirs.length() == 0 or libdir not in lib_dirs
+                                    lib_dirs += libdir
+                                endif
+                                link_args += '-lboost_' + m
+                                break
+                            endif
+                        endif
+                    endforeach
+
+                    if not lib_found
+                        # Library not found, skip this root candidate
+                        link_args = []
+                        lib_dirs = []
+                        break
+                    endif
+                endforeach
+
+                # If we didn't find all required modules, try next root
+                if not is_null(modules) and link_args.length() != modules.length()
+                    continue
+                endif
+            endif
+
+            compile_args = ['-I' + found_inc, '-DBOOST_ALL_NO_LIB']
+
+            # Add library search paths
+            foreach libdir : lib_dirs
+                link_args = ['-L' + libdir] + link_args
+            endforeach
+
+            version = cc.get_define('BOOST_VERSION', prefix: '#include <boost/version.hpp>').strip('"')
+
+            return declare_dependency(
+                compile_args: compile_args,
+                link_args: link_args,
+                version: version,
+            )
+        endforeach
 
         return not_found()
     endfunc,

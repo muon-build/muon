@@ -29,6 +29,8 @@ jobs:
     defaults:
       run:
         shell: msys2 {0}
+    env:
+      PKG_CONFIG_PATH: /${{ matrix.sys }}/lib/pkgconfig:/${{ matrix.sys }}/share/pkgconfig
     steps:
     - name: 'Checkout'
       uses: actions/checkout@master
@@ -44,6 +46,8 @@ jobs:
           pkgconf:p
           curl:p
           libarchive:p
+          boost:p
+          ncurses:p
     - name: 'Build'
       run: |
         CC="${{ matrix.cc }} -std=c99"  ./bootstrap.sh build

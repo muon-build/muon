@@ -14,7 +14,6 @@
 #include "coerce.h"
 #include "external/pkgconfig.h"
 #include "functions/both_libs.h"
-#include "functions/build_target.h"
 #include "functions/compiler.h"
 #include "functions/file.h"
 #include "functions/kernel/dependency.h"
@@ -45,15 +44,10 @@ static const struct {
 	{ "pkg-config", dependency_lookup_method_pkgconfig },
 	{ "sysconfig", dependency_lookup_method_sysconfig },
 	{ "system", dependency_lookup_method_system },
-
-	// For backwards compatibility
-	{ "sdlconfig", dependency_lookup_method_config_tool },
-	{ "cups-config", dependency_lookup_method_config_tool },
-	{ "pcap-config", dependency_lookup_method_config_tool },
-	{ "libwmf-config", dependency_lookup_method_config_tool },
 	{ "qmake", dependency_lookup_method_config_tool },
 };
 
+// Convert string to dependency lookup method enum. Returns true on success, false on failure.
 bool
 dependency_lookup_method_from_s(const struct str *s, enum dependency_lookup_method *lookup_method)
 {
@@ -70,19 +64,6 @@ dependency_lookup_method_from_s(const struct str *s, enum dependency_lookup_meth
 	}
 
 	return true;
-}
-
-const char *
-dependency_lookup_method_to_s(enum dependency_lookup_method method)
-{
-	uint32_t i;
-	for (i = 0; i < ARRAY_LEN(dependency_lookup_method_names); ++i) {
-		if (dependency_lookup_method_names[i].method == method) {
-			return dependency_lookup_method_names[i].name;
-		}
-	}
-
-	UNREACHABLE_RETURN;
 }
 
 enum dep_lib_mode {
@@ -111,7 +92,20 @@ struct dep_lookup_ctx {
 	bool found;
 };
 
-static obj
+const char *
+dependency_lookup_method_to_s(enum dependency_lookup_method method)
+{
+	uint32_t i;
+	for (i = 0; i < ARRAY_LEN(dependency_lookup_method_names); ++i) {
+		if (dependency_lookup_method_names[i].method == method) {
+			return dependency_lookup_method_names[i].name;
+		}
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+obj
 get_dependency_c_compiler(struct workspace *wk, enum machine_kind machine)
 {
 	struct project *proj = current_project(wk);
@@ -174,18 +168,53 @@ check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	return ctx->found;
 }
 
+static obj
+dependency_cache_key(struct workspace *wk, obj name, obj modules)
+{
+	obj cache_key = name;
+
+	if (modules) {
+		bool have_modules = false;
+		switch (get_obj_type(wk, modules)) {
+		case obj_array: have_modules = get_obj_array(wk, modules)->len > 0; break;
+		case obj_string: have_modules = get_str(wk, modules)->len > 0; break;
+		default: break;
+		}
+
+		if (have_modules) {
+			obj key = make_strf(wk, "%s\x1fmodules=", get_cstr(wk, name));
+			if (get_obj_type(wk, modules) == obj_array) {
+				obj m;
+				obj_array_for(wk, modules, m) {
+					key = str_join(wk, key, m);
+					key = str_join(wk, key, make_str(wk, ","));
+				}
+			} else {
+				key = str_join(wk, key, modules);
+				key = str_join(wk, key, make_str(wk, ","));
+			}
+
+			cache_key = key;
+		}
+	}
+
+	return cache_key;
+}
+
 static bool
 check_dependency_cache(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *res)
 {
+	obj cache_key = dependency_cache_key(wk, ctx->name, ctx->modules);
+
 	if (ctx->lib_mode != dep_lib_mode_shared) {
-		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps[ctx->machine], ctx->name, res)) {
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps[ctx->machine], cache_key, res)) {
 			ctx->lib_mode = dep_lib_mode_static;
 			return true;
 		}
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_static) {
-		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps[ctx->machine], ctx->name, res)) {
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps[ctx->machine], cache_key, res)) {
 			ctx->lib_mode = dep_lib_mode_shared;
 			return true;
 		}
@@ -308,7 +337,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		    get_dependency_c_compiler(wk, ctx->machine),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
-			ctx->machine,
+		    ctx->machine,
 		    &info)) {
 		return true;
 	}
@@ -363,7 +392,7 @@ get_dependency_extraframework_scan_path_cb(void *_ctx, const char *path)
 	return ir_cont;
 }
 
-static bool
+bool
 get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
 	if (machine_definitions[ctx->machine]->sys != machine_system_darwin) {
@@ -467,7 +496,8 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 					.wk = wk,
 					.fw = get_str(wk, fw),
 				};
-				fs_dir_foreach(wk, get_str(wk, fw_dir)->s,
+				fs_dir_foreach(wk,
+					get_str(wk, fw_dir)->s,
 					&scan_path_ctx,
 					get_dependency_extraframework_scan_path_cb);
 				if (!scan_path_ctx.res) {
@@ -803,7 +833,12 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			stack_pop(&wk->stack, dependency_is_resolving_from_capture);
 			if (ok) {
 				struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-				dep->name = ctx->name;
+				// For pkgconfig dependencies, preserve the actual pkg-config package name
+				// so that get_pkgconfig_variable() works correctly. For other types,
+				// set the name to the requested dependency name for display purposes.
+				if (dep->type != dependency_type_pkgconf) {
+					dep->name = ctx->name;
+				}
 
 				switch (handlers.e[i].m) {
 				case dependency_lookup_method_pkgconfig: {
@@ -860,50 +895,6 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	}
 
 	return true;
-}
-
-enum handle_special_dependency_result {
-	handle_special_dependency_result_error,
-	handle_special_dependency_result_continue,
-	handle_special_dependency_result_stop,
-};
-
-static enum handle_special_dependency_result
-handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
-{
-	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
-		*ctx->res = make_obj(wk, obj_dependency);
-		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-		dep->name = ctx->name;
-		dep->flags |= dep_flag_found;
-		dep->type = dependency_type_threads;
-
-		dep->dep.compile_args = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.compile_args, make_str(wk, "-pthread"));
-
-		dep->dep.link_args = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.link_args, make_str(wk, "-pthread"));
-		ctx->found = true;
-	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
-		// TODO: this is stupid
-		ctx->name = make_str(wk, "ncurses");
-		if (!get_dependency(wk, ctx)) {
-			return handle_special_dependency_result_error;
-		}
-	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
-		get_dependency_extraframework(wk, ctx, &ctx->found);
-	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
-		if (ctx->requirement == requirement_required) {
-			vm_error_at(wk, ctx->err_node, "dependency '' cannot be required");
-			return handle_special_dependency_result_error;
-		}
-		*ctx->res = make_obj(wk, obj_dependency);
-		ctx->found = true;
-	} else {
-		return handle_special_dependency_result_continue;
-	}
-
-	return handle_special_dependency_result_stop;
 }
 
 FUNC_IMPL(kernel, dependency, tc_dependency)
@@ -1088,6 +1079,9 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
 		.modules = akw[kw_modules].val,
 		.lookup_method = lookup_method,
+		.found = false,
+		.from_cache = false,
+		.from_override = false,
 	};
 
 	obj name;
@@ -1095,23 +1089,23 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		struct dep_lookup_ctx sub_ctx = ctx;
 		ctx.name = sub_ctx.name = name;
 
-		switch (handle_special_dependency(wk, &sub_ctx)) {
-		case handle_special_dependency_result_error: return false;
-		case handle_special_dependency_result_stop: {
-			fallback_allowed = false;
-			break;
-		}
-		case handle_special_dependency_result_continue:
-			if (!sub_ctx.found) {
-				TracyCZoneN(tctx_1, "get_dependency", true);
-				bool ok = get_dependency(wk, &sub_ctx);
-				TracyCZoneEnd(tctx_1);
-
-				if (!ok) {
-					return false;
-				}
+		// Handle empty dependency name
+		if (get_str(wk, name)->len == 0) {
+			if (sub_ctx.requirement == requirement_required) {
+				vm_error_at(wk, sub_ctx.err_node, "dependency '' cannot be required");
+				return false;
 			}
-			break;
+			*sub_ctx.res = make_obj(wk, obj_dependency);
+			sub_ctx.found = true;
+			fallback_allowed = false;
+		} else if (!sub_ctx.found) {
+			TracyCZoneN(tctx_1, "get_dependency", true);
+			bool ok = get_dependency(wk, &sub_ctx);
+			TracyCZoneEnd(tctx_1);
+
+			if (!ok) {
+				return false;
+			}
 		}
 
 		if (sub_ctx.found) {
@@ -1220,17 +1214,19 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		if (dep->flags & dep_flag_found && !ctx.from_cache) {
 			obj name;
 			obj_array_for(wk, ctx.names, name) {
+				obj cache_key = dependency_cache_key(wk, name, ctx.modules);
+
 				if (ctx.lib_mode != dep_lib_mode_shared) {
 					obj_dict_set(wk,
 						current_project(wk)->dep_cache.static_deps[machine],
-						name,
+						cache_key,
 						*ctx.res);
 				}
 
 				if (ctx.lib_mode != dep_lib_mode_static) {
 					obj_dict_set(wk,
 						current_project(wk)->dep_cache.shared_deps[machine],
-						name,
+						cache_key,
 						*ctx.res);
 				}
 			}
