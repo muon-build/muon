@@ -66,4 +66,12 @@ a = [
     # bottom
 ]
 
+# a
+(
+    # b
+    1 # c
+    # d
+) # e
+# f
+
 # trailing comment

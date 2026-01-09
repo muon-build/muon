@@ -1663,7 +1663,7 @@ fmt(const struct fmt_params *params)
 		return false;
 	}
 
-	if (fmt_debug) {
+	if (fmt_debug && log_should_print(log_debug)) {
 		print_fmt_ast(&wk, n);
 	}
 
@@ -1675,17 +1675,18 @@ fmt(const struct fmt_params *params)
 	fmt_write_block(&f, fmt_block(&f, n));
 	fmt_push_out_block(&f);
 	if (!f.fmt_on) {
+		// This will push a final raw block if there is one
 		fmt_toggle(&f, true);
 	}
 
-	if (range && params->range_only) {
-		if (fmt_debug) {
-			for (uint32_t i = 0; i < f.out_blocks.len; ++i) {
-				struct fmt_out_block *b = arr_get(&f.out_blocks, i);
-				obj_lprintf(&wk, log_debug, "%d | %d | %o\n", i, b->raw, b->str);
-			}
+	if (fmt_debug) {
+		for (uint32_t i = 0; i < f.out_blocks.len; ++i) {
+			struct fmt_out_block *b = arr_get(&f.out_blocks, i);
+			obj_lprintf(&wk, log_debug, "%d | %d | %o\n", i, b->raw, b->str);
 		}
+	}
 
+	if (range && params->range_only) {
 		for (uint32_t i = 0; i < f.out_blocks.len; ++i) {
 			struct fmt_out_block *b = arr_get(&f.out_blocks, i);
 			if (!b->raw) {

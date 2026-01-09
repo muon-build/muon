@@ -77,6 +77,7 @@ union node_fmt_ws_elem {
 
 struct node_fmt_ws {
 	obj list;
+	bool used;
 };
 
 enum node_flag {

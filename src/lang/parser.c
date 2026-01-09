@@ -341,9 +341,32 @@ parse_error(struct parser *p, struct source_location *l, const char *fmt, ...)
 }
 
 static void
+parse_fmt_merge(struct parser *p, struct node_fmt_ws *dest, struct node_fmt_ws *src)
+{
+	if (dest->list && src->list) {
+		obj_array_extend_nodup(p->wk, dest->list, src->list);
+	} else if (src->list) {
+		dest->list = src->list;
+	}
+}
+
+static void
+parse_fmt_apply(struct parser *p, struct node_fmt_ws *dest, struct node_fmt_ws *src)
+{
+	src->used = true;
+	parse_fmt_merge(p, dest, src);
+}
+
+static void
 parse_advance(struct parser *p)
 {
 	p->previous = p->current;
+	if (!p->fmt.previous.used && p->fmt.previous.list) {
+		uint32_t i = 0;
+		char buf[256];
+		fmt_node_ws_to_s(p->wk, p->fmt.previous.list, buf, sizeof(buf), &i);
+		L("throwing away whitespace: %s", buf);
+	}
 	p->fmt.previous = p->fmt.current;
 	lexer_next(&p->lexer, &p->current);
 
@@ -379,10 +402,8 @@ parse_advance(struct parser *p)
 			}
 
 			if (new_current.type == token_type_eol) {
-				lexer_push_whitespace(&p->lexer,
-					&p->fmt.current,
-					start,
-					new_current.location.off - start + 1, new_current.flags);
+				lexer_push_whitespace(
+					&new_lexer, &p->fmt.current, start, new_current.location.off - start + 1);
 				ws_pushed = true;
 
 				p->current = new_current;
@@ -391,7 +412,7 @@ parse_advance(struct parser *p)
 		}
 
 		if (!ws_pushed) {
-			lexer_push_whitespace(&p->lexer, &p->fmt.current, p->lexer.ws_start, p->lexer.ws_end - p->lexer.ws_start, p->current.flags);
+			lexer_push_whitespace(&p->lexer, &p->fmt.current, p->lexer.ws_start, p->lexer.ws_end - p->lexer.ws_start);
 		}
 	}
 
@@ -483,7 +504,7 @@ make_node(struct parser *p, struct node *n)
 	if (p->previous.type) {
 		n->location = p->previous.location;
 		n->data = p->previous.data;
-		n->fmt.pre = p->fmt.previous;
+		parse_fmt_apply(p, &n->fmt.pre, &p->fmt.previous);
 	}
 	return n;
 }
@@ -773,8 +794,7 @@ parse_grouping_fmt(struct parser *p, bool assignment_allowed)
 	struct node *n = make_node_t(p, node_type_group);
 	n->l = parse_prec(p, parse_precedence_assignment);
 	parse_expect(p, ')');
-	n->l->fmt.post = p->fmt.previous;
-	/* n->fmt.post = p->fmt.current; */
+	parse_fmt_apply(p, &n->l->fmt.post, &p->fmt.previous);
 	return n;
 }
 
@@ -1248,7 +1268,7 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len, enum 
 
 	if (p->mode & vm_compile_mode_fmt) {
 		if (n) {
-			n->fmt.post = p->fmt.previous;
+			parse_fmt_apply(p, &n->fmt.post, &p->fmt.previous);
 		} else {
 			res = n = make_node_t(p, node_type_stmt);
 		}

@@ -175,13 +175,11 @@ lex_advance(struct lexer *lexer)
 				lexer->fmt.in_range = false;
 				lexer->fmt.raw_block_start = lexer->i - 1;
 				lexer->fmt.in_raw_block = true;
-				lexer->fmt.range_border_crossed = true;
 			}
 		} else {
 			if (in_range) {
 				lexer_push_fmt_raw_block(lexer, lexer->i + 1);
 				lexer->fmt.in_range = true;
-				lexer->fmt.range_border_crossed = true;
 			}
 		}
 	}
@@ -289,20 +287,26 @@ lexer_push_whitespace_packed(struct lexer *lexer, struct node_fmt_ws *ws, const 
 }
 
 static void
-lexer_push_token_fmt(struct lexer *lexer, struct node_fmt_ws *ws, enum token_flag flags)
+lexer_push_token_fmt(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t pos)
 {
-	if (flags & token_flag_fmt_on) {
-		lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_on);
-	} else if (flags & token_flag_fmt_off) {
-		lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_off);
+	if (lexer->fmt.range) {
+		if (!lexer->fmt.range_pushed.start && pos >= lexer->fmt.range->start) {
+			L("%p, %d - %d - %d %d %d", (void*)lexer, lexer->fmt.range->start, pos, lexer->fmt.range->end, lexer->fmt.range_pushed.start, lexer->fmt.range_pushed.end);
+			lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_on);
+			lexer->fmt.range_pushed.start = true;
+		} else if (!lexer->fmt.range_pushed.end && pos >= lexer->fmt.range->end) {
+			L("%p, %d - %d - %d %d %d", (void*)lexer, lexer->fmt.range->start, pos, lexer->fmt.range->end, lexer->fmt.range_pushed.start, lexer->fmt.range_pushed.end);
+			lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_off);
+			lexer->fmt.range_pushed.end = true;
+		}
 	}
 }
 
 void
-lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t start, uint32_t len, enum token_flag flags)
+lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t start, uint32_t len)
 {
 	if (!len) {
-		lexer_push_token_fmt(lexer, ws, flags);
+		lexer_push_token_fmt(lexer, ws, start);
 		return;
 	}
 
@@ -311,13 +315,7 @@ lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t star
 	bool trailing_comment = start > 0;
 	uint32_t i, cs;
 	for (i = 0; i < s->len; ++i) {
-		if (lexer->fmt.range) {
-			if (start + i == lexer->fmt.range->start) {
-				lexer_push_token_fmt(lexer, ws, token_flag_fmt_on);
-			} else if (start + i == lexer->fmt.range->end) {
-				lexer_push_token_fmt(lexer, ws, token_flag_fmt_off);
-			}
-		}
+		lexer_push_token_fmt(lexer, ws, start + i);
 
 		if (s->s[i] == '\n') {
 			trailing_comment = false;
@@ -345,6 +343,8 @@ lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t star
 			trailing_comment = false;
 		}
 	}
+
+	lexer_push_token_fmt(lexer, ws, start + i);
 }
 
 /******************************************************************************
@@ -936,10 +936,11 @@ lexer_next(struct lexer *lexer, struct token *token)
 {
 	lexer_next_impl(lexer, token);
 
-	if (lexer->fmt.range_border_crossed) {
-		token->flags |= lexer->fmt.in_range ? token_flag_fmt_on : token_flag_fmt_off;
-		lexer->fmt.range_border_crossed = false;
-	}
+	// if (lexer->fmt.range_border_crossed) {
+	// 	L("range border crossed %d | %s", lexer->fmt.in_range, token_to_s(lexer->wk, token));
+	// 	token->flags |= lexer->fmt.in_range ? token_flag_fmt_on : token_flag_fmt_off;
+	// 	lexer->fmt.range_border_crossed = false;
+	// }
 
 }
 

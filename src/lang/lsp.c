@@ -515,17 +515,27 @@ az_srv_handle_range_formatting(struct az_srv *srv, struct workspace *wk, const s
 	fmt_range.start = obj_dict_index_as_number(wk, obj_dict_index_as_obj(wk, range, "start"), "line") + 1;
 	fmt_range.end = obj_dict_index_as_number(wk, obj_dict_index_as_obj(wk, range, "end"), "line") + 2;
 
+	// Controls if we send just the range or the entire doc.  Seems like
+	// sending the whole thing is more reliable.
+	const bool partial = false;
+
 	struct tstr out_buf = { 0 };
 	struct fmt_params fmt_params = {
 		.a = wk->a, .a_scratch = wk->a_scratch, .src = &src, .out_buf = &out_buf,
 		// .cfg_path = opts.cfg_path,
 		// .editorconfig = opts.editorconfig,
 		.range = fmt_range,
-		.range_only = true,
+		.range_only = partial,
 	};
 	if (!fmt(&fmt_params)) {
 		az_srv_respond(srv, wk, srv->req.id, make_obj(wk, obj_array));
 		return;
+	}
+
+	if (!partial) {
+		range = make_obj(wk, obj_dict);
+		obj_dict_set(wk, range, make_str(wk, "start"), az_srv_position(wk, 1, 1));
+		obj_dict_set(wk, range, make_str(wk, "end"), az_srv_position(wk, UINT32_MAX, UINT32_MAX));
 	}
 
 	obj edit = make_obj(wk, obj_dict);
