@@ -359,11 +359,14 @@ parse_advance(struct parser *p)
 	}
 
 	if (p->mode & vm_compile_mode_fmt) {
-		lexer_get_preceeding_whitespace(&p->lexer, &p->fmt.current, p->current.flags);
-
 		// In fmt mode, merge all consecutive eol tokens into one and
 		// store the information in the ws field.
+		p->fmt.current = (struct node_fmt_ws){ 0 };
+
+		bool ws_pushed = false;
+
 		if (p->current.type == token_type_eol) {
+			const uint32_t start = p->lexer.ws_start;
 			struct lexer lexer_peek = p->lexer, new_lexer;
 			struct token next, new_current = { 0 };
 			while (true) {
@@ -378,12 +381,17 @@ parse_advance(struct parser *p)
 			if (new_current.type == token_type_eol) {
 				lexer_push_whitespace(&p->lexer,
 					&p->fmt.current,
-					p->current.location.off,
-					new_current.location.off - p->current.location.off + 1, new_current.flags);
+					start,
+					new_current.location.off - start + 1, new_current.flags);
+				ws_pushed = true;
 
 				p->current = new_current;
 				p->lexer = new_lexer;
 			}
+		}
+
+		if (!ws_pushed) {
+			lexer_push_whitespace(&p->lexer, &p->fmt.current, p->lexer.ws_start, p->lexer.ws_end - p->lexer.ws_start, p->current.flags);
 		}
 	}
 

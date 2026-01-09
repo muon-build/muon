@@ -163,7 +163,6 @@ void lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *
 void lexer_next(struct lexer *lexer, struct token *token);
 
 struct node_fmt_ws;
-void lexer_get_preceeding_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, enum token_flag flags);
 void lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t start, uint32_t len, enum token_flag flags);
 
 const char *token_type_to_s(enum token_type type);

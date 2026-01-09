@@ -308,8 +308,8 @@ lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t star
 
 	const struct str s[1] = { { &lexer->src[start], len } };
 	struct str comment;
-	bool trailing_comment = true;
-	uint32_t i, cs, ce;
+	bool trailing_comment = start > 0;
+	uint32_t i, cs;
 	for (i = 0; i < s->len; ++i) {
 		if (lexer->fmt.range) {
 			if (start + i == lexer->fmt.range->start) {
@@ -324,12 +324,10 @@ lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t star
 			lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_newline);
 		} else if (s->s[i] == '#') {
 			++i;
-			cs = ce = i;
+			cs = i;
 			for (; s->s[i] != '\n' && i < s->len; ++i) {
-				++ce;
 			}
-
-			comment = (struct str){ .s = &s->s[cs], .len = ce - cs };
+			comment = (struct str){ .s = &s->s[cs], .len = i - cs };
 
 			enum node_fmt_ws_flag flags = node_fmt_ws_flag_comment;
 
@@ -348,14 +346,6 @@ lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t star
 		}
 	}
 }
-
-void
-lexer_get_preceeding_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, enum token_flag flags)
-{
-	ws->list = 0;
-	lexer_push_whitespace(lexer, ws, lexer->ws_start, lexer->ws_end - lexer->ws_start, flags);
-}
-
 
 /******************************************************************************
 * lexer
