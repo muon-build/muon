@@ -7,13 +7,12 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <stdarg.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "buf_size.h"
 #include "error.h"
 #include "lang/lexer.h"
+#include "lang/parser.h"
 #include "lang/workspace.h"
 #include "platform/assert.h"
 
@@ -148,10 +147,43 @@ is_skipchar(const char c)
 	}
 
 static void
+lexer_push_fmt_raw_block(struct lexer *lexer, uint32_t start)
+{
+	obj s = make_strn(
+		lexer->wk, &lexer->src[lexer->fmt.raw_block_start], (start - 1) - lexer->fmt.raw_block_start);
+
+	// XXX: We have to dup the array each time so that the parser can
+	// correctly reset the lexer using just value semantics
+	obj dup;
+	obj_array_dup(lexer->wk, lexer->fmt.raw_blocks, &dup);
+	lexer->fmt.raw_blocks = dup;
+	obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
+}
+
+
+static void
 lex_advance(struct lexer *lexer)
 {
 	if (lexer->i >= lexer->source->len) {
 		return;
+	}
+
+	if (lexer->fmt.range) {
+		bool in_range = lexer->fmt.range->start <= lexer->i && lexer->i <= lexer->fmt.range->end;
+		if (lexer->fmt.in_range) {
+			if (!in_range) {
+				lexer->fmt.in_range = false;
+				lexer->fmt.raw_block_start = lexer->i - 1;
+				lexer->fmt.in_raw_block = true;
+				lexer->fmt.range_border_crossed = true;
+			}
+		} else {
+			if (in_range) {
+				lexer_push_fmt_raw_block(lexer, lexer->i + 1);
+				lexer->fmt.in_range = true;
+				lexer->fmt.range_border_crossed = true;
+			}
+		}
 	}
 
 	++lexer->i;
@@ -210,6 +242,120 @@ MUON_ATTR_FORMAT(printf, 3, 4) lex_error_token(struct lexer *lexer, struct token
 	token->data.str = make_strfv(lexer->wk, fmt, args);
 	va_end(args);
 }
+
+/******************************************************************************
+* fmt related
+******************************************************************************/
+
+static bool
+lexer_is_fmt_comment(struct lexer *lexer, const struct str *comment, bool *fmt_on)
+{
+	if (lexer->fmt.range) {
+		// fmt comments ignored when range is given
+		return false;
+	}
+
+	struct str stripped = *comment;
+	str_strip_in_place(&stripped, 0, 0);
+	if (!stripped.len) {
+		return false;
+	}
+	str_strip_in_place(&stripped, 0, 0);
+
+	if (!str_try_remove_prefix(&stripped, &STR("fmt:"))) {
+		return false;
+	}
+	str_strip_in_place(&stripped, 0, 0);
+
+	if (str_eql(&stripped, &STR("off"))) {
+		*fmt_on = false;
+		return true;
+	} else if (str_eql(&stripped, &STR("on"))) {
+		*fmt_on = true;
+		return true;
+	}
+
+	return false;
+}
+
+static void
+lexer_push_whitespace_packed(struct lexer *lexer, struct node_fmt_ws *ws, const struct str *s, uint32_t flags)
+{
+	const union node_fmt_ws_elem e = { .unpacked = { s ? make_strn(lexer->wk, s->s, s->len) : 0, flags } };
+	if (!ws->list) {
+		ws->list = make_obj(lexer->wk, obj_array);
+	}
+	obj_array_push(lexer->wk, ws->list, make_number(lexer->wk, e.packed));
+}
+
+static void
+lexer_push_token_fmt(struct lexer *lexer, struct node_fmt_ws *ws, enum token_flag flags)
+{
+	if (flags & token_flag_fmt_on) {
+		lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_on);
+	} else if (flags & token_flag_fmt_off) {
+		lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_off);
+	}
+}
+
+void
+lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t start, uint32_t len, enum token_flag flags)
+{
+	if (!len) {
+		lexer_push_token_fmt(lexer, ws, flags);
+		return;
+	}
+
+	const struct str s[1] = { { &lexer->src[start], len } };
+	struct str comment;
+	bool trailing_comment = true;
+	uint32_t i, cs, ce;
+	for (i = 0; i < s->len; ++i) {
+		if (lexer->fmt.range) {
+			if (start + i == lexer->fmt.range->start) {
+				lexer_push_token_fmt(lexer, ws, token_flag_fmt_on);
+			} else if (start + i == lexer->fmt.range->end) {
+				lexer_push_token_fmt(lexer, ws, token_flag_fmt_off);
+			}
+		}
+
+		if (s->s[i] == '\n') {
+			trailing_comment = false;
+			lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_newline);
+		} else if (s->s[i] == '#') {
+			++i;
+			cs = ce = i;
+			for (; s->s[i] != '\n' && i < s->len; ++i) {
+				++ce;
+			}
+
+			comment = (struct str){ .s = &s->s[cs], .len = ce - cs };
+
+			enum node_fmt_ws_flag flags = node_fmt_ws_flag_comment;
+
+			if (trailing_comment) {
+				flags |= node_fmt_ws_flag_trailing_comment;
+			}
+
+			bool fmt_on;
+			if (lexer_is_fmt_comment(lexer, &comment, &fmt_on)) {
+				flags |= fmt_on ? node_fmt_ws_flag_fmt_on : node_fmt_ws_flag_fmt_off;
+			}
+
+			lexer_push_whitespace_packed(lexer, ws, &comment, flags);
+
+			trailing_comment = false;
+		}
+	}
+}
+
+void
+lexer_get_preceeding_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, enum token_flag flags)
+{
+	ws->list = 0;
+	lexer_push_whitespace(lexer, ws, lexer->ws_start, lexer->ws_end - lexer->ws_start, flags);
+}
+
 
 /******************************************************************************
 * lexer
@@ -569,8 +715,8 @@ lexer_push_pop_enclosed_state(struct lexer *lexer, enum token_type type)
 	}
 }
 
-void
-lexer_next(struct lexer *lexer, struct token *token)
+static void
+lexer_next_impl(struct lexer *lexer, struct token *token)
 {
 	uint32_t start;
 	lexer->ws_start = lexer->i, lexer->ws_end = lexer->i;
@@ -580,6 +726,11 @@ restart:
 	};
 
 	if (lexer->i >= lexer->source->len) {
+		if (lexer->fmt.in_raw_block) {
+			lexer_push_fmt_raw_block(lexer, lexer->i + 1);
+			lexer->fmt.in_raw_block = false;
+		}
+
 		token->type = token_type_eof;
 		return;
 	}
@@ -648,14 +799,10 @@ restart:
 
 				s = make_strn(lexer->wk, &lexer->src[start], lexer->i - start);
 				s = str_strip(lexer->wk, get_str(lexer->wk, s), 0, 0);
-				if (lexer_is_fmt_comment(get_str(lexer->wk, s), &fmt_on)) {
+				if (lexer_is_fmt_comment(lexer, get_str(lexer->wk, s), &fmt_on)) {
 					if (fmt_on) {
 						if (lexer->fmt.in_raw_block) {
-							s = make_strn(lexer->wk,
-								&lexer->src[lexer->fmt.raw_block_start],
-								(start - 1) - lexer->fmt.raw_block_start);
-
-							obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
+							lexer_push_fmt_raw_block(lexer, start);
 							lexer->fmt.in_raw_block = false;
 						}
 					} else {
@@ -784,13 +931,6 @@ restart:
 
 		token->type = lexer->src[lexer->i];
 		break;
-	case '\0':
-		if (lexer->i != lexer->source->len) {
-			goto unexpected_character;
-		}
-
-		token->type = token_type_eof;
-		break;
 	default:
 unexpected_character:
 		lex_error_token(lexer, token, "unexpected character: '%c'", lexer->src[lexer->i]);
@@ -799,6 +939,18 @@ unexpected_character:
 
 	lex_advance(lexer);
 	return;
+}
+
+void
+lexer_next(struct lexer *lexer, struct token *token)
+{
+	lexer_next_impl(lexer, token);
+
+	if (lexer->fmt.range_border_crossed) {
+		token->flags |= lexer->fmt.in_range ? token_flag_fmt_on : token_flag_fmt_off;
+		lexer->fmt.range_border_crossed = false;
+	}
+
 }
 
 void
@@ -820,30 +972,6 @@ lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, 
 	if (lexer->mode & lexer_mode_fmt) {
 		lexer->fmt.raw_blocks = make_obj(lexer->wk, obj_array);
 	}
-}
-
-/******************************************************************************
-* fmt related
-******************************************************************************/
-
-obj
-lexer_get_preceeding_whitespace(struct lexer *lexer)
-{
-	return make_strn(lexer->wk, &lexer->src[lexer->ws_start], lexer->ws_end - lexer->ws_start);
-}
-
-bool
-lexer_is_fmt_comment(const struct str *comment, bool *fmt_on)
-{
-	if (str_eql(comment, &STR("fmt:off")) || str_eql(comment, &STR("fmt: off"))) {
-		*fmt_on = false;
-		return true;
-	} else if (str_eql(comment, &STR("fmt:on")) || str_eql(comment, &STR("fmt: on"))) {
-		*fmt_on = true;
-		return true;
-	}
-
-	return false;
 }
 
 /******************************************************************************
@@ -907,14 +1035,11 @@ restart:
 
 			if (lexer->mode & lexer_mode_fmt) {
 				bool fmt_on;
-				obj s;
-
-				s = make_strn(lexer->wk, &lexer->src[start], lexer->i - start);
-				s = str_strip(lexer->wk, get_str(lexer->wk, s), 0, 0);
-				if (lexer_is_fmt_comment(get_str(lexer->wk, s), &fmt_on)) {
+				const struct str comment = { &lexer->src[start], lexer->i - start };
+				if (lexer_is_fmt_comment(lexer, &comment, &fmt_on)) {
 					if (fmt_on) {
 						if (lexer->fmt.in_raw_block) {
-							s = make_strn(lexer->wk,
+							obj s = make_strn(lexer->wk,
 								&lexer->src[lexer->fmt.raw_block_start],
 								(start - 1) - lexer->fmt.raw_block_start);
 
@@ -1029,6 +1154,15 @@ restart:
 	case '\0':
 		if (lexer->i != lexer->source->len) {
 			goto unexpected_character;
+		}
+
+		if (lexer->fmt.in_raw_block) {
+			obj s = make_strn(lexer->wk,
+				&lexer->src[lexer->fmt.raw_block_start],
+				(start - 1) - lexer->fmt.raw_block_start);
+
+			obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
+			lexer->fmt.in_raw_block = false;
 		}
 
 		token->type = token_type_eof;

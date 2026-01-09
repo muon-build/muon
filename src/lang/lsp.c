@@ -13,6 +13,7 @@
 #include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/docs.h"
+#include "lang/fmt.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -502,6 +503,40 @@ az_srv_handle_push_breakpoint_from_msg(struct az_srv *srv, struct workspace *wk,
 }
 
 static void
+az_srv_handle_range_formatting(struct az_srv *srv, struct workspace *wk, const struct str *uri, obj params)
+{
+	struct source src = { 0 };
+	if (!fs_read_entire_file(wk->a_scratch, uri->s, &src)) {
+		return;
+	}
+
+	struct fmt_range fmt_range = { 0 };
+	obj range = obj_dict_index_as_obj(wk, params, "range");
+	fmt_range.start = obj_dict_index_as_number(wk, obj_dict_index_as_obj(wk, range, "start"), "line") + 1;
+	fmt_range.end = obj_dict_index_as_number(wk, obj_dict_index_as_obj(wk, range, "end"), "line") + 2;
+
+	struct tstr out_buf = { 0 };
+	struct fmt_params fmt_params = {
+		.a = wk->a, .a_scratch = wk->a_scratch, .src = &src, .out_buf = &out_buf,
+		// .cfg_path = opts.cfg_path,
+		// .editorconfig = opts.editorconfig,
+		.range = fmt_range,
+		.range_only = true,
+	};
+	if (!fmt(&fmt_params)) {
+		az_srv_respond(srv, wk, srv->req.id, make_obj(wk, obj_array));
+		return;
+	}
+
+	obj edit = make_obj(wk, obj_dict);
+	obj_dict_set(wk, edit, make_str(wk, "range"), range);
+	obj_dict_set(wk, edit, make_str(wk, "newText"), tstr_into_str(wk, &out_buf));
+	obj edits = make_obj(wk, obj_array);
+	obj_array_push(wk, edits, edit);
+	az_srv_respond(srv, wk, srv->req.id, edits);
+}
+
+static void
 az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 {
 	TracyCZoneAutoS;
@@ -533,6 +568,8 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		obj_dict_set(wk, capabilities, make_str(wk, "completionProvider"), completion_provider);
 		obj_dict_set(wk, capabilities, make_str(wk, "hoverProvider"), obj_bool_true);
 		obj_dict_set(wk, capabilities, make_str(wk, "definitionProvider"), obj_bool_true);
+		// obj_dict_set(wk, capabilities, make_str(wk, "documentFormattingProvider"), obj_bool_true);
+		obj_dict_set(wk, capabilities, make_str(wk, "documentRangeFormattingProvider"), obj_bool_true);
 
 		obj_dict_set(wk, result, make_str(wk, "capabilities"), capabilities);
 
@@ -585,6 +622,15 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		srv->req.id = obj_dict_index_as_obj(wk, msg, "id");
 		srv->req.result = make_obj(wk, obj_array);
 		az_srv_handle_push_breakpoint_from_msg(srv, wk, msg);
+	} else if (str_eql(method, &STR("textDocument/rangeFormatting"))) {
+		srv->req.id = obj_dict_index_as_obj(wk, msg, "id");
+		obj params = obj_dict_index_as_obj(wk, msg, "params");
+		obj text_document = obj_dict_index_as_obj(wk, params, "textDocument");
+		const struct str *uri_s = obj_dict_index_as_str(wk, text_document, "uri");
+		obj uri_str;
+		if ((uri_str = az_srv_uri_to_str(wk, uri_s))) {
+			az_srv_handle_range_formatting(srv, wk, get_str(wk, uri_str), params);
+		}
 	}
 
 	TracyCZoneAutoE;

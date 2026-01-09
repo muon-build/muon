@@ -1185,6 +1185,35 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 		bool fmt_ret = true;
 		opened_out = false;
 
+		char *sep;
+		struct fmt_range fmt_range = { 0 };
+		if ((sep = strchr(opts.filenames[i], ':'))) {
+			*sep = 0;
+			const char *range = sep + 1;
+			if (!(sep = strchr(range, '-'))) {
+				LOG_E("invalid format range '%s'", range);
+				ret = false;
+				goto cont;
+			}
+
+			const struct str start = { range, sep - range };
+			const struct str end = { sep + 1, strlen(range) - start.len - 1 };
+
+			int64_t s, e;
+			if (!str_to_i(&start, &s, false) || s <= 0 || s > UINT32_MAX) {
+				LOG_E("invalid format range start '%.*s'", start.len, start.s);
+				ret = false;
+				goto cont;
+			} else if (!str_to_i(&end, &e, false) || e < s || e > UINT32_MAX) {
+				LOG_E("invalid format range end '%.*s'", end.len, end.s);
+				ret = false;
+				goto cont;
+			}
+
+			fmt_range.start = s;
+			fmt_range.end = e;
+		}
+
 		struct source src = { 0 };
 		if (!fs_read_entire_file(wk->a_scratch, opts.filenames[i], &src)) {
 			ret = false;
@@ -1205,7 +1234,19 @@ cmd_format(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 
 		workspace_scratch_begin(wk);
 		workspace_perm_begin(wk);
-		fmt_ret = fmt(wk->a, wk->a_scratch, &src, out, opts.cfg_path, opts.check_only, opts.editorconfig);
+		struct tstr out_buf = { 0 };
+		struct fmt_params params = {
+			.a = wk->a,
+			.a_scratch = wk->a_scratch,
+			.src = &src,
+			.out_file = out,
+			.out_buf = &out_buf,
+			.cfg_path = opts.cfg_path,
+			.check_only = opts.check_only,
+			.editorconfig = opts.editorconfig,
+			.range = fmt_range,
+		};
+		fmt_ret = fmt(&params);
 		workspace_perm_end(wk);
 		workspace_scratch_end(wk);
 

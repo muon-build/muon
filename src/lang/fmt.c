@@ -23,6 +23,8 @@
 #include "log.h"
 #include "platform/assert.h"
 
+const static bool fmt_debug = false;
+
 enum fmt_frag_flag {
 	fmt_frag_flag_add_trailing_comma = 1 << 1,
 	fmt_frag_flag_enclosing_space = 1 << 2,
@@ -47,6 +49,7 @@ enum fmt_frag_type {
 	fmt_frag_type_ws_newline,
 	fmt_frag_type_ws_comment,
 	fmt_frag_type_ws_comment_trailing,
+	fmt_frag_type_ws_range_toggle,
 };
 
 struct fmt_frag {
@@ -241,6 +244,8 @@ fmt_write_frag_set_dbg_ws(struct fmt_ctx *f, const struct fmt_frag *pws, struct 
 				log_raw(" comment");
 			} else if (ws->type == fmt_frag_type_ws_comment_trailing) {
 				log_raw(" comment_trailing");
+			} else if (ws->type == fmt_frag_type_ws_range_toggle) {
+				log_raw(" range_toggle %s", ws->flags & fmt_frag_flag_fmt_on ? "on" : "off");
 			} else {
 				UNREACHABLE;
 			}
@@ -354,6 +359,10 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 static void
 fmt_push_out_block(struct fmt_ctx *f)
 {
+	if (!f->out_buf->len) {
+		return;
+	}
+
 	arr_push(f->wk->a, &f->out_blocks,
 		&(struct fmt_out_block){
 			.str = tstr_into_str(f->wk, f->out_buf),
@@ -429,6 +438,29 @@ fmt_writes(struct fmt_ctx *f, const char *s)
 }
 
 static void
+fmt_toggle(struct fmt_ctx *f, bool on)
+{
+	if (f->measuring) {
+		return;
+	}
+
+	if (on) {
+		f->fmt_on = true;
+
+		obj raw_block = obj_array_index(f->wk, f->raw_blocks, f->raw_block_idx);
+		arr_push(f->wk->a, &f->out_blocks,
+			&(struct fmt_out_block){
+				.str = raw_block,
+				.raw = true,
+			});
+		++f->raw_block_idx;
+	} else {
+		fmt_push_out_block(f);
+		f->fmt_on = false;
+	}
+}
+
+static void
 fmt_write_frag_comment(struct fmt_ctx *f, struct fmt_frag *comment)
 {
 	const struct str *str = get_str(f->wk, comment->str);
@@ -438,17 +470,8 @@ fmt_write_frag_comment(struct fmt_ctx *f, struct fmt_frag *comment)
 		return;
 	}
 
-	if (comment->flags & fmt_frag_flag_fmt_on) {
-		f->fmt_on = true;
-
-		obj raw_block;
-		raw_block = obj_array_index(f->wk, f->raw_blocks, f->raw_block_idx);
-		arr_push(f->wk->a, &f->out_blocks,
-			&(struct fmt_out_block){
-				.str = raw_block,
-				.raw = true,
-			});
-		++f->raw_block_idx;
+	if (comment->flags & fmt_frag_flag_fmt_on && !f->fmt_on) {
+		fmt_toggle(f, true);
 	}
 
 	fmt_writes(f, "#");
@@ -457,9 +480,8 @@ fmt_write_frag_comment(struct fmt_ctx *f, struct fmt_frag *comment)
 		fmt_writestr(f, str);
 	}
 
-	if (comment->flags & fmt_frag_flag_fmt_off) {
-		fmt_push_out_block(f);
-		f->fmt_on = false;
+	if (comment->flags & fmt_frag_flag_fmt_off && f->fmt_on) {
+		fmt_toggle(f, false);
 	}
 }
 
@@ -516,6 +538,10 @@ fmt_write_frag_ws(struct fmt_ctx *f, struct fmt_frag *ws, enum fmt_write_frag_ws
 			}
 
 			++newlines;
+			break;
+		}
+		case fmt_frag_type_ws_range_toggle: {
+			fmt_toggle(f, fr->flags & fmt_frag_flag_fmt_on ? true : false);
 			break;
 		}
 		case fmt_frag_type_ws_newline: {
@@ -704,7 +730,9 @@ fmt_write_block(struct fmt_ctx *f, struct fmt_frag *block)
 		return;
 	}
 
-	fmt_write_frag_set_dbg(f, block, &(struct tree_indent){ .indent = 1, .len = 1 }, 0);
+	if (fmt_debug) {
+		fmt_write_frag_set_dbg(f, block, &(struct tree_indent){ .indent = 1, .len = 1 }, 0);
+	}
 
 	fmt_write_frag(f, block);
 }
@@ -714,42 +742,36 @@ fmt_write_block(struct fmt_ctx *f, struct fmt_frag *block)
  ******************************************************************************/
 
 static void
-fmt_node_ws(struct fmt_ctx *f, struct node *n, obj ws, struct fmt_frag **dest)
+fmt_node_ws(struct fmt_ctx *f, struct node *n, const struct node_fmt_ws *ws, struct fmt_frag **dest)
 {
-	const struct str *s = get_str(f->wk, ws);
-	struct str comment;
 	struct fmt_frag *child;
-	bool trailing_comment = true;
-	uint32_t i, cs, ce;
-	for (i = 0; i < s->len; ++i) {
-		if (s->s[i] == '\n') {
-			trailing_comment = false;
+	obj v;
+	obj_array_for(f->wk, ws->list, v) {
+		const union node_fmt_ws_elem e = { .packed = get_obj_number(f->wk, v) };
+		if (e.unpacked.flags & node_fmt_ws_flag_newline) {
 			fmt_frag_child(dest, fmt_frag(f, fmt_frag_type_ws_newline));
-		} else if (s->s[i] == '#') {
-			++i;
-			cs = ce = i;
-			for (; s->s[i] != '\n' && i < s->len; ++i) {
-				++ce;
-			}
-
-			comment = (struct str){ .s = &s->s[cs], .len = ce - cs };
-
-			child = fmt_frag_child(dest, fmt_frag_o(f, make_strn(f->wk, comment.s, comment.len)));
-			if (trailing_comment) {
+		} else if (e.unpacked.flags & node_fmt_ws_flag_comment) {
+			child = fmt_frag_child(dest, fmt_frag_o(f, e.unpacked.whitespace));
+			if (e.unpacked.flags & node_fmt_ws_flag_trailing_comment) {
 				child->type = fmt_frag_type_ws_comment_trailing;
 				(*dest)->flags |= fmt_frag_flag_has_comment_trailing;
 			} else {
 				child->type |= fmt_frag_type_ws_comment;
 			}
 
-			obj stripped_comment = str_strip(f->wk, &comment, 0, 0);
-
-			bool fmt_on;
-			if (lexer_is_fmt_comment(get_str(f->wk, stripped_comment), &fmt_on)) {
-				child->flags |= fmt_on ? fmt_frag_flag_fmt_on : fmt_frag_flag_fmt_off;
+			if (e.unpacked.flags & node_fmt_ws_flag_fmt_on) {
+				child->flags |= fmt_frag_flag_fmt_on;
+			} else if (e.unpacked.flags & node_fmt_ws_flag_fmt_off) {
+				child->flags |= fmt_frag_flag_fmt_off;
 			}
-
-			trailing_comment = false;
+		} else if (e.unpacked.flags & (node_fmt_ws_flag_fmt_off | node_fmt_ws_flag_fmt_on)) {
+			// range-based formatting
+			child = fmt_frag_child(dest, fmt_frag(f, fmt_frag_type_ws_range_toggle));
+			if (e.unpacked.flags & node_fmt_ws_flag_fmt_on) {
+				child->flags |= fmt_frag_flag_fmt_on;
+			} else if (e.unpacked.flags & node_fmt_ws_flag_fmt_off) {
+				child->flags |= fmt_frag_flag_fmt_off;
+			}
 		}
 	}
 }
@@ -838,8 +860,8 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 				// Move the child's ws up one level and grab
 				// post_ws if we have it.
 				fmt_frag_move_ws(child, child->child);
-				if (n->l->fmt.post.ws) {
-					fmt_node_ws(f, n->l, n->l->fmt.post.ws, &child->post_ws);
+				if (n->l->fmt.post.list) {
+					fmt_node_ws(f, n->l, &n->l->fmt.post, &child->post_ws);
 				}
 
 				if (type == node_type_def_args && n->l->r->l->data.type) {
@@ -898,10 +920,10 @@ fmt_list(struct fmt_ctx *f, struct node *n, struct fmt_frag *fr, enum fmt_list_f
 			break;
 		}
 
-		if (n->r->fmt.pre.ws) {
+		if (n->r->fmt.pre.list) {
 			// this means we got whitespace before the ,
 			// Add it to the trailing whitespace for the current child
-			fmt_node_ws(f, n, n->r->fmt.pre.ws, &child->post_ws);
+			fmt_node_ws(f, n, &n->r->fmt.pre, &child->post_ws);
 		}
 
 		assert(!child->str);
@@ -970,15 +992,15 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	res = fr = fmt_frag(f, fmt_frag_type_expr);
 	fr->node_type = n->type;
 
-	if (n->fmt.pre.ws) {
-		fmt_node_ws(f, n, n->fmt.pre.ws, &fr->pre_ws);
+	if (n->fmt.pre.list) {
+		fmt_node_ws(f, n, &n->fmt.pre, &fr->pre_ws);
 	}
 
-	if (n->fmt.post.ws) {
-		fmt_node_ws(f, n, n->fmt.post.ws, &res->post_ws);
+	if (n->fmt.post.list) {
+		fmt_node_ws(f, n, &n->fmt.post, &res->post_ws);
 	}
 
-	/* L("formatting %p:%s", (void *)n, node_to_s(f->wk, n)); */
+	// L("formatting %p:%s", (void *)n, node_to_s(f->wk, n));
 
 	switch (n->type) {
 	case node_type_maybe_id:
@@ -1344,12 +1366,12 @@ fmt_block(struct fmt_ctx *f, struct node *n)
 
 		line = fmt_frag(f, fmt_frag_type_line);
 
-		if (n->fmt.pre.ws) {
-			fmt_node_ws(f, n, n->fmt.pre.ws, &line->pre_ws);
+		if (n->fmt.pre.list) {
+			fmt_node_ws(f, n, &n->fmt.pre, &line->pre_ws);
 		}
 
-		if (n->fmt.post.ws) {
-			fmt_node_ws(f, n, n->fmt.post.ws, &line->post_ws);
+		if (n->fmt.post.list) {
+			fmt_node_ws(f, n, &n->fmt.post, &line->post_ws);
 		}
 
 		if (n->l) {
@@ -1555,20 +1577,13 @@ fmt_assemble_out_blocks(struct fmt_ctx *f)
 }
 
 bool
-fmt(struct arena *a,
-	struct arena *a_scratch,
-	struct source *src,
-	FILE *out,
-	const char *cfg_path,
-	bool check_only,
-	bool editorconfig)
+fmt(const struct fmt_params *params)
 {
-	struct tstr out_buf;
 	struct workspace wk = { 0 };
-	workspace_init_bare(&wk, a, a_scratch);
+	workspace_init_bare(&wk, params->a, params->a_scratch);
 	struct fmt_ctx f = {
 		.wk = &wk,
-		.out_buf = &out_buf,
+		.out_buf = params->out_buf,
 		.fmt_on = true,
 		.opts = {
 			.max_line_len = 80,
@@ -1580,7 +1595,7 @@ fmt(struct arena *a,
 			.wide_colon = false,
 			.no_single_comma_function = false,
 			.insert_final_newline = true,
-			.end_of_line = fmt_guess_line_endings(src),
+			.end_of_line = fmt_guess_line_endings(params->src),
 			.sort_files = true,
 			.group_arg_value = true,
 			.simplify_string_literals = false,
@@ -1595,40 +1610,101 @@ fmt(struct arena *a,
 	arr_init(f.wk->a, &f.out_blocks, 64, struct fmt_out_block);
 	arr_init(f.wk->a, &f.list_tmp, 64, struct fmt_frag *);
 
-	if (editorconfig) {
-		try_parse_editorconfig(&wk, src, &f.opts);
+	if (params->editorconfig) {
+		try_parse_editorconfig(&wk, params->src, &f.opts);
 	}
 
-	if (cfg_path) {
-		if (!fmt_cfg_parse(&wk, &f, cfg_path)) {
+	if (params->cfg_path) {
+		if (!fmt_cfg_parse(&wk, &f, params->cfg_path)) {
 			return false;
 		}
 	}
 
 	enum vm_compile_mode compile_mode = vm_compile_mode_fmt;
-	if (str_endswith(&STRL(src->label), &STR(".meson"))) {
+	if (str_endswith(&STRL(params->src->label), &STR(".meson"))) {
 		compile_mode |= vm_compile_mode_language_extended;
 	}
 
+	struct fmt_range _range = { 0 }, *range = 0;
+	if (params->range.start) {
+		range = &_range;
+		uint32_t line = 1;
+		for (uint32_t i = 0; i < params->src->len; ++i) {
+			if (!range->start && line >= params->range.start) {
+				range->start = i;
+			} else if (!range->end && line >= params->range.end) {
+				range->end = i - 1;
+				break;
+			}
+			if (params->src->src[i] == '\n') {
+				++line;
+			}
+		}
+		if (!range->end) {
+			range->end = params->src->len;
+		}
+
+		L("translated range from %d-%d to %d-%d", params->range.start, params->range.end, range->start, range->end);
+		// L("'%.*s'", range->end - range->start, params->src->src + range->start);
+
+		if (range->start >= range->end) {
+			LOG_E("invalid range");
+			return false;
+		}
+	}
+
 	struct node *n;
-	if (!(n = parse_fmt(&wk, src, compile_mode, &f.raw_blocks))) {
+	if (!(n = parse_fmt(&wk, params->src, compile_mode, &f.raw_blocks, range))) {
 		return false;
 	}
 
-	tstr_init(&out_buf, 0);
+	if (fmt_debug) {
+		print_fmt_ast(&wk, n);
+	}
+
+	if (range) {
+		f.fmt_on = false;
+	}
+
+	tstr_init(params->out_buf, 0);
 	fmt_write_block(&f, fmt_block(&f, n));
 	fmt_push_out_block(&f);
-
-	if (!check_only) {
-		out_buf.flags = tstr_flag_write;
-		out_buf.buf = (void *)out;
+	if (!f.fmt_on) {
+		fmt_toggle(&f, true);
 	}
+
+	if (range && params->range_only) {
+		if (fmt_debug) {
+			for (uint32_t i = 0; i < f.out_blocks.len; ++i) {
+				struct fmt_out_block *b = arr_get(&f.out_blocks, i);
+				obj_lprintf(&wk, log_debug, "%d | %d | %o\n", i, b->raw, b->str);
+			}
+		}
+
+		for (uint32_t i = 0; i < f.out_blocks.len; ++i) {
+			struct fmt_out_block *b = arr_get(&f.out_blocks, i);
+			if (!b->raw) {
+				const struct str *middle = get_str(&wk, b->str);
+				*params->out_buf = (struct tstr){ (char *)middle->s, middle->len };
+				return true;
+			}
+		}
+
+		LOG_E("failed to format range");
+		return false;
+	}
+
+	if (!params->check_only && params->out_file) {
+		params->out_buf->flags = tstr_flag_write;
+		params->out_buf->buf = (void *)params->out_file;
+	}
+
 	fmt_assemble_out_blocks(&f);
 
-	if (check_only) {
-		if (src->len != out_buf.len) {
+	if (params->check_only) {
+		if (params->src->len != params->out_buf->len) {
 			return false;
-		} else if (memcmp(src->src, out_buf.buf, src->len)) {
+		} else if (memcmp(params->src->src, params->out_buf->buf, params->src->len)) {
 			return false;
 		}
 	}

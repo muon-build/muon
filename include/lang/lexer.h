@@ -103,8 +103,14 @@ union literal_data {
 	} len;
 };
 
+enum token_flag {
+	token_flag_fmt_on = 1 << 0,
+	token_flag_fmt_off = 1 << 1,
+};
+
 struct token {
 	enum token_type type;
+	enum token_flag flags;
 	union literal_data data;
 	struct source_location location;
 };
@@ -122,10 +128,16 @@ enum cm_lexer_mode {
 	cm_lexer_mode_conditional,
 };
 
+struct fmt_range {
+	uint32_t start, end;
+};
+
 struct lexer_fmt {
 	obj raw_blocks;
 	uint32_t raw_block_start;
+	const struct fmt_range *range;
 	bool in_raw_block;
+	bool in_range, range_border_crossed;
 };
 
 struct lexer {
@@ -150,8 +162,9 @@ bool lex_string_escape_utf8(struct workspace *wk, struct tstr *buf, uint32_t val
 void lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, enum lexer_mode mode);
 void lexer_next(struct lexer *lexer, struct token *token);
 
-obj lexer_get_preceeding_whitespace(struct lexer *lexer);
-bool lexer_is_fmt_comment(const struct str *comment, bool *fmt_on);
+struct node_fmt_ws;
+void lexer_get_preceeding_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, enum token_flag flags);
+void lexer_push_whitespace(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t start, uint32_t len, enum token_flag flags);
 
 const char *token_type_to_s(enum token_type type);
 const char *token_to_s(struct workspace *wk, struct token *token);

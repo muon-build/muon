@@ -59,8 +59,24 @@ enum node_type {
 	node_type_return,
 };
 
-struct node_fmt {
-	obj ws;
+enum node_fmt_ws_flag {
+	node_fmt_ws_flag_fmt_on = 1 << 0,
+	node_fmt_ws_flag_fmt_off = 1 << 1,
+	node_fmt_ws_flag_newline = 1 << 2,
+	node_fmt_ws_flag_comment = 1 << 3,
+	node_fmt_ws_flag_trailing_comment = 1 << 4,
+};
+
+union node_fmt_ws_elem {
+	struct {
+		obj whitespace;
+		uint32_t flags;
+	} unpacked;
+	int64_t packed;
+};
+
+struct node_fmt_ws {
+	obj list;
 };
 
 enum node_flag {
@@ -72,7 +88,7 @@ struct node {
 	struct node *l, *r;
 	struct source_location location;
 	struct {
-		struct node_fmt pre, post;
+		struct node_fmt_ws pre, post;
 	} fmt;
 	uint16_t type;
 	uint16_t flags;
@@ -81,7 +97,8 @@ struct node {
 void print_ast(struct workspace *wk, struct node *root);
 void print_fmt_ast(struct workspace *wk, struct node *root);
 struct node *parse(struct workspace *wk, const struct source *src, enum vm_compile_mode mode);
-struct node *parse_fmt(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, obj *raw_blocks);
+struct fmt_range;
+struct node *parse_fmt(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, obj *raw_blocks, const struct fmt_range *range);
 const char *node_type_to_s(enum node_type t);
 const char *node_to_s(struct workspace *wk, const struct node *n);
 

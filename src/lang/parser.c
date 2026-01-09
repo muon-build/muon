@@ -12,6 +12,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/lexer.h"
+#include "lang/object_iterators.h"
 #include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/vm.h"
@@ -61,7 +62,7 @@ struct parser {
 	} err;
 
 	struct {
-		struct node_fmt previous, current;
+		struct node_fmt_ws previous, current;
 	} fmt;
 
 	struct parse_behavior behavior;
@@ -157,25 +158,66 @@ node_type_to_s(enum node_type t)
 #undef nt
 }
 
+static void
+fmt_node_ws_to_s(struct workspace *wk, obj list, char *buf, uint32_t buf_len, uint32_t *i) {
+	if (!list) {
+		return;
+	}
+
+	obj v;
+	obj_array_for(wk, list, v) {
+		const union node_fmt_ws_elem e = { .packed = get_obj_number(wk, v) };
+		*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "[");
+		if (e.unpacked.whitespace) {
+			*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "%o", e.unpacked.whitespace);
+		}
+		if (e.unpacked.flags) {
+			if (e.unpacked.whitespace) {
+				*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "|");
+			}
+
+			if (e.unpacked.flags & node_fmt_ws_flag_fmt_on) {
+				*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "f");
+			}
+			if (e.unpacked.flags & node_fmt_ws_flag_fmt_off) {
+				*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "F");
+			}
+			if (e.unpacked.flags & node_fmt_ws_flag_newline) {
+				*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "n");
+			}
+			if (e.unpacked.flags & node_fmt_ws_flag_comment) {
+				*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "c");
+			}
+			if (e.unpacked.flags & node_fmt_ws_flag_trailing_comment) {
+				*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "t");
+			}
+		}
+		*i += obj_snprintf(wk, &buf[*i], buf_len - *i, "]");
+	}
+}
+
 const char *
 fmt_node_to_s(struct workspace *wk, const struct node *n)
 {
 	static char buf[BUF_SIZE_S + 1];
 	uint32_t i = 0;
 
-	i += snprintf(&buf[i], BUF_SIZE_S - i, "%s", node_type_to_s(n->type));
+	i += snprintf(&buf[i], sizeof(buf) - i, "%s", node_type_to_s(n->type));
 
 	switch (n->type) {
 	case node_type_maybe_id:
 	case node_type_id:
 	case node_type_id_lit:
 	case node_type_number:
-	case node_type_string: i += obj_snprintf(wk, &buf[i], BUF_SIZE_S - i, ":%o", n->data.str); break;
+	case node_type_string: i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, ":%o", n->data.str); break;
 	case node_type_bool: break;
 	default: break;
 	}
 
-	i += obj_snprintf(wk, &buf[i], BUF_SIZE_S - i, ":%o:%o", n->fmt.pre.ws, n->fmt.post.ws);
+	i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, ":");
+	fmt_node_ws_to_s(wk, n->fmt.pre.list, buf, sizeof(buf), &i);
+	i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, ":");
+	fmt_node_ws_to_s(wk, n->fmt.post.list, buf, sizeof(buf), &i);
 
 	return buf;
 }
@@ -317,7 +359,7 @@ parse_advance(struct parser *p)
 	}
 
 	if (p->mode & vm_compile_mode_fmt) {
-		p->fmt.current.ws = lexer_get_preceeding_whitespace(&p->lexer);
+		lexer_get_preceeding_whitespace(&p->lexer, &p->fmt.current, p->current.flags);
 
 		// In fmt mode, merge all consecutive eol tokens into one and
 		// store the information in the ws field.
@@ -334,10 +376,10 @@ parse_advance(struct parser *p)
 			}
 
 			if (new_current.type == token_type_eol) {
-				str_appn(p->wk,
-					&p->fmt.current.ws,
-					&p->lexer.src[p->current.location.off],
-					new_current.location.off - p->current.location.off + 1);
+				lexer_push_whitespace(&p->lexer,
+					&p->fmt.current,
+					p->current.location.off,
+					new_current.location.off - p->current.location.off + 1, new_current.flags);
 
 				p->current = new_current;
 				p->lexer = new_lexer;
@@ -1207,16 +1249,14 @@ parse_block(struct parser *p, enum token_type types[], uint32_t types_len, enum 
 	return res;
 }
 
-static struct node *
-parse_impl(struct workspace *wk,
+static void
+parser_init(struct workspace *wk,
 	const struct source *src,
 	enum vm_compile_mode mode,
 	const struct parse_behavior *behavior,
 	const struct parse_rule *rules,
 	struct parser *p)
 {
-	TracyCZoneAutoS;
-
 	*p = (struct parser){
 		.wk = wk,
 		.nodes = &wk->vm.compiler_state.nodes,
@@ -1234,6 +1274,12 @@ parse_impl(struct workspace *wk,
 		lexer_mode |= lexer_mode_fmt;
 	}
 	lexer_init(&p->lexer, p->wk, p->src, lexer_mode);
+}
+
+static struct node *
+parse_impl(struct parser *p)
+{
+	TracyCZoneAutoS;
 
 	p->behavior.advance(p);
 
@@ -1292,22 +1338,29 @@ struct node *
 parse(struct workspace *wk, const struct source *src, enum vm_compile_mode mode)
 {
 	struct parser p;
-	return parse_impl(wk, src, mode, &parse_behavior_base, parse_rules_base, &p);
+	parser_init(wk, src, mode, &parse_behavior_base, parse_rules_base, &p);
+	return parse_impl(&p);
 }
 
 struct node *
-parse_fmt(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, obj *raw_blocks)
+parse_fmt(struct workspace *wk,
+	const struct source *src,
+	enum vm_compile_mode mode,
+	obj *raw_blocks,
+	const struct fmt_range *range)
 {
 	struct parse_rule parse_rules[ARRAY_LEN(parse_rules_base)];
 	memcpy(parse_rules, parse_rules_base, sizeof(parse_rules_base));
 	parse_rules['('].prefix = parse_grouping_fmt;
 
 	struct parser p;
-	struct node *n = parse_impl(wk, src, mode, &parse_behavior_base, parse_rules, &p);
+	parser_init(wk, src, mode, &parse_behavior_base, parse_rules, &p);
+	p.lexer.fmt.range = range;
+	struct node *n = parse_impl(&p);
 
 	*raw_blocks = p.lexer.fmt.raw_blocks;
 
-	/* LO("raw blocks: %o\n", *raw_blocks); */
+	LO("raw blocks: %o\n", *raw_blocks);
 
 	return n;
 }
@@ -1539,7 +1592,8 @@ cm_parse(struct workspace *wk, const struct source *src)
 	// clang-format on
 
 	struct parser p;
-	struct node *n = parse_impl(wk, src, 0, &behavior, parse_rules, &p);
+	parser_init(wk, src, 0, &behavior, parse_rules, &p);
+	struct node *n = parse_impl(&p);
 	/* print_ast(wk, n); */
 	return n;
 }

@@ -2305,14 +2305,18 @@ obj_vasprintf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list ap
 uint32_t
 obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, va_list ap)
 {
+	if (!len) {
+		return 0;
+	}
+
 	TSTR(tstr);
 
 	if (!obj_vasprintf(wk, &tstr, fmt, ap)) {
 		return 0;
 	}
 	uint32_t copy = tstr.len > len - 1 ? len - 1 : tstr.len;
-
-	strncpy(buf, tstr.buf, len - 1);
+	struct str to_copy = { .s = tstr.buf, .len = copy };
+	cstr_copy_(buf, &to_copy, len);
 	return copy;
 }
 

@@ -627,6 +627,10 @@ is_whitespace_except_newline(char c)
 bool
 str_to_i_base(const struct str *ss, int64_t *res, bool strip, uint32_t base)
 {
+	if (!ss->len) {
+		return false;
+	}
+
 	char *endptr = NULL;
 	const char *start = ss->s;
 

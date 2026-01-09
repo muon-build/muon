@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "lang/lexer.h"
+
 enum fmt_indent_style {
 	fmt_indent_style_space,
 	fmt_indent_style_tab,
@@ -36,14 +38,18 @@ struct fmt_opts {
 	bool use_editor_config; // ignored for now
 };
 
-struct arena;
-struct source;
+struct fmt_params {
+	struct arena *a;
+	struct arena *a_scratch;
+	struct source *src;
+	FILE *out_file;
+	struct tstr *out_buf;
+	const char *cfg_path;
+	struct fmt_range range;
+	bool check_only, range_only;
+	bool editorconfig;
+};
+
 bool
-fmt(struct arena *a,
-	struct arena *a_scratch,
-	struct source *src,
-	FILE *out,
-	const char *cfg_path,
-	bool check_only,
-	bool editorconfig);
+fmt(const struct fmt_params *params);
 #endif
