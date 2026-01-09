@@ -1160,16 +1160,6 @@ restart:
 		if (lexer->i != lexer->source->len) {
 			goto unexpected_character;
 		}
-
-		if (lexer->fmt.in_raw_block) {
-			obj s = make_strn(lexer->wk,
-				&lexer->src[lexer->fmt.raw_block_start],
-				(start - 1) - lexer->fmt.raw_block_start);
-
-			obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
-			lexer->fmt.in_raw_block = false;
-		}
-
 		token->type = token_type_eof;
 		break;
 	default:
