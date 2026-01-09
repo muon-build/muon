@@ -181,6 +181,11 @@ FUNC_IMPL(kernel, project, 0)
 		return false;
 	}
 
+	if (!current_project(wk)) {
+		vm_error(wk, "project may not be called in this context");
+		return false;
+	}
+
 	if (current_project(wk)->initialized) {
 		vm_error(wk, "project may only be called once");
 		return false;
