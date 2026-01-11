@@ -6,6 +6,7 @@ scripts_cmdline = []
 embedded_scripts = []
 
 foreach s : [
+    'commands/clang_format.meson',
     'commands/copyfile.meson',
     'commands/coverage.meson',
     'commands/delete_suffix.meson',

@@ -29,6 +29,7 @@ foreach script : embedded_scripts
             'analyze',
             '-Werror',
             '-m', mode,
+            '-Wno-dead-code', # This has too many false positives
             'file',
             embedded_scripts_base / script,
         ],

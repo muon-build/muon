@@ -8,7 +8,9 @@
 #include "backend/common_args.h"
 #include "backend/ninja/clang_format.h"
 #include "backend/output.h"
+#include "functions/kernel.h"
 #include "lang/object_iterators.h"
+#include "lang/serial.h"
 #include "lang/string.h"
 #include "log.h"
 #include "options.h"
@@ -17,23 +19,20 @@
 #include "platform/run_cmd.h"
 #include "toolchains.h"
 
-static bool
+static obj
 clang_format_detect(struct workspace *wk)
 {
-	bool found = false;
-	struct run_cmd_ctx clang_format_ctx = { 0 };
-	char *const clang_format_args[] = { "clang-format", "--version", NULL };
-
-	if (!run_cmd_argv(wk, &clang_format_ctx, clang_format_args, NULL, 0) || (clang_format_ctx.status != 0)) {
-		goto cleanup;
+	obj found_clang_format;
+	struct find_program_ctx fp_ctx = {
+		.res = &found_clang_format,
+		.requirement = requirement_auto,
+		.machine = machine_kind_build,
+	};
+	if (!find_program(wk, &fp_ctx, make_str(wk, "clang-format")) || !fp_ctx.found) {
+		return 0;
 	}
 
-	LOG_I("found clang-format: %.*s", (int)strcspn(clang_format_ctx.out.buf, "\n"), clang_format_ctx.out.buf);
-	found = true;
-
-cleanup:
-	run_cmd_ctx_destroy(&clang_format_ctx);
-	return found;
+	return found_clang_format;
 }
 
 static bool
@@ -177,11 +176,8 @@ clang_format_collect_source_files_from_list(struct workspace *wk, struct clang_f
 static bool
 clang_format_write_file_list(struct workspace *wk, void *_ctx, FILE *out)
 {
-	obj file, *file_list = _ctx;
-	obj_array_for(wk, *file_list, file) {
-		obj_fprintf(wk, out, "%s\n", get_file_path(wk, file));
-	}
-	return true;
+	obj *file_list = _ctx;
+	return serial_dump(wk, *file_list, out);
 }
 
 static void
@@ -253,7 +249,7 @@ ninja_clang_format_write_targets(struct workspace *wk, FILE *out)
 	{
 		const char *file_list ="clang-format-files.txt";
 		if (!with_open(wk->muon_private, file_list, wk, &ctx, clang_format_write_file_list)) {
-			LOG_E("Failed to write file list for clang-format");
+			LOG_E("failed to write file list for clang-format");
 			return;
 		}
 
@@ -261,22 +257,48 @@ ninja_clang_format_write_targets(struct workspace *wk, FILE *out)
 		path_join(wk, &file_list_path, wk->muon_private, file_list);
 	}
 
+	obj clang_format;
+	if (!(clang_format = clang_format_detect(wk))) {
+		LOG_E("failed to find clang-format");
+		return;
+	}
+	struct obj_external_program *ep = get_obj_external_program(wk, clang_format);
+	obj command_base = make_obj(wk, obj_array);
+	push_args_null_terminated(wk,
+		command_base,
+		(char *const[]){
+			(char *)wk->argv0,
+			"internal",
+			"eval",
+			"-e",
+			"commands/clang_format.meson",
+			"-l", file_list_path.buf,
+			0,
+		});
+
 	{
-		TSTR(command);
-		tstr_pushf(wk, &command, "cat %s | xargs -d '\\n' clang-format -i", file_list_path.buf);
+		obj command;
+		obj_array_dup(wk, command_base, &command);
+		obj_array_push(wk, command, make_str(wk, "--"));
+		obj_array_extend(wk, command, ep->cmd_array);
+		obj joined = join_args_shell_ninja(wk, command);
 
 		ninja_create_phony_clang_format_target(
-			wk, out, &STR("clang-format"), &TSTR_STR(&command), &STR("formatting c/c++ files"));
+			wk, out, &STR("clang-format"), get_str(wk, joined), &STR("formatting c/c++ files"));
 	}
 
 	{
-		TSTR(command);
-		tstr_pushf(wk, &command, "cat %s | xargs -d '\\n' clang-format --dry-run --Werror", file_list_path.buf);
+		obj command;
+		obj_array_dup(wk, command_base, &command);
+		obj_array_push(wk, command, make_str(wk, "-n"));
+		obj_array_push(wk, command, make_str(wk, "--"));
+		obj_array_extend(wk, command, ep->cmd_array);
+		obj joined = join_args_shell_ninja(wk, command);
 
 		ninja_create_phony_clang_format_target(wk,
 			out,
 			&STR("clang-format-check"),
-			&TSTR_STR(&command),
+			get_str(wk, joined),
 			&STR("checking c/c++ file formatting"));
 	}
 }
@@ -302,8 +324,7 @@ ninja_clang_format_is_enabled_and_available(struct workspace *wk)
 	}
 
 	if (!clang_format_detect(wk)) {
-		LLOG_W(".clang-format found but clang-format tool is not available\n");
-		return false;
+		LOG_W(".clang-format found but clang-format tool is not available");
 	}
 
 	if (clang_format_target_name_exists(wk, &STR("clang-format")) || clang_format_target_name_exists(wk, &STR("clang-format-check"))) {
