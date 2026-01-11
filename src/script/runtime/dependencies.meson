@@ -81,6 +81,19 @@ meson.register_dependency_handler(
     endfunc,
 )
 
+func config_tool(tool external_program, args list[str]) -> list[str]
+    output = run_command([tool] + args, check: true).stdout()
+
+    value = []
+    foreach arg : output.split(' ')
+        if arg != ''
+            value += arg
+        endif
+    endforeach
+
+    return value
+endfunc
+
 meson.register_dependency_handler(
     'objfw',
     config_tool: func(modules list[str]:, _ glob[any]:) -> dep
@@ -90,19 +103,6 @@ meson.register_dependency_handler(
             return not_found()
         endif
 
-        config = func(args list[str]) -> list[str]
-            output = run_command([objfwconfig] + args, check: true).stdout()
-
-            value = []
-            foreach arg : output.split(' ')
-                if arg != ''
-                    value += arg
-                endif
-            endforeach
-
-            return value
-        endfunc
-
         modules_args = []
         if not is_null(modules)
             foreach module : modules
@@ -111,9 +111,9 @@ meson.register_dependency_handler(
             endforeach
         endif
 
-        compile_args = config(['--cppflags', '--objcflags'] + modules_args)
-        link_args = config(['--ldflags', '--libs'] + modules_args)
-        version = run_command([objfwconfig, '--version'], check: true).stdout().strip()
+        compile_args = config_tool(objfwconfig, ['--cppflags', '--objcflags'] + modules_args)
+        link_args = config_tool(objfwconfig, ['--ldflags', '--libs'] + modules_args)
+        version = ''.join(config_tool(objfwconfig, ['--version']))
 
         return declare_dependency(
             compile_args: compile_args,
@@ -187,5 +187,30 @@ meson.register_dependency_handler(
         endif
 
         return not_found()
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'pcap',
+    order: ['config-tool', 'pkg-config'],
+    config_tool: func(native bool:, _ glob[any]:) -> dep
+        pcapconfig = find_program('pcap-config', native: native, required: false)
+
+        if not pcapconfig.found()
+            return not_found()
+        endif
+
+        version = ''.join(config_tool(pcapconfig, ['--version']))
+        cflags = config_tool(pcapconfig, ['--cflags'])
+        libs = config_tool(pcapconfig, ['--libs'])
+
+        return declare_dependency(
+            compile_args: cflags,
+            link_args: libs,
+            version: version,
+        )
+    endfunc,
+    pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
+        return dependency('libpcap', method: 'pkg-config', native: native, kwargs: kwargs)
     endfunc,
 )
