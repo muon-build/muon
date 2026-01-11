@@ -355,12 +355,19 @@ option(
     ],
 )
 
-# This is a muon extension.  Meson has no option to control this behavior
+# These are muon extensions.  Meson has no options to control this behavior
 option(
     'b_largefile',
     type: 'feature',
     value: 'disabled',
     description: 'Enable largefile source',
+)
+
+option(
+    'b_clang_format',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable clang format build targets',
 )
 
 # Compiler options
