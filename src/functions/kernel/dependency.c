@@ -803,7 +803,12 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			stack_pop(&wk->stack, dependency_is_resolving_from_capture);
 			if (ok) {
 				struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-				dep->name = ctx->name;
+				// For pkgconfig dependencies, preserve the actual pkg-config package name
+				// so that get_pkgconfig_variable() works correctly after a dependency
+				// is found via register_dependency_handler.
+				if (dep->type != dependency_type_pkgconf) {
+					dep->name = ctx->name;
+				}
 
 				switch (handlers.e[i].m) {
 				case dependency_lookup_method_pkgconfig: {
