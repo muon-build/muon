@@ -66,7 +66,7 @@ FUNC_IMPL(subproject, found, tc_bool, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(subproject, import, tc_module, func_impl_flag_impure)
+FUNC_IMPL(subproject, import, tc_module, func_impl_flag_impure | func_impl_flag_extension)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
 	enum kwargs {
