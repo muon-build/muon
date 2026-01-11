@@ -4,8 +4,10 @@
  */
 #include "compat.h"
 
+#include "args.h"
 #include "backend/common_args.h"
 #include "backend/ninja/clang_format.h"
+#include "backend/output.h"
 #include "lang/object_iterators.h"
 #include "lang/string.h"
 #include "log.h"
@@ -15,23 +17,8 @@
 #include "platform/run_cmd.h"
 #include "toolchains.h"
 
-// File extensions for C/C++ files
-static const char *c_cpp_extensions[] = {
-	".c",
-	".cpp",
-	".cc",
-	".cxx",
-	".C",
-	".h",
-	".hpp",
-	".hh",
-	".hxx",
-	".H",
-	NULL,
-};
-
 static bool
-ninja_clang_format_detect(struct workspace *wk)
+clang_format_detect(struct workspace *wk)
 {
 	bool found = false;
 	struct run_cmd_ctx clang_format_ctx = { 0 };
@@ -50,16 +37,7 @@ cleanup:
 }
 
 static bool
-check_clang_format_config_exists(struct workspace *wk)
-{
-	TSTR(config_path);
-	path_join(wk, &config_path, get_cstr(wk, current_project(wk)->source_root), ".clang-format");
-	return fs_file_exists(config_path.buf);
-}
-
-// Check if a target with given name already exists in any project
-static bool
-target_name_exists(struct workspace *wk, const struct str *target_name)
+clang_format_target_name_exists(struct workspace *wk, const struct str *target_name)
 {
 	uint32_t proj_i;
 	for (proj_i = 0; proj_i < wk->projects.len; ++proj_i) {
@@ -79,10 +57,8 @@ target_name_exists(struct workspace *wk, const struct str *target_name)
 	return false;
 }
 
-// Read and parse pattern file (.clang-format-include or .clang-format-ignore)
-// Returns 0 if file doesn't exist, otherwise returns array of patterns
 static obj
-read_pattern_file(struct workspace *wk, const struct str *filename)
+clang_format_read_pattern_file(struct workspace *wk, const struct str *filename)
 {
 	TSTR(pattern_path);
 	path_join(wk, &pattern_path, get_cstr(wk, current_project(wk)->source_root), filename->s);
@@ -137,9 +113,8 @@ read_pattern_file(struct workspace *wk, const struct str *filename)
 	return patterns;
 }
 
-// Check if file matches any pattern in the array
 static bool
-matches_any_pattern(struct workspace *wk, const struct str *path, obj patterns)
+clang_format_matches_any_pattern(struct workspace *wk, const struct str *path, obj patterns)
 {
 	if (!patterns) {
 		return false;
@@ -155,150 +130,57 @@ matches_any_pattern(struct workspace *wk, const struct str *path, obj patterns)
 	return false;
 }
 
-// Check if this file should be formatted based on include/ignore patterns
-static bool
-should_format_file(struct workspace *wk, const struct str *path, obj include_patterns, obj ignore_patterns)
-{
-	// If ignore patterns match, skip
-	if (matches_any_pattern(wk, path, ignore_patterns)) {
-		return false;
-	}
-
-	// If include patterns specified and don't match, skip
-	if (include_patterns && !matches_any_pattern(wk, path, include_patterns)) {
-		return false;
-	}
-
-	return true;
-}
-
-// Check if file has C/C++ extension
-static bool
-is_clike_file(const struct str *path)
-{
-	const char *ext = strrchr(path->s, '.');
-	if (!ext) {
-		return false;
-	}
-
-	const char **exts = c_cpp_extensions;
-	while (exts != NULL) {
-		if (str_eql(&STRL(ext), &STRL(*exts))) {
-			return true;
-		}
-		exts++;
-	}
-	return false;
-}
-
-struct collect_sources_ctx {
+struct clang_format_collect_sources_ctx {
 	obj file_list;
 	obj include_patterns;
 	obj ignore_patterns;
+	struct tstr *file_list_path;
 };
 
-static enum iteration_result
-collect_source_file_iter(struct workspace *wk, void *_ctx, obj file_obj)
+static void
+clang_format_collect_source_files_from_list(struct workspace *wk, struct clang_format_collect_sources_ctx *ctx, obj list)
 {
-	struct collect_sources_ctx *ctx = _ctx;
-	const char *path_s = get_file_path(wk, file_obj);
-	const struct str path = STRL(path_s);
-
-	// Skip if not a C/C++ file
-	if (!is_clike_file(&path)) {
-		return ir_cont;
-	}
-
-	// Check patterns
-	if (!should_format_file(wk, &path, ctx->include_patterns, ctx->ignore_patterns)) {
-		return ir_cont;
-	}
-
-	// Add to list (avoiding duplicates)
-	obj existing;
-	obj_array_for(wk, ctx->file_list, existing) {
-		const char *existing_path = get_file_path(wk, existing);
-		if (str_eql(&path, &STRL(existing_path))) {
-			return ir_cont;
-		}
-	}
-
-	obj_array_push(wk, ctx->file_list, file_obj);
-	return ir_cont;
-}
-
-// Collect all C/C++ source files from build targets
-static obj
-collect_source_files(struct workspace *wk, obj include_patterns, obj ignore_patterns)
-{
-	obj file_list = make_obj(wk, obj_array);
-
-	struct collect_sources_ctx ctx = {
-		.file_list = file_list,
-		.include_patterns = include_patterns,
-		.ignore_patterns = ignore_patterns,
-	};
-
-	// Iterate through all projects
-	uint32_t i;
-	for (i = 0; i < wk->projects.len; ++i) {
-		struct project *proj = arr_get(&wk->projects, i);
-
-		// Iterate through all targets in the project
-		obj tgt;
-		obj_array_for(wk, proj->targets, tgt) {
-			struct obj_build_target *t;
-
-			switch (get_obj_type(wk, tgt)) {
-			case obj_build_target:
-				t = get_obj_build_target(wk, tgt);
-				// Iterate through source files
-				obj_array_foreach(wk, t->src, &ctx, collect_source_file_iter);
-				break;
-			case obj_both_libs: {
-				struct obj_both_libs *libs = get_obj_both_libs(wk, tgt);
-				t = get_obj_build_target(wk, libs->static_lib);
-				obj_array_foreach(wk, t->src, &ctx, collect_source_file_iter);
-				t = get_obj_build_target(wk, libs->dynamic_lib);
-				obj_array_foreach(wk, t->src, &ctx, collect_source_file_iter);
-				break;
-			}
-			default:
-				// Skip non-build targets (custom targets, aliases, etc.)
-				break;
-			}
-		}
-	}
-
-	return file_list;
-}
-
-// Write files to a temporary list file for clang-format
-static bool
-write_file_list(struct workspace *wk, obj file_list, struct tstr *list_file_path)
-{
-	// Create a temporary file in the build directory
-	TSTR(temp_path);
-	path_join(wk, &temp_path, wk->build_root, "meson-private");
-	if (!fs_mkdir(temp_path.buf, true)) {
-		return false;
-	}
-
-	path_push(wk, &temp_path, "clang-format-files.txt");
-	tstr_pushs(wk, list_file_path, temp_path.buf);
-
-	FILE *f = fs_fopen(temp_path.buf, "w");
-	if (!f) {
-		LOG_E("Failed to create file list: %s", temp_path.buf);
-		return false;
-	}
-
 	obj file;
-	obj_array_for(wk, file_list, file) {
-		obj_fprintf(wk, f, "%s\n", get_file_path(wk, file));
-	}
+	obj_array_for(wk, list, file) {
+		const struct str *path = get_str(wk, *get_obj_file(wk, file));
 
-	fclose(f);
+		enum compiler_language l;
+		if (!(filename_to_compiler_language(path->s, &l))) {
+			continue;
+		}
+
+		switch (l) {
+		case compiler_language_c:
+		case compiler_language_cpp:
+		case compiler_language_objc:
+		case compiler_language_objcpp:
+		case compiler_language_c_hdr:
+		case compiler_language_cpp_hdr:
+		case compiler_language_objc_hdr:
+		case compiler_language_objcpp_hdr:
+			break;
+		default: continue;
+		}
+
+		if (clang_format_matches_any_pattern(wk, path, ctx->ignore_patterns)) {
+			continue;
+		}
+
+		if (ctx->include_patterns && !clang_format_matches_any_pattern(wk, path, ctx->include_patterns)) {
+			continue;
+		}
+
+		obj_array_push(wk, ctx->file_list, file);
+	}
+}
+
+static bool
+clang_format_write_file_list(struct workspace *wk, void *_ctx, FILE *out)
+{
+	obj file, *file_list = _ctx;
+	obj_array_for(wk, *file_list, file) {
+		obj_fprintf(wk, out, "%s\n", get_file_path(wk, file));
+	}
 	return true;
 }
 
@@ -309,10 +191,12 @@ ninja_create_phony_clang_format_target(struct workspace *wk,
 	const struct str *command,
 	const struct str *description)
 {
-	obj_fprintf(wk, out, "build %s: phony muon-internal__%s\n\n", target_name->s, target_name->s);
+	TSTR(desc_escaped);
+	ninja_escape(wk, &desc_escaped, description->s);
+
 	obj_fprintf(wk,
 		out,
-		"build muon-internal__%s: CUSTOM_COMMAND build_always_stale\n"
+		"build %s: CUSTOM_COMMAND build_always_stale\n"
 		" command = %s\n"
 		" description = %s\n"
 		" pool = console\n\n",
@@ -321,70 +205,80 @@ ninja_create_phony_clang_format_target(struct workspace *wk,
 		description->s);
 }
 
-static void
-ninja_clang_format_write_format_target(struct workspace *wk, FILE *out)
-{
-	// Read pattern files
-	obj include_patterns = read_pattern_file(wk, &STR(".clang-format-include"));
-	obj ignore_patterns = read_pattern_file(wk, &STR(".clang-format-ignore"));
-
-	// Collect source files programmatically
-	obj file_list = collect_source_files(wk, include_patterns, ignore_patterns);
-
-	if (get_obj_array(wk, file_list)->len == 0) {
-		LOG_W("No C/C++ source files found for clang-format");
-		return;
-	}
-
-	// Write file list to temporary file
-	TSTR(list_file);
-	if (!write_file_list(wk, file_list, &list_file)) {
-		LOG_E("Failed to write file list for clang-format");
-		return;
-	}
-
-	// Build command that reads from file list
-	TSTR(command);
-	tstr_pushf(wk, &command, "cat %s | xargs -d '\\n' clang-format -i", list_file.buf);
-
-	ninja_create_phony_clang_format_target(
-		wk, out, &STR("clang-format"), &STRL(command.buf), &STR("Formatting$ C/C++$ files"));
-}
-
-static void
-ninja_clang_format_write_check_target(struct workspace *wk, FILE *out)
-{
-	// Read pattern files
-	obj include_patterns = read_pattern_file(wk, &STR(".clang-format-include"));
-	obj ignore_patterns = read_pattern_file(wk, &STR(".clang-format-ignore"));
-
-	// Collect source files programmatically
-	obj file_list = collect_source_files(wk, include_patterns, ignore_patterns);
-
-	if (get_obj_array(wk, file_list)->len == 0) {
-		return;
-	}
-
-	// Write file list to temporary file
-	TSTR(list_file);
-	if (!write_file_list(wk, file_list, &list_file)) {
-		return;
-	}
-
-	// Build command that reads from file list
-	TSTR(command);
-	tstr_pushf(wk, &command, "cat %s | xargs -d '\\n' clang-format --dry-run --Werror", list_file.buf);
-
-	ninja_create_phony_clang_format_target(
-		wk, out, &STR("clang-format-check"), &STRL(command.buf), &STR("Checking$ C/C++$ file$ formatting"));
-}
-
 void
 ninja_clang_format_write_targets(struct workspace *wk, FILE *out)
 {
-	ninja_clang_format_write_format_target(wk, out);
-	ninja_clang_format_write_check_target(wk, out);
-	LOG_I("clang-format targets generated");
+	struct clang_format_collect_sources_ctx ctx[1] = { {
+		.file_list = make_obj(wk, obj_array),
+		.include_patterns = clang_format_read_pattern_file(wk, &STR(".clang-format-include")),
+		.ignore_patterns = clang_format_read_pattern_file(wk, &STR(".clang-format-ignore")),
+	} };
+
+	{ // collect source files
+		uint32_t i;
+		for (i = 0; i < wk->projects.len; ++i) {
+			struct project *proj = arr_get(&wk->projects, i);
+
+			obj tgt;
+			obj_array_for(wk, proj->targets, tgt) {
+				struct obj_build_target *t;
+
+				switch (get_obj_type(wk, tgt)) {
+				case obj_build_target:
+					t = get_obj_build_target(wk, tgt);
+					clang_format_collect_source_files_from_list(wk, ctx, t->src);
+					break;
+				case obj_both_libs: {
+					struct obj_both_libs *libs = get_obj_both_libs(wk, tgt);
+					t = get_obj_build_target(wk, libs->static_lib);
+					clang_format_collect_source_files_from_list(wk, ctx, t->src);
+					t = get_obj_build_target(wk, libs->dynamic_lib);
+					clang_format_collect_source_files_from_list(wk, ctx, t->src);
+					break;
+				}
+				default: break;
+				}
+			}
+		}
+
+		obj_array_dedup_in_place(wk, &ctx->file_list);
+	}
+
+	if (get_obj_array(wk, ctx->file_list)->len == 0) {
+		LOG_W("no c/c++ source files found for clang-format");
+		return;
+	}
+
+	TSTR(file_list_path);
+	{
+		const char *file_list ="clang-format-files.txt";
+		if (!with_open(wk->muon_private, file_list, wk, &ctx, clang_format_write_file_list)) {
+			LOG_E("Failed to write file list for clang-format");
+			return;
+		}
+
+		// with_open doesn't communicate what the path was
+		path_join(wk, &file_list_path, wk->muon_private, file_list);
+	}
+
+	{
+		TSTR(command);
+		tstr_pushf(wk, &command, "cat %s | xargs -d '\\n' clang-format -i", file_list_path.buf);
+
+		ninja_create_phony_clang_format_target(
+			wk, out, &STR("clang-format"), &TSTR_STR(&command), &STR("formatting c/c++ files"));
+	}
+
+	{
+		TSTR(command);
+		tstr_pushf(wk, &command, "cat %s | xargs -d '\\n' clang-format --dry-run --Werror", file_list_path.buf);
+
+		ninja_create_phony_clang_format_target(wk,
+			out,
+			&STR("clang-format-check"),
+			&TSTR_STR(&command),
+			&STR("checking c/c++ file formatting"));
+	}
 }
 
 bool
@@ -399,16 +293,20 @@ ninja_clang_format_is_enabled_and_available(struct workspace *wk)
 		return true;
 	}
 
-	if (!check_clang_format_config_exists(wk)) {
-		return false;
+	{ // check config exists
+		TSTR(config_path);
+		path_join(wk, &config_path, get_cstr(wk, current_project(wk)->source_root), ".clang-format");
+		if (!fs_file_exists(config_path.buf)) {
+			return false;
+		}
 	}
 
-	if (!ninja_clang_format_detect(wk)) {
+	if (!clang_format_detect(wk)) {
 		LLOG_W(".clang-format found but clang-format tool is not available\n");
 		return false;
 	}
 
-	if (target_name_exists(wk, &STR("clang-format")) || target_name_exists(wk, &STR("clang-format-check"))) {
+	if (clang_format_target_name_exists(wk, &STR("clang-format")) || clang_format_target_name_exists(wk, &STR("clang-format-check"))) {
 		L("clang-format: user-defined clang-format/clang-format-check targets detected, skipping automatic targets");
 		return false;
 	}
