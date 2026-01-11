@@ -4,12 +4,12 @@
  */
 #include "compat.h"
 
-#include "backend/ninja/clang_format.h"
-
 #include "backend/common_args.h"
+#include "backend/ninja/clang_format.h"
 #include "lang/object_iterators.h"
 #include "lang/string.h"
 #include "log.h"
+#include "options.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -390,6 +390,15 @@ ninja_clang_format_write_targets(struct workspace *wk, FILE *out)
 bool
 ninja_clang_format_is_enabled_and_available(struct workspace *wk)
 {
+	obj opt;
+	get_option_value(wk, 0, "b_clang_format", &opt);
+	enum feature_opt_state b_clang_format = get_obj_feature_opt(wk, opt);
+	if (b_clang_format == feature_opt_disabled) {
+		return false;
+	} else if (b_clang_format == feature_opt_enabled) {
+		return true;
+	}
+
 	if (!check_clang_format_config_exists(wk)) {
 		return false;
 	}
