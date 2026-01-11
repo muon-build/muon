@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+util = import('util')
+
+opts = {
+    'dryrun': false,
+}
+
+handlers = {
+    'n': {
+        'desc': 'dryrun',
+        'action': func()
+            opts.dryrun = true
+        endfunc,
+    },
+    'l': {
+        'desc': 'file list',
+        'required': true,
+        'action': func(list str)
+            opts.list = list
+        endfunc,
+    },
+}
+
+command = import('getopt').getopt(argv, handlers)
+
+if opts.dryrun
+    command += ['--dry-run', '-Werror']
+else
+    command += ['-i']
+endif
+
+files = util.serial_load(opts.list)
+
+command += files
+
+run_command(command, check: true)
