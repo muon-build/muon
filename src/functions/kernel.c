@@ -2240,6 +2240,7 @@ FUNC_REGISTER(kernel)
 
 		FUNC_IMPL_REGISTER(kernel, assert);
 		FUNC_IMPL_REGISTER(kernel, configuration_data);
+		FUNC_IMPL_REGISTER(kernel, debug);
 		FUNC_IMPL_REGISTER(kernel, disabler);
 		FUNC_IMPL_REGISTER(kernel, environment);
 		FUNC_IMPL_REGISTER(kernel, error);
