@@ -1,0 +1,166 @@
+# SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+func find_protocol(name str, state str: 'stable', version int:) -> file
+    # From meson docs:
+    # state   Optional arg that specifies the current state of the protocol.
+    #         Either 'stable', 'staging', or 'unstable'. The default is 'stable'.
+    # version The backwards incompatible version number as integer.
+    #         Required for staging and unstable, but not allowed for stable.
+
+    if not ['stable', 'staging', 'unstable'].contains(state)
+        error(
+            f'Invalid \'state\' \'@state@\'. Must be one of \'stable\', \'staging\', \'unstable\'.',
+        )
+    endif
+
+    if state == 'stable'
+        if not is_null(version)
+            error('For stable protocols, the version keyword is not allowed.')
+        endif
+    else
+        if is_null(version)
+            error(
+                f'For \'@state@\' protocols, the \'version\' keyword is required.',
+            )
+        elif version <= 0
+            error('version must be a positive integer')
+        endif
+    endif
+
+    # Resolve the wayland-protocols pkgdatadir.
+    # Prefer dependency pkgconfig var, fall back to common installation paths if not found.
+
+    wp_dep = dependency('wayland-protocols', required: false)
+    if wp_dep.found()
+        pkgdatadir = wp_dep.get_pkgconfig_variable('pkgdatadir', default: '')
+    else
+        pkgdatadir = ''
+    endif
+
+    candidate_paths = []
+    if pkgdatadir != ''
+        # Typical layout inside wayland-protocols:
+        # - stable:   pkgdatadir/@name@/@name@.xml
+        #   or        pkgdatadir/stable/@name@/@name@.xml
+        # - staging:  pkgdatadir/staging/@name@/@name@.xml
+        # - unstable: pkgdatadir/unstable/@name@/@name@-unstable-v@version@.xml
+        if state == 'stable'
+            candidate_paths += pkgdatadir / name / f'@name@.xml'
+            candidate_paths += pkgdatadir / 'stable' / name / f'@name@.xml'
+        elif state == 'staging'
+            candidate_paths += pkgdatadir / 'staging' / name / f'@name@.xml'
+        else
+            # unstable
+            candidate_paths += pkgdatadir / 'unstable' / name / f'@name@-unstable-v@version@.xml'
+        endif
+    endif
+
+    foreach p : candidate_paths
+        if fs.exists(p)
+            return files(p)[0]
+        endif
+    endforeach
+
+    error(
+        f'Wayland protocol XML for \'@name@\' not found. Searched: '
+        + ', '.join(candidate_paths),
+    )
+endfunc
+
+func scan_xml(
+    xmls listify[file|str],
+    public bool: false,
+    client bool: true,
+    server bool: false,
+    include_core_only bool: true,
+) -> list[custom_tgt]
+
+    if is_null(xmls) or xmls.length() == 0
+        error('At least one XML must be provided to scan_xml')
+    endif
+
+    # Resolve wayland-scanner
+    # Prefer the program from its own pkgconfig variable if available,
+    # otherwise fall back to the executable name.
+    wayland_scanner = null
+
+    wl_scanner_dep = dependency('wayland-scanner', required: false, native: true)
+    if wl_scanner_dep.found()
+        scanner_path = wl_scanner_dep.get_pkgconfig_variable('wayland_scanner', default: '')
+        if scanner_path != ''
+            wayland_scanner = find_program(scanner_path, required: false, native: true)
+        endif
+    endif
+
+    if is_null(wayland_scanner) or not wayland_scanner.found()
+        wayland_scanner = find_program('wayland-scanner', native: true)
+    endif
+
+    # Scanner subcommand for C code generation
+    code_cmd = public ? 'public-code' : 'private-code'
+
+    # Command flag for include_core_only if supported by scanner
+    core_only_flag = include_core_only ? ['--include-core-only'] : []
+
+    # Normalize inputs to files, and build outputs per input
+    targets = []
+    foreach xml_file : xmls.flatten()
+        if typeof(xml_file) == 'str'
+            xml_file = meson.current_source_dir() / xml_file
+        endif
+
+        # Base name without extension for outputs
+        name = fs.name(xml_file)
+        # drop .xml
+        suffix = '.xml'
+        if name.endswith(suffix)
+            name = name.substring(0, name.length() - suffix.length())
+        endif
+
+        # Outputs
+        src_out = f'@name@-protocol.c'
+        client_hdr_out = f'@name@-client-protocol.h'
+        server_hdr_out = f'@name@-server-protocol.h'
+
+        # Source generation
+        targets += custom_target(
+            f'@name@_src',
+            input: xml_file,
+            output: src_out,
+            command: [wayland_scanner, code_cmd, '@INPUT@', '@OUTPUT@']
+            + core_only_flag,
+        )
+
+        # Client header generation
+        if client
+            targets += custom_target(
+                f'@name@_client_h',
+                input: xml_file,
+                output: client_hdr_out,
+                command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@']
+                + core_only_flag,
+            )
+        endif
+
+        # Server header generation
+        if server
+            targets += custom_target(
+                f'@name@_server_h',
+                input: xml_file,
+                output: server_hdr_out,
+                command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@']
+                + core_only_flag,
+            )
+        endif
+    endforeach
+
+    return targets
+endfunc
+
+return {
+    'find_protocol': find_protocol,
+    'scan_xml': scan_xml,
+}
