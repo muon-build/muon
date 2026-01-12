@@ -1231,6 +1231,7 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 					if ((srv.req.root_path = determine_project_root(&wk, srv.req.path))) {
 						// TODO: it would be nice to not rely on chdiring at
 						// all here
+						L("chdiring to %s", srv.req.root_path);
 						if (!path_chdir(&wk, srv.req.root_path)) {
 							goto analyze_done;
 						}
