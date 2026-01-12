@@ -1192,6 +1192,8 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 	while (true) {
 		TracyCFrameMark;
 
+		log_set_indent(0);
+
 		struct workspace wk = { .a = &a, .a_scratch = &a_scratch };
 		workspace_init_bare(&wk, &a, &a_scratch);
 

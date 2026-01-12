@@ -40,7 +40,7 @@ eval_project(struct workspace *wk,
 	obj parent_eval_trace = wk->vm.dbg_state.eval_trace;
 
 	if (wk->cur_project > 0) {
-		log_set_prefix(2);
+		log_inc_indent(2);
 	}
 
 	if (subproject_name && !wk->vm.in_analyzer) {
@@ -73,7 +73,7 @@ cleanup:
 	wk->vm.dbg_state.eval_trace = parent_eval_trace;
 	if (wk->cur_project > 0 && !wk->vm.in_analyzer) {
 		L("leaving subproject '%s'", subproject_name);
-		log_set_prefix(-2);
+		log_inc_indent(-2);
 	}
 	wk->cur_project = parent_project;
 	stack_pop(&wk->stack, wk->vm.scope_stack);

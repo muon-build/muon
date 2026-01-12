@@ -70,7 +70,7 @@ static struct {
 	FILE *file, *debug_file;
 	enum log_level level;
 	bool file_is_a_tty;
-	uint32_t prefix;
+	uint32_t indent;
 	struct workspace *tstr_wk;
 	struct tstr *tstr;
 	struct log_progress progress;
@@ -292,9 +292,15 @@ log_should_print(enum log_level lvl)
 }
 
 void
-log_set_prefix(int32_t n)
+log_inc_indent(int32_t n)
 {
-	log_cfg.prefix += n;
+	log_cfg.indent += n;
+}
+
+void
+log_set_indent(uint32_t n)
+{
+	log_cfg.indent = n;
 }
 
 static uint32_t
@@ -302,7 +308,7 @@ log_print_prefix(enum log_level lvl, char *buf, uint32_t buf_len)
 {
 	uint32_t len = 0;
 
-	for (uint32_t i = 0; i < log_cfg.prefix; ++i) {
+	for (uint32_t i = 0; i < log_cfg.indent; ++i) {
 		snprintf_append_(buf, buf_len, &len, " ");
 	}
 

@@ -37,7 +37,8 @@ void log_set_file(struct workspace *wk, FILE *log_file);
 void log_set_debug_file(FILE *log_file);
 void log_set_buffer(struct workspace *wk, struct tstr *buf);
 void log_set_lvl(enum log_level lvl);
-void log_set_prefix(int32_t n);
+void log_set_indent(uint32_t n);
+void log_inc_indent(int32_t n);
 
 void log_progress_enable(struct workspace *wk);
 void log_progress_disable(void);
