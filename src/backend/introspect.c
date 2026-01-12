@@ -15,23 +15,25 @@
 #include "platform/path.h"
 
 static obj
-introspect_custom_target(struct workspace *wk, struct project *proj, obj tgt)
+introspect_id(struct workspace *wk, obj id)
+{
+	return make_strf(wk, "%s@_", get_str(wk, id)->s);
+}
+
+static obj
+introspect_custom_target(struct workspace *wk, struct project *proj, struct obj_custom_target *t, obj output)
 {
 	obj doc;
 	doc = make_obj(wk, obj_dict);
 	obj empty;
 	empty = make_obj(wk, obj_array);
 
-	struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
 	obj_dict_set(wk, doc, make_str(wk, "name"), t->name);
-	obj_dict_set(wk,
-		doc,
-		make_str(wk, "id"),
-		make_strf(wk, "%07x@@%s@cus", tgt, get_cstr(wk, t->name)));
+	obj_dict_set(wk, doc, make_str(wk, "id"), introspect_id(wk, output ? *get_obj_file(wk, output) : t->name));
+	obj_dict_set(wk, doc, make_str(wk, "filename"), output);
 
 	obj_dict_set(wk, doc, make_str(wk, "type"), make_str(wk, "custom"));
 	obj_dict_set(wk, doc, make_str(wk, "defined_in"), obj_array_get_head(wk, obj_array_get_head(wk, t->callstack)));
-	obj_dict_set(wk, doc, make_str(wk, "filename"), t->output);
 	obj_dict_set(wk, doc, make_str(wk, "build_by_default"), make_obj_bool(wk, t->flags & custom_target_build_by_default));
 
 	obj src;
@@ -61,25 +63,16 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 	obj_dict_set(wk, doc, make_str(wk, "name"), t->name);
 
 	{
-		const char *type = 0, *type_short = 0;
+		const char *type = 0;
 		if (t->type & tgt_executable) {
 			type = "executable";
-			type_short = "exe";
 		} else if (t->type & tgt_static_library) {
 			type = "static library";
-			type_short = "sta";
 		} else if (t->type & tgt_dynamic_library) {
 			type = "shared library";
-			type_short = "sha";
 		} else if (t->type & tgt_shared_module) {
 			type = "shared module";
-			type_short = "sha";
 		}
-
-		obj_dict_set(wk,
-			doc,
-			make_str(wk, "id"),
-			make_strf(wk, "%07x@@%s@%s", tgt, get_cstr(wk, t->name), type_short));
 
 		obj_dict_set(wk, doc, make_str(wk, "type"), make_str(wk, type));
 	}
@@ -90,6 +83,10 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 	filename = make_obj(wk, obj_array);
 	obj_array_push(wk, filename, t->build_path);
 	obj_dict_set(wk, doc, make_str(wk, "filename"), filename);
+
+	TSTR(rel);
+	path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, t->build_path));
+	obj_dict_set(wk, doc, make_str(wk, "id"), introspect_id(wk, tstr_into_str(wk, &rel)));
 
 	obj_dict_set(wk,
 		doc,
@@ -192,7 +189,15 @@ introspect_targets(struct workspace *wk)
 				break;
 			}
 			case obj_custom_target: {
-				obj_array_push(wk, doc, introspect_custom_target(wk, proj, tgt));
+				struct obj_custom_target *t = get_obj_custom_target(wk, tgt);
+				if (t->output) {
+					obj v;
+					obj_array_for(wk, t->output, v) {
+						obj_array_push(wk, doc, introspect_custom_target(wk, proj, t, v));
+					}
+				} else {
+					obj_array_push(wk, doc, introspect_custom_target(wk, proj, t, 0));
+				}
 				break;
 			}
 			default: UNREACHABLE;
@@ -294,7 +299,7 @@ static obj
 introspect_tests(struct workspace *wk)
 {
 	obj doc = make_obj(wk, obj_array);
-	for (uint32_t i = 0; i < wk->projects.len; ++i) {
+	for (uint32_t i = 0; i < 1 /* wk->projects.len */; ++i) {
 		const struct project *proj = arr_get(&wk->projects, i);
 		if (proj->not_ok || !proj->tests) {
 			continue;
@@ -325,7 +330,14 @@ introspect_tests(struct workspace *wk)
 			obj_dict_set(wk, test, make_str(wk, "priority"), t->priority);
 			// obj_dict_set(wk, test, make_str(wk, "protocol"), t->protocol);
 			obj_dict_set(wk, test, make_str(wk, "protocol"), make_str(wk, "exitcode"));
-			obj_dict_set(wk, test, make_str(wk, "depends"), t->depends);
+			obj depends = make_obj(wk, obj_array);
+			if (t->depends) {
+				obj v;
+				obj_array_for(wk, t->depends, v) {
+					obj_array_push(wk, depends, introspect_id(wk, v));
+				}
+			}
+			obj_dict_set(wk, test, make_str(wk, "depends"), depends);
 
 			obj_array_push(wk, doc, test);
 		}
