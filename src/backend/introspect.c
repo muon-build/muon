@@ -305,6 +305,8 @@ introspect_tests(struct workspace *wk)
 			continue;
 		}
 
+		const char *proj_name = get_str(wk, proj->cfg.name)->s;
+
 		obj v;
 		obj_array_for(wk, proj->tests, v) {
 			const struct obj_test *t = get_obj_test(wk, v);
@@ -325,19 +327,35 @@ introspect_tests(struct workspace *wk)
 			// obj_dict_set(wk, test, make_str(wk, "env"), t->env);
 			obj_dict_set(wk, test, make_str(wk, "env"), make_obj(wk, obj_dict));
 			obj_dict_set(wk, test, make_str(wk, "timeout"), t->timeout);
-			obj_dict_set(wk, test, make_str(wk, "suite"), t->suites);
+
+			{
+				obj suites = make_obj(wk, obj_array);
+				if (t->suites) {
+					obj v;
+					obj_array_for(wk, t->suites, v) {
+						obj_array_push(wk, suites, make_strf(wk, "%s:%s", proj_name, get_str(wk, v)->s));
+					}
+				} else {
+					obj_array_push(wk, suites, proj->cfg.name);
+				}
+				obj_dict_set(wk, test, make_str(wk, "suite"), suites);
+			}
+
 			obj_dict_set(wk, test, make_str(wk, "is_parallel"), make_obj_bool(wk, t->is_parallel));
 			obj_dict_set(wk, test, make_str(wk, "priority"), t->priority);
 			// obj_dict_set(wk, test, make_str(wk, "protocol"), t->protocol);
 			obj_dict_set(wk, test, make_str(wk, "protocol"), make_str(wk, "exitcode"));
-			obj depends = make_obj(wk, obj_array);
-			if (t->depends) {
-				obj v;
-				obj_array_for(wk, t->depends, v) {
-					obj_array_push(wk, depends, introspect_id(wk, v));
+
+			{
+				obj depends = make_obj(wk, obj_array);
+				if (t->depends) {
+					obj v;
+					obj_array_for(wk, t->depends, v) {
+						obj_array_push(wk, depends, introspect_id(wk, v));
+					}
 				}
+				obj_dict_set(wk, test, make_str(wk, "depends"), depends);
 			}
-			obj_dict_set(wk, test, make_str(wk, "depends"), depends);
 
 			obj_array_push(wk, doc, test);
 		}
