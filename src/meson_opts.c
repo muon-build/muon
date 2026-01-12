@@ -701,6 +701,19 @@ translate_meson_opts_compile(struct workspace *wk, char *argv[], uint32_t argc, 
 		return true;
 	}
 
+	if (ctx->compile_chdir) {
+		if (!path_chdir(wk, ctx->compile_chdir)) {
+			exit(1);
+		}
+	}
+
+	{ // load options
+		workspace_init_runtime(wk);
+		if (!options_load_from_option_info(wk)) {
+			exit(1);
+		}
+	}
+
 	obj v;
 	obj_array_for(wk, ctx->stray_args, v) {
 		const struct str *s = get_str(wk, v);
@@ -714,7 +727,7 @@ translate_meson_opts_compile(struct workspace *wk, char *argv[], uint32_t argc, 
 
 	LO("ninja args: %o\n", ctx->argv);
 
-	if (!ninja_run(wk, ctx->argv, ctx->compile_chdir, 0, 0)) {
+	if (!ninja_run(wk, ctx->argv, 0, 0, 0)) {
 		exit(1);
 	}
 
