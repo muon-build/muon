@@ -9,3 +9,6 @@ tests/fmt/cases/end_of_line_crlf.meson binary
 tests/fmt/cases/end_of_line_mixed_crlf_first.meson binary
 tests/fmt/cases/end_of_line_mixed_lf_first.meson binary
 tests/lang/line_continuation.meson binary
+
+# Linguist overrides
+*.meson linguist-language=meson
