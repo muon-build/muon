@@ -291,6 +291,50 @@ introspect_options(struct workspace *wk)
 }
 
 static obj
+introspect_tests(struct workspace *wk)
+{
+	obj doc = make_obj(wk, obj_array);
+	for (uint32_t i = 0; i < wk->projects.len; ++i) {
+		const struct project *proj = arr_get(&wk->projects, i);
+		if (proj->not_ok || !proj->tests) {
+			continue;
+		}
+
+		obj v;
+		obj_array_for(wk, proj->tests, v) {
+			const struct obj_test *t = get_obj_test(wk, v);
+			obj test = make_obj(wk, obj_dict);
+
+			obj_dict_set(wk, test, make_str(wk, "name"), t->name);
+
+			{
+				obj cmd = make_obj(wk, obj_array);
+				obj_array_push(wk, cmd, t->exe);
+				if (t->args) {
+					obj_array_extend(wk, cmd, t->args);
+				}
+				obj_dict_set(wk, test, make_str(wk, "cmd"), cmd);
+			}
+
+			obj_dict_set(wk, test, make_str(wk, "workdir"), t->workdir);
+			// obj_dict_set(wk, test, make_str(wk, "env"), t->env);
+			obj_dict_set(wk, test, make_str(wk, "env"), make_obj(wk, obj_dict));
+			obj_dict_set(wk, test, make_str(wk, "timeout"), t->timeout);
+			obj_dict_set(wk, test, make_str(wk, "suite"), t->suites);
+			obj_dict_set(wk, test, make_str(wk, "is_parallel"), make_obj_bool(wk, t->is_parallel));
+			obj_dict_set(wk, test, make_str(wk, "priority"), t->priority);
+			// obj_dict_set(wk, test, make_str(wk, "protocol"), t->protocol);
+			obj_dict_set(wk, test, make_str(wk, "protocol"), make_str(wk, "exitcode"));
+			obj_dict_set(wk, test, make_str(wk, "depends"), t->depends);
+
+			obj_array_push(wk, doc, test);
+		}
+	}
+
+	return doc;
+}
+
+static obj
 introspect_buildsystem_files(struct workspace *wk)
 {
 	return wk->regenerate_deps;
@@ -363,7 +407,7 @@ introspect_write_all(struct workspace *wk)
 		{ output_path.introspect_file.installed, introspect_dummy_dict },
 		{ output_path.introspect_file.install_plan, introspect_dummy_array },
 		{ output_path.introspect_file.machines, introspect_dummy_array },
-		{ output_path.introspect_file.tests, introspect_dummy_array },
+		{ output_path.introspect_file.tests, introspect_tests },
 	};
 
 	uint32_t i;
