@@ -19,6 +19,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "meson_opts.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
 #include "platform/run_cmd.h"
@@ -35,6 +36,9 @@ struct translate_meson_opts_ctx {
 
 	// compile specific
 	const char *compile_chdir;
+
+	// test specific
+	uint32_t test_verbosity;
 
 	const char *subcommand;
 };
@@ -230,7 +234,16 @@ enum meson_opts_test {
 	opt_test_setup,
 	opt_test_fail_fast,
 	opt_test_timeout_multiplier,
+	opt_test_print_errorlogs,
 };
+
+static void
+translate_meson_opts_test_increase_verbosity(struct workspace *wk, struct translate_meson_opts_ctx *ctx, uint32_t n)
+{
+	for (; ctx->test_verbosity < n; ++ctx->test_verbosity) {
+		obj_array_push(wk, ctx->argv, make_strf(wk, "-v"));
+	}
+}
 
 static bool
 translate_meson_opts_test_callback(struct workspace *wk,
@@ -244,7 +257,7 @@ translate_meson_opts_test_callback(struct workspace *wk,
 	case opt_test_suite: obj_array_push(wk, ctx->argv, make_strf(wk, "-s%s", val)); break;
 	case opt_test_benchmark: obj_array_set(wk, ctx->argv, 0, make_str(wk, "benchmark")); break;
 	case opt_test_workers: obj_array_push(wk, ctx->argv, make_strf(wk, "-j%s", val)); break;
-	case opt_test_verbose: obj_array_push(wk, ctx->argv, make_strf(wk, "-v")); break;
+	case opt_test_verbose: translate_meson_opts_test_increase_verbosity(wk, ctx, 2); break;
 	case opt_test_setup: obj_array_push(wk, ctx->argv, make_strf(wk, "-e%s", val)); break;
 	case opt_test_chdir: obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-C%s", val)); break;
 	case opt_test_fail_fast: {
@@ -257,6 +270,12 @@ translate_meson_opts_test_callback(struct workspace *wk,
 		break;
 	}
 	case opt_test_timeout_multiplier: obj_array_push(wk, ctx->prepend_args, make_strf(wk, "-t%s", val)); break;
+	case opt_test_print_errorlogs: {
+		translate_meson_opts_test_increase_verbosity(wk, ctx, 2);
+		obj_array_push(wk, ctx->argv, make_strf(wk, "-j1"));
+		obj_array_push(wk, ctx->argv, make_strf(wk, "-ddots"));
+		break;
+	}
 	default: UNREACHABLE;
 	}
 
@@ -271,6 +290,7 @@ translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc, str
 		{ "help", .help = true },
 		{ "C", true, .handle_as = opt_test_chdir },
 		{ "v", .handle_as = opt_test_verbose },
+		{ "verbose", .handle_as = opt_test_verbose },
 		{ "maxfail", true, .handle_as = opt_test_fail_fast },
 		{ "no-rebuild", .handle_as = opt_test_no_rebuild },
 		{ "list", .handle_as = opt_test_list },
@@ -288,13 +308,13 @@ translate_meson_opts_test(struct workspace *wk, char *argv[], uint32_t argc, str
 		{ "wrapper", true, .ignore = true },
 		{ "no-suite", .ignore = true },
 		{ "no-stdsplit", .ignore = true },
-		{ "print-errorlogs", .ignore = true },
+		{ "print-errorlogs", .handle_as = opt_test_print_errorlogs },
 		{ "logbase", true, .ignore = true },
 		{ "test-args", true, .ignore = true },
 	};
 
 	obj_array_push(wk, ctx->argv, make_str(wk, "test"));
-	obj_array_push(wk, ctx->argv, make_str(wk, "-v"));
+	translate_meson_opts_test_increase_verbosity(wk, ctx, 1);
 
 	return translate_meson_opts_parser(
 		wk, argv, argc, ctx, opts, ARRAY_LEN(opts), translate_meson_opts_test_callback);
