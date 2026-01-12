@@ -120,6 +120,7 @@ translate_meson_opts_parser(struct workspace *wk,
 {
 	uint32_t argi = 0, i;
 	bool is_opt, is_longopt, next_is_val = false;
+	const bool allow_abbrev = true;
 
 	const struct meson_option_spec *spec;
 	const char *val;
@@ -152,15 +153,27 @@ translate_meson_opts_parser(struct workspace *wk,
 		}
 
 		if (is_opt) {
+			uint32_t matches = 0, last_match = 0;
 			for (i = 0; i < opts_len; ++i) {
 				const struct str *opt_name = &STRL(opts[i].name);
-				if (!str_eql(arg, opt_name)) {
-					continue;
+				if (allow_abbrev) {
+					if (str_startswith(opt_name, arg)) {
+						last_match = i;
+						++matches;
+					}
+				} else {
+					if (str_eql(arg, opt_name)) {
+						last_match = i;
+						++matches;
+					}
 				}
+			}
 
-				spec = &opts[i];
+			if (matches == 1) {
+				spec = &opts[last_match];
 				++argi;
-				break;
+			} else if (matches > 1) {
+				LOG_E("ambiguous option abbreviation '%s'", argv[argi]);
 			}
 		} else {
 			obj_array_push(wk, ctx->stray_args, make_str(wk, argv[argi]));
