@@ -552,10 +552,10 @@ toolchain.register_compiler(
         'deps': ['/showIncludes'],
         'deps_type': ['msvc'],
         'include': func(_c compiler, s str) -> list[str]
-            return ['/I', s]
+            return [f'/I@s@']
         endfunc,
         'include_system': func(_c compiler, s str) -> list[str]
-            return ['/external:I', s]
+            return [f'/external:I@s@']
         endfunc,
         'linker_delimiter': ['/link'],
         'object_ext': ['.obj'],
