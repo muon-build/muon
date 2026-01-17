@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: tcc
+
+on:
+  push:
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      matrix:
+        include:
+          - { sys: mingw64, runs-on: 'windows-latest' }
+      fail-fast: false
+    name: ${{ matrix.sys }}
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - name: 'Checkout'
+      uses: actions/checkout@master
+    - name: 'Setup msys2'
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.sys }}
+        update: true
+        install: >-
+          git
+        pacboy: >-
+          toolchain:p
+          pkgconf:p
+          curl:p
+          libarchive:p
+    - name: 'tcc-bootstrap'
+      run: |
+        tools/ci/tcc-bootstrap.sh
+    - name: 'ci'
+      run: |
+        PATH="$PATH:$PWD/tcc/win32" tools/ci/tcc-boot-build-test.sh
