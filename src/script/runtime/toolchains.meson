@@ -251,7 +251,12 @@ toolchain.register_linker(
             return ['-L.', '-l' + s1]
         endfunc,
         'export_dynamic': ['-rdynamic'],
-        'implib': [],
+        'implib': func(c compiler, s1 str) -> list[str]
+            if c.has_link_argument('-Wl,-emit-def,NUL', required: false)
+                return ['-emit-def,' + s1]
+            endif
+            return []
+        endfunc,
         'implib_suffix': ['.def'],
         'input_output': func(_c compiler, input str, output str) -> list[str]
             return [output, input]
