@@ -25,7 +25,7 @@ build() {
 	export CFLAGS="-D_POSIX_C_SOURCE=200112L -D__EXTENSIONS__"
 
 	./bootstrap.sh build
-	build/muon-bootstrap setup build
+	build/muon-bootstrap setup -Dlibarchive=disabled build
 	build/muon-bootstrap -C build samu
 	build/muon-bootstrap -C build test -d dots -s lang
 }
