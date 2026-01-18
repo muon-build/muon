@@ -642,6 +642,11 @@ toolchain.register_compiler(
     detect: func(out str) -> int
         return 'CL.EXE COMPATIBILITY' in out ? 100 : 0
     endfunc,
+    handlers: {
+        'force_language': func(_c compiler, s str) -> list[str]
+            return ['-x', s]
+        endfunc,
+    },
 )
 
 toolchain.register_compiler(
