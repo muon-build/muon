@@ -77,6 +77,15 @@ toolchain.register_archiver(
     },
 )
 
+toolchain.register_archiver(
+    'llvm-lib',
+    exe: 'llvm-lib',
+    inherit: 'lib',
+    detect: func(out str) -> int
+        return 'LLVM Lib' in out ? 100 : 0
+    endfunc,
+)
+
 ################################################################################
 # linkers
 ################################################################################
@@ -515,7 +524,7 @@ toolchain.register_compiler(
     linker: 'link',
     archiver: 'lib',
     detect: func(out str) -> int
-        return 'Microsoft' in out ? 100 : 0
+        return 'Microsoft (R)' in out ? 100 : 0
     endfunc,
     handlers: {
         'always': ['/nologo'],
@@ -572,7 +581,7 @@ toolchain.register_compiler(
         endfunc,
         'preprocess_only': ['/EP'],
         'sanitize': func(_c compiler, s1 str) -> list[str]
-            return ['-fsanitize=' + s1]
+            return ['/fsanitize=' + s1]
         endfunc,
         'set_std': func(_c compiler, s1 str) -> list[str]
             return [f'/std:@s1@']
@@ -620,6 +629,17 @@ toolchain.register_compiler(
         'warn_everything': ['-Wall'],
         'do_archiver_passthrough': true,
     },
+)
+
+toolchain.register_compiler(
+    'clang-cl',
+    exe: {'c': 'clang-cl', 'cpp': 'clang-cl'},
+    inherit: 'msvc',
+    linker: 'lld-link',
+    archiver: 'llvm-lib',
+    detect: func(out str) -> int
+        return 'CL.EXE COMPATIBILITY' in out ? 100 : 0
+    endfunc,
 )
 
 toolchain.register_compiler(
