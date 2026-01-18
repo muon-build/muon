@@ -1,4 +1,7 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-FileCopyrightText: kzc <kzc@users.noreply.github.com>
+# SPDX-License-Identifier: GPL-3.0-only
 
 set -e
 
