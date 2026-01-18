@@ -27,7 +27,7 @@ build() {
 	./bootstrap.sh build
 	build/muon-bootstrap setup -Dlibarchive=disabled build
 	build/muon-bootstrap -C build samu
-	build/muon-bootstrap -C build test -d dots -s lang
+	build/muon -C build test -d dots -s lang
 }
 
 submit() {
