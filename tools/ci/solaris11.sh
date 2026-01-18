@@ -8,7 +8,7 @@ build_log="$HOME/build_log.txt"
 
 send_status() {
 	echo "$1" > status
-	rsync "$build_log" status deploy@mochiro.moe:muon/ci/solaris11/
+	rsync "$build_log" status deploy@mochiro.moe:muon/ci-results/solaris11/
 }
 
 build() {
