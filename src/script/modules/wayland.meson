@@ -3,12 +3,19 @@
 
 fs = import('fs')
 
-func find_protocol(name str, state str: 'stable', version int:) -> file
-    # From meson docs:
-    # state   Optional arg that specifies the current state of the protocol.
-    #         Either 'stable', 'staging', or 'unstable'. The default is 'stable'.
-    # version The backwards incompatible version number as integer.
-    #         Required for staging and unstable, but not allowed for stable.
+M = {}
+
+## Find a wayland protocol file
+M.find_protocol = func(
+    ## The protocol name
+    name str,
+    ## Optional arg that specifies the current state of the protocol. Either
+    ## 'stable', 'staging', or 'unstable'. The default is 'stable'.
+    state str: 'stable',
+    ## The backwards incompatible version number as integer.
+    ## Required for staging and unstable, but not allowed for stable.
+    version int:
+) -> file
 
     if not ['stable', 'staging', 'unstable'].contains(state)
         error(
@@ -70,11 +77,18 @@ func find_protocol(name str, state str: 'stable', version int:) -> file
     )
 endfunc
 
-func scan_xml(
+## Run wayland scanner to generate files based on a protocol
+M.scan_xml = func(
+    ## List of protocol files to process
     xmls listify[file|str],
+    ## Optional arg that specifies the scope of the generated code.
     public bool: false,
+    ## Optional arg that specifies if client side header file is generated.
     client bool: true,
+    ## Optional arg that specifies if server side header file is generated.
     server bool: false,
+    ## Optional arg that specifies that generated headers only include
+    ## `wayland-<client|server>-core.h` instead of `wayland-<client|server>.h.`
     include_core_only bool: true,
 ) -> list[custom_tgt]
 
@@ -160,7 +174,4 @@ func scan_xml(
     return targets
 endfunc
 
-return {
-    'find_protocol': find_protocol,
-    'scan_xml': scan_xml,
-}
+return M
