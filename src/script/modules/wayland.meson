@@ -14,7 +14,7 @@ M.find_protocol = func(
     state str: 'stable',
     ## The backwards incompatible version number as integer.
     ## Required for staging and unstable, but not allowed for stable.
-    version int:
+    version int:,
 ) -> file
 
     if not ['stable', 'staging', 'unstable'].contains(state)
