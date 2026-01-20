@@ -260,7 +260,7 @@ option(
     type: 'boolean',
     value: true,
     description: 'Use -Wl,--no-undefined when linking',
-) # TODO
+)
 option(
     'b_lto',
     type: 'boolean',
