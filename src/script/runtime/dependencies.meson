@@ -67,7 +67,7 @@ endfunc
 meson.register_dependency_handler(
     'intl',
     builtin: func(native bool:, _ glob[any]:) -> dep
-        code = '#include <libintl.h>"n"nint main() {"n    gettext("Hello world");"n}'
+        code = '#include <libintl.h>\n\nint main() {\n    gettext("Hello world");\n}'
 
         return clike_compiler(native).links(code) ? declare_dependency() : not_found()
     endfunc,
@@ -84,7 +84,7 @@ meson.register_dependency_handler(
 meson.register_dependency_handler(
     'iconv',
     builtin: func(native bool:, _ glob[any]:) -> dep
-        code = '#include <iconv.h>"n"nint main() {"n    iconv_open("","");"n}'
+        code = '#include <iconv.h>\n\nint main() {\n    iconv_open("","");\n}'
 
         return clike_compiler(native).links(code) ? declare_dependency() : not_found()
     endfunc,
