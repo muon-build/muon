@@ -177,21 +177,64 @@ check_dependency_override(struct workspace *wk, struct dep_lookup_ctx *ctx)
 static bool
 check_dependency_cache(struct workspace *wk, struct dep_lookup_ctx *ctx, obj *res)
 {
+	obj entry;
+	enum dep_lib_mode found_lib_mode;
 	if (ctx->lib_mode != dep_lib_mode_shared) {
-		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps[ctx->machine], ctx->name, res)) {
-			ctx->lib_mode = dep_lib_mode_static;
-			return true;
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.static_deps[ctx->machine], ctx->name, &entry)) {
+			found_lib_mode = dep_lib_mode_static;
+			goto found;
 		}
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_static) {
-		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps[ctx->machine], ctx->name, res)) {
-			ctx->lib_mode = dep_lib_mode_shared;
-			return true;
+		if (obj_dict_index(wk, current_project(wk)->dep_cache.shared_deps[ctx->machine], ctx->name, &entry)) {
+			found_lib_mode = dep_lib_mode_shared;
+			goto found;
 		}
 	}
 
 	return false;
+found:
+	if (ctx->modules) {
+		obj v;
+		obj_array_for_(wk, entry, v, iter) {
+			if (iter.i == 0) {
+				continue;
+			}
+
+			obj modules = obj_array_get_head(wk, v);
+			if (obj_equal(wk, modules, ctx->modules)) {
+				*res = obj_array_get_tail(wk, v);
+				ctx->lib_mode = found_lib_mode;
+				return true;
+			}
+		}
+
+		return false;
+	} else {
+		*res = obj_array_get_head(wk, entry);
+		ctx->lib_mode = found_lib_mode;
+		return true;
+	}
+}
+
+static void
+set_dependency_cache_entry(struct workspace *wk, struct dep_lookup_ctx *ctx, obj dict, obj name)
+{
+	obj entry;
+	if (!obj_dict_index(wk, dict, name, &entry)) {
+		entry = make_obj(wk, obj_array);
+		obj_array_push(wk, entry, 0);
+		obj_dict_set(wk, dict, name, entry);
+	}
+
+	if (ctx->modules) {
+		obj subentry = make_obj(wk, obj_array);
+		obj_array_push(wk, subentry, ctx->modules);
+		obj_array_push(wk, subentry, *ctx->res);
+	} else {
+		obj_array_set(wk, entry, 0, *ctx->res);
+	}
 }
 
 static bool
@@ -323,9 +366,8 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	dep->type = dependency_type_pkgconf;
 
 	struct build_dep_raw raw = {
-		.link_with = info.libs,
-		.link_with_not_found = info.not_found_libs,
-		.include_directories = info.includes,
+		.link_with = info.link_with,
+		.link_with_not_found = info.link_with_raw,
 		.compile_args = info.compile_args,
 		.link_args = info.link_args,
 	};
@@ -1189,6 +1231,10 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 			log_plain(log_info, "%s", get_cstr(wk, dep->name));
 		}
 
+		if (ctx.modules) {
+			obj_lprintf(wk, log_info, " modules:%o", ctx.modules);
+		}
+
 		if (!ctx.found) {
 			// TODO: print version searched for
 		} else if (dep->version) {
@@ -1226,17 +1272,17 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 			obj name;
 			obj_array_for(wk, ctx.names, name) {
 				if (ctx.lib_mode != dep_lib_mode_shared) {
-					obj_dict_set(wk,
-						current_project(wk)->dep_cache.static_deps[machine],
-						name,
-						*ctx.res);
+					set_dependency_cache_entry(wk,
+						&ctx,
+						current_project(wk)->dep_cache.static_deps[ctx.machine],
+						name);
 				}
 
 				if (ctx.lib_mode != dep_lib_mode_static) {
-					obj_dict_set(wk,
-						current_project(wk)->dep_cache.shared_deps[machine],
-						name,
-						*ctx.res);
+					set_dependency_cache_entry(wk,
+						&ctx,
+						current_project(wk)->dep_cache.shared_deps[ctx.machine],
+						name);
 				}
 			}
 		}
