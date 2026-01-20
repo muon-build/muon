@@ -12,12 +12,12 @@
 
 struct pkgconfig_info {
 	char version[MAX_VERSION_LEN + 1];
-	obj includes, libs, not_found_libs, link_args, compile_args;
+	obj link_with, link_with_raw, link_args, compile_args;
 
 	// Used internally during lookup
 	obj name, libdirs, compiler;
 	enum machine_kind for_machine;
-	bool is_static;
+	bool is_static, raw;
 };
 
 enum pkgconfig_impl_type {
@@ -55,12 +55,20 @@ enum muon_pkgconfig_fragment_source {
 };
 
 struct muon_pkgconfig_fragment {
-	enum muon_pkgconfig_fragment_source source;
 	obj data;
 	char type;
 };
 
-bool muon_pkgconfig_parse_fragment(struct workspace *wk,
-	const struct muon_pkgconfig_fragment *frag,
+void muon_pkgconfig_info_init(struct workspace *wk,
+	obj compiler,
+	obj name,
+	bool is_static,
+	enum machine_kind for_machine,
 	struct pkgconfig_info *info);
+void muon_pkgconfig_parse_fragment(struct workspace *wk,
+	const struct muon_pkgconfig_fragment *frag,
+	struct pkgconfig_info *info,
+	obj default_dest);
+void
+muon_pkgconfig_parse_fragment_array(struct workspace *wk, struct pkgconfig_info *info, obj array, obj default_dest);
 #endif

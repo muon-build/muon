@@ -1498,6 +1498,7 @@ FUNC_IMPL(kernel, declare_dependency, tc_dependency, func_impl_flag_impure)
 		kw_compile_args,
 		kw_objects,
 		kw_extra_files,
+		kw_link_with_raw,
 	};
 	struct args_kw akw[] = {
 		[kw_sources] = { "sources", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list },
@@ -1511,6 +1512,7 @@ FUNC_IMPL(kernel, declare_dependency, tc_dependency, func_impl_flag_impure)
 		[kw_compile_args] = { "compile_args", TYPE_TAG_LISTIFY | obj_string },
 		[kw_objects] = { "objects", TYPE_TAG_LISTIFY | tc_file | tc_string },
 		[kw_extra_files] = { "extra_files", TYPE_TAG_LISTIFY | tc_coercible_files }, // ignored
+		[kw_link_with_raw] = { "link_with_raw", TYPE_TAG_LISTIFY | tc_string, .extension = true },
 		0,
 	};
 
@@ -1554,6 +1556,7 @@ FUNC_IMPL(kernel, declare_dependency, tc_dependency, func_impl_flag_impure)
 	struct build_dep_raw raw = {
 		.deps = akw[kw_dependencies].val,
 		.link_with = akw[kw_link_with].val,
+		.link_with_not_found = akw[kw_link_with_raw].val,
 		.link_whole = akw[kw_link_whole].val,
 		.link_args = akw[kw_link_args].val,
 		.compile_args = akw[kw_compile_args].val,

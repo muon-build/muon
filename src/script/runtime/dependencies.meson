@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 fs = import('fs')
+pkgconfig = import('pkgconfig')
+
+################################################################################
+# Helpers
+################################################################################
 
 func clike_compiler(native bool) -> compiler
     foreach candidate : ['c', 'cpp', 'objc', 'objcpp']
@@ -17,10 +22,52 @@ func not_found() -> dep
     return dependency('', required: false)
 endfunc
 
+func config_tool(tool external_program, args list[str]) -> str
+    return run_command([tool] + args, check: true).stdout()
+endfunc
+
+## Parses an array of compiler arguments and sorts them into groups suitable
+## for passing to declare_dependency()
+## This function merges the result into an existing dict.
+func config_tool_parse(
+    ## The config tool
+    tool external_program,
+    ## A list of arguments to run the config tool with
+    args list[str],
+    ## A dict to merge the results with
+    parse_into dict[any],
+    ## A compiler to use when resolving libraries
+    compiler compiler:,
+    ## Forwarded from the dependency() call
+    static bool:,
+    ## Where to store unmatched flags, e.g. `compile_args` or `link_args`
+    flags_key str:,
+) -> dict[any]
+    output = config_tool(tool, args)
+
+    split = output.shell_split(shell: 'posix')
+
+    parsed = pkgconfig.parse_fragments(split, compiler: compiler, static: static, flags_key: flags_key)
+
+    foreach k, v : parsed
+        if k not in parse_into
+            parse_into[k] = []
+        endif
+
+        parse_into[k] += v
+    endforeach
+
+    return parse_into
+endfunc
+
+################################################################################
+# Handlers
+################################################################################
+
 meson.register_dependency_handler(
     'intl',
     builtin: func(native bool:, _ glob[any]:) -> dep
-        code = '#include <libintl.h>\n\nint main() {\n    gettext("Hello world");\n}'
+        code = '#include <libintl.h>"n"nint main() {"n    gettext("Hello world");"n}'
 
         return clike_compiler(native).links(code) ? declare_dependency() : not_found()
     endfunc,
@@ -37,7 +84,7 @@ meson.register_dependency_handler(
 meson.register_dependency_handler(
     'iconv',
     builtin: func(native bool:, _ glob[any]:) -> dep
-        code = '#include <iconv.h>\n\nint main() {\n    iconv_open("","");\n}'
+        code = '#include <iconv.h>"n"nint main() {"n    iconv_open("","");"n}'
 
         return clike_compiler(native).links(code) ? declare_dependency() : not_found()
     endfunc,
@@ -81,22 +128,9 @@ meson.register_dependency_handler(
     endfunc,
 )
 
-func config_tool(tool external_program, args list[str]) -> list[str]
-    output = run_command([tool] + args, check: true).stdout()
-
-    value = []
-    foreach arg : output.split(' ')
-        if arg != ''
-            value += arg
-        endif
-    endforeach
-
-    return value
-endfunc
-
 meson.register_dependency_handler(
     'objfw',
-    config_tool: func(modules list[str]:, _ glob[any]:) -> dep
+    config_tool: func(modules list[str]:, native bool:, static bool:, _ glob[any]:) -> dep
         objfwconfig = find_program('objfw-config', required: false)
 
         if not objfwconfig.found()
@@ -111,15 +145,26 @@ meson.register_dependency_handler(
             endforeach
         endif
 
-        compile_args = config_tool(objfwconfig, ['--cppflags', '--objcflags'] + modules_args)
-        link_args = config_tool(objfwconfig, ['--ldflags', '--libs'] + modules_args)
-        version = ''.join(config_tool(objfwconfig, ['--version']))
+        cc = clike_compiler(native)
 
-        return declare_dependency(
-            compile_args: compile_args,
-            link_args: link_args,
-            version: version,
-        )
+        version = config_tool(objfwconfig, ['--version']).strip()
+
+        parsed = {}
+        foreach key, flags : {
+            'compile_args': ['--cppflags', '--objcflags'],
+            'link_args': ['--ldflags', '--libs'],
+        }
+            parsed = config_tool_parse(
+                objfwconfig,
+                flags + modules_args,
+                parsed,
+                flags_key: key,
+                compiler: cc,
+                static: static,
+            )
+        endforeach
+
+        return declare_dependency(version: version, kwargs: parsed)
     endfunc,
 )
 
@@ -193,22 +238,30 @@ meson.register_dependency_handler(
 meson.register_dependency_handler(
     'pcap',
     order: ['config-tool', 'pkg-config'],
-    config_tool: func(native bool:, _ glob[any]:) -> dep
+    config_tool: func(native bool:, static bool:, _ glob[any]:) -> dep
         pcapconfig = find_program('pcap-config', native: native, required: false)
 
         if not pcapconfig.found()
             return not_found()
         endif
 
-        version = ''.join(config_tool(pcapconfig, ['--version']))
-        cflags = config_tool(pcapconfig, ['--cflags'])
-        libs = config_tool(pcapconfig, ['--libs'])
+        cc = clike_compiler(native)
 
-        return declare_dependency(
-            compile_args: cflags,
-            link_args: libs,
-            version: version,
-        )
+        version = config_tool(pcapconfig, ['--version'])
+
+        parsed = {}
+        foreach key, flags : {'compile_args': ['--cflags'], 'link_args': ['--libs']}
+            parsed = config_tool_parse(
+                pcapconfig,
+                flags,
+                parsed,
+                flags_key: key,
+                compiler: cc,
+                static: static,
+            )
+        endforeach
+
+        return declare_dependency(version: version, kwargs: parsed)
     endfunc,
     pkgconfig: func(native bool:, kwargs glob[any]:) -> dep
         return dependency('libpcap', method: 'pkg-config', native: native, kwargs: kwargs)

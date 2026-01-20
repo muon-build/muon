@@ -136,11 +136,12 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		}
 
 		struct muon_pkgconfig_fragment muon_frag = {
-			.source = ctx->frag_source,
 			.type = frag->type,
 			.data = make_str(ctx->wk, frag->data),
 		};
-		muon_pkgconfig_parse_fragment(ctx->wk, &muon_frag, ctx->info);
+		obj default_dest = ctx->frag_source == muon_pkgconfig_fragment_source_cflags ? ctx->info->compile_args :
+											       ctx->info->link_args;
+		muon_pkgconfig_parse_fragment(ctx->wk, &muon_frag, ctx->info, default_dest);
 	}
 
 ret:

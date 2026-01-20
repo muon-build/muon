@@ -10,6 +10,7 @@
 #include "error.h"
 #include "external/pkgconfig.h"
 #include "functions/compiler.h"
+#include "lang/object_iterators.h"
 #include "options.h"
 #include "platform/assert.h"
 
@@ -131,21 +132,32 @@ muon_pkgconfig_impl_type_to_s(enum pkgconfig_impl_type t)
 	}
 }
 
-bool
-muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, enum machine_kind for_machine, struct pkgconfig_info *info)
+void
+muon_pkgconfig_info_init(struct workspace *wk,
+	obj compiler,
+	obj name,
+	bool is_static,
+	enum machine_kind for_machine,
+	struct pkgconfig_info *info)
 {
-	muon_pkgconfig_init(wk);
-
+	*info = (struct pkgconfig_info){ 0 };
 	info->name = name;
-	info->compile_args = make_obj(wk, obj_array);
-	info->link_args = make_obj(wk, obj_array);
-	info->includes = make_obj(wk, obj_array);
-	info->libs = make_obj(wk, obj_array);
-	info->not_found_libs = make_obj(wk, obj_array);
+	info->link_with = make_obj(wk, obj_array);
+	info->link_with_raw = make_obj(wk, obj_array);
 	info->libdirs = make_obj(wk, obj_array);
 	info->compiler = compiler;
 	info->is_static = is_static;
 	info->for_machine = for_machine;
+}
+
+bool
+muon_pkgconfig_lookup(struct workspace *wk, obj compiler, obj name, bool is_static, enum machine_kind for_machine, struct pkgconfig_info *info)
+{
+	muon_pkgconfig_init(wk);
+	muon_pkgconfig_info_init(wk, compiler, name, is_static, for_machine, info);
+
+	info->compile_args = make_obj(wk, obj_array);
+	info->link_args = make_obj(wk, obj_array);
 
 	return pkgconfig_impls[pkgconfig_state.type].lookup(wk, info);
 }
@@ -163,15 +175,19 @@ muon_pkgconfig_get_variable(struct workspace *wk,
 	return pkgconfig_impls[pkgconfig_state.type].get_variable(wk, pkg_name, var_name, defines, machine, res);
 }
 
-bool
-muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_fragment *frag, struct pkgconfig_info *info)
+void
+muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_fragment *frag, struct pkgconfig_info *info, obj default_dest)
 {
 	switch (frag->type) {
 	case 'L': {
-		if (!info->libdirs) {
-			make_obj(wk, info->libdirs);
+		if (info->raw) {
+			goto add_raw;
+		} else {
+			if (!info->libdirs) {
+				make_obj(wk, info->libdirs);
+			}
+			obj_array_push(wk, info->libdirs, frag->data);
 		}
-		obj_array_push(wk, info->libdirs, frag->data);
 		break;
 	}
 	case 'l': {
@@ -179,30 +195,64 @@ muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_
 		struct find_library_result find_result
 			= find_library(wk, info->compiler, get_str(wk, frag->data)->s, info->libdirs, flags);
 		if (find_result.found) {
-			if (find_result.location == find_library_found_location_link_arg) {
-				obj_array_push(wk, info->not_found_libs, frag->data);
+			if (find_result.location == find_library_found_location_link_arg || info->raw) {
+				obj_array_push(wk, info->link_with_raw, frag->data);
 			} else {
-				obj_array_push(wk, info->libs, find_result.found);
+				obj_array_push(wk, info->link_with, find_result.found);
 			}
 		} else {
-			LOG_W("pkg-config-exec: dependency '%s' missing required library '%s'",
-				get_cstr(wk, info->name),
-				get_cstr(wk, frag->data));
-			obj_array_push(wk, info->not_found_libs, frag->data);
+			if (info->name) {
+				LOG_W("pkg-config-exec: dependency '%s' missing required library '%s'",
+					get_cstr(wk, info->name),
+					get_cstr(wk, frag->data));
+			}
+			obj_array_push(wk, info->link_with_raw, frag->data);
 		}
 		break;
 	}
+add_raw:
 	default: {
 		obj arg = frag->data;
 		if (frag->type) {
 			arg = make_strf(wk, "-%c%s", frag->type, get_cstr(wk, frag->data));
 		}
-		obj dest = frag->source == muon_pkgconfig_fragment_source_cflags ? info->compile_args : info->link_args;
-		obj_array_push(wk, dest, arg);
+		obj_array_push(wk, default_dest, arg);
 		break;
 	}
 	}
-	return true;
+}
+
+void
+muon_pkgconfig_parse_fragment_array(struct workspace *wk,
+	struct pkgconfig_info *info,
+	obj array,
+	obj default_dest)
+{
+	char type = 0;
+	obj arg;
+	obj_array_for(wk, array, arg) {
+		if (!type) {
+			const struct str *arg_str = get_str(wk, arg);
+			if (arg_str->s[0] == '-' && arg_str->len > 1) {
+				if (strchr("Ll", arg_str->s[1])) {
+					type = arg_str->s[1];
+					if (arg_str->len > 2) {
+						arg = make_strn(wk, arg_str->s + 2, arg_str->len - 2);
+					} else {
+						continue;
+					}
+				}
+			}
+		}
+
+		struct muon_pkgconfig_fragment frag = {
+			.type = type,
+			.data = arg,
+		};
+		muon_pkgconfig_parse_fragment(wk, &frag, info, default_dest);
+
+		type = 0;
+	}
 }
 
 /*-----------------------------------------------------------------------------

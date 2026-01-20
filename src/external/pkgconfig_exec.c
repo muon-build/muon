@@ -110,32 +110,10 @@ pkgconfig_exec_lookup(struct workspace *wk, struct pkgconfig_info *info)
 			goto cleanup;
 		}
 
-		char type = 0;
-		obj arg, split = str_shell_split(wk, &TSTR_STR(&rctx.out), shell_type_posix);
-		obj_array_for(wk, split, arg) {
-			if (!type) {
-				const struct str *arg_str = get_str(wk, arg);
-				if (arg_str->s[0] == '-' && arg_str->len > 1) {
-					if (strchr("Ll", arg_str->s[1])) {
-						type = arg_str->s[1];
-						if (arg_str->len > 2) {
-							arg = make_strn(wk, arg_str->s + 2, arg_str->len - 2);
-						} else {
-							continue;
-						}
-					}
-				}
-			}
-
-			struct muon_pkgconfig_fragment frag = {
-				.source = flag_type,
-				.type = type,
-				.data = arg,
-			};
-			muon_pkgconfig_parse_fragment(wk, &frag, info);
-
-			type = 0;
-		}
+		obj split = str_shell_split(wk, &TSTR_STR(&rctx.out), shell_type_posix);
+		obj default_dest = flag_type == muon_pkgconfig_fragment_source_cflags ? info->compile_args :
+											info->link_args;
+		muon_pkgconfig_parse_fragment_array(wk, info, split, default_dest);
 
 cleanup:
 		run_cmd_ctx_destroy(&rctx);

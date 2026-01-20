@@ -11,6 +11,7 @@
 #include "args.h"
 #include "buf_size.h"
 #include "error.h"
+#include "external/pkgconfig.h"
 #include "functions/both_libs.h"
 #include "functions/custom_target.h"
 #include "functions/file.h"
@@ -996,7 +997,47 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 	return true;
 }
 
+FUNC_IMPL(module_pkgconfig, parse_fragments, tc_dict, func_impl_flag_impure)
+{
+	struct args_norm an[] = { { TYPE_TAG_LISTIFY | obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_compiler,
+		kw_static,
+		kw_flags_key,
+	};
+	struct args_kw akw[] = {
+		[kw_compiler] = { "compiler", tc_compiler, .required = true },
+		[kw_static] = { "static", tc_bool },
+		[kw_flags_key] = { "flags_key", tc_string },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	bool is_static = get_obj_bool_with_default(wk, akw[kw_static].val, false);
+	enum machine_kind for_machine = get_obj_compiler(wk, akw[kw_compiler].val)->machine;
+	struct pkgconfig_info info;
+	muon_pkgconfig_info_init(wk, akw[kw_compiler].val, 0, is_static, for_machine, &info);
+	info.raw = true;
+
+	obj default_dest = make_obj(wk, obj_array);
+	muon_pkgconfig_parse_fragment_array(wk, &info, an[0].val, default_dest);
+
+	obj flags_key = akw[kw_flags_key].set ? akw[kw_flags_key].val : make_str(wk, "flags");
+
+	*res = make_obj(wk, obj_dict);
+	obj_dict_set(wk, *res, flags_key, default_dest);
+	obj_dict_set(wk, *res, make_str(wk, "link_with"), info.link_with);
+	obj_dict_set(wk, *res, make_str(wk, "link_with_raw"), info.link_with_raw);
+	return true;
+}
+
 FUNC_REGISTER(module_pkgconfig)
 {
 	FUNC_IMPL_REGISTER(module_pkgconfig, generate);
+
+	if (lang_mode == language_internal) {
+		FUNC_IMPL_REGISTER(module_pkgconfig, parse_fragments);
+	}
 }
