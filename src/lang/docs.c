@@ -551,13 +551,15 @@ dump_function_docs_obj(struct workspace *wk)
 
 	obj docs = make_obj(wk, obj_array);
 
+	stack_push(&wk->stack, wk->vm.lang_mode, language_opts);
+	dump_function_docs_for_mode(wk, docs, &map);
+	stack_pop(&wk->stack, wk->vm.lang_mode);
+
 	stack_push(&wk->stack, wk->vm.lang_mode, language_external);
 	dump_function_docs_for_mode(wk, docs, &map);
+	stack_pop(&wk->stack, wk->vm.lang_mode);
 
-	wk->vm.lang_mode = language_internal;
-	dump_function_docs_for_mode(wk, docs, &map);
-
-	wk->vm.lang_mode = language_opts;
+	stack_push(&wk->stack, wk->vm.lang_mode, language_internal);
 	dump_function_docs_for_mode(wk, docs, &map);
 	stack_pop(&wk->stack, wk->vm.lang_mode);
 
@@ -987,6 +989,8 @@ mw_function_args(struct workspace *wk, struct man_writer *mw, const char *title,
 			mw_indent(mw, 1);
 			mw_description(mw, desc->s);
 			mw_unindent(mw);
+			mw_nl(mw);
+		} else {
 			mw_nl(mw);
 		}
 	}
