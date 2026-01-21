@@ -1075,11 +1075,21 @@ vm_op_constant_dict(struct workspace *wk)
 	uint32_t i, len = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	b = make_obj(wk, obj_dict);
 	for (i = 0; i < len; ++i) {
-		obj key = object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1);
-		if (wk->vm.in_analyzer && get_obj_type(wk, key) == obj_typeinfo) {
-			object_stack_discard(&wk->vm.stack, len * 2);
-			object_stack_push(wk, make_typeinfo(wk, tc_dict));
-			return;
+		struct obj_stack_entry *entry = object_stack_peek_entry(&wk->vm.stack, (len - i) * 2 - 1);;
+		obj key = entry->o;
+		enum obj_type t = get_obj_type(wk, key);
+		if (wk->vm.in_analyzer && t == obj_typeinfo) {
+			if (!typecheck_typeinfo(wk, key, tc_string)) {
+				goto type_err;
+			}
+			goto push_dummy;
+		} else if (t != obj_string) {
+type_err:
+			vm_error_at(wk,
+				entry->ip,
+				"dictionary key must be a string, got %s",
+				get_cstr(wk, obj_type_to_typestr(wk, key)));
+			goto push_dummy;
 		}
 
 		obj_dict_set(wk, b, key, object_stack_peek(&wk->vm.stack, (len - i) * 2));
@@ -1087,6 +1097,10 @@ vm_op_constant_dict(struct workspace *wk)
 
 	object_stack_discard(&wk->vm.stack, len * 2);
 	object_stack_push(wk, b);
+	return;
+push_dummy:
+	object_stack_discard(&wk->vm.stack, len * 2);
+	object_stack_push(wk, make_typeinfo(wk, tc_dict));
 }
 
 static void

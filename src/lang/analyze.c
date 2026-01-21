@@ -1203,7 +1203,7 @@ az_op_constant_dict(struct workspace *wk)
 	b = make_obj(wk, obj_dict);
 	for (i = 0; i < len; ++i) {
 		obj key = object_stack_peek(&wk->vm.stack, (len - i) * 2 - 1);
-		if (wk->vm.in_analyzer && get_obj_type(wk, key) == obj_typeinfo) {
+		if (get_obj_type(wk, key) != obj_string) {
 			continue;
 		}
 
