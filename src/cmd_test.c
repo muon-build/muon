@@ -996,6 +996,10 @@ run_project_tests(struct workspace *wk, void *_ctx, obj proj_name, obj arr)
 		}
 	}
 
+	if (ctx->opts->build_only) {
+		goto cont;
+	}
+
 	LOG_I("running %ss for project '%s'", test_category_label(ctx->opts->cat), get_cstr(wk, proj_name));
 
 	ctx->stats.ran_tests = true;
@@ -1253,7 +1257,7 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 		goto ret;
 	}
 
-	if (opts->list) {
+	if (opts->list || opts->build_only) {
 		ret = true;
 		goto ret;
 	}

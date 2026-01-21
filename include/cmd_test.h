@@ -37,7 +37,7 @@ struct test_options {
 	float timeout_multiplier;
 	enum test_display display;
 	enum test_output output;
-	bool fail_fast, print_summary, no_rebuild, list, include_subprojects;
+	bool fail_fast, print_summary, no_rebuild, list, include_subprojects, build_only;
 
 	enum test_category cat;
 };

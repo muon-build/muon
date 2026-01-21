@@ -875,6 +875,8 @@ cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 			++test_opts.verbosity;
 		} else if (opt_match('R', "disable automatic rebuild")) {
 			test_opts.no_rebuild = true;
+		} else if (opt_match('r', "build tests only")) {
+			test_opts.build_only = true;
 		} else if (opt_match('t', "multiply test timeouts with <factor>", "factor")) {
 			char *endptr;
 			test_opts.timeout_multiplier = strtof(opt_ctx.optarg, &endptr);
