@@ -13,6 +13,7 @@
 #include "error.h"
 #include "functions/both_libs.h"
 #include "functions/build_target.h"
+#include "lang/object.h"
 #include "lang/object_iterators.h"
 #include "log.h"
 #include "machines.h"
@@ -20,6 +21,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "toolchains.h"
 
 static void
 ca_get_option_value_for_tgt(struct workspace *wk,
@@ -674,8 +676,14 @@ ca_prepare_target_linker_args(struct workspace *wk,
 	ca_push_linker_args(wk, comp, tgt, toolchain_linker_as_needed(wk, comp));
 
 	if (proj) {
-		if (!(tgt->type & tgt_shared_module)) {
+		obj lundef_opt;
+		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lundef", &lundef_opt);
+		bool lundef = get_obj_bool_with_default(wk, lundef_opt, true);
+
+		if (!(tgt->type & tgt_shared_module) && lundef) {
 			ca_push_linker_args(wk, comp, tgt, toolchain_linker_no_undefined(wk, comp));
+		} else {
+			ca_push_linker_args(wk, comp, tgt, toolchain_linker_allow_shlib_undefined(wk, comp));
 		}
 
 		if (tgt->flags & build_tgt_flag_export_dynamic) {
