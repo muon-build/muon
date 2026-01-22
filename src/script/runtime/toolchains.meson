@@ -178,11 +178,11 @@ toolchain.register_linker(
 )
 
 toolchain.register_linker(
-    'lld-apple',
+    'ld-apple',
     inherit: 'ld-posix',
-    exe: 'lld',
+    exe: 'ld',
     detect: func(out str) -> int
-        return 'Apple' in out ? 100 : 0
+        return 'Apple' in out or 'macos' in out.to_lower() ? 100 : 0
     endfunc,
     handlers: {
         'allow_shlib_undefined': ['-undefined', 'dynamic_lookup'],
@@ -194,10 +194,17 @@ toolchain.register_linker(
             return ['-fsanitize=' + s1]
         endfunc,
         'shared_module': ['-bundle'],
+        'version': ['-v'],
         'whole_archive': func(_c compiler, s1 str) -> list[str]
             return ['-force_load', s1]
         endfunc,
     },
+)
+
+toolchain.register_linker(
+    'lld-apple',
+    inherit: 'ld-apple',
+    exe: 'lld',
 )
 
 toolchain.register_linker(
@@ -484,7 +491,11 @@ toolchain.register_compiler(
                 return 'lld-link'
             endif
         elif m.system() == 'darwin' or 'Apple' in c.version_raw()
-            return 'lld-apple'
+            if find_program('lld', required: false).found()
+                return 'lld-apple'
+            else
+                return 'ld-apple'
+            endif
         else
             return 'lld'
         endif
@@ -653,6 +664,10 @@ toolchain.register_compiler(
     'nasm',
     exe: {'nasm': 'nasm'},
     detect: func(out str) -> int
+        if 'error: unable to find utility "nasm"' in out
+            # /usr/bin/nasm xcrun stub exists but an actual nasm isn't installed
+            return 0
+        endif
         return 'NASM' in out ? 100 : 1
     endfunc,
     linker: 'ld-posix',

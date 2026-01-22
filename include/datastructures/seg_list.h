@@ -77,19 +77,21 @@ uint32_t sl_slots_in_segment(uint32_t segment_index);
 uint32_t sl_capacity_for_segment_count(uint32_t segment_count);
 uint32_t sl_segment_count_for_capacity(uint32_t capacity);
 
-#define sl_for_named(__sl, __type, __it)                                                          \
-	for (struct {                                                                             \
-		     uint32_t seg, slot, idx;                                                     \
-		     __type *it;                                                                  \
-	     } __it                                                                               \
-		= { 0 };                                                                          \
-		__it.seg < (__sl)->segs_used;                                                     \
-		++__it.seg)                                                                       \
+#define sl_for_named(__sl, __type, __it, ...) {                                                   \
+	struct {                                                                                  \
+		uint32_t seg, slot, idx;                                                          \
+		__type *it;                                                                       \
+	} __it = { 0 };                                                                           \
+	for (; __it.seg < (__sl)->segs_used; ++__it.seg) {                                        \
 		for (__it.slot = 0, __it.it = &((__type *)(__sl)->segments[__it.seg])[__it.slot]; \
 			__it.slot < sl_slots_in_segment(__it.seg) && __it.idx < (__sl)->len       \
 			&& (__it.it = &((__type *)(__sl)->segments[__it.seg])[__it.slot], 1);     \
-			++__it.slot, ++__it.idx)
+			++__it.slot, ++__it.idx) {                                                \
+			__VA_ARGS__                                                               \
+		}                                                                                 \
+	}                                                                                         \
+}
 
-#define sl_for(__sl, __type) sl_for_named(__sl, __type, it)
+#define sl_for(__sl, __type, ...) sl_for_named(__sl, __type, it, __VA_ARGS__)
 
 #endif
