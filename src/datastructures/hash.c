@@ -202,7 +202,7 @@ hash_resize(struct arena *a, struct arena *a_scratch, struct hash *h, uint32_t n
 
 	prepare_table(a, h);
 
-	sl_for(&tmp, struct hash_elem) {
+	sl_for(&tmp, struct hash_elem, {
 		void *key = sl_get_(sl_cast(&h->keys), it.it->keyi, h->key_size);
 		// printf("probing %.*s\n", (int)((struct strkey *)key)->len, ((struct strkey *)key)->str);
 
@@ -217,10 +217,12 @@ hash_resize(struct arena *a, struct arena *a_scratch, struct hash *h, uint32_t n
 		*meta = hv & 0x7f;
 
 		assert(k_full(*meta));
-	}
+	})
 
 #if 0
-	sl_for(h->meta, uint8_t) {
+	// Note: compile error prior to sl_for refactoring:
+	// error: macro 'sl_get' requires 3 arguments, but only 2 given
+	sl_for(h->meta, uint8_t, {
 		bool full = k_full(*it.it);
 		struct hash_elem *ohe = (full ? sl_get(h->e, it.idx) : 0);
 		struct strkey *key = (full ? sl_get(h->keys, ohe->keyi) : 0);
@@ -232,7 +234,7 @@ hash_resize(struct arena *a, struct arena *a_scratch, struct hash *h, uint32_t n
 			key ? key->str : 0,
 			full ? "=>" : "",
 			full ? (int)ohe->val : 0);
-	}
+	})
 #endif
 }
 
