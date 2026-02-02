@@ -21,6 +21,8 @@
 
 #define ASSERT_VALID_CAP(cap) assert(cap >= 8 && IS_POWER_OF_TWO(cap));
 
+static const double hash_max_load = 0.7;
+
 struct strkey {
 	const char *str;
 	uint64_t len;
@@ -56,10 +58,6 @@ fnv_1a_64(const struct hash *hash, const void *_key)
 	return h;
 }
 
-struct hash_elem {
-	uint64_t val, keyi;
-};
-
 static void
 fill_meta_with_empty(struct hash *h)
 {
@@ -82,8 +80,8 @@ prepare_table(struct arena *a, struct hash *h)
 {
 	sl_clear(&h->meta);
 	sl_grow_to(a, &h->meta, h->cap, uint8_t);
-	sl_clear(&h->e);
-	sl_grow_to(a, &h->e, h->cap, struct hash_elem);
+	sl_clear(&h->elems);
+	sl_grow_to(a, &h->elems, h->cap, uint32_t);
 
 	fill_meta_with_empty(h);
 }
@@ -104,6 +102,8 @@ hash_init_(struct arena *a, struct hash *h, uint32_t cap, uint32_t key_size, uin
 	*h = (struct hash){ .cap = cap, .key_size = key_size, .key_align = key_align };
 
 	prepare_table(a, h);
+	bucket_arr_init_(a, &h->keys, 16, key_size, key_align);
+	bucket_arr_init(a, &h->vals, 16, uint64_t);
 
 	h->keycmp = hash_keycmp_memcmp;
 	h->hash_func = fnv_1a_64;
@@ -126,34 +126,26 @@ hash_init_str(struct arena *a, struct hash *h, uint32_t cap)
 	h->hash_func = fnv_1a_64_str;
 }
 
-void
-hash_clear(struct hash *h)
-{
-	h->len = 0;
-	sl_clear(&h->keys);
-	fill_meta_with_empty(h);
-}
-
 static void
-probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t **ret_meta, uint64_t *hv)
+probe(const struct hash *h, const void *key, uint32_t **ret_he, uint8_t **ret_meta, uint64_t *hv)
 {
-#define match ((meta & 0x7f) == h2 && h->keycmp(h, sl_get_(sl_cast(&h->keys), he->keyi, h->key_size), key))
+#define match ((meta & 0x7f) == h2 && h->keycmp(h, bucket_arr_get(&h->keys, *he), key))
 
-	struct hash_elem *he;
+	uint32_t *he;
 	*hv = h->hash_func(h, key);
 	const uint64_t h1 = *hv >> 7, h2 = *hv & 0x7f;
 	uint8_t meta;
 	uint64_t hvi = h1 & (h->cap - 1);
 
-	meta = *sl_get(sl_cast(&h->meta), hvi, uint8_t);
-	he = sl_get(sl_cast(&h->e), hvi, struct hash_elem);
+	meta = *sl_get(&h->meta, hvi, uint8_t);
+	he = sl_get(&h->elems, hvi, uint32_t);
 
 	// printf("probed to %d, 0x%02x, %d, %d\n", (int)hvi, meta, (int)he->keyi, (int)he->val);
 
 	while (meta == k_deleted || (k_full(meta) && !match)) {
 		hvi = (hvi + 1) & (h->cap - 1);
-		meta = *sl_get(sl_cast(&h->meta), hvi, uint8_t);
-		he = sl_get(sl_cast(&h->e), hvi, struct hash_elem);
+		meta = *sl_get(&h->meta, hvi, uint8_t);
+		he = sl_get(&h->elems, hvi, uint32_t);
 		// printf("--> probed to %d, 0x%02x, %d, %d\n", (int)hvi, meta, (int)he->keyi, (int)he->val);
 	}
 
@@ -164,90 +156,38 @@ probe(const struct hash *h, const void *key, struct hash_elem **ret_he, uint8_t 
 }
 
 static void
-hash_resize(struct arena *a, struct arena *a_scratch, struct hash *h, uint32_t newcap)
+hash_resize(struct arena *a, struct hash *h, uint32_t newcap)
 {
 	ASSERT_VALID_CAP(newcap);
-	assert(h->len <= newcap);
-
-	// uint64_t i, hv;
-	// struct hash_elem *ohe, *he;
-	// uint8_t *meta;
-	// void *key;
-
-	struct slist16 tmp = { 0 };
-
-	// printf("resizing %d -> %d\n", h->cap, newcap);
-	for (uint64_t i = 0; i < h->cap; ++i) {
-		// printf("> checking %d %02x\n", (int)i, *(uint8_t *)sl_get(h->meta, i));
-		if (!k_full(*sl_get(&h->meta, i, uint8_t))) {
-			continue;
-		}
-
-		struct hash_elem *ohe = sl_get(&h->e, i, struct hash_elem);
-		// void *key = sl_get(h->keys, ohe->keyi);
-		// printf("> full, ohe: %d, %d, key: %.*s\n",
-		// 	(int)ohe->keyi,
-		// 	(int)ohe->val,
-		// 	(int)((struct strkey *)key)->len,
-		// 	((struct strkey *)key)->str);
-		sl_push(a_scratch, &tmp, ohe, struct hash_elem);
-		if (tmp.len >= h->len) {
-			// break early when we know the rest of the elements
-			// are empty
-			break;
-		}
-	}
 
 	h->cap = newcap;
+	h->load = h->keys.len;
 
 	prepare_table(a, h);
 
-	sl_for(&tmp, struct hash_elem, {
-		void *key = sl_get_(sl_cast(&h->keys), it.it->keyi, h->key_size);
-		// printf("probing %.*s\n", (int)((struct strkey *)key)->len, ((struct strkey *)key)->str);
+	for (uint64_t i = 0; i < h->keys.len; ++i) {
+		void *key = bucket_arr_get(&h->keys, i);
 
-		struct hash_elem *he;
+		uint32_t *he;
 		uint8_t *meta;
 		uint64_t hv;
 		probe(h, key, &he, &meta, &hv);
 
-		assert(*meta == k_empty);
-
-		*he = *it.it;
+		*he = i;
 		*meta = hv & 0x7f;
-
-		assert(k_full(*meta));
-	})
-
-#if 0
-	// Note: compile error prior to sl_for refactoring:
-	// error: macro 'sl_get' requires 3 arguments, but only 2 given
-	sl_for(h->meta, uint8_t, {
-		bool full = k_full(*it.it);
-		struct hash_elem *ohe = (full ? sl_get(h->e, it.idx) : 0);
-		struct strkey *key = (full ? sl_get(h->keys, ohe->keyi) : 0);
-		printf("  0x%02x, %d %d %.*s %s %c\n",
-			*it.it,
-			full,
-			full ? (int)ohe->keyi : 0,
-			key ? (int)key->len : 0,
-			key ? key->str : 0,
-			full ? "=>" : "",
-			full ? (int)ohe->val : 0);
-	})
-#endif
+	}
 }
 
 uint64_t *
 hash_get(const struct hash *h, const void *key)
 {
-	struct hash_elem *he;
+	uint32_t *he;
 	uint64_t hv;
 	uint8_t *meta;
 
 	probe(h, key, &he, &meta, &hv);
 
-	return k_full(*meta) ? &he->val : NULL;
+	return k_full(*meta) ? bucket_arr_get(&h->vals, *he) : NULL;
 }
 
 uint64_t *
@@ -260,52 +200,29 @@ hash_get_strn(const struct hash *h, const char *str, uint64_t len)
 bool
 hash_unset(struct hash *h, const void *key)
 {
-	struct hash_elem *he;
+	uint32_t *he;
 	uint64_t hv;
 	uint8_t *meta;
 
 	probe(h, key, &he, &meta, &hv);
 
-	bool found = false;
-
 	if (k_full(*meta)) {
-		found = true;
 		*meta = k_deleted;
 
-		/* When a value is unset, delete its corresponding key.  Since the
-		 * deletion swaps the deleted key with the key in tail postion, unless
-		 * the deleted key is in tail position already, we need to scan the
-		 * hash elem array to find the hash element that references the tail
-		 * key and fix it's keyi value.
-		 */
-		const uint64_t old_key_idx = he->keyi;
-		*he = (struct hash_elem){ 0 };
-		const uint64_t tail_key_idx = h->keys.len - 1;
-		assert(h->keys.len == h->len);
-
-		if (tail_key_idx != old_key_idx) {
-			for (uint64_t i = 0; i < h->cap; ++i) {
-				if (!k_full(*sl_get(&h->meta, i, uint8_t))) {
-					continue;
-				}
-
-				he = sl_get(&h->e, i, struct hash_elem);
-				if (he->keyi == tail_key_idx) {
-					break;
-				}
-			}
-
-			assert(he->keyi == tail_key_idx && "hash elem with tail key index not found?");
-			he->keyi = old_key_idx;
+		if (*he != h->keys.len - 1) {
+			uint32_t *tail;
+			void *tail_key = bucket_arr_get(&h->keys, h->keys.len - 1);
+			probe(h, tail_key, &tail, &meta, &hv );
+			*tail = *he;
 		}
 
-		sl_del_(sl_cast(&h->keys), old_key_idx, h->key_size);
-		--h->len;
+		bucket_arr_del(&h->keys, *he);
+		bucket_arr_del(&h->vals, *he);
+
+		return true;
 	}
 
-	assert(hash_get(h, key) == NULL);
-
-	return found;
+	return false;
 }
 
 bool
@@ -316,32 +233,32 @@ hash_unset_strn(struct hash *h, const char *s, uint64_t len)
 }
 
 void
-hash_set(struct arena *a, struct arena *a_scratch, struct hash *h, const void *key, uint64_t val)
+hash_set(struct arena *a, struct hash *h, const void *key, uint64_t val)
 {
-	if (h->len >= h->cap >> 1) {
-		hash_resize(a, a_scratch, h, h->cap << 1);
+	if (h->load >= (uint32_t)(h->cap * hash_max_load)) {
+		hash_resize(a, h, h->cap << 1);
 	}
 
-	struct hash_elem *he;
+	uint32_t *he;
 	uint64_t hv;
 	uint8_t *meta;
 
 	probe(h, key, &he, &meta, &hv);
 
 	if (k_full(*meta)) {
-		he->val = val;
+		*(uint64_t *)bucket_arr_get(&h->vals, *he) = val;
 	} else {
-		he->keyi = h->keys.len;
-		sl_push_(a, sl_cast(&h->keys), key, h->key_size, h->key_align, ARRAY_LEN(h->keys.segments));
-		he->val = val;
 		*meta = hv & 0x7f;
-		++h->len;
+		*he = h->keys.len;
+		bucket_arr_push(a, &h->keys, key);
+		++h->load;
+		bucket_arr_push(a, &h->vals, &val);
 	}
 }
 
 void
-hash_set_strn(struct arena *a, struct arena *a_scratch, struct hash *h, const char *s, uint64_t len, uint64_t val)
+hash_set_strn(struct arena *a, struct hash *h, const char *s, uint64_t len, uint64_t val)
 {
 	struct strkey key = { .str = s, .len = len };
-	hash_set(a, a_scratch, h, &key, val);
+	hash_set(a, h, &key, val);
 }

@@ -65,7 +65,7 @@ sl_capacity_for_segment_count(uint32_t segment_count)
 }
 
 void *
-sl_get_(struct slist *sl, uint32_t i, uint32_t item_size)
+sl_get_(const struct slist *sl, uint32_t i, uint32_t item_size)
 {
 	assert(i < sl->len);
 	const uint32_t seg = i < SLIST_BASE ? 0 : sl_log2i(((i - SLIST_BASE) >> SLIST_BASE_POW) + 1) + 1;
@@ -117,13 +117,13 @@ sl_push_(struct arena *a,
 }
 
 void
-sl_clear_(struct slist *sl)
+sl_clear(struct slist *sl)
 {
 	sl->len = 0;
 }
 
 void
-sl_memset_(struct slist *sl, uint8_t c)
+sl_memset(struct slist *sl, uint8_t c)
 {
 	for (uint32_t i = 0; i < sl->segs_used; ++i) {
 		memset(sl->segments[i], c, sl_slots_in_segment(i));

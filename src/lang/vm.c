@@ -2303,9 +2303,7 @@ vm_op_iterator_next(struct workspace *wk)
 			should_break = true;
 		} else {
 			push_key = true;
-			void *k = sl_get_(sl_cast(&iterator->data.dict_big.h->keys),
-				iterator->data.dict_big.i,
-				iterator->data.dict_big.h->key_size);
+			void *k = bucket_arr_get(&iterator->data.dict_big.h->keys, iterator->data.dict_big.i);
 			union obj_dict_big_dict_value *uv
 				= (union obj_dict_big_dict_value *)hash_get(iterator->data.dict_big.h, k);
 			key = uv->val.key;

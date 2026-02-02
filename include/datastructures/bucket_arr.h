@@ -37,4 +37,5 @@ void bucket_arr_clear(struct bucket_arr *ba);
 void bucket_arr_save(const struct bucket_arr *ba, struct bucket_arr_save *save);
 void bucket_arr_restore(struct bucket_arr *ba, const struct bucket_arr_save *save);
 bool bucket_arr_lookup_pointer(struct bucket_arr *ba, const uint8_t *p, uint64_t *ret);
+void bucket_arr_del(struct bucket_arr *ba, uint32_t i);
 #endif

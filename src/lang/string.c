@@ -228,7 +228,7 @@ _make_str(struct workspace *wk, const char *p, uint32_t len, enum str_flags flag
 	str->flags |= flags;
 
 	if (hash && !wk->vm.objects.obj_clear_mark_set && len <= SMALL_STR_LEN) {
-		hash_set_strn(wk->a, wk->a_scratch, &wk->vm.objects.str_hash, str->s, str->len, s);
+		hash_set_strn(wk->a, &wk->vm.objects.str_hash, str->s, str->len, s);
 	}
 	return s;
 }

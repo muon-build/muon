@@ -9,8 +9,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "iterator.h"
+#include "datastructures/bucket_arr.h"
 #include "datastructures/seg_list.h"
+#include "iterator.h"
 
 struct hash;
 struct arena;
@@ -19,9 +20,9 @@ typedef bool((*hash_keycmp)(const struct hash *h, const void *a, const void *b))
 typedef uint64_t((*hash_fn)(const struct hash *h, const void *k));
 
 struct hash {
-	struct slist19 meta, e;
-	struct slist18 keys;
-	uint32_t cap, len;
+	struct slist meta, elems;
+	struct bucket_arr keys, vals;
+	uint32_t cap, load;
 	uint32_t key_size, key_align;
 	hash_keycmp keycmp;
 	hash_fn hash_func;
@@ -36,9 +37,8 @@ void hash_init_str(struct arena *a, struct hash *h, uint32_t cap);
 
 uint64_t *hash_get(const struct hash *h, const void *key);
 uint64_t *hash_get_strn(const struct hash *h, const char *str, uint64_t len);
-void hash_set(struct arena *a, struct arena *a_scratch, struct hash *h, const void *key, uint64_t val);
-void hash_set_strn(struct arena *a, struct arena *a_scratch, struct hash *h, const char *s, uint64_t len, uint64_t val);
+void hash_set(struct arena *a, struct hash *h, const void *key, uint64_t val);
+void hash_set_strn(struct arena *a, struct hash *h, const char *s, uint64_t len, uint64_t val);
 bool hash_unset(struct hash *h, const void *key);
 bool hash_unset_strn(struct hash *h, const char *s, uint64_t len);
-void hash_clear(struct hash *h);
 #endif

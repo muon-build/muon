@@ -1605,7 +1605,7 @@ skip_if_present(struct workspace *wk, struct hash *objs, obj arr, obj val)
 		return true;
 	}
 
-	hash_set(wk->a_scratch, wk->a_scratch, objs, &val, true);
+	hash_set(wk->a_scratch, objs, &val, true);
 
 	return false;
 }

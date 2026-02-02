@@ -403,7 +403,7 @@ dump_function_docs_push(struct workspace *wk, obj doc, obj fn, struct hash *map)
 		modes = make_obj(wk, obj_dict);
 		obj_dict_set(wk, fn, make_str(wk, "modes"), modes);
 		obj_array_push(wk, doc, fn);
-		hash_set_strn(wk->a_scratch, wk->a_scratch, map, key.buf, key.len, fn);
+		hash_set_strn(wk->a_scratch, map, key.buf, key.len, fn);
 	}
 
 	const char *mode_str = "";

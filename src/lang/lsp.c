@@ -419,7 +419,6 @@ az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 
 			const uint64_t diagnostics_to_clear_i = srv->diagnostics_to_clear.len;
 			hash_set_strn(srv_wk->a,
-				srv_wk->a_scratch,
 				&srv->diagnostics_map,
 				root_path,
 				strlen(root_path),

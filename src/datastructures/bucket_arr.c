@@ -160,3 +160,18 @@ bucket_arr_lookup_pointer(struct bucket_arr *ba, const uint8_t *p, uint64_t *ret
 
 	return false;
 }
+
+void
+bucket_arr_del(struct bucket_arr *ba, uint32_t i)
+{
+	if (i != ba->len - 1) {
+		void *dest = bucket_arr_get(ba, i);
+		const void *src = bucket_arr_get(ba, ba->len - 1);
+		memcpy(dest, src, ba->item_size);
+	}
+	uint32_t slot = i / ba->bucket_size;
+	ba->len -= 1;
+	if (slot == 0 && ba->tail_bucket) {
+		ba->tail_bucket = 0;
+	}
+}
