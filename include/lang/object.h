@@ -333,6 +333,12 @@ enum dependency_public_type {
 	dependency_public_type_system,
 	dependency_public_type_library,
 	dependency_public_type_not_found,
+	dependency_public_type_builtin,
+	dependency_public_type_extraframeworks,
+	dependency_public_type_sysconfig,
+	dependency_public_type_config_tool,
+	dependency_public_type_dub,
+	dependency_public_type_cmake,
 };
 
 enum dep_flags {

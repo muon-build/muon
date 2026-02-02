@@ -853,21 +853,29 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 				}
 
 				switch (handlers.e[i].m) {
-				case dependency_lookup_method_pkgconfig: {
+				case dependency_lookup_method_pkgconfig:
 					dep->public_type = dependency_public_type_pkgconfig;
 					break;
-				}
-				case dependency_lookup_method_builtin: {
+				case dependency_lookup_method_builtin:
+					dep->public_type = dependency_public_type_builtin;
+					break;
 				case dependency_lookup_method_system:
-				case dependency_lookup_method_extraframework:
 					dep->public_type = dependency_public_type_system;
 					break;
-				}
-				case dependency_lookup_method_auto: break;
-				case dependency_lookup_method_sysconfig: break;
-				case dependency_lookup_method_config_tool: break;
-				case dependency_lookup_method_dub: break;
-				case dependency_lookup_method_cmake: break;
+				case dependency_lookup_method_extraframework:
+					dep->public_type = dependency_public_type_extraframeworks;
+					break;
+				case dependency_lookup_method_sysconfig:
+					dep->public_type = dependency_public_type_sysconfig;
+					break;
+				case dependency_lookup_method_config_tool:
+					dep->public_type = dependency_public_type_config_tool;
+					break;
+				case dependency_lookup_method_dub: dep->public_type = dependency_public_type_dub; break;
+				case dependency_lookup_method_cmake:
+					dep->public_type = dependency_public_type_cmake;
+					break;
+				case dependency_lookup_method_auto: UNREACHABLE;
 				}
 
 				if (dep->flags & dep_flag_found) {

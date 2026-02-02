@@ -194,9 +194,7 @@ FUNC_IMPL(dependency, get_variable, tc_string, func_impl_flag_impure)
 		}
 		break;
 	}
-	case dependency_public_type_library: break;
-	case dependency_public_type_not_found: break;
-	case dependency_public_type_unset: break;
+	default: break;
 	}
 
 	if (akw[kw_default_value].set) {
@@ -245,6 +243,12 @@ FUNC_IMPL(dependency, type_name, tc_string, func_impl_flag_impure)
 	case dependency_public_type_system: n = "system"; break;
 	case dependency_public_type_library: n = "library"; break;
 	case dependency_public_type_not_found: n = "not-found"; break;
+	case dependency_public_type_builtin: n = "builtin"; break;
+	case dependency_public_type_extraframeworks: n = "extraframeworks"; break;
+	case dependency_public_type_sysconfig: n = "sysconfig"; break;
+	case dependency_public_type_config_tool: n = "config-tool"; break;
+	case dependency_public_type_dub: n = "dub"; break;
+	case dependency_public_type_cmake: n = "cmake"; break;
 	case dependency_public_type_unset: UNREACHABLE; break;
 	}
 
