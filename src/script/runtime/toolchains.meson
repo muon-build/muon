@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
+# SPDX-FileCopyrightText: Vincent Torri <vincent.torri@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-only
 
 toolchain = import('toolchain')
@@ -456,7 +457,153 @@ toolchain.register_compiler(
                 return ['-fvisibility=hidden']
             endif
         endfunc,
-        'warn_everything': [], # TODO
+        'warn_everything': func(c compiler) -> list[str]
+            flags = [
+                # default warning flags
+                '-Wall',
+                '-Wextra',
+                '-Wpedantic',
+                # gnu common warning args
+                # gcc 0.0.0
+                '-Wcast-qual',
+                '-Wconversion',
+                '-Wfloat-equal',
+                '-Wformat=2',
+                '-Winline',
+                '-Wmissing-declarations',
+                '-Wredundant-decls',
+                '-Wshadow',
+                '-Wundef',
+                '-Wuninitialized',
+                '-Wwrite-strings',
+                # gcc 3.0.0
+                '-Wdisabled-optimization',
+                '-Wpacked',
+                '-Wpadded',
+                # gcc 3.3.0
+                '-Wmultichar',
+                '-Wswitch-default',
+                '-Wswitch-enum',
+                '-Wunused-macros',
+                # gcc 4.0.0
+                '-Wmissing-include-dirs',
+                # gcc 4.1.0
+                '-Wunsafe-loop-optimizations',
+                '-Wstack-protector',
+                # gcc 4.2.0
+                '-Wstrict-overflow=5',
+                # gcc 4.3.0
+                '-Warray-bounds=2',
+                '-Wlogical-op',
+                '-Wstrict-aliasing=3',
+                '-Wvla',
+                # gcc 4.6.0
+                '-Wdouble-promotion',
+                '-Wsuggest-attribute=const',
+                '-Wsuggest-attribute=noreturn',
+                '-Wsuggest-attribute=pure',
+                '-Wtrampolines',
+                # gcc 4.7.0
+                '-Wvector-operation-performance',
+                # gcc 4.8.0
+                '-Wsuggest-attribute=format',
+                # gcc 4.9.0
+                '-Wdate-time',
+                # gcc 5.1.0
+                '-Wformat-signedness',
+                '-Wnormalized=nfc',
+                # gcc 6.1.0
+                '-Wduplicated-cond',
+                '-Wnull-dereference',
+                '-Wshift-negative-value',
+                '-Wshift-overflow=2',
+                '-Wunused-const-variable=2',
+                # gcc 7.1.0
+                '-Walloca',
+                '-Walloc-zero',
+                '-Wformat-overflow=2',
+                '-Wformat-truncation=2',
+                '-Wstringop-overflow=3',
+                # gcc 7.2.0
+                '-Wduplicated-branches',
+                # gcc 8.1.0
+                '-Wcast-align=strict',
+                '-Wsuggest-attribute=cold',
+                '-Wsuggest-attribute=malloc',
+                # gcc 9.1.0
+                '-Wattribute-alias=2',
+                # gcc 10.1.0
+                '-Wanalyzer-too-complex',
+                '-Warith-conversion',
+                # gcc 12.1.0
+                '-Wbidi-chars=ucn',
+                '-Wopenacc-parallelism',
+                '-Wtrivial-auto-var-init',
+            ]
+            if c.has_argument('-std=c89')
+                flags += [
+                    # gcc 0.0.0
+                    '-Wbad-function-cast',
+                    '-Wmissing-prototypes',
+                    '-Wnested-externs',
+                    '-Wstrict-prototypes',
+                    # gcc 3.4.0
+                    '-Wold-style-definition',
+                    '-Winit-self',
+                    # gcc 4.1.0
+                    '-Wc++-compat',
+                ]
+            elif c.has_argument('-std=c++98')
+                flags += [
+                    # gcc 0.0.0
+                    '-Wctor-dtor-privacy',
+                    '-Weffc++',
+                    '-Wnon-virtual-dtor',
+                    '-Wold-style-cast',
+                    '-Woverloaded-virtual',
+                    '-Wsign-promo',
+                    # gcc 4.0.1
+                    '-Wstrict-null-sentinel',
+                    # gcc 4.6.0
+                    '-Wnoexcept',
+                    # gcc 4.7.0
+                    '-Wzero-as-null-pointer-constant',
+                    # gcc 4.8.0
+                    '-Wabi-tag',
+                    '-Wuseless-cast',
+                    # gcc 4.9.0
+                    '-Wconditionally-supported',
+                    # gcc 5.1.0
+                    '-Wsuggest-final-methods',
+                    '-Wsuggest-final-types',
+                    '-Wsuggest-override',
+                    # gcc 6.1.0
+                    '-Wmultiple-inheritance',
+                    '-Wplacement-new=2',
+                    '-Wvirtual-inheritance',
+                    # gcc 7.1.0
+                    '-Waligned-new=all',
+                    '-Wnoexcept-type',
+                    '-Wregister',
+                    # gcc 8.1.0
+                    '-Wcatch-value=3',
+                    '-Wextra-semi',
+                    # gcc 9.1.0
+                    '-Wdeprecated-copy-dtor',
+                    '-Wredundant-move',
+                    # gcc 10.1.0
+                    '-Wcomma-subscript',
+                    '-Wmismatched-tags',
+                    '-Wredundant-tags',
+                    '-Wvolatile',
+                    # gcc 11.1.0
+                    '-Wdeprecated-enum-enum-conversion',
+                    '-Wdeprecated-enum-float-conversion',
+                    '-Winvalid-imported-macros',
+                ]
+            endif
+            return flags
+        endfunc,
         'warning_lvl': func(_c compiler, lvl str) -> list[str]
             args = []
             if lvl in ['1', '2', '3']

@@ -1350,7 +1350,7 @@ handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_n
 		}
 	}
 
-	static const char *argv[32];
+	static const char *argv[128];
 	static struct args args;
 	memset((char*)argv, 0, sizeof(argv));
 	args = (struct args){ .args = argv, .len = 0 };
