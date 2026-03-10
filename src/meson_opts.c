@@ -639,6 +639,7 @@ translate_meson_opts_introspect(struct workspace *wk, char *argv[], uint32_t arg
 	printf("%s\n", out.buf);
 
 	exit(0);
+	MUON_UNREACHABLE;
 }
 
 enum meson_opts_compile {
@@ -732,6 +733,7 @@ translate_meson_opts_compile(struct workspace *wk, char *argv[], uint32_t argc, 
 	}
 
 	exit(0);
+	MUON_UNREACHABLE;
 }
 
 static const struct {

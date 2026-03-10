@@ -279,6 +279,9 @@ toolchain.register_linker(
         'lib': func(_c compiler, lib str) -> list[str]
             return ['-l', lib]
         endfunc,
+        'rpath': func(c compiler, s1 str) -> list[str]
+            return c.machine().system() == 'windows' ? [] : ['-rpath,' + s1]
+        endfunc,
         'shared': ['-shared'],
         'shared_module': ['-shared'],
         'soname': func(_c compiler, s1 str) -> list[str]

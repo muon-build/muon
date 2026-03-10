@@ -13,7 +13,7 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build:
+  tcc-windows:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
@@ -45,3 +45,47 @@ jobs:
     - name: 'ci'
       run: |
         PATH="$PATH:$PWD/tcc/win32" tools/ci/tcc-boot-build-test.sh
+
+  tcc-ubuntu-arm:
+    runs-on: ubuntu-24.04-arm
+    environment: master
+    steps:
+    - uses: actions/checkout@master
+      with:
+        fetch-depth: 1
+    - name: 'build tcc'
+      run: |
+        git clone --depth 1 https://github.com/muon-build/tcc
+        cd tcc
+        ./configure --prefix="$HOME/tcc-install" && make && make install
+    - name: 'muon ci with tcc'
+      run: |
+        export CC="$HOME/tcc-install/bin/tcc"
+        $CC -vv
+        ./bootstrap.sh t
+        ./t/muon-bootstrap -v build -Ddisable-test-languages=cpp,objc t
+        # -lm needed by test "251 add_project_dependencies" for cos
+        LDFLAGS=-lm ./t/muon -C t test -v -R -o term
+        ./t/muon version
+
+  tcc-ubuntu-x86_64:
+    runs-on: ubuntu-latest
+    environment: master
+    steps:
+    - uses: actions/checkout@master
+      with:
+        fetch-depth: 1
+    - name: 'build tcc'
+      run: |
+        git clone --depth 1 https://github.com/muon-build/tcc
+        cd tcc
+        ./configure --prefix="$HOME/tcc-install" && make && make install
+    - name: 'muon ci with tcc'
+      run: |
+        export CC="$HOME/tcc-install/bin/tcc"
+        $CC -vv
+        ./bootstrap.sh t
+        ./t/muon-bootstrap -v build -Ddisable-test-languages=cpp,objc t
+        # -lm needed by test "251 add_project_dependencies" for cos
+        LDFLAGS=-lm ./t/muon -C t test -v -R -o term
+        ./t/muon version

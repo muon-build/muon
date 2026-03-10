@@ -484,4 +484,5 @@ bool
 run_cmd_unsplit(struct workspace *wk, struct run_cmd_ctx *ctx, char *cmd, const char *envstr, uint32_t envc)
 {
 	assert(false && "this function should only be called under windows");
+	MUON_UNREACHABLE;
 }

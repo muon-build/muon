@@ -1509,6 +1509,7 @@ cmd_devenv(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 	}
 
 	exit(ok ? ctx.status : 1);
+	MUON_UNREACHABLE;
 }
 
 static bool

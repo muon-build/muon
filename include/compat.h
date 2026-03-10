@@ -54,3 +54,13 @@
 #define MUON_NORETURN
 #endif
 #endif
+
+#ifndef MUON_UNREACHABLE
+#if defined(__GNUC__) || defined(__clang__) || defined(__TINYC__)
+#define MUON_UNREACHABLE __builtin_unreachable()
+#elif defined(_WIN32) || defined(_MSC_VER)
+#define MUON_UNREACHABLE __assume(0)
+#else
+#define MUON_UNREACHABLE
+#endif
+#endif
