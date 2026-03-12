@@ -53,11 +53,16 @@ samu_isdirty(struct samu_ctx *ctx, struct samu_node *n, struct samu_node *newest
 
 	e = n->gen;
 	if (e->rule == &ctx->phonyrule) {
-		if (e->nin > 0 || n->mtime != SAMU_MTIME_MISSING)
-			return false;
-		if (ctx->buildopts.explain)
-			samu_warn("explain %s: phony and no inputs", n->path->s);
-		return true;
+		if (n->mtime == SAMU_MTIME_MISSING) {
+			if (e->nin == 0) {
+				if (ctx->buildopts.explain)
+					samu_warn("explain %s: phony and no inputs", n->path->s);
+				return true;
+			}
+			if (newest)
+				n->mtime = newest->mtime;
+		}
+		return false;
 	}
 	if (n->mtime == SAMU_MTIME_MISSING) {
 		if (ctx->buildopts.explain)
