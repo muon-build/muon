@@ -475,7 +475,8 @@ static bool
 toolchain_component_detect(struct workspace *wk,
 	enum toolchain_component component,
 	obj comp,
-	bool *found)
+	bool *found,
+	bool *is_user_provided)
 {
 	L("> detecting component %s", toolchain_component_to_s(component));
 
@@ -483,6 +484,7 @@ toolchain_component_detect(struct workspace *wk,
 	const struct arr *registry = &wk->toolchain_registry.components[component];
 
 	*found = false;
+	*is_user_provided = false;
 
 	// determine candidate executable list
 
@@ -504,6 +506,7 @@ toolchain_component_detect(struct workspace *wk,
 				candidates = ar_maken(wk->a_scratch, obj, 1);
 				candidates_len = 1;
 				candidates[0] = cmd_arr->val;
+				*is_user_provided = true;
 				LO("  using candidate exe from option %s: %o\n", opt_name.buf, candidates[0]);
 			}
 		}
@@ -865,14 +868,40 @@ toolchain_detect(struct workspace *wk,
 	compiler->lang = lang;
 
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
-		bool found;
-		if (!toolchain_component_detect(wk, i, *comp, &found) || !found) {
+		bool found, is_user_provided;
+		if (!toolchain_component_detect(wk, i, *comp, &found, &is_user_provided) || !found) {
 			return false;
 		}
 
 		if (i == toolchain_component_compiler) {
 			toolchain_component_compiler_refine_machine(wk, *comp, compiler);
 			toolchain_component_compiler_populate_libdirs(wk, *comp, compiler);
+
+			if (!is_user_provided && (lang == compiler_language_c
+				|| lang == compiler_language_cpp
+				|| lang == compiler_language_objc
+				|| lang == compiler_language_objcpp)) {
+				const char *wrappers[] = { "sccache", "ccache" };
+				for (uint32_t j = 0; j < ARRAY_LEN(wrappers); ++j) {
+					obj found_wrapper = 0;
+					struct find_program_ctx ctx = {
+						.res = &found_wrapper,
+						.machine = machine,
+					};
+
+					if (find_program(wk, &ctx, make_str(wk, wrappers[j])) && ctx.found) {
+						struct obj_external_program *wrap_ep =
+							get_obj_external_program(wk, found_wrapper);
+						obj cmd_arr = compiler->cmd_arr[toolchain_component_compiler];
+						obj new_cmd_arr = make_obj(wk, obj_array);
+
+						obj_array_extend(wk, new_cmd_arr, wrap_ep->cmd_array);
+						obj_array_extend(wk, new_cmd_arr, cmd_arr);
+						compiler->cmd_arr[toolchain_component_compiler] = new_cmd_arr;
+						break;
+					}
+				}
+			}
 		}
 	}
 
