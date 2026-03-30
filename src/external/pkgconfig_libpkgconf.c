@@ -153,6 +153,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 		// L("got option: -'%c' '%s'", frag->type, frag->data);
 		process_fragment(client, frag, ctx);
 
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 20400
 		const pkgconf_node_t *iter;
 		PKGCONF_FOREACH_LIST_ENTRY(frag->children.head, iter)
 		{
@@ -161,6 +162,7 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 			// L("  got child option: -'%c' '%s'", child_frag->type, child_frag->data);
 			process_fragment(client, child_frag, ctx);
 		}
+#endif
 	}
 
 ret:
