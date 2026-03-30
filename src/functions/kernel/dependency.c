@@ -14,7 +14,6 @@
 #include "coerce.h"
 #include "external/pkgconfig.h"
 #include "functions/both_libs.h"
-#include "functions/build_target.h"
 #include "functions/compiler.h"
 #include "functions/file.h"
 #include "functions/kernel/dependency.h"

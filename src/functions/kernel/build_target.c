@@ -1021,6 +1021,19 @@ create_target(struct workspace *wk,
 			push_install_target_install_dir(
 				wk, plain_name_install, install_dir, akw[bt_kw_install_mode].val);
 		}
+
+		if (tgt->implib) {
+			obj implib_install = 0;
+			if (akw[bt_kw_install_dir].set) {
+				// install_dir has precedence over libdir for implib install.
+				// See test.json in "117 shared module".
+				implib_install = akw[bt_kw_install_dir].val;
+			} else {
+				get_option_value(wk, current_project(wk), "libdir", &implib_install);
+			}
+			push_install_target_install_dir(
+				wk, tgt->implib, implib_install, akw[bt_kw_install_mode].val);
+		}
 	}
 
 	tgt->dep = (struct build_dep){

@@ -110,6 +110,7 @@ endfunc
 
 steps.check_install = func()
     is_windows = host_machine.system() == 'windows'
+    implib_paths = {}
 
     destdir_contents = {}
     if fs.exists(build / destdir)
@@ -174,8 +175,21 @@ steps.check_install = func()
                     path = fs.parent(path) / name.substring(3)
                 endif
             endif
-        elif f.type in ['implibempty', 'pdb', 'implib']
+        elif f.type == 'pdb'
             # unsupported
+            continue
+        elif f.type in ['implib', 'implibempty']
+            if is_windows
+                name = fs.name(path)
+                if name.startswith('lib')
+                    path = fs.parent(path) / name.substring(3)
+                endif
+
+                # enumerate all supported compiler implib suffixes
+                implib_paths[path + '-implib.lib'] = true
+                implib_paths[path + '.dll.a'] = true
+                implib_paths[path + '.def'] = true
+            endif
             continue
         else
             error('unhandled installed type @0@'.format(f.type))
@@ -193,6 +207,9 @@ steps.check_install = func()
 
     foreach path, accounted_for : destdir_contents
         if not accounted_for
+            if is_windows and path in implib_paths
+                continue
+            endif
             warning(
                 'path @0@ exists in destdir but was not mentioned in test.json'.format(path),
             )
