@@ -43,15 +43,15 @@ static bool func_ ## __type ## _ ## __name(struct workspace *wk, obj self, obj *
 
 void func_impl_register(FUNC_IMPL_REGISTER_ARGS, const struct func_impl *src, const char *alias);
 
-// These functions also define integer variables so that we get errors on
+// These functions also define enum constants so that we get errors on
 // duplicate registration
 
 #define FUNC_IMPL_REGISTER(__type, __name) \
-int dup_func_impl_ ## __type ## _ ## __name; (void)dup_func_impl_ ## __type ## _ ## __name; \
+enum { dup_func_impl_ ## __type ## _ ## __name }; \
 func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## _ ## __name, 0)
 
 #define FUNC_IMPL_REGISTER_ALIAS(__type, __name, __alias) \
-int dup_func_impl_ ## __type ## __alias; (void)dup_func_impl_ ## __type ## __alias; \
+enum { dup_func_impl_ ## __type ## __alias }; \
 func_impl_register(FUNC_IMPL_REGISTER_ARGS_FWD, &func_impl_ ## __type ## _ ## __name, #__alias)
 
 #define FUNC_REGISTER(__type) void func_impl_register_ ## __type(FUNC_IMPL_REGISTER_ARGS)
