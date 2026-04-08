@@ -91,8 +91,8 @@ struct parse_rule {
 	enum parse_precedence precedence;
 };
 
-static struct node *parse_prec(struct parser *p, enum parse_precedence prec);
-static struct node *parse_expr(struct parser *p);
+static struct node *parse_prec(struct parser *p, enum parse_precedence prec, bool assignment_allowed);
+static struct node *parse_expr(struct parser *p, bool assignment_allowed);
 static struct node *parse_block(struct parser *p, enum token_type types[], uint32_t types_len, enum parse_stmt_flags);
 
 /*******************************************************************************
@@ -567,7 +567,7 @@ parse_id(struct parser *p, bool assignment_allowed)
 		n->location = id->location;
 		id->type = node_type_id_lit;
 		n->l = id;
-		n->r = parse_expr(p);
+		n->r = parse_expr(p, false);
 		return n;
 	} else {
 		return id;
@@ -719,7 +719,7 @@ parse_binary(struct parser *p, struct node *l, bool assignment_allowed)
 
 	n = make_node_t(p, t);
 	n->l = l;
-	n->r = parse_prec(p, p->parse_rules[prev].precedence + 1);
+	n->r = parse_prec(p, p->parse_rules[prev].precedence + 1, assignment_allowed);
 
 	n->location = source_location_merge(n->l->location, n->r->location);
 	return n;
@@ -733,9 +733,9 @@ parse_ternary(struct parser *p, struct node *l, bool assignment_allowed)
 	n = make_node_t(p, node_type_ternary);
 	n->l = l;
 	n->r = make_node_t(p, node_type_list);
-	n->r->l = parse_prec(p, parse_precedence_assignment);
+	n->r->l = parse_prec(p, parse_precedence_assignment, assignment_allowed);
 	parse_expect(p, ':');
-	n->r->r = parse_prec(p, parse_precedence_assignment);
+	n->r->r = parse_prec(p, parse_precedence_assignment, assignment_allowed);
 
 	n->location = source_location_merge(n->l->location, n->r->r->location);
 	return n;
@@ -746,7 +746,7 @@ parse_index(struct parser *p, struct node *l, bool assignment_allowed)
 {
 	struct node *n, *key;
 
-	key = parse_prec(p, parse_precedence_assignment);
+	key = parse_prec(p, parse_precedence_assignment, assignment_allowed);
 	parse_expect(p, ']');
 
 	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
@@ -756,7 +756,7 @@ parse_index(struct parser *p, struct node *l, bool assignment_allowed)
 		n->l = key;
 		n->r = make_node_t(p, node_type_list);
 		n->r->l = l;
-		n->r->r = parse_expr(p);
+		n->r->r = parse_expr(p, false);
 	} else {
 		n = make_node_t(p, node_type_index);
 		n->l = l;
@@ -776,14 +776,14 @@ parse_unary(struct parser *p, bool assignment_allowed)
 	default: UNREACHABLE;
 	}
 
-	n->l = parse_prec(p, parse_precedence_unary);
+	n->l = parse_prec(p, parse_precedence_unary, assignment_allowed);
 	return n;
 }
 
 static struct node *
 parse_grouping(struct parser *p, bool assignment_allowed)
 {
-	struct node *n = parse_prec(p, parse_precedence_assignment);
+	struct node *n = parse_prec(p, parse_precedence_assignment, assignment_allowed);
 	parse_expect(p, ')');
 	return n;
 }
@@ -792,7 +792,7 @@ static struct node *
 parse_grouping_fmt(struct parser *p, bool assignment_allowed)
 {
 	struct node *n = make_node_t(p, node_type_group);
-	n->l = parse_prec(p, parse_precedence_assignment);
+	n->l = parse_prec(p, parse_precedence_assignment, assignment_allowed);
 	parse_expect(p, ')');
 	parse_fmt_apply(p, &n->l->fmt.post, &p->fmt.previous);
 	return n;
@@ -912,11 +912,11 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 		key = 0;
 
 		switch (t) {
-		case node_type_array: val = parse_expr(p); break;
+		case node_type_array: val = parse_expr(p, false); break;
 		case node_type_dict:
-			key = parse_expr(p);
+			key = parse_expr(p, false);
 			parse_expect(p, ':');
-			val = parse_expr(p);
+			val = parse_expr(p, false);
 			break;
 		case node_type_args:
 			if (parse_match(p, (enum token_type[]){ token_type_identifier, ':' }, 2)) {
@@ -925,7 +925,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 				key->type = node_type_string;
 				parse_expect(p, ':');
 			}
-			val = parse_expr(p);
+			val = parse_expr(p, false);
 			break;
 		case node_type_def_args: {
 			struct node *doc = parser_get_doc_comment(p);
@@ -945,7 +945,7 @@ parse_list(struct parser *p, enum node_type t, enum token_type end)
 				key = val;
 				key->type = node_type_string;
 				if (!(p->current.type == ',' || p->current.type == end)) {
-					val = parse_expr(p);
+					val = parse_expr(p, false);
 				} else {
 					val = 0;
 				}
@@ -1056,7 +1056,7 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 		n->l = id;
 		n->r = make_node_t(p, node_type_list);
 		n->r->l = l;
-		n->r->r = parse_expr(p);
+		n->r->r = parse_expr(p, false);
 	} else {
 		n = make_node_t(p, node_type_member);
 		n->l = l;
@@ -1109,13 +1109,13 @@ parse_func(struct parser *p, bool assignment_allowed)
 }
 
 static struct node *
-parse_expr(struct parser *p)
+parse_expr(struct parser *p, bool assignment_allowed)
 {
-	return parse_prec(p, parse_precedence_assignment);
+	return parse_prec(p, parse_precedence_assignment, assignment_allowed);
 }
 
 static struct node *
-parse_prec(struct parser *p, enum parse_precedence prec)
+parse_prec(struct parser *p, enum parse_precedence prec, bool assignment_allowed)
 {
 	p->behavior.advance(p);
 
@@ -1124,7 +1124,6 @@ parse_prec(struct parser *p, enum parse_precedence prec)
 		return make_node_t(p, node_type_id);
 	}
 
-	bool assignment_allowed = prec <= parse_precedence_assignment;
 	struct node *l = p->parse_rules[p->previous.type].prefix(p, assignment_allowed);
 
 	while (prec <= p->parse_rules[p->current.type].precedence) {
@@ -1145,7 +1144,7 @@ parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 		parent = n = make_node_t(p, node_type_if);
 		while (true) {
 			n->l = make_node_t(p, node_type_list);
-			n->l->l = p->previous.type == token_type_else ? 0 : parse_expr(p);
+			n->l->l = p->previous.type == token_type_else ? 0 : parse_expr(p, false);
 			parse_expect(p, token_type_eol);
 			n->l->r = parse_block(p,
 				(enum token_type[]){ token_type_elif, token_type_else, token_type_endif },
@@ -1175,7 +1174,7 @@ parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 		}
 
 		parse_expect(p, ':');
-		n->l->r = parse_expr(p);
+		n->l->r = parse_expr(p, false);
 
 		parse_expect(p, token_type_eol);
 
@@ -1195,10 +1194,10 @@ parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 		n = make_node_t(p, node_type_return);
 
 		if (p->current.type != token_type_eol) {
-			n->l = parse_expr(p);
+			n->l = parse_expr(p, false);
 		}
 	} else {
-		n = parse_expr(p);
+		n = parse_expr(p, true);
 	}
 
 	if (p->err.unwinding) {
@@ -1480,10 +1479,10 @@ cm_parse_string(struct parser *p, bool assignment_allowed)
 }
 
 static struct node *
-cm_parse_with_mode(struct parser *p, enum cm_parse_mode mode, struct node *(parse_fun)(struct parser *))
+cm_parse_with_mode(struct parser *p, enum cm_parse_mode mode, struct node *(parse_fun)(struct parser *, bool assignment_allowed))
 {
 	stack_push(&p->wk->stack, p->cm_mode, mode);
-	struct node *n = parse_fun(p);
+	struct node *n = parse_fun(p, false);
 	stack_pop(&p->wk->stack, p->cm_mode);
 	return n;
 }
@@ -1524,7 +1523,7 @@ cm_parse_stmt(struct parser *p, enum parse_stmt_flags flags)
 
 		n = parent;
 	} else {
-		n = parse_expr(p);
+		n = parse_expr(p, false);
 	}
 
 	if (p->err.unwinding) {
@@ -1552,7 +1551,7 @@ cm_parse_list(struct parser *p, enum node_type t, enum token_type end)
 	uint32_t len = 0;
 
 	while (p->current.type != end && p->current.type != token_type_eol) {
-		n->l = parse_expr(p);
+		n->l = parse_expr(p, false);
 		++len;
 		if (p->current.type != end) {
 			n = n->r = make_node_t(p, node_type_list);
