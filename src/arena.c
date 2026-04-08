@@ -244,7 +244,11 @@ ar_init(struct arena *a, const struct ar_params *params)
 void *
 ar_alloc(struct arena *a, uint64_t count, uint64_t objsize, uint64_t align)
 {
-	assert(count && align);
+	if (!count) {
+		return 0;
+	}
+
+	assert(align);
 
 	if (!a->tail) {
 		a->head = a->tail = ar_block_alloc(a, count, objsize, 0);
