@@ -1111,8 +1111,8 @@ az_analyze_func(struct workspace *wk, obj c)
 {
 	struct obj_capture *capture = get_obj_capture(wk, c);
 
-	struct args_norm an[ARRAY_LEN(capture->func->an)] = { 0 };
-	struct args_kw akw[ARRAY_LEN(capture->func->akw)] = { 0 };
+	struct args_norm *an = 0; // TODO
+	struct args_kw *akw = 0; // TODO
 	{
 		uint32_t i;
 		for (i = 0; i < capture->func->nargs; ++i) {
@@ -1293,7 +1293,7 @@ az_op_store(struct workspace *wk)
 		}
 	}
 
-	analyzer.unpatched_ops.ops[op_store](wk);
+	analyzer.unpatched_ops.ops[op_store_g](wk);
 
 	if (dup) {
 		obj tgt = object_stack_peek(&wk->vm.stack, 1);
@@ -1577,7 +1577,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.ops.ops[op_return] = az_op_return;
 	wk->vm.ops.ops[op_return_end] = az_op_return_end;
 	wk->vm.ops.ops[op_call] = az_op_call;
-	wk->vm.ops.ops[op_store] = az_op_store;
+	wk->vm.ops.ops[op_store_g] = az_op_store;
 	wk->vm.ops.ops[op_constant_dict] = az_op_constant_dict;
 	wk->vm.ops.ops[op_add] = az_op_add;
 	wk->vm.ops.ops[op_az_noop] = az_op_noop;

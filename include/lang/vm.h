@@ -32,9 +32,13 @@ enum op {
 	op_lt,
 	op_negate,
 	op_stringify,
-	op_store,
-	op_load,
-	op_try_load,
+	op_store_l,
+	op_load_l,
+	op_store_u,
+	op_load_u,
+	op_store_g,
+	op_load_g,
+	op_try_load_g,
 	op_return,
 	op_return_end,
 	op_call,
@@ -112,14 +116,15 @@ struct call_frame {
 	type_tag expected_return_type;
 	enum call_frame_type type;
 	obj scope_stack;
-	uint32_t return_ip, call_stack_base;
+	uint32_t return_ip, stack_base;
 	enum language_mode lang_mode;
-	struct obj_func *func;
+	struct obj_capture *capture;
 };
 
 struct vm_compiler_state {
 	struct bucket_arr nodes;
 	struct arr node_stack;
+	struct arr locals, upvalues, call_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
 	uint32_t loop_depth;
 	obj breakpoints;
@@ -231,6 +236,7 @@ struct vm {
 	uint32_t ip, nargs, nkwargs;
 	obj scope_stack, default_scope_stack;
 	obj modules;
+	struct arr open_upvalues;
 
 	struct vm_ops ops;
 	struct vm_objects objects;

@@ -72,21 +72,41 @@ struct obj_typeinfo {
 	type_tag type, subtype;
 };
 
+// metadata for upvalues that a func captures
+struct func_upvalue {
+	uint16_t slot;
+	bool is_local;
+};
+
+// runtime upvalue representation
+struct upvalue {
+	obj *location;
+	obj closed;
+};
+
+// tracking open upvalues
+struct open_upvalue {
+	struct upvalue *u;
+	uint32_t slot;
+};
+
 struct obj_func {
 	const char *name, *desc;
 	enum language_mode lang_mode;
-	uint32_t nargs, nkwargs;
+	uint32_t nargs, nkwargs, nupvalues;
 	type_tag return_type;
 
 	uint32_t def, entry;
-	struct args_norm an[32];
-	struct args_kw akw[64];
+	struct args_norm *an;
+	struct args_kw *akw;
+	struct func_upvalue *upvalues;
 };
 
 struct obj_capture {
 	struct obj_func *func;
 	obj scope_stack, defargs, self;
 	uint32_t native_func;
+	struct upvalue **upvalues;
 };
 
 enum tgt_type {

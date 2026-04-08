@@ -6,11 +6,27 @@
 #ifndef MUON_LANG_COMPILER_H
 #define MUON_LANG_COMPILER_H
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "lang/types.h"
 
 struct source;
 struct workspace;
+
+struct local_binding {
+	obj id;
+	uint32_t depth, slot;
+	bool bound;
+};
+
+struct upvalue_binding {
+	uint32_t depth, slot;
+	bool is_local;
+};
+
+struct compiler_call_frame {
+	uint32_t locals_base, upvalues_base;
+	uint32_t nupvalues;
+	struct func_upvalue *upvalues;
+};
 
 enum vm_compile_mode {
 	vm_compile_mode_fmt = 1 << 1,
@@ -19,6 +35,7 @@ enum vm_compile_mode {
 	vm_compile_mode_expr = 1 << 4,
 	vm_compile_mode_return_after_project = 1 << 5,
 	vm_compile_mode_relaxed_parse = 1 << 6,
+	vm_compile_mode_locals = 1 << 7,
 };
 
 void vm_compile_state_reset(struct workspace *wk);

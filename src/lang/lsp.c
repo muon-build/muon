@@ -1086,7 +1086,7 @@ az_srv_dbg_break_cb(struct workspace *wk)
 
 	struct az_srv_break_info info = { 0 };
 
-	if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_constant, op_load }, 2)) {
+	if (az_srv_inst_seq_matches(wk, ip, (uint8_t[]){ op_constant, op_load_g }, 2)) {
 		info.type = az_srv_break_type_constant;
 		++ip;
 		info.dat.constant.ident = vm_get_constant(wk->vm.code.e, &ip);

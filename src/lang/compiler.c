@@ -61,9 +61,9 @@ push_constant(struct workspace *wk, obj v)
 }
 
 static void
-push_op_store(struct workspace *wk, enum op_store_flags flags)
+push_op_store_g(struct workspace *wk, enum op_store_flags flags)
 {
-	push_code(wk, op_store);
+	push_code(wk, op_store_g);
 	push_constant(wk, flags);
 }
 
@@ -114,26 +114,14 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 	}
 }
 
-void
-vm_comp_op_return(struct workspace *wk)
-{
-	if (!wk->vm.in_analyzer) {
-		for (uint32_t i = 0; i < wk->vm.compiler_state.loop_depth; ++i) {
-			push_code(wk, op_swap);
-			push_code(wk, op_pop);
-		}
-	}
-
-	push_code(wk, op_return);
-}
-
 enum vm_compile_block_flags {
 	vm_compile_block_final_return = 1 << 0,
 	vm_compile_block_expr = 1 << 1,
-	vm_compile_block_start_scope = 1 << 2,
+	vm_compile_block_push_call_frame = 1 << 2,
 };
 
-static void vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags);
+static struct compiler_call_frame *
+vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags);
 static void vm_compile_expr(struct workspace *wk, struct node *n);
 
 static bool
@@ -150,6 +138,217 @@ vm_comp_node_skip(enum node_type t)
 		return true;
 	default: return false;
 	}
+}
+
+static void
+vm_comp_push_call_frame(struct workspace *wk)
+{
+	L(">> call frame");
+	arr_push(wk->a,
+		&wk->vm.compiler_state.call_stack,
+		&(struct compiler_call_frame){
+			.locals_base = wk->vm.compiler_state.locals.len,
+			.upvalues_base = wk->vm.compiler_state.upvalues.len,
+		});
+}
+
+static struct compiler_call_frame *
+vm_comp_pop_call_frame(struct workspace *wk)
+{
+	struct compiler_call_frame *frame = arr_pop(&wk->vm.compiler_state.call_stack);
+	const uint32_t depth = wk->vm.compiler_state.call_stack.len;
+	frame->nupvalues = 0;
+
+	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
+		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
+		L("checking existing upvalue depth:%d, slot:%d, local:%d", u->depth, u->slot, u->is_local);
+		if (u->depth == depth - 1) {
+			++frame->nupvalues;
+		}
+	}
+
+	L("<< call frame depth %d, (%d upvalues), %d", depth, frame->nupvalues, frame->upvalues_base);
+	frame->upvalues = ar_maken(wk->a, struct func_upvalue, frame->nupvalues);
+
+	uint32_t upvalue_i = 0;
+	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
+		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
+		if (u->depth == depth - 1) {
+			frame->upvalues[upvalue_i] = (struct func_upvalue){
+				.slot = u->slot,
+				.is_local = u->is_local,
+			};
+			arr_del(&wk->vm.compiler_state.upvalues, i);
+			++upvalue_i;
+		}
+	}
+
+	wk->vm.compiler_state.locals.len = frame->locals_base;
+	return frame;
+}
+
+static uint32_t
+vm_comp_add_upvalue(struct workspace *wk, uint32_t depth, uint32_t slot, bool is_local)
+{
+	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
+
+	uint32_t res_slot = 0;
+
+	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
+		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
+		L("checking existing upvalue depth:%d==%d, slot:%d==%d, local:%d==%d", u->depth, depth, u->slot, slot, u->is_local, is_local);
+		if (u->depth != depth) {
+			continue;
+		}
+
+		if (slot == u->slot && is_local == u->is_local) {
+			return res_slot;
+		}
+
+		++res_slot;
+	}
+
+	L("declared upvalue %d:%d%s", depth, slot, is_local ? " (local)" : "");
+	arr_push(wk->a, &wk->vm.compiler_state.upvalues, &(struct upvalue_binding){ depth, slot, is_local });
+	return res_slot;
+}
+
+enum vm_comp_resolve_flag {
+	vm_comp_resolve_flag_bound_only = 1 << 0,
+	vm_comp_resolve_flag_bind = 1 << 1,
+};
+
+static int32_t
+vm_comp_resolve_upvalue_depth(struct workspace *wk, uint32_t depth, obj id)
+{
+	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
+
+	L("resolving upvalue %s, depth: %d", get_cstr(wk, id), depth);
+
+	for (uint32_t i = frame->locals_base; i < wk->vm.compiler_state.locals.len; ++i) {
+		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
+		if (l->depth != depth) {
+			break;
+		}
+		if (obj_equal(wk, id, l->id)) {
+			return vm_comp_add_upvalue(wk, depth, l->slot, true);
+		}
+	}
+
+	if (depth == 0) {
+		return -1;
+	}
+
+	int32_t slot = vm_comp_resolve_upvalue_depth(wk, depth - 1, id);
+	if (slot != -1) {
+		return vm_comp_add_upvalue(wk, depth, slot, false);
+	}
+
+	return -1;
+}
+
+static int32_t
+vm_comp_current_depth(struct workspace *wk)
+{
+	return wk->vm.compiler_state.call_stack.len - 1;
+}
+
+static int32_t
+vm_comp_resolve_upvalue(struct workspace *wk, obj id)
+{
+	int32_t depth = vm_comp_current_depth(wk);
+	if (!depth) {
+		return -1;
+	}
+	return vm_comp_resolve_upvalue_depth(wk, depth - 1, id);
+}
+
+static void
+vm_comp_declare_local(struct workspace *wk, obj id)
+{
+	const uint32_t depth = vm_comp_current_depth(wk);
+	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
+	L("declared local %s @ %d:%d", get_cstr(wk, id), depth, wk->vm.compiler_state.locals.len - frame->locals_base);
+	struct local_binding l = {
+		id,
+		depth,
+		wk->vm.compiler_state.locals.len - frame->locals_base,
+	};
+	arr_push(wk->a, &wk->vm.compiler_state.locals, &l);
+}
+
+static int32_t
+vm_comp_resolve_local(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags)
+{
+	const uint32_t depth = vm_comp_current_depth(wk);
+	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
+		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
+		if (l->depth != depth) {
+			return -1;
+		} else if (!l->bound && (flags & vm_comp_resolve_flag_bound_only)) {
+			continue;
+		}
+
+		if (obj_equal(wk, id, l->id)) {
+			if (flags & vm_comp_resolve_flag_bind) {
+				l->bound = true;
+			}
+			return l->slot;
+		}
+	}
+	return -1;
+}
+
+enum vm_comp_local_type {
+	vm_comp_local_type_local,
+	vm_comp_local_type_upvalue,
+};
+
+struct vm_comp_local {
+	int32_t slot;
+	enum vm_comp_local_type type;
+};
+
+static struct vm_comp_local
+vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags)
+{
+	struct vm_comp_local res = { -1 };
+	if ((res.slot = vm_comp_resolve_local(wk, id, flags)) != -1) {
+		res.type = vm_comp_local_type_local;
+	} else if ((res.slot = vm_comp_resolve_upvalue(wk, id)) != -1) {
+		res.type = vm_comp_local_type_upvalue;
+	}
+	L("resolved %s - %s:%d", get_cstr(wk, id), res.type == vm_comp_local_type_upvalue ? "u" : "l", res.slot);
+	return res;
+}
+
+static bool
+vm_comp_try_declare_local(struct workspace *wk, obj id)
+{
+	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
+		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
+		if (obj_equal(wk, id, l->id)) {
+			return false;
+		}
+	}
+
+	vm_comp_declare_local(wk, id);
+	return true;
+}
+
+static void
+vm_comp_assign_local(struct workspace *wk, obj id)
+{
+	struct vm_comp_local l = vm_comp_resolve_id(wk, id, vm_comp_resolve_flag_bind);
+	if (l.slot == -1) {
+		UNREACHABLE;
+	}
+
+	switch (l.type) {
+	case vm_comp_local_type_local: push_code(wk, op_store_l); break;
+	case vm_comp_local_type_upvalue: push_code(wk, op_store_u); break;
+	}
+	push_constant(wk, l.slot);
 }
 
 static void
@@ -195,16 +394,30 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_lt);
 		push_code(wk, op_not);
 		break;
-	case node_type_id:
-		push_code(wk, op_constant);
-		push_constant(wk, n->data.str);
-		push_code(wk, op_load);
+	case node_type_id: {
+		if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
+			struct vm_comp_local l = vm_comp_resolve_id(wk, n->data.str, vm_comp_resolve_flag_bound_only);
+			if (l.slot == -1) {
+				vm_comp_error(wk, n, "undefined variable");
+			} else {
+				switch (l.type) {
+				case vm_comp_local_type_local: push_code(wk, op_load_l); break;
+				case vm_comp_local_type_upvalue: push_code(wk, op_load_u); break;
+				}
+				push_constant(wk, l.slot);
+			}
+		} else {
+			push_code(wk, op_constant);
+			push_constant(wk, n->data.str);
+			push_code(wk, op_load_g);
+		}
 		break;
+	}
 	case node_type_maybe_id:
 		push_code(wk, op_constant);
 		push_constant(wk, n->data.str);
 		push_code(wk, op_dup);
-		push_code(wk, op_try_load);
+		push_code(wk, op_try_load_g);
 		break;
 	case node_type_number:
 		push_code(wk, op_constant);
@@ -233,18 +446,26 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_code(wk, op_constant_dict);
 		push_constant(wk, n->data.len.kwargs);
 		break;
-	case node_type_assign:
+	case node_type_assign: {
+		if (wk->vm.compiler_state.mode & vm_compile_mode_locals && !(n->data.type & op_store_flag_member)) {
+			assert(n->l->type == node_type_id_lit);
+			vm_comp_assign_local(wk, n->l->data.str);
+			break;
+		}
+
 		if (!(n->data.type & op_store_flag_member)) {
 			switch (n->l->type) {
-			case node_type_id_lit:
+			case node_type_id_lit: {
 				push_code(wk, op_constant);
 				push_constant(wk, n->l->data.str);
 				break;
+			}
 			default: vm_compile_expr(wk, n->l); break;
 			}
 		}
-		push_op_store(wk, n->data.type);
+		push_op_store_g(wk, n->data.type);
 		break;
+	}
 	case node_type_member: {
 		push_code(wk, op_member);
 		push_constant(wk, n->r->data.str);
@@ -266,7 +487,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				push_code(wk, op_constant);
 				push_constant(wk, 0);
 
-				vm_comp_op_return(wk);
+				push_code(wk, op_return);
+
 				break;
 			} else if (str_eql(name, &STR("set_variable"))) {
 				push_location(wk, n);
@@ -274,7 +496,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
 
 				push_code(wk, op_swap);
-				push_op_store(wk, 0);
+				push_op_store_g(wk, 0);
 				break;
 			} else if (str_eql(name, &STR("get_variable"))) {
 				push_location(wk, n);
@@ -282,9 +504,9 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				vm_comp_assert_inline_func_args(wk, n, n->l, 1, 2, 0);
 
 				if (n->l->data.len.args == 1) {
-					push_code(wk, op_load);
+					push_code(wk, op_load_g);
 				} else {
-					push_code(wk, op_try_load);
+					push_code(wk, op_try_load_g);
 				}
 				break;
 			} else if (str_eql(name, &STR("disabler"))) {
@@ -363,7 +585,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, 0);
 		}
 
-		vm_comp_op_return(wk);
+		push_code(wk, op_return);
 		break;
 	}
 	case node_type_foreach: {
@@ -415,15 +637,23 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		break_jmp_patch_tgt = wk->vm.code.len;
 		push_constant(wk, 0);
 
-		push_code(wk, op_constant);
-		push_constant(wk, ida->data.str);
-		push_op_store(wk, 0);
+		if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
+			vm_comp_assign_local(wk, ida->data.str);
+		} else {
+			push_code(wk, op_constant);
+			push_constant(wk, ida->data.str);
+			push_op_store_g(wk, 0);
+		}
 		push_code(wk, op_pop);
 
 		if (idb) {
-			push_code(wk, op_constant);
-			push_constant(wk, idb->data.str);
-			push_op_store(wk, 0);
+			if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
+				vm_comp_assign_local(wk, idb->data.str);
+			} else {
+				push_code(wk, op_constant);
+				push_constant(wk, idb->data.str);
+				push_op_store_g(wk, 0);
+			}
 			push_code(wk, op_pop);
 		}
 
@@ -691,7 +921,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		func->entry = wk->vm.code.len;
 
-		vm_compile_block(wk, n->r, vm_compile_block_final_return | vm_compile_block_start_scope);
+		struct compiler_call_frame *frame;
+		frame = vm_compile_block(wk, n->r, vm_compile_block_final_return | vm_compile_block_push_call_frame);
 
 		/* function body end */
 
@@ -703,14 +934,29 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			}
 
 			if (arg->l->type == node_type_kw) {
-				struct node *doc = arg->l->r->r;
+				++func->nkwargs;
+			} else {
+				++func->nargs;
+			}
+		}
+		func->an = ar_maken(wk->a, struct args_norm, func->nargs + 1);
+		func->akw = ar_maken(wk->a, struct args_kw, func->nkwargs + 1);
 
-				func->akw[func->nkwargs] = (struct args_kw){
+		uint32_t kwarg_i = 0, arg_i = 0;
+
+		for (arg = n->l->r; arg; arg = arg->r) {
+			if (!arg->l) {
+				break;
+			}
+
+			if (arg->l->type == node_type_kw) {
+				struct node *doc = arg->l->r->r;
+				func->akw[kwarg_i] = (struct args_kw){
 					.key = get_cstr(wk, arg->l->r->data.str),
 					.type = arg->l->r->l->data.type,
 					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
-				++func->nkwargs;
+				++kwarg_i;
 
 				if (arg->l->l) {
 					vm_compile_expr(wk, arg->l->l);
@@ -720,19 +966,22 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				}
 			} else {
 				struct node *doc = arg->l->r;
-
-				func->an[func->nargs] = (struct args_norm){
+				func->an[arg_i] = (struct args_norm){
 					.name = get_cstr(wk, arg->l->data.str),
 					.type = arg->l->l->data.type,
 					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
-				++func->nargs;
+				++arg_i;
 			}
 		}
+
 		func->an[func->nargs].type = ARG_TYPE_NULL;
 		func->akw[func->nkwargs].key = 0;
 		func->return_type = n->data.type;
 		func->lang_mode = wk->vm.lang_mode;
+		func->nupvalues = frame->nupvalues;
+		func->upvalues = frame->upvalues;
+
 
 		if (ndefargs) {
 			push_code(wk, op_constant_dict);
@@ -752,9 +1001,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, f);
 
 		if (id) {
-			push_code(wk, op_constant);
-			push_constant(wk, id->data.str);
-			push_op_store(wk, 0);
+			vm_comp_assign_local(wk, id->data.str);
 			func->name = get_str(wk, id->data.str)->s;
 		}
 
@@ -835,7 +1082,7 @@ vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
 			case op_call:
 			case op_call_native:
 			case op_return:
-			case op_store:
+			case op_store_g:
 				return true;
 			default: break;
 		}
@@ -844,17 +1091,90 @@ vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
 }
 
 static void
+vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
+{
+	switch (n->type)
+	{
+	case node_type_assign: {
+		if (!(n->data.type & op_store_flag_member)) {
+			assert(n->l->type == node_type_id_lit);
+			if (vm_comp_try_declare_local(wk, n->l->data.str)) {
+				push_code(wk, op_constant);
+				push_constant(wk, n->l->data.str);
+			}
+			break;
+		}
+	}
+	case node_type_foreach: {
+		struct node *ida = n->l->l->l, *idb = n->l->l->r;
+		// we don't want these declarations interfering with the
+		// declared_local tracker
+
+		if (vm_comp_try_declare_local(wk, ida->data.str)) {
+			push_code(wk, op_constant);
+			push_constant(wk, ida->data.str);
+		}
+		if (idb) {
+			if (vm_comp_try_declare_local(wk, idb->data.str)) {
+				push_code(wk, op_constant);
+				push_constant(wk, idb->data.str);
+			}
+		}
+	}
+	case node_type_func_def: {
+		struct node *id = n->l->l->l;
+		if (id) {
+			if (vm_comp_try_declare_local(wk, id->data.str)) {
+				push_code(wk, op_constant);
+				push_constant(wk, id->data.str);
+			}
+		}
+	}
+	default:
+		break;
+	}
+}
+
+static void
+vm_comp_block_locals(struct workspace *wk, struct node *n)
+{
+	const enum node_type privelaged[] = { node_type_func_def };
+
+	while (n && n->l) {
+		vm_visit_nodes(wk, n->l, privelaged, ARRAY_LEN(privelaged), vm_comp_block_locals_visitor);
+		n = n->r;
+	}
+}
+
+static struct compiler_call_frame *
 vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags)
 {
-	if (flags & vm_compile_block_start_scope) {
+	struct compiler_call_frame *res = 0;
+	if (flags & vm_compile_block_push_call_frame) {
 		stack_push(&wk->stack, wk->vm.compiler_state.loop_depth, 0);
+		vm_comp_push_call_frame(wk);
+
+		// All the local variables that need declarations for this function are
+		// scanned here, and ops are created to fill out placeholders in the
+		// stack.
+		//
+		// The reason we do this upfront is because the entire function body is
+		// a single flat scope, yet things like iterators put objects on the
+		// stack.
+		//
+		// Locals declared in this phase are have bound set to false which
+		// means that the compiler will still error if you try to use a var
+		// before it is assigned.
+		vm_comp_block_locals(wk, n);
 	}
 
 	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
 		uint32_t expr_start = wk->vm.code.len;
+
 		vm_compile_expr(wk, n->l);
+
 		if (wk->vm.in_analyzer) {
 			if (!vm_op_range_had_effect(wk, expr_start, wk->vm.code.len)) {
 				vm_comp_warning(wk, n->l, "statment has no effect");
@@ -873,7 +1193,8 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 		n = n->r;
 	}
 
-	if (flags & vm_compile_block_start_scope) {
+	if (flags & vm_compile_block_push_call_frame) {
+		res = vm_comp_pop_call_frame(wk);
 		stack_pop(&wk->stack, wk->vm.compiler_state.loop_depth);
 	}
 
@@ -889,6 +1210,8 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 	} else if (flags & vm_compile_block_expr) {
 		push_code(wk, op_return_end);
 	}
+
+	return res;
 }
 
 void
@@ -994,6 +1317,10 @@ bool
 vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, uint32_t *entry)
 {
 	TracyCZoneAutoS;
+	if (mode & vm_compile_mode_language_extended) {
+		mode |= vm_compile_mode_locals;
+	}
+
 	wk->vm.compiler_state.err = false;
 	wk->vm.compiler_state.mode = mode;
 
@@ -1003,15 +1330,20 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	*entry = wk->vm.code.len;
 
-	enum vm_compile_block_flags flags = vm_compile_block_final_return | vm_compile_block_start_scope;
+	enum vm_compile_block_flags flags = vm_compile_block_final_return | vm_compile_block_push_call_frame;
 	if (mode & vm_compile_mode_expr) {
 		flags &= ~vm_compile_block_final_return;
 		flags |= vm_compile_block_expr;
 	}
 
+	if (mode & vm_compile_mode_locals) {
+		flags |= vm_compile_block_push_call_frame;
+	}
+
 	vm_compile_block(wk, n, flags);
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
+	assert(wk->vm.compiler_state.locals.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);
 	assert(wk->vm.compiler_state.if_jmp_stack.len == 0);
 
