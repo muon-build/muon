@@ -19,7 +19,7 @@
 
 static const char *samu_logname = ".ninja_log";
 static const char *samu_log_version_fmt = "# ninja log v%d\n";
-static const int samu_logver = 5;
+static const int samu_logver = 6;
 
 enum samu_log_field {
 	samu_log_field_start_time,
