@@ -36,6 +36,51 @@ push_location(struct workspace *wk, struct node *n)
 		});
 }
 
+typedef void((*vm_visit_nodes_cb)(struct workspace *wk, struct node *n));
+
+static void
+vm_visit_nodes(struct workspace *wk,
+	struct node *n,
+	const enum node_type privelaged[],
+	uint32_t privelaged_len,
+	vm_visit_nodes_cb cb)
+{
+	struct node *peek, *prev = 0;
+
+	uint32_t stack_base = wk->vm.compiler_state.node_stack.len;
+
+	while (wk->vm.compiler_state.node_stack.len > stack_base || n) {
+		if (n) {
+			bool is_privelaged = false;
+			for (uint32_t i = 0; i < privelaged_len; ++i) {
+				if (n->type == privelaged[i]) {
+					is_privelaged = true;
+					break;
+				}
+			}
+
+			if (is_privelaged) {
+				cb(wk, n);
+				prev = n;
+				n = 0;
+			} else {
+				arr_push(wk->a, &wk->vm.compiler_state.node_stack, &n);
+				n = n->l;
+			}
+		} else {
+			peek = *(struct node **)arr_peek(&wk->vm.compiler_state.node_stack, 1);
+			if (peek->r && prev != peek->r) {
+				n = peek->r;
+			} else {
+				push_location(wk, peek);
+				cb(wk, peek);
+				prev = *(struct node **)arr_pop(&wk->vm.compiler_state.node_stack);
+			}
+		}
+	}
+}
+
+
 static void
 push_code(struct workspace *wk, uint8_t b)
 {
@@ -117,11 +162,9 @@ vm_comp_assert_inline_func_args(struct workspace *wk,
 enum vm_compile_block_flags {
 	vm_compile_block_final_return = 1 << 0,
 	vm_compile_block_expr = 1 << 1,
-	vm_compile_block_push_call_frame = 1 << 2,
 };
 
-static struct compiler_call_frame *
-vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags);
+static void vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags);
 static void vm_compile_expr(struct workspace *wk, struct node *n);
 
 static bool
@@ -138,53 +181,6 @@ vm_comp_node_skip(enum node_type t)
 		return true;
 	default: return false;
 	}
-}
-
-static void
-vm_comp_push_call_frame(struct workspace *wk)
-{
-	L(">> call frame");
-	arr_push(wk->a,
-		&wk->vm.compiler_state.call_stack,
-		&(struct compiler_call_frame){
-			.locals_base = wk->vm.compiler_state.locals.len,
-			.upvalues_base = wk->vm.compiler_state.upvalues.len,
-		});
-}
-
-static struct compiler_call_frame *
-vm_comp_pop_call_frame(struct workspace *wk)
-{
-	struct compiler_call_frame *frame = arr_pop(&wk->vm.compiler_state.call_stack);
-	const uint32_t depth = wk->vm.compiler_state.call_stack.len;
-	frame->nupvalues = 0;
-
-	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
-		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
-		L("checking existing upvalue depth:%d, slot:%d, local:%d", u->depth, u->slot, u->is_local);
-		if (u->depth == depth - 1) {
-			++frame->nupvalues;
-		}
-	}
-
-	L("<< call frame depth %d, (%d upvalues), %d", depth, frame->nupvalues, frame->upvalues_base);
-	frame->upvalues = ar_maken(wk->a, struct func_upvalue, frame->nupvalues);
-
-	uint32_t upvalue_i = 0;
-	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
-		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
-		if (u->depth == depth - 1) {
-			frame->upvalues[upvalue_i] = (struct func_upvalue){
-				.slot = u->slot,
-				.is_local = u->is_local,
-			};
-			arr_del(&wk->vm.compiler_state.upvalues, i);
-			++upvalue_i;
-		}
-	}
-
-	wk->vm.compiler_state.locals.len = frame->locals_base;
-	return frame;
 }
 
 static uint32_t
@@ -350,6 +346,120 @@ vm_comp_assign_local(struct workspace *wk, obj id)
 	}
 	push_constant(wk, l.slot);
 }
+
+static void
+vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
+{
+	switch (n->type)
+	{
+	case node_type_assign: {
+		if (!(n->data.type & op_store_flag_member)) {
+			assert(n->l->type == node_type_id_lit);
+			if (vm_comp_try_declare_local(wk, n->l->data.str)) {
+				push_code(wk, op_constant);
+				push_constant(wk, n->l->data.str);
+			}
+			break;
+		}
+	}
+	case node_type_foreach: {
+		struct node *ida = n->l->l->l, *idb = n->l->l->r;
+		if (vm_comp_try_declare_local(wk, ida->data.str)) {
+			push_code(wk, op_constant);
+			push_constant(wk, ida->data.str);
+		}
+		if (idb) {
+			if (vm_comp_try_declare_local(wk, idb->data.str)) {
+				push_code(wk, op_constant);
+				push_constant(wk, idb->data.str);
+			}
+		}
+	}
+	case node_type_func_def: {
+		struct node *id = n->l->l->l;
+		if (id) {
+			if (vm_comp_try_declare_local(wk, id->data.str)) {
+				push_code(wk, op_constant);
+				push_constant(wk, id->data.str);
+			}
+		}
+	}
+	default:
+		break;
+	}
+}
+
+static void
+vm_comp_block_locals(struct workspace *wk, struct node *n)
+{
+	const enum node_type privelaged[] = { node_type_func_def };
+
+	// All the local variables that need declarations for this function are
+	// scanned here, and ops are created to fill out placeholders in the
+	// stack.
+	//
+	// The reason we do this upfront is because the entire function body is
+	// a single flat scope, yet things like iterators put objects on the
+	// stack.
+	//
+	// Locals declared in this phase are have bound set to false which
+	// means that the compiler will still error if you try to use a var
+	// before it is assigned.
+	while (n && n->l) {
+		vm_visit_nodes(wk, n->l, privelaged, ARRAY_LEN(privelaged), vm_comp_block_locals_visitor);
+		n = n->r;
+	}
+}
+
+static void
+vm_comp_push_call_frame(struct workspace *wk)
+{
+	L(">> call frame");
+	stack_push(&wk->stack, wk->vm.compiler_state.loop_depth, 0);
+	arr_push(wk->a,
+		&wk->vm.compiler_state.call_stack,
+		&(struct compiler_call_frame){
+			.locals_base = wk->vm.compiler_state.locals.len,
+			.upvalues_base = wk->vm.compiler_state.upvalues.len,
+		});
+}
+
+static struct compiler_call_frame *
+vm_comp_pop_call_frame(struct workspace *wk)
+{
+	struct compiler_call_frame *frame = arr_pop(&wk->vm.compiler_state.call_stack);
+	const uint32_t depth = wk->vm.compiler_state.call_stack.len;
+	frame->nupvalues = 0;
+
+	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
+		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
+		L("checking existing upvalue depth:%d, slot:%d, local:%d", u->depth, u->slot, u->is_local);
+		if (u->depth == depth - 1) {
+			++frame->nupvalues;
+		}
+	}
+
+	L("<< call frame depth %d, (%d upvalues), %d", depth, frame->nupvalues, frame->upvalues_base);
+	frame->upvalues = ar_maken(wk->a, struct func_upvalue, frame->nupvalues);
+
+	uint32_t upvalue_i = 0;
+	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
+		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
+		if (u->depth == depth - 1) {
+			frame->upvalues[upvalue_i] = (struct func_upvalue){
+				.slot = u->slot,
+				.is_local = u->is_local,
+			};
+			arr_del(&wk->vm.compiler_state.upvalues, i);
+			++upvalue_i;
+		}
+	}
+
+	wk->vm.compiler_state.locals.len = frame->locals_base;
+	stack_pop(&wk->stack, wk->vm.compiler_state.loop_depth);
+	return frame;
+}
+
 
 static void
 vm_comp_node(struct workspace *wk, struct node *n)
@@ -921,24 +1031,39 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		func->entry = wk->vm.code.len;
 
-		struct compiler_call_frame *frame;
-		frame = vm_compile_block(wk, n->r, vm_compile_block_final_return | vm_compile_block_push_call_frame);
+		vm_comp_push_call_frame(wk);
 
-		/* function body end */
-
-		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, func_jump_over_patch_tgt));
-
+		struct local_binding *l;
 		for (arg = n->l->r; arg; arg = arg->r) {
 			if (!arg->l) {
 				break;
 			}
 
 			if (arg->l->type == node_type_kw) {
+				if (!vm_comp_try_declare_local(wk, arg->l->r->data.str)) {
+					vm_comp_error(wk, arg->l, "duplicate argument name");
+				}
 				++func->nkwargs;
 			} else {
+				if (!vm_comp_try_declare_local(wk, arg->l->data.str)) {
+					vm_comp_error(wk, arg->l, "duplicate argument name");
+				}
 				++func->nargs;
 			}
+
+			l = arr_peek(&wk->vm.compiler_state.locals, 1);
+			l->bound = true;
 		}
+
+		vm_comp_block_locals(wk, n->r);
+
+		vm_compile_block(wk, n->r, vm_compile_block_final_return);
+		struct compiler_call_frame *frame = vm_comp_pop_call_frame(wk);
+
+		/* function body end */
+
+		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, func_jump_over_patch_tgt));
+
 		func->an = ar_maken(wk->a, struct args_norm, func->nargs + 1);
 		func->akw = ar_maken(wk->a, struct args_kw, func->nkwargs + 1);
 
@@ -1014,50 +1139,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	}
 }
 
-typedef void((*vm_visit_nodes_cb)(struct workspace *wk, struct node *n));
-
-static void
-vm_visit_nodes(struct workspace *wk,
-	struct node *n,
-	const enum node_type privelaged[],
-	uint32_t privelaged_len,
-	vm_visit_nodes_cb cb)
-{
-	struct node *peek, *prev = 0;
-
-	uint32_t stack_base = wk->vm.compiler_state.node_stack.len;
-
-	while (wk->vm.compiler_state.node_stack.len > stack_base || n) {
-		if (n) {
-			bool is_privelaged = false;
-			for (uint32_t i = 0; i < privelaged_len; ++i) {
-				if (n->type == privelaged[i]) {
-					is_privelaged = true;
-					break;
-				}
-			}
-
-			if (is_privelaged) {
-				cb(wk, n);
-				prev = n;
-				n = 0;
-			} else {
-				arr_push(wk->a, &wk->vm.compiler_state.node_stack, &n);
-				n = n->l;
-			}
-		} else {
-			peek = *(struct node **)arr_peek(&wk->vm.compiler_state.node_stack, 1);
-			if (peek->r && prev != peek->r) {
-				n = peek->r;
-			} else {
-				push_location(wk, peek);
-				cb(wk, peek);
-				prev = *(struct node **)arr_pop(&wk->vm.compiler_state.node_stack);
-			}
-		}
-	}
-}
-
 static void
 vm_compile_expr(struct workspace *wk, struct node *n)
 {
@@ -1090,84 +1171,10 @@ vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
 	return false;
 }
 
-static void
-vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
-{
-	switch (n->type)
-	{
-	case node_type_assign: {
-		if (!(n->data.type & op_store_flag_member)) {
-			assert(n->l->type == node_type_id_lit);
-			if (vm_comp_try_declare_local(wk, n->l->data.str)) {
-				push_code(wk, op_constant);
-				push_constant(wk, n->l->data.str);
-			}
-			break;
-		}
-	}
-	case node_type_foreach: {
-		struct node *ida = n->l->l->l, *idb = n->l->l->r;
-		// we don't want these declarations interfering with the
-		// declared_local tracker
-
-		if (vm_comp_try_declare_local(wk, ida->data.str)) {
-			push_code(wk, op_constant);
-			push_constant(wk, ida->data.str);
-		}
-		if (idb) {
-			if (vm_comp_try_declare_local(wk, idb->data.str)) {
-				push_code(wk, op_constant);
-				push_constant(wk, idb->data.str);
-			}
-		}
-	}
-	case node_type_func_def: {
-		struct node *id = n->l->l->l;
-		if (id) {
-			if (vm_comp_try_declare_local(wk, id->data.str)) {
-				push_code(wk, op_constant);
-				push_constant(wk, id->data.str);
-			}
-		}
-	}
-	default:
-		break;
-	}
-}
 
 static void
-vm_comp_block_locals(struct workspace *wk, struct node *n)
-{
-	const enum node_type privelaged[] = { node_type_func_def };
-
-	while (n && n->l) {
-		vm_visit_nodes(wk, n->l, privelaged, ARRAY_LEN(privelaged), vm_comp_block_locals_visitor);
-		n = n->r;
-	}
-}
-
-static struct compiler_call_frame *
 vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags)
 {
-	struct compiler_call_frame *res = 0;
-	if (flags & vm_compile_block_push_call_frame) {
-		stack_push(&wk->stack, wk->vm.compiler_state.loop_depth, 0);
-		vm_comp_push_call_frame(wk);
-
-		// All the local variables that need declarations for this function are
-		// scanned here, and ops are created to fill out placeholders in the
-		// stack.
-		//
-		// The reason we do this upfront is because the entire function body is
-		// a single flat scope, yet things like iterators put objects on the
-		// stack.
-		//
-		// Locals declared in this phase are have bound set to false which
-		// means that the compiler will still error if you try to use a var
-		// before it is assigned.
-		vm_comp_block_locals(wk, n);
-	}
-
 	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
@@ -1193,11 +1200,6 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 		n = n->r;
 	}
 
-	if (flags & vm_compile_block_push_call_frame) {
-		res = vm_comp_pop_call_frame(wk);
-		stack_pop(&wk->stack, wk->vm.compiler_state.loop_depth);
-	}
-
 	if (flags & vm_compile_block_final_return) {
 		if (prev && prev->l->type == node_type_return) {
 			--wk->vm.code.len;
@@ -1210,8 +1212,6 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 	} else if (flags & vm_compile_block_expr) {
 		push_code(wk, op_return_end);
 	}
-
-	return res;
 }
 
 void
@@ -1330,17 +1330,22 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	*entry = wk->vm.code.len;
 
-	enum vm_compile_block_flags flags = vm_compile_block_final_return | vm_compile_block_push_call_frame;
+	enum vm_compile_block_flags flags = vm_compile_block_final_return;
 	if (mode & vm_compile_mode_expr) {
 		flags &= ~vm_compile_block_final_return;
 		flags |= vm_compile_block_expr;
 	}
 
 	if (mode & vm_compile_mode_locals) {
-		flags |= vm_compile_block_push_call_frame;
+		vm_comp_push_call_frame(wk);
+		vm_comp_block_locals(wk, n);
 	}
 
 	vm_compile_block(wk, n, flags);
+
+	if (mode & vm_compile_mode_locals) {
+		vm_comp_pop_call_frame(wk);
+	}
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.locals.len == 0);

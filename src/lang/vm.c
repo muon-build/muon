@@ -982,11 +982,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 	wk->vm.behavior.push_local_scope(wk);
 
 	for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
-		wk->vm.behavior.assign_variable(wk,
-			capture->func->an[i].name,
-			capture->func->an[i].val,
-			capture->func->an[i].node,
-			assign_local);
+		object_stack_push_ip(wk, capture->func->an[i].val, capture->func->an[i].node);
 	}
 
 	for (i = 0; capture->func->akw[i].key; ++i) {
@@ -998,8 +994,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 			obj_dict_index_strn(wk, capture->defargs, s.s, s.len, &val);
 		}
 
-		wk->vm.behavior.assign_variable(
-			wk, capture->func->akw[i].key, val, capture->func->akw[i].node, assign_local);
+		object_stack_push_ip(wk, val, capture->func->akw[i].node);
 	}
 
 	wk->vm.ip = capture->func->entry;
