@@ -106,10 +106,11 @@ push_constant(struct workspace *wk, obj v)
 }
 
 static void
-push_op_store_g(struct workspace *wk, enum op_store_flags flags)
+vm_comp_assign_global(struct workspace *wk, obj id, enum node_assign_flag flags)
 {
-	push_code(wk, op_store_g);
-	push_constant(wk, flags);
+	push_code(wk, op_constant);
+	push_constant(wk, id);
+	push_code(wk, (flags & node_assign_flag_add_store) ? op_add_store_g : op_store_g);
 }
 
 static void vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
@@ -298,6 +299,7 @@ vm_comp_resolve_local(struct workspace *wk, obj id, enum vm_comp_resolve_flag fl
 enum vm_comp_local_type {
 	vm_comp_local_type_local,
 	vm_comp_local_type_upvalue,
+	vm_comp_local_type_constant,
 };
 
 struct vm_comp_local {
@@ -313,8 +315,17 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags
 		res.type = vm_comp_local_type_local;
 	} else if ((res.slot = vm_comp_resolve_upvalue(wk, id)) != -1) {
 		res.type = vm_comp_local_type_upvalue;
+	} else {
+		obj var, default_scope = obj_array_get_tail(wk, wk->vm.default_scope_stack);
+		if (obj_dict_index(wk, default_scope, id, &var)) {
+			res.slot = var;
+			res.type = vm_comp_local_type_constant;
+		}
 	}
-	L("resolved %s - %s:%d", get_cstr(wk, id), res.type == vm_comp_local_type_upvalue ? "u" : "l", res.slot);
+	L("resolved %s - %s:%d",
+		get_cstr(wk, id),
+		res.type == vm_comp_local_type_upvalue ? "u" : (res.type == vm_comp_local_type_constant ? "c" : "l"),
+		res.slot);
 	return res;
 }
 
@@ -333,16 +344,19 @@ vm_comp_try_declare_local(struct workspace *wk, obj id)
 }
 
 static void
-vm_comp_assign_local(struct workspace *wk, obj id)
+vm_comp_assign_local(struct workspace *wk, obj id, enum node_assign_flag flags)
 {
-	struct vm_comp_local l = vm_comp_resolve_id(wk, id, vm_comp_resolve_flag_bind);
+	struct vm_comp_local l = vm_comp_resolve_id(wk,
+		id,
+		(flags & node_assign_flag_add_store) ? vm_comp_resolve_flag_bound_only : vm_comp_resolve_flag_bind);
 	if (l.slot == -1) {
 		UNREACHABLE;
 	}
 
 	switch (l.type) {
-	case vm_comp_local_type_local: push_code(wk, op_store_l); break;
-	case vm_comp_local_type_upvalue: push_code(wk, op_store_u); break;
+	case vm_comp_local_type_local: push_code(wk, (flags & node_assign_flag_add_store) ? op_add_store_l : op_store_l); break;
+	case vm_comp_local_type_upvalue: push_code(wk, (flags & node_assign_flag_add_store) ? op_add_store_u : op_store_u); break;
+	case vm_comp_local_type_constant: push_code(wk, op_constant); break;
 	}
 	push_constant(wk, l.slot);
 }
@@ -353,14 +367,14 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 	switch (n->type)
 	{
 	case node_type_assign: {
-		if (!(n->data.type & op_store_flag_member)) {
+		if (!(n->data.type & node_assign_flag_member)) {
 			assert(n->l->type == node_type_id_lit);
 			if (vm_comp_try_declare_local(wk, n->l->data.str)) {
 				push_code(wk, op_constant);
 				push_constant(wk, n->l->data.str);
 			}
-			break;
 		}
+		break;
 	}
 	case node_type_foreach: {
 		struct node *ida = n->l->l->l, *idb = n->l->l->r;
@@ -374,6 +388,7 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 				push_constant(wk, idb->data.str);
 			}
 		}
+		break;
 	}
 	case node_type_func_def: {
 		struct node *id = n->l->l->l;
@@ -383,6 +398,7 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 				push_constant(wk, id->data.str);
 			}
 		}
+		break;
 	}
 	default:
 		break;
@@ -513,6 +529,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				switch (l.type) {
 				case vm_comp_local_type_local: push_code(wk, op_load_l); break;
 				case vm_comp_local_type_upvalue: push_code(wk, op_load_u); break;
+				case vm_comp_local_type_constant: push_code(wk, op_constant); break;
 				}
 				push_constant(wk, l.slot);
 			}
@@ -557,23 +574,17 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, n->data.len.kwargs);
 		break;
 	case node_type_assign: {
-		if (wk->vm.compiler_state.mode & vm_compile_mode_locals && !(n->data.type & op_store_flag_member)) {
+		const enum node_assign_flag flags = n->data.type;
+		if (flags & node_assign_flag_member) {
+			push_code(wk, (flags & node_assign_flag_add_store) ? op_add_store_m : op_store_m);
+		} else if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
 			assert(n->l->type == node_type_id_lit);
-			vm_comp_assign_local(wk, n->l->data.str);
-			break;
+			vm_comp_assign_local(wk, n->l->data.str, flags);
+		} else {
+			assert(n->l->type == node_type_id_lit);
+			push_code(wk, op_constant);
+			vm_comp_assign_global(wk, n->l->data.str, flags);
 		}
-
-		if (!(n->data.type & op_store_flag_member)) {
-			switch (n->l->type) {
-			case node_type_id_lit: {
-				push_code(wk, op_constant);
-				push_constant(wk, n->l->data.str);
-				break;
-			}
-			default: vm_compile_expr(wk, n->l); break;
-			}
-		}
-		push_op_store_g(wk, n->data.type);
 		break;
 	}
 	case node_type_member: {
@@ -606,7 +617,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
 
 				push_code(wk, op_swap);
-				push_op_store_g(wk, 0);
+				push_code(wk, op_store_g);
 				break;
 			} else if (str_eql(name, &STR("get_variable"))) {
 				push_location(wk, n);
@@ -748,21 +759,17 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, 0);
 
 		if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-			vm_comp_assign_local(wk, ida->data.str);
+			vm_comp_assign_local(wk, ida->data.str, 0);
 		} else {
-			push_code(wk, op_constant);
-			push_constant(wk, ida->data.str);
-			push_op_store_g(wk, 0);
+			vm_comp_assign_global(wk, ida->data.str, 0);
 		}
 		push_code(wk, op_pop);
 
 		if (idb) {
 			if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-				vm_comp_assign_local(wk, idb->data.str);
+				vm_comp_assign_local(wk, idb->data.str, 0);
 			} else {
-				push_code(wk, op_constant);
-				push_constant(wk, idb->data.str);
-				push_op_store_g(wk, 0);
+				vm_comp_assign_global(wk, idb->data.str, 0);
 			}
 			push_code(wk, op_pop);
 		}
@@ -1126,7 +1133,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, f);
 
 		if (id) {
-			vm_comp_assign_local(wk, id->data.str);
+			vm_comp_assign_local(wk, id->data.str, 0);
 			func->name = get_str(wk, id->data.str)->s;
 		}
 

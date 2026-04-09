@@ -1093,12 +1093,12 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 	case node_type_leq:
 	case node_type_geq: {
 		const char *token;
-		if (n->type == node_type_assign && (n->data.type & op_store_flag_add_store)) {
+		if (n->type == node_type_assign && (n->data.type & node_assign_flag_add_store)) {
 			token = "+=";
 		} else {
 			token = fmt_node_to_token(n->type);
 		}
-		bool is_member_assign = n->type == node_type_assign && (n->data.type & op_store_flag_member);
+		bool is_member_assign = n->type == node_type_assign && (n->data.type & node_assign_flag_member);
 
 		struct node *rhs;
 

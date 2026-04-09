@@ -10,6 +10,7 @@
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
+#include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -1250,13 +1251,13 @@ az_op_store(struct workspace *wk)
 {
 	obj dup = 0;
 
-	enum op_store_flags flags;
+	enum node_assign_flag flags;
 	{
 		uint32_t ip = wk->vm.ip;
 		flags = vm_get_constant(wk->vm.code.e, &ip);
 	}
 
-	if (flags & op_store_flag_member) {
+	if (flags & node_assign_flag_member) {
 		obj tgt, key;
 		tgt = object_stack_peek(&wk->vm.stack, 2);
 		key = object_stack_peek(&wk->vm.stack, 3);
@@ -1276,7 +1277,7 @@ az_op_store(struct workspace *wk)
 	} else {
 		obj tgt = object_stack_peek(&wk->vm.stack, 2);
 		if (get_obj_type(wk, tgt) == obj_dict) {
-			if (flags & op_store_flag_add_store) {
+			if (flags & node_assign_flag_add_store) {
 				obj val = object_stack_peek(&wk->vm.stack, 1);
 				if (get_obj_type(wk, val) == obj_dict) {
 					az_dict_locations_merge(wk, tgt, val, tgt);

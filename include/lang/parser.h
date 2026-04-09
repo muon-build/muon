@@ -84,6 +84,11 @@ enum node_flag {
 	node_flag_breakpoint = 1 << 0,
 };
 
+enum node_assign_flag {
+	node_assign_flag_add_store = 1 << 0,
+	node_assign_flag_member = 2 << 0,
+};
+
 struct node {
 	union literal_data data;
 	struct node *l, *r;

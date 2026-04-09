@@ -28,11 +28,12 @@
 const uint32_t op_operands[op_count] = {
 	[op_iterator] = 1,
 	[op_iterator_next] = 1,
-	[op_store_g] = 1,
 	[op_load_l] = 1,
 	[op_store_l] = 1,
+	[op_add_store_l] = 1,
 	[op_load_u] = 1,
 	[op_store_u] = 1,
+	[op_add_store_u] = 1,
 	[op_constant] = 1,
 	[op_constant_list] = 1,
 	[op_constant_dict] = 1,
@@ -741,10 +742,15 @@ vm_op_to_s(uint8_t op)
 	op_case(op_try_load_g)
 	op_case(op_load_g)
 	op_case(op_store_g)
+	op_case(op_add_store_g)
+	op_case(op_store_m)
+	op_case(op_add_store_m)
 	op_case(op_load_l)
 	op_case(op_store_l)
+	op_case(op_add_store_l)
 	op_case(op_load_u)
 	op_case(op_store_u)
+	op_case(op_add_store_u)
 	op_case(op_iterator)
 	op_case(op_iterator_next)
 	op_case(op_constant)
@@ -815,25 +821,21 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	case op_return_end: break;
 	case op_try_load_g: break;
 	case op_load_g: break;
+	case op_store_g: break;
+	case op_add_store_g: break;
+	case op_store_m: break;
+	case op_add_store_m: break;
 
 	case op_load_u:
 	case op_store_u:
+	case op_add_store_u:
 	case op_load_l:
-	case op_store_l: {
+	case op_store_l:
+	case op_add_store_l: {
 		buf_push(":%04x", constants[0]);
 		break;
 	}
 
-	case op_store_g: {
-		buf_push(":%04x:", constants[0]);
-		if (constants[0] & op_store_flag_member) {
-			buf_push("member");
-		}
-		if (constants[0] & op_store_flag_add_store) {
-			buf_push("+=");
-		}
-		break;
-	}
 	case op_iterator: buf_push(":%d", constants[0]); break;
 	case op_iterator_next: buf_push(":%04x", constants[0]); break;
 	case op_constant: buf_push(":%o", constants[0]); break;
@@ -1680,13 +1682,181 @@ vm_op_stringify(struct workspace *wk)
 	object_stack_push(wk, res);
 }
 
+// When you assign a value to a variable, these mutations are performed.
+static obj
+vm_perform_store_mutations(struct workspace *wk, obj val)
+{
+	obj res = val;
+	switch (get_obj_type(wk, val)) {
+	case obj_environment:
+	case obj_configuration_data: {
+		// TODO: these objects are just tiny wrappers over dict and array.  They could probably use the same logic as below.
+		if (!obj_clone(wk, wk, val, &res)) {
+			UNREACHABLE;
+		}
+		break;
+	}
+	case obj_dict: {
+		// TODO: If we could detect if this was the initial storage of a dict literal to a var, then we wouldn't have to dup this.
+		obj_dict_dup_light(wk, val, &res);
+		break;
+	}
+	case obj_array: {
+		res = obj_array_dup_light(wk, val);
+		break;
+	}
+	case obj_typeinfo: {
+		res = make_obj(wk, obj_typeinfo);
+		*get_obj_typeinfo(wk, res) = *get_obj_typeinfo(wk, val);
+		break;
+	}
+	case obj_capture: {
+		struct obj_capture *c = get_obj_capture(wk, val);
+		// TODO
+		// if (c->func && !c->func->name) {
+		// 	c->func->name = get_str(wk, id)->s;
+		// }
+		break;
+	}
+	default: break;
+	}
+	return res;
+}
+
+static obj
+vm_perform_add_store_mutations(struct workspace *wk, obj val, obj source)
+{
+	obj res = source;
+	enum obj_type source_t = get_obj_type(wk, source), val_t = get_obj_type(wk, val);
+
+	switch (source_t) {
+	case obj_number: {
+		typecheck_operand(val, val_t, obj_number, tc_number, tc_number);
+
+		res = make_obj(wk, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, source) + get_obj_number(wk, val));
+		break;
+	}
+	case obj_string: {
+		typecheck_operand(val, val_t, obj_string, tc_string, tc_string);
+
+		// TODO: could use str_appn, but would have to dup on store
+		res = str_join(wk, source, val);
+		break;
+	}
+	case obj_array: {
+		if (val_t == obj_array) {
+			obj_array_extend(wk, source, val);
+		} else {
+			obj_array_push(wk, source, val);
+		}
+		break;
+	}
+	case obj_dict: {
+		typecheck_operand(val, val_t, obj_dict, tc_dict, tc_dict);
+
+		obj_dict_merge_nodup(wk, source, val);
+		break;
+	}
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_number] = { tc_number, tc_number },
+			[obj_string] = { tc_string, tc_string },
+			[obj_dict] = { tc_dict, tc_dict },
+			[obj_array] = { tc_any, tc_array },
+		};
+		if (!typecheck_typeinfo_operands(wk, source, val, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
+	default:
+type_err:
+		vm_error(wk, "+= not defined for %s and %s", obj_typestr(wk, source), obj_typestr(wk, val));
+		vm_push_dummy(wk);
+		return 0;
+	}
+	return res;
+}
+
+static void
+vm_op_store_g(struct workspace *wk)
+{
+	/* operand order: <destination_id> <value> */
+	struct obj_stack_entry *id = object_stack_pop_entry(&wk->vm.stack);
+	obj val = object_stack_pop(&wk->vm.stack);
+
+	if (get_obj_type(wk, id->o) == obj_typeinfo) {
+		object_stack_push(wk, val);
+		return;
+	}
+
+	obj res = vm_perform_store_mutations(wk, val);
+
+	wk->vm.behavior.assign_variable(wk, get_str(wk, id->o)->s, res, id->ip, assign_local);
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_add_store_g(struct workspace *wk)
+{
+	/* operand order: <destination_id> <value> */
+	obj id = object_stack_pop(&wk->vm.stack);
+	obj val = object_stack_pop(&wk->vm.stack);
+
+	if (get_obj_type(wk, id) == obj_typeinfo) {
+		object_stack_push(wk, val);
+		return;
+	}
+
+	obj source;
+	const struct str *id_str = get_str(wk, id);
+	if (!wk->vm.behavior.get_variable(wk, id_str->s, &source)) {
+		vm_error(wk, "undefined object %o", id);
+		vm_push_dummy(wk);
+		return;
+	}
+
+	obj res = vm_perform_add_store_mutations(wk, val, source);
+
+	wk->vm.behavior.assign_variable(wk, id_str->s, res, wk->vm.ip - 1, assign_reassign);
+
+	object_stack_push(wk, res);
+}
+
+static void
+vm_op_load_g(struct workspace *wk)
+{
+	obj a = object_stack_pop(&wk->vm.stack);
+
+	// a could be a disabler if this is an inlined get_variable call
+	if (a == obj_disabler) {
+		object_stack_push(wk, obj_disabler);
+		return;
+	} else if (get_obj_type(wk, a) == obj_typeinfo) {
+		vm_push_dummy(wk);
+		return;
+	}
+
+	obj b;
+	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
+		vm_error(wk, "undefined object %s", get_cstr(wk, a));
+		vm_push_dummy(wk);
+		return;
+	}
+
+	object_stack_push(wk, b);
+}
+
 static bool
 vm_op_store_member_target(struct workspace *wk,
 	uint32_t ip,
 	obj target_container,
 	obj id,
-	enum op_store_flags flags,
-	obj **member_target)
+	obj **member_target,
+	bool add_store
+	)
 {
 	obj res;
 	enum obj_type target_container_type = get_obj_type(wk, target_container), id_type = get_obj_type(wk, id);
@@ -1712,7 +1882,7 @@ vm_op_store_member_target(struct workspace *wk,
 		*member_target = obj_dict_index_strn_pointer(wk, target_container, s->s, s->len);
 
 		if (!*member_target) {
-			if (flags & op_store_flag_add_store) {
+			if (add_store) {
 				vm_error_at(wk, ip, "member %o not found on %s", id, obj_typestr(wk, target_container));
 				return false;
 			}
@@ -1744,241 +1914,102 @@ type_err:
 }
 
 static void
-vm_op_store_g(struct workspace *wk)
+vm_op_store_m(struct workspace *wk)
 {
-	enum op_store_flags flags = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	struct obj_stack_entry *id_entry;
-	obj id, val, *member_target = 0;
+	/* operand order: <value> <container> <destination_id> */
+	obj val = object_stack_pop(&wk->vm.stack);
+	obj target_container = object_stack_pop(&wk->vm.stack);
+	struct obj_stack_entry *id = object_stack_pop_entry(&wk->vm.stack);
 
-	/* op store operands come in different order depending on the store type:
-	 *   regular store:
-	 *     <destination_id> <value>
-	 *   member store
-	 *     <value> <container> <destination_id>
-	 */
-	if (flags & op_store_flag_member) {
-		val = object_stack_pop(&wk->vm.stack);
-		obj target_container = object_stack_pop(&wk->vm.stack);
-		id_entry = object_stack_pop_entry(&wk->vm.stack);
-		id = id_entry->o;
-
-		if (!vm_op_store_member_target(wk, id_entry->ip, target_container, id, flags, &member_target)) {
-			object_stack_push(wk, val);
-			return;
-		}
-	} else {
-		id_entry = object_stack_pop_entry(&wk->vm.stack);
-		id = id_entry->o;
-		val = object_stack_pop(&wk->vm.stack);
-	}
-
-	if (get_obj_type(wk, id) == obj_typeinfo) {
+	obj *member_target;
+	if (!vm_op_store_member_target(wk, id->ip, target_container, id->o, &member_target, false)) {
 		object_stack_push(wk, val);
 		return;
 	}
 
-	if (flags & op_store_flag_add_store) {
-		obj source;
-		const struct str *id_str = 0;
+	*member_target = vm_perform_store_mutations(wk, val);
 
-		if (member_target) {
-			source = *member_target;
-		} else {
-			id_str = get_str(wk, id);
-			if (!wk->vm.behavior.get_variable(wk, id_str->s, &source)) {
-				vm_error(wk, "undefined object %o", id);
-				vm_push_dummy(wk);
-				return;
-			}
-		}
-
-		enum obj_type source_t = get_obj_type(wk, source), val_t = get_obj_type(wk, val);
-		obj res;
-		bool assign = false;
-
-		if (wk->vm.in_analyzer) {
-			// This is to ensure that array and dict mutations inside branches
-			// cause the mutated object to be marked dirty when the branch
-			// completes.
-			assign = true;
-		}
-
-		switch (source_t) {
-		case obj_number: {
-			assign = true;
-			typecheck_operand(val, val_t, obj_number, tc_number, tc_number);
-
-			res = make_obj(wk, obj_number);
-			set_obj_number(wk, res, get_obj_number(wk, source) + get_obj_number(wk, val));
-			break;
-		}
-		case obj_string: {
-			assign = true;
-			typecheck_operand(val, val_t, obj_string, tc_string, tc_string);
-
-			// TODO: could use str_appn, but would have to dup on store
-			res = str_join(wk, source, val);
-			break;
-		}
-		case obj_array: {
-			if (val_t == obj_array) {
-				obj_array_extend(wk, source, val);
-			} else {
-				obj_array_push(wk, source, val);
-			}
-			res = source;
-			break;
-		}
-		case obj_dict: {
-			typecheck_operand(val, val_t, obj_dict, tc_dict, tc_dict);
-
-			obj_dict_merge_nodup(wk, source, val);
-			res = source;
-			break;
-		}
-		case obj_typeinfo: {
-			assign = true;
-			struct check_obj_typeinfo_map map[obj_type_count] = {
-				[obj_number] = { tc_number, tc_number },
-				[obj_string] = { tc_string, tc_string },
-				[obj_dict] = { tc_dict, tc_dict },
-				[obj_array] = { tc_any, tc_array },
-			};
-			if (!typecheck_typeinfo_operands(wk, source, val, &res, map)) {
-				goto type_err;
-			}
-			break;
-		}
-		default:
-type_err:
-			vm_error(wk, "+= not defined for %s and %s", obj_typestr(wk, source), obj_typestr(wk, val));
-			vm_push_dummy(wk);
-			return;
-		}
-
-		if (assign) {
-			if (member_target) {
-				*member_target = res;
-			} else {
-				wk->vm.behavior.assign_variable(wk, id_str->s, res, wk->vm.ip - 1, assign_reassign);
-			}
-		}
-
-		object_stack_push(wk, res);
-	} else {
-		switch (get_obj_type(wk, val)) {
-		case obj_environment:
-		case obj_configuration_data: {
-			// TODO: these objects are just tiny wrappers over dict and array.  They could probably use the same logic as below.
-			obj cloned;
-			if (!obj_clone(wk, wk, val, &cloned)) {
-				UNREACHABLE;
-			}
-
-			val = cloned;
-			break;
-		}
-		case obj_dict: {
-			// TODO: If we could detect if this was the initial storage of a dict literal to a var, then we wouldn't have to dup this.
-			obj dup;
-			obj_dict_dup_light(wk, val, &dup);
-			val = dup;
-			break;
-		}
-		case obj_array: {
-			val = obj_array_dup_light(wk, val);
-			break;
-		}
-		case obj_typeinfo: {
-			obj dup = make_obj(wk, obj_typeinfo);
-			*get_obj_typeinfo(wk, dup) = *get_obj_typeinfo(wk, val);
-			val = dup;
-			break;
-		}
-		case obj_capture: {
-			struct obj_capture *c = get_obj_capture(wk, val);
-			if (c->func && !c->func->name) {
-				c->func->name = get_str(wk, id)->s;
-			}
-			break;
-		}
-		default: break;
-		}
-
-		if (member_target) {
-			*member_target = val;
-		} else {
-			wk->vm.behavior.assign_variable(wk, get_str(wk, id)->s, val, id_entry->ip, assign_local);
-		}
-
-		object_stack_push(wk, val);
-	}
+	object_stack_push(wk, *member_target);
 }
 
 static void
-vm_op_load_g(struct workspace *wk)
+vm_op_add_store_m(struct workspace *wk)
 {
-	obj a, b;
-	a = object_stack_pop(&wk->vm.stack);
+	obj val = object_stack_pop(&wk->vm.stack);
+	obj target_container = object_stack_pop(&wk->vm.stack);
+	struct obj_stack_entry *id = object_stack_pop_entry(&wk->vm.stack);
 
-	// a could be a disabler if this is an inlined get_variable call
-	if (a == obj_disabler) {
-		object_stack_push(wk, obj_disabler);
-		return;
-	} else if (get_obj_type(wk, a) == obj_typeinfo) {
-		vm_push_dummy(wk);
+	obj *member_target;
+	if (!vm_op_store_member_target(wk, id->ip, target_container, id->o, &member_target, true)) {
+		object_stack_push(wk, val);
 		return;
 	}
 
-	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
-		vm_error(wk, "undefined object %s", get_cstr(wk, a));
-		vm_push_dummy(wk);
-		return;
-	}
+	*member_target = vm_perform_add_store_mutations(wk, val, *member_target);
 
-	/* LO("%o <= %o\n", b, a); */
-	object_stack_push(wk, b);
+	object_stack_push(wk, *member_target);
 }
+
+#define vm_op_store_load_l_common() \
+	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1); \
+	obj slot_idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip) + frame->stack_base; \
+	struct obj_stack_entry *slot = bucket_arr_get(&wk->vm.stack.ba, slot_idx) \
 
 static void
 vm_op_load_l(struct workspace *wk)
 {
-	obj slot = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
-	slot += frame->stack_base;
-	const struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, slot);
-	object_stack_push_ip(wk, e->o, e->ip);
+	vm_op_store_load_l_common();
+	object_stack_push_ip(wk, slot->o, slot->ip);
 }
 
 static void
 vm_op_store_l(struct workspace *wk)
 {
-	obj slot = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
-	slot += frame->stack_base;
+	vm_op_store_load_l_common();
 
-	// if (slot == wk->vm.stack.ba.len - 1) {
-	// 	return;
-	// }
 	const struct obj_stack_entry *src = object_stack_peek_entry(&wk->vm.stack, 1);
-	struct obj_stack_entry *dest = bucket_arr_get(&wk->vm.stack.ba, slot);
-	*dest = *src;
+	slot->o = vm_perform_store_mutations(wk, src->o);
+	slot->ip = src->ip;
 }
+
+static void
+vm_op_add_store_l(struct workspace *wk)
+{
+	vm_op_store_load_l_common();
+
+	const struct obj_stack_entry *src = object_stack_pop_entry(&wk->vm.stack);
+	slot->o = vm_perform_add_store_mutations(wk, src->o, slot->o);
+	slot->ip = src->ip;
+	object_stack_push(wk, slot->o);
+}
+
+#define vm_op_store_load_u_common() \
+	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1); \
+	obj slot_idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip); \
+	obj *slot = frame->capture->upvalues[slot_idx]->location;
 
 static void
 vm_op_load_u(struct workspace *wk)
 {
-	obj slot = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
-	object_stack_push(wk, *frame->capture->upvalues[slot]->location);
+	vm_op_store_load_u_common();
+	object_stack_push(wk, *slot);
 }
 
 static void
 vm_op_store_u(struct workspace *wk)
 {
-	obj slot = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
-	*frame->capture->upvalues[slot]->location = object_stack_peek(&wk->vm.stack, 1);
+	vm_op_store_load_u_common();
+	obj val = object_stack_peek(&wk->vm.stack, 1);
+	*slot = vm_perform_store_mutations(wk, val);
+}
+
+static void
+vm_op_add_store_u(struct workspace *wk)
+{
+	vm_op_store_load_u_common();
+	obj val = object_stack_pop(&wk->vm.stack);
+	*slot = vm_perform_add_store_mutations(wk, val, *slot);
+	object_stack_push(wk, *slot);
 }
 
 static void
@@ -2957,8 +2988,10 @@ vm_execute_loop(struct workspace *wk)
 {
 	uint32_t cip;
 	while (wk->vm.run) {
-		LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-		object_stack_print(wk, &wk->vm.stack);
+		if (log_should_print(log_debug)) {
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			object_stack_print(wk, &wk->vm.stack);
+		}
 
 		log_progress(wk, wk->vm.ip);
 
@@ -3560,11 +3593,16 @@ vm_init(struct workspace *wk)
 					      [op_negate] = vm_op_negate,
 					      [op_stringify] = vm_op_stringify,
 					      [op_store_g] = vm_op_store_g,
+					      [op_add_store_g] = vm_op_add_store_g,
 					      [op_try_load_g] = vm_op_try_load,
 					      [op_load_g] = vm_op_load_g,
+					      [op_store_m] = vm_op_store_m,
+					      [op_add_store_m] = vm_op_add_store_m,
 					      [op_store_l] = vm_op_store_l,
+					      [op_add_store_l] = vm_op_add_store_l,
 					      [op_load_l] = vm_op_load_l,
 					      [op_store_u] = vm_op_store_u,
+					      [op_add_store_u] = vm_op_add_store_u,
 					      [op_load_u] = vm_op_load_u,
 					      [op_return] = vm_op_return,
 					      [op_return_end] = vm_op_return,

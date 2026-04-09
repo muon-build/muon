@@ -516,7 +516,7 @@ make_node_t(struct parser *p, enum node_type t)
 }
 
 static struct node *
-make_node_assign(struct parser *p, enum op_store_flags flags)
+make_node_assign(struct parser *p, enum node_assign_flag flags)
 {
 	struct node *n = make_node_t(p, node_type_assign);
 	n->data.type = flags;
@@ -526,7 +526,7 @@ make_node_assign(struct parser *p, enum op_store_flags flags)
 		break;
 	}
 	case token_type_plus_assign: {
-		n->data.type |= op_store_flag_add_store;
+		n->data.type |= node_assign_flag_add_store;
 		break;
 	}
 	default: UNREACHABLE;
@@ -751,7 +751,7 @@ parse_index(struct parser *p, struct node *l, bool assignment_allowed)
 
 	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
 		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
-		n = make_node_assign(p, op_store_flag_member);
+		n = make_node_assign(p, node_assign_flag_member);
 		n->location = key->location;
 		n->l = key;
 		n->r = make_node_t(p, node_type_list);
@@ -1048,7 +1048,7 @@ parse_member(struct parser *p, struct node *l, bool assignment_allowed)
 
 	if ((p->mode & vm_compile_mode_language_extended) && assignment_allowed
 		&& (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
-		n = make_node_assign(p, op_store_flag_member);
+		n = make_node_assign(p, node_assign_flag_member);
 		n->location = id->location;
 		if (!(p->mode & vm_compile_mode_fmt)) {
 			id->type = node_type_string;

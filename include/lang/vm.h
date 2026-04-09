@@ -32,13 +32,24 @@ enum op {
 	op_lt,
 	op_negate,
 	op_stringify,
+
+	// storing and loading
 	op_store_l,
+	op_add_store_l,
 	op_load_l,
+
 	op_store_u,
+	op_add_store_u,
 	op_load_u,
+
 	op_store_g,
+	op_add_store_g,
 	op_load_g,
 	op_try_load_g,
+
+	op_store_m,
+	op_add_store_m,
+
 	op_return,
 	op_return_end,
 	op_call,
@@ -71,11 +82,6 @@ extern const uint32_t op_operand_size;
 const char *vm_op_to_s(uint8_t op);
 
 struct workspace;
-
-enum op_store_flags {
-	op_store_flag_add_store = 1 << 0,
-	op_store_flag_member = 2 << 0,
-};
 
 enum variable_assignment_mode {
 	assign_local,
