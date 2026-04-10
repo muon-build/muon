@@ -5,7 +5,8 @@ fs = import('fs')
 
 func splitext(file file|str) -> str
     f = ''
-    foreach p : (s = (typeof(file) == 'file' ? file.full_path() : file).split('.'))
+    s = (typeof(file) == 'file' ? file.full_path() : file).split('.')
+    foreach p : s
         f += (p == s[-1]) ? '' : (p == s[0] ? '' : '.') + p
     endforeach
     return f

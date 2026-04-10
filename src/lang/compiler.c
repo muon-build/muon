@@ -80,7 +80,6 @@ vm_visit_nodes(struct workspace *wk,
 	}
 }
 
-
 static void
 push_code(struct workspace *wk, uint8_t b)
 {
@@ -193,7 +192,6 @@ vm_comp_add_upvalue(struct workspace *wk, uint32_t depth, uint32_t slot, bool is
 
 	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
 		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
-		L("checking existing upvalue depth:%d==%d, slot:%d==%d, local:%d==%d", u->depth, depth, u->slot, slot, u->is_local, is_local);
 		if (u->depth != depth) {
 			continue;
 		}
@@ -205,7 +203,6 @@ vm_comp_add_upvalue(struct workspace *wk, uint32_t depth, uint32_t slot, bool is
 		++res_slot;
 	}
 
-	L("declared upvalue %d:%d%s", depth, slot, is_local ? " (local)" : "");
 	arr_push(wk->a, &wk->vm.compiler_state.upvalues, &(struct upvalue_binding){ depth, slot, is_local });
 	return res_slot;
 }
@@ -219,8 +216,6 @@ static int32_t
 vm_comp_resolve_upvalue_depth(struct workspace *wk, uint32_t depth, obj id)
 {
 	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
-
-	L("resolving upvalue %s, depth: %d", get_cstr(wk, id), depth);
 
 	for (uint32_t i = frame->locals_base; i < wk->vm.compiler_state.locals.len; ++i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
@@ -265,7 +260,6 @@ vm_comp_declare_local(struct workspace *wk, obj id)
 {
 	const uint32_t depth = vm_comp_current_depth(wk);
 	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
-	L("declared local %s @ %d:%d", get_cstr(wk, id), depth, wk->vm.compiler_state.locals.len - frame->locals_base);
 	struct local_binding l = {
 		id,
 		depth,
@@ -322,10 +316,6 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags
 			res.type = vm_comp_local_type_constant;
 		}
 	}
-	L("resolved %s - %s:%d",
-		get_cstr(wk, id),
-		res.type == vm_comp_local_type_upvalue ? "u" : (res.type == vm_comp_local_type_constant ? "c" : "l"),
-		res.slot);
 	return res;
 }
 
@@ -430,7 +420,6 @@ vm_comp_block_locals(struct workspace *wk, struct node *n)
 static void
 vm_comp_push_call_frame(struct workspace *wk)
 {
-	L(">> call frame");
 	stack_push(&wk->stack, wk->vm.compiler_state.loop_depth, 0);
 	arr_push(wk->a,
 		&wk->vm.compiler_state.call_stack,
@@ -449,13 +438,11 @@ vm_comp_pop_call_frame(struct workspace *wk)
 
 	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
 		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
-		L("checking existing upvalue depth:%d, slot:%d, local:%d", u->depth, u->slot, u->is_local);
 		if (u->depth == depth - 1) {
 			++frame->nupvalues;
 		}
 	}
 
-	L("<< call frame depth %d, (%d upvalues), %d", depth, frame->nupvalues, frame->upvalues_base);
 	frame->upvalues = ar_maken(wk->a, struct func_upvalue, frame->nupvalues);
 
 	uint32_t upvalue_i = 0;
@@ -582,7 +569,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			vm_comp_assign_local(wk, n->l->data.str, flags);
 		} else {
 			assert(n->l->type == node_type_id_lit);
-			push_code(wk, op_constant);
 			vm_comp_assign_global(wk, n->l->data.str, flags);
 		}
 		break;
@@ -1231,8 +1217,6 @@ vm_compile_initial_code_segment(struct workspace *wk)
 			.src_idx = UINT32_MAX,
 		});
 
-	push_code(wk, op_constant);
-	push_constant(wk, 0);
 	push_code(wk, op_return_end);
 }
 

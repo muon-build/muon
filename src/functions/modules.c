@@ -61,7 +61,6 @@ module_lookup_script(struct workspace *wk,
 	bool ret = false;
 	bool stack_popped = false;
 	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
-	stack_push(&wk->stack, wk->vm.scope_stack, wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack));
 
 	obj res;
 	if (opts->embedded) {
@@ -105,7 +104,6 @@ module_lookup_script(struct workspace *wk,
 	ret = true;
 ret:
 	if (!stack_popped) {
-		stack_pop(&wk->stack, wk->vm.scope_stack);
 		stack_pop(&wk->stack, wk->vm.lang_mode);
 	}
 	return ret;

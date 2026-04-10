@@ -930,8 +930,6 @@ vm_pop_call_stack_frame(struct workspace *wk)
 	switch (frame->type) {
 	case call_frame_type_eval: break;
 	case call_frame_type_func:
-		wk->vm.behavior.pop_local_scope(wk);
-		wk->vm.scope_stack = frame->scope_stack;
 		wk->vm.lang_mode = frame->lang_mode;
 		break;
 	}
@@ -979,9 +977,6 @@ vm_execute_capture(struct workspace *wk, obj a)
 		});
 
 	wk->vm.lang_mode = capture->func->lang_mode;
-
-	wk->vm.scope_stack = capture->scope_stack;
-	wk->vm.behavior.push_local_scope(wk);
 
 	for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
 		object_stack_push_ip(wk, capture->func->an[i].val, capture->func->an[i].node);
@@ -1130,7 +1125,6 @@ vm_op_constant_func(struct workspace *wk)
 	capture = get_obj_capture(wk, c);
 
 	capture->func = get_obj_func(wk, a);
-	capture->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.scope_stack);
 	capture->defargs = defargs;
 	capture->upvalues = ar_maken(wk->a, struct upvalue *, capture->func->nupvalues);
 
@@ -1143,7 +1137,7 @@ vm_op_constant_func(struct workspace *wk)
 				for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
 					struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
 					if (u->slot == slot) {
-						L("found existing upvalue for %d", slot);
+						// L("found existing upvalue for %d", slot);
 						capture->upvalues[i] = u->u;
 						break;
 					}
@@ -1153,7 +1147,7 @@ vm_op_constant_func(struct workspace *wk)
 					struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, slot);
 					capture->upvalues[i] = ar_make(wk->a, struct upvalue);
 					capture->upvalues[i]->location = &e->o;
-					L("creating upvalue for %d, %p", slot, (void*)capture->upvalues[i] );
+					// L("creating upvalue for %d, %p", slot, (void*)capture->upvalues[i] );
 
 					arr_push(wk->a,
 						&wk->vm.open_upvalues,
@@ -1163,7 +1157,7 @@ vm_op_constant_func(struct workspace *wk)
 						});
 				}
 			} else {
-				L("grabbing nonlocal capture @ %d (%p)", slot, (void*)frame->capture->upvalues[slot]);
+				// L("grabbing nonlocal capture @ %d (%p)", slot, (void*)frame->capture->upvalues[slot]);
 				capture->upvalues[i] = frame->capture->upvalues[slot];
 			}
 	}
@@ -2566,26 +2560,27 @@ vm_op_jmp(struct workspace *wk)
 void
 vm_op_return(struct workspace *wk)
 {
+	struct call_frame *frame = vm_pop_call_stack_frame(wk);
+	wk->vm.ip = frame->return_ip;
+
+	if (frame->type == call_frame_type_func) {
+		for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
+			struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
+			if (u->slot < frame->stack_base) {
+				break;
+			}
+			const struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, u->slot);
+			u->u->closed = e->o;
+			u->u->location = &u->u->closed;
+			arr_del(&wk->vm.open_upvalues, i);
+		}
+
+	}
+
 	struct obj_stack_entry *entry;
 	uint32_t a_ip;
 	obj a;
 	vm_pop(a);
-
-	struct call_frame *frame = vm_pop_call_stack_frame(wk);
-
-	for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
-		struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
-		if (u->slot < frame->stack_base) {
-			break;
-		}
-		L("closing upvalue for %d", u->slot);
-		const struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, u->slot);
-		u->u->closed = e->o;
-		u->u->location = &u->u->closed;
-		arr_del(&wk->vm.open_upvalues, i);
-	}
-
-	wk->vm.ip = frame->return_ip;
 	object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - frame->stack_base);
 	object_stack_push_ip(wk, a, a_ip);
 
@@ -2594,9 +2589,11 @@ vm_op_return(struct workspace *wk)
 		wk->vm.run = false;
 		break;
 	}
-	case call_frame_type_func:
+	case call_frame_type_func: {
+
 		typecheck_custom(wk, a_ip, a, frame->expected_return_type, "expected return type %s, got %s");
 		break;
+	}
 	}
 }
 
@@ -2628,6 +2625,13 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 {
 	bool ok;
 
+	uint32_t call_stack_base = wk->vm.call_stack.len;
+	vm_push_call_stack_frame(wk,
+		&(struct call_frame){
+			.type = call_frame_type_eval,
+			.return_ip = wk->vm.ip,
+		});
+
 	wk->vm.nargs = 0;
 	if (an) {
 		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
@@ -2649,13 +2653,6 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 		}
 	}
 
-	uint32_t call_stack_base = wk->vm.call_stack.len;
-	vm_push_call_stack_frame(wk,
-		&(struct call_frame){
-			.type = call_frame_type_eval,
-			.return_ip = wk->vm.ip,
-		});
-
 	// Set the vm ip to 0 where vm_compile_initial_code_segment has placed a return statement
 	wk->vm.ip = 0;
 	vm_execute_capture(wk, c);
@@ -2666,13 +2663,12 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 		goto err;
 	}
 
-	vm_execute(wk);
+	*res = vm_execute(wk);
 
 err:
 	assert(call_stack_base == wk->vm.call_stack.len);
 
 	ok = !wk->vm.error;
-	*res = ok ? object_stack_pop(&wk->vm.stack) : 0;
 
 	wk->vm.error = false;
 	return ok;
@@ -2739,33 +2735,6 @@ vm_execute(struct workspace *wk)
  * vm behavior functions
  ******************************************************************************/
 
-/* muon stores variable scopes as an array of dicts.
- *
- * Each element of the array is a block scope.  Currently the only way to enter
- * a new block is inside of a function.
- *
- * For example, take the below scope_stack:
- *
- *     [{'a': 1}, {'b': 2}, {'c': 3}]
- *
- * This could be generated by the following code:
- *
- *     a = 1
- *
- *     func f()
- *         b = 2
- *         func g()
- *             c = 3 # at this point, scope_stack looks like the above.
- *         endfunc
- *         g()
- *     endfunc
- *
- *     f()
- *
- * When looking up variables, scopes are checked from the end of the
- * scope_stack.
- */
-
 static bool
 vm_get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
 {
@@ -2806,20 +2775,6 @@ vm_scope_stack_dup(struct workspace *wk, obj scope_stack)
 		obj_array_push(wk, r, scope);
 	}
 	return r;
-}
-
-static void
-vm_push_local_scope(struct workspace *wk)
-{
-	obj scope;
-	scope = make_obj(wk, obj_dict);
-	obj_array_push(wk, wk->vm.scope_stack, scope);
-}
-
-static void
-vm_pop_local_scope(struct workspace *wk)
-{
-	obj_array_pop(wk, wk->vm.scope_stack);
 }
 
 static void
@@ -2989,8 +2944,8 @@ vm_execute_loop(struct workspace *wk)
 	uint32_t cip;
 	while (wk->vm.run) {
 		if (log_should_print(log_debug)) {
-			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-			object_stack_print(wk, &wk->vm.stack);
+			// LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			// object_stack_print(wk, &wk->vm.stack);
 		}
 
 		log_progress(wk, wk->vm.ip);
@@ -3563,8 +3518,6 @@ vm_init(struct workspace *wk)
 	wk->vm.behavior = (struct vm_behavior){
 		.assign_variable = vm_assign_variable,
 		.unassign_variable = vm_unassign_variable,
-		.push_local_scope = vm_push_local_scope,
-		.pop_local_scope = vm_pop_local_scope,
 		.scope_stack_dup = vm_scope_stack_dup,
 		.get_variable = vm_get_variable,
 		.eval_project_file = eval_project_file,
