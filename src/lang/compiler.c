@@ -141,6 +141,15 @@ vm_comp_warning(struct workspace *wk, struct node *n, const char *fmt, ...)
 }
 
 static void
+vm_comp_disable_in_script_mode(struct workspace *wk, struct node *n)
+{
+	const bool script_mode = wk->vm.compiler_state.mode & vm_compile_mode_language_extended;
+	if (script_mode) {
+		vm_comp_error(wk, n, "this function is not available in script mode");
+	}
+}
+
+static void
 vm_comp_assert_inline_func_args(struct workspace *wk,
 	struct node *func_node,
 	struct node *args_node,
