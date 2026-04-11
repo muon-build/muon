@@ -587,6 +587,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			name = get_str(wk, n->r->data.str);
 
 			if (str_eql(name, &STR("subdir_done"))) {
+				vm_comp_disable_in_script_mode(wk, n);
+
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
@@ -598,6 +600,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 				break;
 			} else if (str_eql(name, &STR("set_variable"))) {
+				vm_comp_disable_in_script_mode(wk, n);
+
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
@@ -606,6 +610,8 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				push_code(wk, op_store_g);
 				break;
 			} else if (str_eql(name, &STR("get_variable"))) {
+				vm_comp_disable_in_script_mode(wk, n);
+
 				push_location(wk, n);
 
 				vm_comp_assert_inline_func_args(wk, n, n->l, 1, 2, 0);
