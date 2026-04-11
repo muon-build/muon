@@ -1134,8 +1134,8 @@ vm_op_constant_func(struct workspace *wk)
 			if (capture->func->upvalues[i].is_local) {
 				slot += frame->stack_base;
 
-				for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
-					struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
+				for (int32_t j = wk->vm.open_upvalues.len - 1; j >= 0; --j) {
+					struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, j);
 					if (u->slot == slot) {
 						// L("found existing upvalue for %d", slot);
 						capture->upvalues[i] = u->u;
