@@ -322,8 +322,12 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags
 static bool
 vm_comp_try_declare_local(struct workspace *wk, obj id)
 {
+	const uint32_t depth = vm_comp_current_depth(wk);
 	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
+		if (l->depth != depth) {
+			break;
+		}
 		if (obj_equal(wk, id, l->id)) {
 			return false;
 		}
