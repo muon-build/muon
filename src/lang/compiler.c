@@ -449,16 +449,19 @@ vm_comp_pop_call_frame(struct workspace *wk)
 
 	frame->upvalues = ar_maken(wk->a, struct func_upvalue, frame->nupvalues);
 
-	uint32_t upvalue_i = 0;
+	int32_t upvalue_i = frame->nupvalues - 1;
 	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
 		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
 		if (u->depth == depth - 1) {
+			// struct compiler_call_frame *parent_frame = arr_peek(&wk->vm.compiler_state.call_stack, 1);
+			// struct local_binding *l
+			// 	= arr_get(&wk->vm.compiler_state.locals, parent_frame->locals_base + u->slot);
 			frame->upvalues[upvalue_i] = (struct func_upvalue){
 				.slot = u->slot,
 				.is_local = u->is_local,
 			};
 			arr_del(&wk->vm.compiler_state.upvalues, i);
-			++upvalue_i;
+			--upvalue_i;
 		}
 	}
 
