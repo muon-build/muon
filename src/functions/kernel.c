@@ -1859,8 +1859,8 @@ FUNC_IMPL(kernel, unset_variable, 0)
 	const char *varname = get_cstr(wk, an[0].val);
 	obj _val;
 
-	if (wk->vm.behavior.get_variable(wk, varname, &_val)) {
-		wk->vm.behavior.unassign_variable(wk, varname);
+	if (wk->vm.behavior.get_global(wk, varname, &_val)) {
+		wk->vm.behavior.unassign_global(wk, varname);
 	} else {
 		vm_error_at(wk, an[0].node, "cannot unset undefined variable: %o", an[0].val);
 		return false;
@@ -1878,7 +1878,7 @@ FUNC_IMPL(kernel, is_variable, tc_bool)
 
 	obj dont_care;
 
-	*res = make_obj_bool(wk, wk->vm.behavior.get_variable(wk, get_cstr(wk, an[0].val), &dont_care));
+	*res = make_obj_bool(wk, wk->vm.behavior.get_global(wk, get_cstr(wk, an[0].val), &dont_care));
 	return true;
 }
 

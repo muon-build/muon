@@ -199,7 +199,7 @@ vm_comp_add_upvalue(struct workspace *wk, uint32_t depth, uint32_t slot, bool is
 
 	uint32_t res_slot = 0;
 
-	for (int32_t i = wk->vm.compiler_state.upvalues.len - 1; i >= (int32_t)frame->upvalues_base; --i) {
+	for (uint32_t i = frame->upvalues_base; i < wk->vm.compiler_state.upvalues.len; ++i) {
 		struct upvalue_binding *u = arr_get(&wk->vm.compiler_state.upvalues, i);
 		if (u->depth != depth) {
 			continue;
@@ -319,8 +319,8 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags
 	} else if ((res.slot = vm_comp_resolve_upvalue(wk, id)) != -1) {
 		res.type = vm_comp_local_type_upvalue;
 	} else {
-		obj var, default_scope = obj_array_get_tail(wk, wk->vm.default_scope_stack);
-		if (obj_dict_index(wk, default_scope, id, &var)) {
+		obj var;
+		if (obj_dict_index(wk, wk->vm.default_global_scope, id, &var)) {
 			res.slot = var;
 			res.type = vm_comp_local_type_constant;
 		}
@@ -1096,6 +1096,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					.type = arg->l->r->l->data.type,
 					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
+				L("kwarg %d: %s", kwarg_i, func->akw[kwarg_i].key);
 				++kwarg_i;
 
 				if (arg->l->l) {
@@ -1111,6 +1112,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					.type = arg->l->l->data.type,
 					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
+				L("arg %d: %s", arg_i, func->an[arg_i].name);
 				++arg_i;
 			}
 		}
@@ -1327,7 +1329,7 @@ vm_resolve_breakpoints(struct workspace *wk, struct node *n)
 }
 
 bool
-vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, uint32_t *entry)
+vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, const struct args_norm *an, uint32_t *entry)
 {
 	TracyCZoneAutoS;
 	if (mode & vm_compile_mode_language_extended) {
@@ -1352,6 +1354,17 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	if (mode & vm_compile_mode_locals) {
 		vm_comp_push_call_frame(wk);
 		vm_comp_block_locals(wk, n);
+
+		if (an) {
+			struct local_binding *l;
+			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+				if (!vm_comp_try_declare_local(wk, make_str(wk, an[i].name))) {
+					vm_comp_error(wk, n, "duplicate argument name %s", an[i].name);
+				}
+				l = arr_peek(&wk->vm.compiler_state.locals, 1);
+				l->bound = true;
+			}
+		}
 	}
 
 	vm_compile_block(wk, n, flags);
@@ -1362,6 +1375,8 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);
 	assert(wk->vm.compiler_state.locals.len == 0);
+	assert(wk->vm.compiler_state.upvalues.len == 0);
+	assert(wk->vm.compiler_state.call_stack.len == 0);
 	assert(wk->vm.compiler_state.loop_jmp_stack.len == 0);
 	assert(wk->vm.compiler_state.if_jmp_stack.len == 0);
 
@@ -1380,5 +1395,5 @@ vm_compile(struct workspace *wk, const struct source *src, enum vm_compile_mode 
 		wk->vm.compiler_state.err = true;
 	}
 
-	return vm_compile_ast(wk, n, mode, entry);
+	return vm_compile_ast(wk, n, mode, 0, entry);
 }

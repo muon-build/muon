@@ -770,7 +770,7 @@ init_builtin_options(struct workspace *wk, const char *script)
 	wk->vm.lang_mode = language_opts;
 	obj _;
 	initializing_builtin_options = true;
-	bool ret = eval(wk, &src, build_language_meson, 0, &_);
+	bool ret = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_);
 	initializing_builtin_options = false;
 	wk->vm.lang_mode = old_mode;
 	return ret;

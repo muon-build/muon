@@ -28,15 +28,15 @@ subproject_get_variable(struct workspace *wk, uint32_t node, obj name_id, obj fa
 	}
 
 	bool ok = true;
-	stack_push(&wk->stack, wk->vm.scope_stack, ((struct project *)arr_get(&wk->projects, sub->id))->scope_stack);
-	if (!wk->vm.behavior.get_variable(wk, name, res)) {
+	stack_push(&wk->stack, wk->vm.global_scope, ((struct project *)arr_get(&wk->projects, sub->id))->global_scope);
+	if (!wk->vm.behavior.get_global(wk, name, res)) {
 		if (!fallback) {
 			ok = false;
 		} else {
 			*res = fallback;
 		}
 	}
-	stack_pop(&wk->stack, wk->vm.scope_stack);
+	stack_pop(&wk->stack, wk->vm.global_scope);
 
 	return ok;
 }

@@ -83,11 +83,6 @@ const char *vm_op_to_s(uint8_t op);
 
 struct workspace;
 
-enum variable_assignment_mode {
-	assign_local,
-	assign_reassign,
-};
-
 enum compile_time_constant_objects {
 	/* obj_null = 0, */
 	/* obj_disabler = 1, */
@@ -121,7 +116,6 @@ enum call_frame_type {
 struct call_frame {
 	type_tag expected_return_type;
 	enum call_frame_type type;
-	obj scope_stack;
 	uint32_t return_ip, stack_base;
 	enum language_mode lang_mode;
 	struct obj_capture *capture;
@@ -153,16 +147,13 @@ struct vm_dbg_state {
 };
 
 struct vm_behavior {
-	void((*assign_variable)(struct workspace *wk,
+	void((*assign_global)(struct workspace *wk,
 		const char *name,
 		obj o,
-		uint32_t n_id,
-		enum variable_assignment_mode mode));
-	void((*unassign_variable)(struct workspace *wk, const char *name));
-	void((*push_local_scope)(struct workspace *wk));
-	void((*pop_local_scope)(struct workspace *wk));
-	obj((*scope_stack_dup)(struct workspace *wk, obj scope_stack));
-	bool((*get_variable)(struct workspace *wk, const char *name, obj *res));
+		uint32_t n_id));
+	void((*unassign_global)(struct workspace *wk, const char *name));
+	obj((*global_scope_dup)(struct workspace *wk, obj scope));
+	bool((*get_global)(struct workspace *wk, const char *name, obj *res));
 	bool((*eval_project_file)(struct workspace *wk,
 		const char *path,
 		enum build_language lang,
@@ -240,7 +231,7 @@ struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
 	uint32_t ip, nargs, nkwargs;
-	obj scope_stack, default_scope_stack;
+	obj global_scope, default_global_scope;
 	obj modules;
 	struct arr open_upvalues;
 

@@ -70,7 +70,7 @@ module_lookup_script(struct workspace *wk,
 		}
 		src.label = get_cstr(wk, tstr_into_str(wk, path));
 		src.len = strlen(src.src);
-		if (!eval(wk, &src, build_language_meson, 0, &res)) {
+		if (!eval(wk, &src, &(struct eval_opts) { build_language_meson }, &res)) {
 			goto ret;
 		}
 	} else {
@@ -92,12 +92,11 @@ module_lookup_script(struct workspace *wk,
 		m->has_impl = true;
 		m->exports = res;
 	} else {
-		stack_pop(&wk->stack, wk->vm.scope_stack);
 		stack_pop(&wk->stack, wk->vm.lang_mode);
 		stack_popped = true;
 		obj k, v;
 		obj_dict_for(wk, res, k, v) {
-			wk->vm.behavior.assign_variable(wk, get_cstr(wk, k), v, 0, assign_local);
+			wk->vm.behavior.assign_global(wk, get_cstr(wk, k), v, 0);
 		}
 	}
 

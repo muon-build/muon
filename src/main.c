@@ -32,6 +32,7 @@
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
 #include "lang/serial.h"
+#include "lang/typecheck.h"
 #include "meson_opts.h"
 #include "options.h"
 #include "opts.h"
@@ -526,19 +527,16 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		}
 	}
 
+	struct args_norm an[] = { { .name = "argv" }, { ARG_TYPE_NULL } };
 	{ // populate argv array
-		obj argv_obj;
-		argv_obj = make_obj(wk, obj_array);
-		wk->vm.behavior.assign_variable(wk, "argv", argv_obj, 0, assign_local);
-
-		uint32_t i;
-		for (i = argi; i < argc; ++i) {
-			obj_array_push(wk, argv_obj, make_str(wk, argv[i]));
+		an[0].val = make_obj(wk, obj_array);
+		for (uint32_t i = argi; i < argc; ++i) {
+			obj_array_push(wk, an[0].val, make_str(wk, argv[i]));
 		}
 	}
 
 	obj res;
-	if (!eval(wk, &src, build_language_meson, 0, &res)) {
+	if (!eval(wk, &src, &(struct eval_opts) { build_language_meson, .an = an }, &res)) {
 		goto ret;
 	}
 

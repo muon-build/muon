@@ -232,7 +232,7 @@ print_scope_stack(struct workspace *wk)
 {
 	L("scope stack:");
 	obj local_scope, scope_group, scope, k, v;
-	obj_array_for(wk, wk->vm.scope_stack, local_scope) {
+	obj_array_for(wk, wk->vm.global_scope, local_scope) {
 		L("  local scope:");
 		uint32_t i = 0;
 		obj_array_for(wk, local_scope, scope_group) {
@@ -266,7 +266,7 @@ assign_lookup_with_scope(struct workspace *wk, const char *name, obj *scope, obj
 
 	bool found = false;
 	obj local_scope;
-	obj_array_for(wk, wk->vm.scope_stack, local_scope) {
+	obj_array_for(wk, wk->vm.global_scope, local_scope) {
 		obj base = obj_array_index(wk, local_scope, 0);
 
 		uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
@@ -387,25 +387,23 @@ push_assignment(struct workspace *wk, const char *name, obj o, uint32_t ip)
 }
 
 static struct az_assignment *
-scope_assign(struct workspace *wk, const char *name, obj o, uint32_t ip, enum variable_assignment_mode mode)
+scope_assign(struct workspace *wk, const char *name, obj o, uint32_t ip)
 {
 	TracyCZoneAutoS;
 	obj scope = 0;
 	bool accessed = false;
 
-	if (mode == assign_reassign) {
-		mode = assign_local;
-		accessed = true;
-	}
+	// if (mode == assign_reassign) {
+	// 	mode = assign_local;
+	// 	accessed = true;
+	// }
 
-	if (mode == assign_local) {
-		obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
-		if (get_obj_array(wk, local_scope)->len == 1) {
-			scope = obj_array_get_tail(wk, local_scope);
-		} else {
-			obj scope_group = obj_array_get_tail(wk, local_scope);
-			scope = obj_array_get_tail(wk, scope_group);
-		}
+	obj local_scope = obj_array_get_tail(wk, wk->vm.global_scope);
+	if (get_obj_array(wk, local_scope)->len == 1) {
+		scope = obj_array_get_tail(wk, local_scope);
+	} else {
+		obj scope_group = obj_array_get_tail(wk, local_scope);
+		scope = obj_array_get_tail(wk, scope_group);
 	}
 
 	assert(scope);
@@ -445,7 +443,7 @@ scope_assign(struct workspace *wk, const char *name, obj o, uint32_t ip, enum va
 static void
 push_scope_group(struct workspace *wk)
 {
-	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
+	obj local_scope = obj_array_get_tail(wk, wk->vm.global_scope);
 	obj scope_group;
 	scope_group = make_obj(wk, obj_array);
 	obj_array_push(wk, local_scope, scope_group);
@@ -454,7 +452,7 @@ push_scope_group(struct workspace *wk)
 static void
 push_scope_group_scope(struct workspace *wk)
 {
-	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
+	obj local_scope = obj_array_get_tail(wk, wk->vm.global_scope);
 	obj scope_group = obj_array_get_tail(wk, local_scope);
 	obj scope;
 
@@ -489,7 +487,7 @@ merge_objects(struct workspace *wk, struct az_assignment *dest, struct az_assign
 static void
 pop_scope_group(struct workspace *wk)
 {
-	obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack);
+	obj local_scope = obj_array_get_tail(wk, wk->vm.global_scope);
 
 	if (get_obj_array(wk, local_scope)->len == 1) {
 		return;
@@ -546,7 +544,7 @@ pop_scope_group(struct workspace *wk)
 					}
 				}
 
-				b = scope_assign(wk, a->name, a->o, a->ip, assign_local);
+				b = scope_assign(wk, a->name, a->o, a->ip);
 				b->accessed = a->accessed;
 
 				a->accessed = true;
@@ -741,9 +739,9 @@ az_op_return_end(struct workspace *wk)
  ******************************************************************************/
 
 static void
-az_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id, enum variable_assignment_mode mode)
+az_assign_wrapper(struct workspace *wk, const char *name, obj o, uint32_t n_id)
 {
-	scope_assign(wk, name, o, n_id, mode);
+	scope_assign(wk, name, o, n_id);
 }
 
 static bool
@@ -767,13 +765,13 @@ az_push_local_scope(struct workspace *wk)
 	obj scope;
 	scope = make_obj(wk, obj_dict);
 	obj_array_push(wk, scope_group, scope);
-	obj_array_push(wk, wk->vm.scope_stack, scope_group);
+	obj_array_push(wk, wk->vm.global_scope, scope_group);
 }
 
 static void
 az_pop_local_scope(struct workspace *wk)
 {
-	obj scope_group = obj_array_pop(wk, wk->vm.scope_stack);
+	obj scope_group = obj_array_pop(wk, wk->vm.global_scope);
 	assert(get_obj_array(wk, scope_group)->len == 1);
 }
 
@@ -833,7 +831,7 @@ az_eval_project_file(struct workspace *wk,
 
 		struct source weak_src = *src;
 
-		return eval(wk, &weak_src, lang, eval_mode, res);
+		return eval(wk, &weak_src, &(struct eval_opts) { lang, eval_mode }, res);
 	} else {
 		if (analyzer.opts->analyze_project_call_only) {
 			flags |= eval_project_file_flag_return_after_project;
@@ -1173,22 +1171,6 @@ az_op_call(struct workspace *wk)
 
 	if (get_obj_type(wk, c) == obj_capture && !pop_args_error) {
 		struct obj_capture *capture = get_obj_capture(wk, c);
-
-		{
-			// TODO: only if there were no errors!
-			//
-			// op_call just set some variables for function args
-			// that we will never use but we don't want an unused
-			// variable warning so mark them all accessed.
-			obj local_scope = obj_array_get_tail(wk, wk->vm.scope_stack),
-			    root_scope = obj_array_get_tail(wk, local_scope);
-			obj _k, aid;
-			obj_dict_for(wk, root_scope, _k, aid) {
-				(void)_k;
-				struct az_assignment *assign = bucket_arr_get(&assignments, aid);
-				assign->accessed = true;
-			}
-		}
 
 		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, capture->func->return_type)));
 		analyzer.unpatched_ops.ops[op_return](wk);
@@ -1537,12 +1519,12 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	{ /* re-initialize the default scope */
 		obj original_scope, scope_group, scope;
-		original_scope = obj_array_index(wk, wk->vm.default_scope_stack, 0);
-		wk->vm.default_scope_stack = make_obj(wk, obj_array);
+		original_scope = obj_array_index(wk, wk->vm.default_global_scope, 0);
+		wk->vm.default_global_scope = make_obj(wk, obj_array);
 		scope_group = make_obj(wk, obj_array);
 		scope = make_obj(wk, obj_dict);
 		obj_array_push(wk, scope_group, scope);
-		obj_array_push(wk, wk->vm.default_scope_stack, scope_group);
+		obj_array_push(wk, wk->vm.default_global_scope, scope_group);
 		obj k, v;
 		obj_dict_for(wk, original_scope, k, v) {
 			obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
@@ -1552,15 +1534,15 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 			obj_dict_set(wk, scope, k, aid);
 		}
-		wk->vm.scope_stack = az_scope_stack_dup(wk, wk->vm.default_scope_stack);
+		wk->vm.global_scope = az_scope_stack_dup(wk, wk->vm.default_global_scope);
 	}
 
-	wk->vm.behavior.assign_variable = az_assign_wrapper;
-	wk->vm.behavior.unassign_variable = az_unassign;
-	wk->vm.behavior.push_local_scope = az_push_local_scope;
-	wk->vm.behavior.pop_local_scope = az_pop_local_scope;
-	wk->vm.behavior.get_variable = az_lookup_wrapper;
-	wk->vm.behavior.scope_stack_dup = az_scope_stack_dup;
+	wk->vm.behavior.assign_global = az_assign_wrapper;
+	wk->vm.behavior.unassign_global = az_unassign;
+	// wk->vm.behavior.push_local_scope = az_push_local_scope;
+	// wk->vm.behavior.pop_local_scope = az_pop_local_scope;
+	wk->vm.behavior.get_global = az_lookup_wrapper;
+	wk->vm.behavior.global_scope_dup = az_scope_stack_dup;
 	wk->vm.behavior.eval_project_file = az_eval_project_file;
 	wk->vm.behavior.native_func_dispatch = az_native_func_dispatch;
 	wk->vm.behavior.pop_args = az_pop_args;
@@ -1619,7 +1601,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.lang_mode = opts->lang_mode;
 
 	if (wk->vm.lang_mode == language_internal) {
-		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0, assign_local);
+		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0);
 		a->default_var = true;
 		if (!opts->single_file) {
 			LOG_E("cannot analyze multi-file in script mode");
@@ -1644,7 +1626,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			res = false;
 		} else {
 			obj _v;
-			res = eval(wk, &src, build_language_meson, 0, &_v);
+			res = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_v);
 		}
 
 	} else {

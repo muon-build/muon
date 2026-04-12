@@ -6,7 +6,6 @@
 #include "compat.h"
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "error.h"
 #include "external/readline.h"
@@ -14,6 +13,7 @@
 #include "lang/compiler.h"
 #include "lang/eval.h"
 #include "lang/parser.h"
+#include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -35,7 +35,7 @@ eval_project(struct workspace *wk,
 	make_project(wk, &wk->cur_project, subproject_name, cwd, build_dir);
 	*proj_id = wk->cur_project;
 
-	stack_push(&wk->stack, wk->vm.scope_stack, current_project(wk)->scope_stack);
+	stack_push(&wk->stack, wk->vm.global_scope, current_project(wk)->global_scope);
 
 	obj parent_eval_trace = wk->vm.dbg_state.eval_trace;
 
@@ -76,7 +76,7 @@ cleanup:
 		log_inc_indent(-2);
 	}
 	wk->cur_project = parent_project;
-	stack_pop(&wk->stack, wk->vm.scope_stack);
+	stack_pop(&wk->stack, wk->vm.global_scope);
 
 	return ret;
 }
@@ -98,7 +98,7 @@ ensure_project_is_first_statement(struct workspace *wk, const struct source *src
 }
 
 bool
-eval(struct workspace *wk, const struct source *src, enum build_language lang, enum eval_mode mode, obj *res)
+eval(struct workspace *wk, const struct source *src, const struct eval_opts *opts, obj *res)
 {
 	TracyCZoneAutoS;
 	TracyCMessage(src->label, strlen(src->label));
@@ -108,7 +108,7 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 		res = &res_ignored;
 	}
 
-	if (lang == build_language_cmake && mode == eval_mode_first) {
+	if (opts->lang == build_language_cmake && opts->mode == eval_mode_first) {
 		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
 		obj _;
 		bool ok = module_import(wk, "cmake_prelude", false, &_);
@@ -125,13 +125,13 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 			  vm_compile_mode_language_extended :
 			  0;
 
-	if (mode & eval_mode_repl) {
+	if (opts->mode & eval_mode_repl) {
 		compile_mode |= vm_compile_mode_expr;
 	}
-	if (mode & eval_mode_return_after_project) {
+	if (opts->mode & eval_mode_return_after_project) {
 		compile_mode |= vm_compile_mode_return_after_project;
 	}
-	if (mode & eval_mode_relaxed_parse) {
+	if (opts->mode & eval_mode_relaxed_parse) {
 		compile_mode |= vm_compile_mode_relaxed_parse;
 	}
 
@@ -144,7 +144,7 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 
 		bool ok = false;
 
-		switch (lang) {
+		switch (opts->lang) {
 		case build_language_meson: n = parse(wk, src, compile_mode); break;
 		case build_language_cmake: n = cm_parse(wk, src); break;
 		}
@@ -153,14 +153,14 @@ eval(struct workspace *wk, const struct source *src, enum build_language lang, e
 			goto compile_done;
 		}
 
-		bool first = lang == build_language_meson && (mode & eval_mode_first);
+		bool first = opts->lang == build_language_meson && (opts->mode & eval_mode_first);
 		if (first) {
 			if (!ensure_project_is_first_statement(wk, src, n, false)) {
 				goto compile_done;
 			}
 		}
 
-		if (!vm_compile_ast(wk, n, compile_mode, &entry)) {
+		if (!vm_compile_ast(wk, n, compile_mode, opts->an, &entry)) {
 			goto compile_done;
 		}
 
@@ -197,6 +197,12 @@ compile_done:
 	};
 	vm_push_call_stack_frame(wk, &eval_frame);
 
+	if (opts->an) {
+		for (uint32_t i = 0; opts->an[i].type != ARG_TYPE_NULL; ++i) {
+			object_stack_push(wk, opts->an[i].val);
+		}
+	}
+
 	wk->vm.ip = entry;
 
 	*res = vm_execute(wk);
@@ -222,7 +228,7 @@ bool
 eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res)
 {
 	struct source src = { .label = get_cstr(wk, make_str(wk, label)), .src = str, .len = strlen(str) };
-	return eval(wk, &src, build_language_meson, mode, res);
+	return eval(wk, &src, &(struct eval_opts){ build_language_meson, mode }, res);
 }
 
 bool
@@ -254,7 +260,7 @@ eval_project_file(struct workspace *wk, const char *path, enum build_language la
 		eval_mode |= eval_mode_relaxed_parse;
 	}
 
-	if (!eval(wk, &src, lang, eval_mode, res)) {
+	if (!eval(wk, &src, &(struct eval_opts){ lang, eval_mode }, res)) {
 		goto ret;
 	}
 
@@ -433,7 +439,7 @@ cmd_found:
 
 			if (repl_res) {
 				obj_fprintf(wk, out, "%o\n", repl_res);
-				wk->vm.behavior.assign_variable(wk, "_", repl_res, 0, assign_local);
+				wk->vm.behavior.assign_global(wk, "_", repl_res, 0);
 			}
 			break;
 		}

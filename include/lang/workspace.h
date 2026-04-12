@@ -14,8 +14,8 @@
 #include "toolchains.h"
 
 struct project {
-	/* array of dicts */
-	obj scope_stack;
+	/* dict */
+	obj global_scope;
 
 	obj toolchains[machine_kind_count];
 	obj args[machine_kind_count], link_args[machine_kind_count], include_dirs[machine_kind_count], link_with[machine_kind_count];

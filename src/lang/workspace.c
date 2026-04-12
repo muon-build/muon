@@ -61,7 +61,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	proj->build_dir = make_str(wk, build_dir);
 	proj->build_root = proj->build_dir;
 
-	proj->scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
+	proj->global_scope = wk->vm.behavior.global_scope_dup(wk, wk->vm.default_global_scope);
 
 	return proj;
 }
@@ -125,7 +125,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 
 	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
 
-	ret = eval(wk, &src, build_language_meson, 0, &_);
+	ret = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_);
 
 	stack_pop(&wk->stack, wk->vm.lang_mode);
 	return ret;
@@ -519,7 +519,7 @@ workspace_do_setup(struct workspace *wk, struct arr *preload_files)
 				stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
 
 				obj _res;
-				if (!eval(wk, &src, build_language_meson, 0, &_res)) {
+				if (!eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_res)) {
 					goto ret;
 				}
 

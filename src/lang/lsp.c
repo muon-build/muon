@@ -842,7 +842,7 @@ az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_b
 		const struct str *prefix = get_str(wk, info->dat.constant.ident);
 
 		obj local_scope;
-		obj_array_for(wk, wk->vm.scope_stack, local_scope) {
+		obj_array_for(wk, wk->vm.global_scope, local_scope) {
 			uint32_t local_scope_len = get_obj_array(wk, local_scope)->len;
 			if (local_scope_len > 1) {
 				int32_t i;
@@ -930,7 +930,7 @@ az_srv_get_hover_info(struct az_srv *srv, struct workspace *wk, struct az_srv_br
 	switch (info->type) {
 	case az_srv_break_type_constant: {
 		obj res;
-		if (wk->vm.behavior.get_variable(wk, get_str(wk, info->dat.constant.ident)->s, &res)) {
+		if (wk->vm.behavior.get_global(wk, get_str(wk, info->dat.constant.ident)->s, &res)) {
 			srv->req.result = obj_type_to_typestr(wk, res);
 		}
 		break;

@@ -41,6 +41,7 @@ enum vm_compile_mode {
 void vm_compile_state_reset(struct workspace *wk);
 void vm_compile_initial_code_segment(struct workspace *wk);
 struct node;
-bool vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, uint32_t *entry);
+bool
+vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, const struct args_norm *an, uint32_t *entry);
 bool vm_compile(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, uint32_t *entry);
 #endif

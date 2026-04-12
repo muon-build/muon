@@ -107,10 +107,8 @@ cmd_subprojects_clean(struct workspace *wk, uint32_t argc, uint32_t argi, char *
 	}
 	opt_end();
 
-	wk->vm.behavior.assign_variable(wk, "force", make_obj_bool(wk, force), 0, assign_local);
-
 	obj extra_args = make_obj(wk, obj_array);
-	obj_array_push(wk, extra_args, make_str(wk, "force: force"));
+	obj_array_push(wk, extra_args, make_strf(wk, "force: %s", force ? "true" : "false"));
 
 	return cmd_subprojects_eval_cmd(wk, argc, argi, argv, "clean", extra_args);
 }

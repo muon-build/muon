@@ -169,7 +169,7 @@ machine_file_eval(struct workspace *wk, const char *path, enum machine_kind mach
 	struct source translated_src = { .src = translated.buf, .len = translated.len, .label = translated_label.buf };
 
 	obj res;
-	if (!eval(wk, &translated_src, build_language_meson, 0, &res)) {
+	if (!eval(wk, &translated_src, &(struct eval_opts) { build_language_meson }, &res)) {
 		return false;
 	}
 

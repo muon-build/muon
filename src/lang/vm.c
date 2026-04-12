@@ -970,7 +970,6 @@ vm_execute_capture(struct workspace *wk, obj a)
 		&(struct call_frame){
 			.type = call_frame_type_func,
 			.return_ip = wk->vm.ip,
-			.scope_stack = wk->vm.scope_stack,
 			.expected_return_type = capture->func->return_type,
 			.lang_mode = wk->vm.lang_mode,
 			.capture = capture,
@@ -1137,7 +1136,7 @@ vm_op_constant_func(struct workspace *wk)
 				for (int32_t j = wk->vm.open_upvalues.len - 1; j >= 0; --j) {
 					struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, j);
 					if (u->slot == slot) {
-						// L("found existing upvalue for %d", slot);
+						// L("found existing upvalue for %d @ %p", slot, (void*)u->u);
 						capture->upvalues[i] = u->u;
 						break;
 					}
@@ -1787,7 +1786,7 @@ vm_op_store_g(struct workspace *wk)
 
 	obj res = vm_perform_store_mutations(wk, val);
 
-	wk->vm.behavior.assign_variable(wk, get_str(wk, id->o)->s, res, id->ip, assign_local);
+	wk->vm.behavior.assign_global(wk, get_str(wk, id->o)->s, res, id->ip);
 
 	object_stack_push(wk, res);
 }
@@ -1806,15 +1805,15 @@ vm_op_add_store_g(struct workspace *wk)
 
 	obj source;
 	const struct str *id_str = get_str(wk, id);
-	if (!wk->vm.behavior.get_variable(wk, id_str->s, &source)) {
-		vm_error(wk, "undefined object %o", id);
+	if (!wk->vm.behavior.get_global(wk, id_str->s, &source)) {
+		vm_error(wk, "undefined global %o", id);
 		vm_push_dummy(wk);
 		return;
 	}
 
 	obj res = vm_perform_add_store_mutations(wk, val, source);
 
-	wk->vm.behavior.assign_variable(wk, id_str->s, res, wk->vm.ip - 1, assign_reassign);
+	wk->vm.behavior.assign_global(wk, id_str->s, res, wk->vm.ip - 1);
 
 	object_stack_push(wk, res);
 }
@@ -1834,8 +1833,8 @@ vm_op_load_g(struct workspace *wk)
 	}
 
 	obj b;
-	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &b)) {
-		vm_error(wk, "undefined object %s", get_cstr(wk, a));
+	if (!wk->vm.behavior.get_global(wk, get_str(wk, a)->s, &b)) {
+		vm_error(wk, "undefined global %s", get_cstr(wk, a));
 		vm_push_dummy(wk);
 		return;
 	}
@@ -2021,7 +2020,7 @@ vm_op_try_load(struct workspace *wk)
 		return;
 	}
 
-	if (!wk->vm.behavior.get_variable(wk, get_str(wk, a)->s, &res)) {
+	if (!wk->vm.behavior.get_global(wk, get_str(wk, a)->s, &res)) {
 		res = b;
 	}
 
@@ -2563,18 +2562,15 @@ vm_op_return(struct workspace *wk)
 	struct call_frame *frame = vm_pop_call_stack_frame(wk);
 	wk->vm.ip = frame->return_ip;
 
-	if (frame->type == call_frame_type_func) {
-		for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
-			struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
-			if (u->slot < frame->stack_base) {
-				break;
-			}
-			const struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, u->slot);
-			u->u->closed = e->o;
-			u->u->location = &u->u->closed;
-			arr_del(&wk->vm.open_upvalues, i);
+	for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
+		struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
+		if (u->slot < frame->stack_base) {
+			break;
 		}
-
+		const struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, u->slot);
+		u->u->closed = e->o;
+		u->u->location = &u->u->closed;
+		arr_del(&wk->vm.open_upvalues, i);
 	}
 
 	struct obj_stack_entry *entry;
@@ -2736,75 +2732,29 @@ vm_execute(struct workspace *wk)
  ******************************************************************************/
 
 static bool
-vm_get_local_variable(struct workspace *wk, const char *name, obj *res, obj *scope)
+vm_get_global(struct workspace *wk, const char *name, obj *res)
 {
-	bool found = false;
-	obj s, idx;
-	obj_array_for(wk, wk->vm.scope_stack, s) {
-		if (obj_dict_index_str(wk, s, name, &idx)) {
-			*res = idx;
-			*scope = s;
-			found = true;
-		}
-	}
-
-	return found;
-}
-
-static bool
-vm_get_variable(struct workspace *wk, const char *name, obj *res)
-{
-	obj o, _scope;
-
-	if (vm_get_local_variable(wk, name, &o, &_scope)) {
-		*res = o;
-		return true;
-	} else {
-		return false;
-	}
+	return obj_dict_index_str(wk, wk->vm.global_scope, name, res);
 }
 
 static obj
-vm_scope_stack_dup(struct workspace *wk, obj scope_stack)
+vm_global_scope_dup(struct workspace *wk, obj scope)
 {
-	obj r, v;
-	r = make_obj(wk, obj_array);
-	obj_array_for(wk, scope_stack, v) {
-		obj scope;
-		obj_dict_dup(wk, v, &scope);
-		obj_array_push(wk, r, scope);
-	}
-	return r;
+	obj res;
+	obj_dict_dup(wk, scope, &res);
+	return res;
 }
 
 static void
-vm_unassign_variable(struct workspace *wk, const char *name)
+vm_unassign_global(struct workspace *wk, const char *name)
 {
-	obj _, scope;
-	if (!vm_get_local_variable(wk, name, &_, &scope)) {
-		return;
-	}
-
-	obj_dict_del_str(wk, scope, name);
+	obj_dict_del_str(wk, wk->vm.global_scope, name);
 }
 
 static void
-vm_assign_variable(struct workspace *wk, const char *name, obj o, uint32_t ip, enum variable_assignment_mode mode)
+vm_assign_global(struct workspace *wk, const char *name, obj o, uint32_t ip)
 {
-	obj scope = 0;
-	if (mode == assign_reassign) {
-		obj _;
-		if (!vm_get_local_variable(wk, name, &_, &scope)) {
-			UNREACHABLE;
-		}
-	} else {
-		obj _;
-		if (!vm_get_local_variable(wk, name, &_, &scope)) {
-			scope = obj_array_get_tail(wk, wk->vm.scope_stack);
-		}
-	}
-
-	obj_dict_set(wk, scope, make_str(wk, name), o);
+	obj_dict_set(wk, wk->vm.global_scope, make_str(wk, name), o);
 
 	if (wk->vm.dbg_state.watched && obj_array_in(wk, wk->vm.dbg_state.watched, make_str(wk, name))) {
 		LOG_I("watched variable \"%s\" changed", name);
@@ -2943,10 +2893,10 @@ vm_execute_loop(struct workspace *wk)
 {
 	uint32_t cip;
 	while (wk->vm.run) {
-		if (log_should_print(log_debug)) {
-			// LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-			// object_stack_print(wk, &wk->vm.stack);
-		}
+		// if (log_should_print(log_debug)) {
+		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+		// 	object_stack_print(wk, &wk->vm.stack);
+		// }
 
 		log_progress(wk, wk->vm.ip);
 
@@ -3516,10 +3466,10 @@ vm_init(struct workspace *wk)
 
 	/* behavior pointers */
 	wk->vm.behavior = (struct vm_behavior){
-		.assign_variable = vm_assign_variable,
-		.unassign_variable = vm_unassign_variable,
-		.scope_stack_dup = vm_scope_stack_dup,
-		.get_variable = vm_get_variable,
+		.assign_global = vm_assign_global,
+		.unassign_global = vm_unassign_global,
+		.global_scope_dup = vm_global_scope_dup,
+		.get_global = vm_get_global,
 		.eval_project_file = eval_project_file,
 		.native_func_dispatch = vm_native_func_dispatch,
 		.pop_args = vm_pop_args,
@@ -3585,22 +3535,19 @@ vm_init(struct workspace *wk)
 	build_func_impl_tables(wk);
 
 	/* default scope */
-	wk->vm.default_scope_stack = make_obj(wk, obj_array);
-	obj scope;
-	scope = make_obj(wk, obj_dict);
-	obj_array_push(wk, wk->vm.default_scope_stack, scope);
+	wk->vm.default_global_scope  = make_obj(wk, obj_dict);
 
-	obj_dict_set(wk, scope, make_str(wk, "meson"), obj_meson);
+	obj_dict_set(wk, wk->vm.default_global_scope, make_str(wk, "meson"), obj_meson);
 
 	obj id;
 	id = make_obj(wk, obj_machine);
 	set_obj_machine(wk, id, machine_kind_build);
-	obj_dict_set(wk, scope, make_str(wk, "build_machine"), id);
+	obj_dict_set(wk, wk->vm.default_global_scope, make_str(wk, "build_machine"), id);
 
 	id = make_obj(wk, obj_machine);
 	set_obj_machine(wk, id, machine_kind_host);
-	obj_dict_set(wk, scope, make_str(wk, "host_machine"), id);
-	obj_dict_set(wk, scope, make_str(wk, "target_machine"), id);
+	obj_dict_set(wk, wk->vm.default_global_scope, make_str(wk, "host_machine"), id);
+	obj_dict_set(wk, wk->vm.default_global_scope, make_str(wk, "target_machine"), id);
 
 	/* module cache */
 	wk->vm.modules = make_obj(wk, obj_dict);
@@ -3608,8 +3555,8 @@ vm_init(struct workspace *wk)
 	/* complex type cache */
 	wk->vm.objects.complex_types = make_obj(wk, obj_dict);
 
-	/* scope stack */
-	wk->vm.scope_stack = wk->vm.behavior.scope_stack_dup(wk, wk->vm.default_scope_stack);
+	/* global scope */
+	wk->vm.global_scope = wk->vm.behavior.global_scope_dup(wk, wk->vm.default_global_scope);
 
 	/* initial code segment */
 	vm_compile_initial_code_segment(wk);
