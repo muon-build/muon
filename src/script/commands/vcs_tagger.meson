@@ -13,10 +13,14 @@ handlers = {
     'r': {'desc': 'source_root'},
 }
 
-foreach k, v : handlers
-    handlers[k].action = func(optarg str)
+func handler(k str, v dict[str]) -> function
+    return func(optarg str)
         opts[v.desc] = optarg
     endfunc
+endfunc
+
+foreach k, v : handlers
+    handlers[k].action = handler(k, v)
     handlers[k].required = true
 endforeach
 

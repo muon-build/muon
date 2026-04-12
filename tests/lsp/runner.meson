@@ -72,7 +72,8 @@ func build_input(src_root str) -> str
         elif msg.method == 'muon/textDocument/didChange'
             rel_uri = msg.params.relUri
             assert(rel_uri in file_rev)
-            rev = file_rev[rel_uri] += 1
+            file_rev[rel_uri] += 1
+            rev = file_rev[rel_uri]
 
             msg = did_change_msg(src_root / rel_uri, src_root / f'@rel_uri@-@rev@')
         endif
