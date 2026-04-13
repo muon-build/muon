@@ -350,13 +350,17 @@ vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
 }
 
 static void
-vm_comp_assign_local(struct workspace *wk, obj id, enum node_assign_flag flags)
+vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_assign_flag flags)
 {
 	struct vm_comp_local l = vm_comp_resolve_id(wk,
 		id,
 		(flags & node_assign_flag_add_store) ? vm_comp_resolve_flag_bound_only : vm_comp_resolve_flag_bind);
 	if (l.slot == -1) {
-		UNREACHABLE;
+		if (flags & node_assign_flag_add_store) {
+			vm_comp_error(wk, n, "undefined variable");
+		} else {
+			UNREACHABLE;
+		}
 	}
 
 	switch (l.type) {
@@ -589,7 +593,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_code(wk, (flags & node_assign_flag_add_store) ? op_add_store_m : op_store_m);
 		} else if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
 			assert(n->l->type == node_type_id_lit);
-			vm_comp_assign_local(wk, n->l->data.str, flags);
+			vm_comp_assign_local(wk, n->l, n->l->data.str, flags);
 		} else {
 			assert(n->l->type == node_type_id_lit);
 			vm_comp_assign_global(wk, n->l->data.str, flags);
@@ -774,7 +778,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, 0);
 
 		if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-			vm_comp_assign_local(wk, ida->data.str, 0);
+			vm_comp_assign_local(wk, ida, ida->data.str, 0);
 		} else {
 			vm_comp_assign_global(wk, ida->data.str, 0);
 		}
@@ -782,7 +786,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		if (idb) {
 			if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-				vm_comp_assign_local(wk, idb->data.str, 0);
+				vm_comp_assign_local(wk, idb, idb->data.str, 0);
 			} else {
 				vm_comp_assign_global(wk, idb->data.str, 0);
 			}
@@ -1146,7 +1150,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, f);
 
 		if (id) {
-			vm_comp_assign_local(wk, id->data.str, 0);
+			vm_comp_assign_local(wk, id, id->data.str, 0);
 			func->name = get_str(wk, id->data.str)->s;
 		}
 
