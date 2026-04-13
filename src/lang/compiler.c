@@ -112,31 +112,43 @@ vm_comp_assign_global(struct workspace *wk, obj id, enum node_assign_flag flags)
 	push_code(wk, (flags & node_assign_flag_add_store) ? op_add_store_g : op_store_g);
 }
 
-static void vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+static void
+vm_comp_diagnostic_v(struct workspace *wk, enum log_level lvl, struct node *n, const char *fmt, va_list args)
+{
+	struct source *src = arr_peek(&wk->vm.src, 1);
+	error_messagev(wk, src, n->location, lvl, fmt, args);
+	if (lvl == log_error) {
+		wk->vm.compiler_state.err = true;
+	}
+}
 
+static void vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
 static void
 vm_comp_error(struct workspace *wk, struct node *n, const char *fmt, ...)
 {
-	struct source *src = arr_peek(&wk->vm.src, 1);
-
 	va_list args;
 	va_start(args, fmt);
-	error_messagev(wk, src, n->location, log_error, fmt, args);
+	vm_comp_diagnostic_v(wk, log_error, n, fmt, args);
 	va_end(args);
-
-	wk->vm.compiler_state.err = true;
 }
 
 static void vm_comp_warning(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
-
 static void
 vm_comp_warning(struct workspace *wk, struct node *n, const char *fmt, ...)
 {
-	struct source *src = arr_peek(&wk->vm.src, 1);
-
 	va_list args;
 	va_start(args, fmt);
-	error_messagev(wk, src, n->location, log_warn, fmt, args);
+	vm_comp_diagnostic_v(wk, log_warn, n, fmt, args);
+	va_end(args);
+}
+
+static void vm_comp_note(struct workspace *wk, struct node *n, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
+static void
+vm_comp_note(struct workspace *wk, struct node *n, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	vm_comp_diagnostic_v(wk, log_note, n, fmt, args);
 	va_end(args);
 }
 
@@ -339,8 +351,8 @@ vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
 			break;
 		}
 		if (obj_equal(wk, id, l->id)) {
-			vm_comp_error(wk, n, "duplicate argument name %s", get_cstr(wk, id));
-			vm_comp_error(wk, l->n, "already declared here");
+			vm_comp_error(wk, n, "duplicate variable name %s", get_cstr(wk, id));
+			vm_comp_note(wk, l->n, "already declared here");
 			return false;
 		}
 	}
