@@ -265,11 +265,12 @@ vm_comp_resolve_upvalue(struct workspace *wk, obj id)
 }
 
 static void
-vm_comp_declare_local(struct workspace *wk, obj id)
+vm_comp_declare_local_unchecked(struct workspace *wk, struct node *n, obj id)
 {
 	const uint32_t depth = vm_comp_current_depth(wk);
 	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
 	struct local_binding l = {
+		n,
 		id,
 		depth,
 		wk->vm.compiler_state.locals.len - frame->locals_base,
@@ -329,7 +330,7 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags
 }
 
 static bool
-vm_comp_try_declare_local(struct workspace *wk, obj id)
+vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
 {
 	const uint32_t depth = vm_comp_current_depth(wk);
 	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
@@ -338,11 +339,13 @@ vm_comp_try_declare_local(struct workspace *wk, obj id)
 			break;
 		}
 		if (obj_equal(wk, id, l->id)) {
+			vm_comp_error(wk, n, "duplicate argument name %s", get_cstr(wk, id));
+			vm_comp_error(wk, l->n, "already declared here");
 			return false;
 		}
 	}
 
-	vm_comp_declare_local(wk, id);
+	vm_comp_declare_local_unchecked(wk, n, id);
 	return true;
 }
 
@@ -365,41 +368,45 @@ vm_comp_assign_local(struct workspace *wk, obj id, enum node_assign_flag flags)
 }
 
 static void
+vm_comp_try_declare_block_local(struct workspace *wk, struct node *n, obj id)
+{
+	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
+		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
+		if (obj_equal(wk, id, l->id)) {
+			return;
+		}
+	}
+
+	vm_comp_declare_local_unchecked(wk, n, id);
+	push_code(wk, op_constant);
+	push_constant(wk, id);
+}
+
+static void
 vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 {
 	switch (n->type)
 	{
 	case node_type_assign: {
+		// if (!(n->data.type & node_assign_flag_member) && !(n->data.type & node_assign_flag_add_store)) {
 		if (!(n->data.type & node_assign_flag_member)) {
 			assert(n->l->type == node_type_id_lit);
-			if (vm_comp_try_declare_local(wk, n->l->data.str)) {
-				push_code(wk, op_constant);
-				push_constant(wk, n->l->data.str);
-			}
+			vm_comp_try_declare_block_local(wk, n->l, n->l->data.str);
 		}
 		break;
 	}
 	case node_type_foreach: {
 		struct node *ida = n->l->l->l, *idb = n->l->l->r;
-		if (vm_comp_try_declare_local(wk, ida->data.str)) {
-			push_code(wk, op_constant);
-			push_constant(wk, ida->data.str);
-		}
+		vm_comp_try_declare_block_local(wk, ida, ida->data.str);
 		if (idb) {
-			if (vm_comp_try_declare_local(wk, idb->data.str)) {
-				push_code(wk, op_constant);
-				push_constant(wk, idb->data.str);
-			}
+			vm_comp_try_declare_block_local(wk, idb, idb->data.str);
 		}
 		break;
 	}
 	case node_type_func_def: {
 		struct node *id = n->l->l->l;
 		if (id) {
-			if (vm_comp_try_declare_local(wk, id->data.str)) {
-				push_code(wk, op_constant);
-				push_constant(wk, id->data.str);
-			}
+			vm_comp_try_declare_block_local(wk, id, id->data.str);
 		}
 		break;
 	}
@@ -1055,14 +1062,10 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			}
 
 			if (arg->l->type == node_type_kw) {
-				if (!vm_comp_try_declare_local(wk, arg->l->r->data.str)) {
-					vm_comp_error(wk, arg->l, "duplicate argument name");
-				}
+				vm_comp_declare_local(wk, arg->l->r, arg->l->r->data.str);
 				++func->nkwargs;
 			} else {
-				if (!vm_comp_try_declare_local(wk, arg->l->data.str)) {
-					vm_comp_error(wk, arg->l, "duplicate argument name");
-				}
+				vm_comp_declare_local(wk, arg->l, arg->l->data.str);
 				++func->nargs;
 			}
 
@@ -1353,18 +1356,17 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	if (mode & vm_compile_mode_locals) {
 		vm_comp_push_call_frame(wk);
-		vm_comp_block_locals(wk, n);
 
 		if (an) {
 			struct local_binding *l;
 			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
-				if (!vm_comp_try_declare_local(wk, make_str(wk, an[i].name))) {
-					vm_comp_error(wk, n, "duplicate argument name %s", an[i].name);
-				}
+				vm_comp_declare_local(wk, n, make_str(wk, an[i].name));
 				l = arr_peek(&wk->vm.compiler_state.locals, 1);
 				l->bound = true;
 			}
 		}
+
+		vm_comp_block_locals(wk, n);
 	}
 
 	vm_compile_block(wk, n, flags);
