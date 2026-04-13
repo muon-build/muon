@@ -546,10 +546,10 @@ parse_number(struct parser *p, bool assignment_allowed)
 }
 
 static bool
-id_is_assignable(const struct str *id)
+id_is_assignable(struct workspace *wk, const struct str *id)
 {
-	return !(str_eql(id, &STR("meson")) || str_eql(id, &STR("build_machine")) || str_eql(id, &STR("host_machine"))
-		 || str_eql(id, &STR("target_machine")));
+	obj _;
+	return !obj_dict_index_strn(wk, wk->vm.default_global_scope, id->s, id->len, &_);
 }
 
 static struct node *
@@ -558,7 +558,7 @@ parse_id(struct parser *p, bool assignment_allowed)
 	struct node *id = make_node_t(p, node_type_id);
 
 	if (assignment_allowed && (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
-		if (!id_is_assignable(get_str(p->wk, id->data.str))) {
+		if (!id_is_assignable(p->wk, get_str(p->wk, id->data.str))) {
 			parse_error(p, &id->location, "'%s' is not assignable", get_str(p->wk, id->data.str)->s);
 			return id;
 		}
