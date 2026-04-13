@@ -641,25 +641,39 @@ id_is_assignable(struct workspace *wk, const struct str *id)
 }
 
 static struct node *
+parse_id_assign(struct parser *p, struct node *id, enum node_assign_flag flags)
+{
+	if (!id_is_assignable(p->wk, get_str(p->wk, id->data.str))) {
+		parse_error(p, &id->location, "'%s' is not assignable", get_str(p->wk, id->data.str)->s);
+		return id;
+	}
+
+	struct node *n = make_node_assign(p, flags);
+	n->location = id->location;
+	id->type = node_type_id_lit;
+	n->l = id;
+	n->r = parse_expr(p, false);
+	return n;
+}
+
+
+static struct node *
 parse_id(struct parser *p, bool assignment_allowed)
 {
 	struct node *id = make_node_t(p, node_type_id);
 
-	if (assignment_allowed && (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign))) {
-		if (!id_is_assignable(p->wk, get_str(p->wk, id->data.str))) {
-			parse_error(p, &id->location, "'%s' is not assignable", get_str(p->wk, id->data.str)->s);
-			return id;
+	if (assignment_allowed) {
+		if (parse_accept(p, ':')) {
+			type_tag type;
+			parse_type(p, &type, true);
+			parse_expect(p, '=');
+			return parse_id_assign(p, id, node_assign_flag_force_declaration);
+		} else if (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign)) {
+			return parse_id_assign(p, id, 0);
 		}
-
-		struct node *n = make_node_assign(p, 0);
-		n->location = id->location;
-		id->type = node_type_id_lit;
-		n->l = id;
-		n->r = parse_expr(p, false);
-		return n;
-	} else {
-		return id;
 	}
+
+	return id;
 }
 
 static struct node *

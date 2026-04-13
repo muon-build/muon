@@ -86,7 +86,8 @@ enum node_flag {
 
 enum node_assign_flag {
 	node_assign_flag_add_store = 1 << 0,
-	node_assign_flag_member = 2 << 0,
+	node_assign_flag_member = 1 << 1,
+	node_assign_flag_force_declaration = 1 << 2,
 };
 
 struct node {

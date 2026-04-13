@@ -407,7 +407,11 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 		// if (!(n->data.type & node_assign_flag_member) && !(n->data.type & node_assign_flag_add_store)) {
 		if (!(n->data.type & node_assign_flag_member)) {
 			assert(n->l->type == node_type_id_lit);
-			vm_comp_try_declare_block_local(wk, n->l, n->l->data.str);
+			if (n->data.type & node_assign_flag_force_declaration) {
+				vm_comp_declare_local(wk, n->l, n->l->data.str);
+			} else {
+				vm_comp_try_declare_block_local(wk, n->l, n->l->data.str);
+			}
 		}
 		break;
 	}
