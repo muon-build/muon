@@ -539,6 +539,94 @@ make_node_assign(struct parser *p, enum node_assign_flag flags)
  * parsing functions
  ******************************************************************************/
 
+static bool
+parse_type(struct parser *p, type_tag *type, bool top_level)
+{
+	*type = 0;
+
+	const char *typestr = 0;
+	if (parse_accept(p, token_type_identifier)) {
+		typestr = get_cstr(p->wk, p->previous.data.str);
+		type_tag t;
+		if (s_to_type_tag(typestr, &t)) {
+			*type = t;
+		} else {
+			parse_error(p, NULL, "unknown type %s", typestr);
+			return false;
+		}
+	} else if (parse_accept(p, token_type_null)) {
+		typestr = "null";
+		*type = TYPE_TAG_ALLOW_NULL;
+	} else {
+		return true;
+	}
+
+	if (!top_level) {
+		const char *err_type = 0;
+		if ((*type & TYPE_TAG_LISTIFY)) {
+			err_type = "listify";
+		} else if ((*type & TYPE_TAG_GLOB)) {
+			err_type = "glob";
+		}
+
+		if (err_type) {
+			parse_error(
+				p, &p->previous.location, "%s can only be specified as the top level type", err_type);
+			return false;
+		}
+	}
+
+	bool has_sub_type = *type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB || *type == tc_dict
+			    || *type == tc_array;
+
+	if (has_sub_type) {
+		if (!parse_accept(p, token_type_lbrack)) {
+			parse_error(p,
+				&p->previous.location,
+				"the type %s requires a sub type (e.g. %s[any])",
+				typestr,
+				typestr);
+			return false;
+		}
+
+		type_tag sub_type;
+		if (!parse_type(p, &sub_type, false)) {
+			return false;
+		}
+
+		if (!sub_type) {
+			parse_error(p, &p->previous.location, "expected type");
+		}
+
+		if (!parse_expect(p, token_type_rbrack)) {
+			return false;
+		}
+
+		if (*type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB) {
+			*type |= sub_type;
+		} else if (*type == tc_dict || *type == tc_array) {
+			*type = make_complex_type(p->wk, complex_type_nested, *type, sub_type);
+		} else {
+			UNREACHABLE;
+		}
+	}
+
+	if (parse_accept(p, token_type_bitor)) {
+		type_tag ord_type;
+		if (!parse_type(p, &ord_type, false)) {
+			return false;
+		}
+
+		if ((ord_type & TYPE_TAG_COMPLEX) || (*type & TYPE_TAG_COMPLEX)) {
+			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
+		} else {
+			*type |= ord_type;
+		}
+	}
+
+	return true;
+}
+
 static struct node *
 parse_number(struct parser *p, bool assignment_allowed)
 {
@@ -796,94 +884,6 @@ parse_grouping_fmt(struct parser *p, bool assignment_allowed)
 	parse_expect(p, ')');
 	parse_fmt_apply(p, &n->l->fmt.post, &p->fmt.previous);
 	return n;
-}
-
-static bool
-parse_type(struct parser *p, type_tag *type, bool top_level)
-{
-	*type = 0;
-
-	const char *typestr = 0;
-	if (parse_accept(p, token_type_identifier)) {
-		typestr = get_cstr(p->wk, p->previous.data.str);
-		type_tag t;
-		if (s_to_type_tag(typestr, &t)) {
-			*type = t;
-		} else {
-			parse_error(p, NULL, "unknown type %s", typestr);
-			return false;
-		}
-	} else if (parse_accept(p, token_type_null)) {
-		typestr = "null";
-		*type = TYPE_TAG_ALLOW_NULL;
-	} else {
-		return true;
-	}
-
-	if (!top_level) {
-		const char *err_type = 0;
-		if ((*type & TYPE_TAG_LISTIFY)) {
-			err_type = "listify";
-		} else if ((*type & TYPE_TAG_GLOB)) {
-			err_type = "glob";
-		}
-
-		if (err_type) {
-			parse_error(
-				p, &p->previous.location, "%s can only be specified as the top level type", err_type);
-			return false;
-		}
-	}
-
-	bool has_sub_type = *type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB || *type == tc_dict
-			    || *type == tc_array;
-
-	if (has_sub_type) {
-		if (!parse_accept(p, token_type_lbrack)) {
-			parse_error(p,
-				&p->previous.location,
-				"the type %s requires a sub type (e.g. %s[any])",
-				typestr,
-				typestr);
-			return false;
-		}
-
-		type_tag sub_type;
-		if (!parse_type(p, &sub_type, false)) {
-			return false;
-		}
-
-		if (!sub_type) {
-			parse_error(p, &p->previous.location, "expected type");
-		}
-
-		if (!parse_expect(p, token_type_rbrack)) {
-			return false;
-		}
-
-		if (*type == TYPE_TAG_LISTIFY || *type == TYPE_TAG_GLOB) {
-			*type |= sub_type;
-		} else if (*type == tc_dict || *type == tc_array) {
-			*type = make_complex_type(p->wk, complex_type_nested, *type, sub_type);
-		} else {
-			UNREACHABLE;
-		}
-	}
-
-	if (parse_accept(p, token_type_bitor)) {
-		type_tag ord_type;
-		if (!parse_type(p, &ord_type, false)) {
-			return false;
-		}
-
-		if ((ord_type & TYPE_TAG_COMPLEX) || (*type & TYPE_TAG_COMPLEX)) {
-			*type = make_complex_type(p->wk, complex_type_or, *type, ord_type);
-		} else {
-			*type |= ord_type;
-		}
-	}
-
-	return true;
 }
 
 static struct node *
