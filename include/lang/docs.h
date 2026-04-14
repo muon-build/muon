@@ -26,7 +26,7 @@ struct dump_function_docs_opts {
 void dump_function_docs(struct workspace *wk, const struct dump_function_docs_opts* opts);
 obj dump_function_native(struct workspace *wk, enum obj_type t, const struct func_impl *impl);
 obj dump_module_function_native(struct workspace *wk, enum module module, const struct func_impl *impl);
-obj dump_module_function_capture(struct workspace *wk, const char *module, obj name, obj o);
+obj dump_module_function_closure(struct workspace *wk, const char *module, obj name, obj o);
 
 void dump_cli_docs(struct workspace *wk, const struct dump_function_docs_opts* opts, const struct arr *commands);
 #endif

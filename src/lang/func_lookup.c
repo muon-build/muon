@@ -268,7 +268,7 @@ func_lookup(struct workspace *wk, obj self, const char *name, uint32_t *idx, obj
 				return false;
 			}
 
-			if (!typecheck(wk, 0, *func, tc_capture)) {
+			if (!typecheck(wk, 0, *func, tc_closure)) {
 				return false;
 			}
 			return true;

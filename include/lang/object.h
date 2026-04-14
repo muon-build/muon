@@ -60,7 +60,7 @@ enum obj_type {
 
 	/* muon-specific objects */
 	obj_func,
-	obj_capture,
+	obj_closure,
 	obj_typeinfo,
 
 	obj_type_count,
@@ -102,7 +102,7 @@ struct obj_func {
 	struct func_upvalue *upvalues;
 };
 
-struct obj_capture {
+struct obj_closure {
 	struct obj_func *func;
 	obj scope_stack, defargs, self;
 	uint32_t native_func;
@@ -638,7 +638,7 @@ OBJ_GETTER(obj_alias_target);
 OBJ_GETTER(obj_both_libs);
 OBJ_GETTER(obj_typeinfo);
 OBJ_GETTER(obj_func);
-OBJ_GETTER(obj_capture);
+OBJ_GETTER(obj_closure);
 OBJ_GETTER(obj_source_set);
 OBJ_GETTER(obj_source_configuration);
 OBJ_GETTER(obj_iterator);

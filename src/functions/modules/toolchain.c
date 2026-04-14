@@ -176,13 +176,13 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 #undef EXE_DESC_COMMON
 
 	const struct args_norm sub_component_an[] = { { tc_compiler }, { ARG_TYPE_NULL } };
-	const struct typecheck_capture_sig sub_component_sig = {
+	const struct typecheck_closure_sig sub_component_sig = {
 		.an = sub_component_an,
 		.return_type = tc_string,
 	};
 
 	const struct args_norm detect_an[] = { { tc_string }, { ARG_TYPE_NULL } };
-	const struct typecheck_capture_sig detect_sig = {
+	const struct typecheck_closure_sig detect_sig = {
 		.an = detect_an,
 		.return_type = tc_number,
 	};
@@ -193,7 +193,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 	TSTR(archiver_desc);
 	if (wk->vm.dumping_docs) {
 		tstr_pushs(wk, &detect_desc, "If set, defines a function `");
-		typecheck_capture_type_to_s(wk, &detect_desc, &detect_sig);
+		typecheck_closure_type_to_s(wk, &detect_desc, &detect_sig);
 		tstr_pushs(wk,
 			&detect_desc,
 			"` that will be called with the version output."
@@ -222,7 +222,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		};
 		for (uint32_t i = 0; i < ARRAY_LEN(sub_components); ++i) {
 			tstr_pushs(wk, sub_components[i].buf, "If set, defines a string or function `");
-			typecheck_capture_type_to_s(wk, sub_components[i].buf, &sub_component_sig);
+			typecheck_closure_type_to_s(wk, sub_components[i].buf, &sub_component_sig);
 			tstr_pushf(wk,
 				sub_components[i].buf,
 				"` that will be used to determine the %s id for this compiler.",
@@ -247,10 +247,10 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		[kw_public_id] = { "public_id", tc_string, .desc = "Returned by `compiler.get_id()` and `compiler.get_linker_id()`.  Defaults to `id` if not set." },
 		[kw_inherit] = { "inherit", tc_string, .desc = "If set, inherit properties from a previously defined component." },
 		[kw_exe] = { "exe", exe_type, .desc = exe_desc },
-		[kw_detect] = { "detect", tc_capture, .desc = detect_desc.buf },
+		[kw_detect] = { "detect", tc_closure, .desc = detect_desc.buf },
 		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides), .desc = handlers_desc.buf },
-		[kw_linker] = { component == toolchain_component_compiler ? "linker" : 0, tc_string | tc_capture, .desc = linker_desc.buf },
-		[kw_archiver] = { "archiver", tc_string | tc_capture, .desc = archiver_desc.buf },
+		[kw_linker] = { component == toolchain_component_compiler ? "linker" : 0, tc_string | tc_closure, .desc = linker_desc.buf },
+		[kw_archiver] = { "archiver", tc_string | tc_closure, .desc = archiver_desc.buf },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -270,8 +270,8 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		if (kw->set) {
 			assert(component == toolchain_component_compiler);
 
-			if (get_obj_type(wk, kw->val) == obj_capture) {
-				if (!typecheck_capture(wk, kw->node, kw->val, &sub_component_sig, kw->key)) {
+			if (get_obj_type(wk, kw->val) == obj_closure) {
+				if (!typecheck_closure(wk, kw->node, kw->val, &sub_component_sig, kw->key)) {
 					return false;
 				}
 			}
@@ -279,7 +279,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 	}
 
 	if (akw[kw_detect].set) {
-		if (!typecheck_capture(wk, akw[kw_detect].node, akw[kw_detect].val, &detect_sig, "detect")) {
+		if (!typecheck_closure(wk, akw[kw_detect].node, akw[kw_detect].val, &detect_sig, "detect")) {
 			return false;
 		}
 	}
@@ -398,7 +398,7 @@ FUNC_IMPL(module_toolchain, register_archiver, tc_dict, .desc = "Register a new 
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_archiver, res);
 }
 
-FUNC_IMPL(module_toolchain, handler, tc_capture | tc_array, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
+FUNC_IMPL(module_toolchain, handler, tc_closure | tc_array, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
 {
 	struct args_norm an[] = {
 		{ tc_string },

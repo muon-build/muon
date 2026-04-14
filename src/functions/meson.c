@@ -667,10 +667,10 @@ FUNC_IMPL(meson,
 		kw_order,
 	};
 	struct args_kw akw[] = {
-		[kw_pkgconfig] = { "pkgconfig", tc_capture },
-		[kw_builtin] = { "builtin", tc_capture },
-		[kw_system] = { "system", tc_capture },
-		[kw_config_tool] = { "config_tool", tc_capture },
+		[kw_pkgconfig] = { "pkgconfig", tc_closure },
+		[kw_builtin] = { "builtin", tc_closure },
+		[kw_system] = { "system", tc_closure },
+		[kw_config_tool] = { "config_tool", tc_closure },
 		[kw_order] = { "order", TYPE_TAG_LISTIFY | tc_string },
 		0,
 	};

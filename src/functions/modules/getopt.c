@@ -30,8 +30,8 @@ struct getopt_handler {
 static bool
 getopt_handler_requires_optarg(struct workspace *wk, const struct getopt_handler *handler)
 {
-	const struct obj_capture *capture = get_obj_capture(wk, handler->action);
-	return capture->func->nargs == 1;
+	const struct obj_closure *closure = get_obj_closure(wk, handler->action);
+	return closure->func->nargs == 1;
 }
 
 static void
@@ -39,9 +39,9 @@ func_module_getopt_usage(struct workspace *wk, const char *argv0, obj handlers, 
 {
 	obj handler;
 	if (obj_dict_index_strn(wk, handlers, "h", 1, &handler)) {
-		obj capture_res;
+		obj closure_res;
 		obj action = 0;
-		if (!vm_eval_capture(wk, action, 0, 0, &capture_res)) {
+		if (!vm_eval_closure(wk, action, 0, 0, &closure_res)) {
 			exitcode = 1;
 		}
 	} else {
@@ -111,16 +111,16 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 				return false;
 			}
 
-			if (!typecheck_custom(wk, 0, handler.action, tc_capture, 0)) {
+			if (!typecheck_custom(wk, 0, handler.action, tc_closure, 0)) {
 				vm_error(wk, "action for %o is not a function", k);
 				return false;
 			}
 
-			struct obj_capture *capture = get_obj_capture(wk, handler.action);
-			if (capture->func->nkwargs) {
+			struct obj_closure *closure = get_obj_closure(wk, handler.action);
+			if (closure->func->nkwargs) {
 				vm_error(wk, "handler for %o must not accept kwargs", k);
 				return false;
-			} else if (capture->func->nargs > 1) {
+			} else if (closure->func->nargs > 1) {
 				vm_error(wk, "handler for %o can only accept at most 1 posarg", k);
 				return false;
 			}
@@ -151,15 +151,15 @@ FUNC_IMPL(module_getopt, getopt, tc_array, .desc = "Parse command line arguments
 			if (opt_match(handler->c, handler->desc->s, handler->has_value ? "value" : "")) {
 				handler->seen = true;
 
-				obj capture_res;
-				struct args_norm capture_an[] = { { ARG_TYPE_NULL }, ARG_TYPE_NULL };
+				obj closure_res;
+				struct args_norm closure_an[] = { { ARG_TYPE_NULL }, ARG_TYPE_NULL };
 				if (handler->has_value) {
-					capture_an[0].node = 0;
-					capture_an[0].type = tc_string;
-					capture_an[0].val = make_str(wk, opt_ctx.optarg);
+					closure_an[0].node = 0;
+					closure_an[0].type = tc_string;
+					closure_an[0].val = make_str(wk, opt_ctx.optarg);
 				}
 
-				if (!vm_eval_capture(wk, handler->action, capture_an, 0, &capture_res)) {
+				if (!vm_eval_closure(wk, handler->action, closure_an, 0, &closure_res)) {
 					return false;
 				}
 			}

@@ -77,7 +77,7 @@ get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 	case obj_source_configuration:
 	case obj_iterator:
 	case obj_func:
-	case obj_capture: return bucket_arr_get(&wk->vm.objects.obj_aos[o->t - _obj_aos_start], o->val);
+	case obj_closure: return bucket_arr_get(&wk->vm.objects.obj_aos[o->t - _obj_aos_start], o->val);
 
 	default: assert(false && "tried to get invalid object type"); return NULL;
 	}
@@ -249,7 +249,7 @@ OBJ_GETTER(obj_alias_target)
 OBJ_GETTER(obj_both_libs)
 OBJ_GETTER(obj_typeinfo)
 OBJ_GETTER(obj_func)
-OBJ_GETTER(obj_capture)
+OBJ_GETTER(obj_closure)
 OBJ_GETTER(obj_source_set)
 OBJ_GETTER(obj_source_configuration)
 OBJ_GETTER(obj_iterator)
@@ -303,7 +303,7 @@ make_obj(struct workspace *wk, enum obj_type type)
 	case obj_iterator:
 	case obj_typeinfo:
 	case obj_func:
-	case obj_capture: {
+	case obj_closure: {
 		struct bucket_arr *ba = &wk->vm.objects.obj_aos[type - _obj_aos_start];
 		val = ba->len;
 		bucket_arr_pushn(wk->a, ba, NULL, 0, 1);
@@ -405,7 +405,7 @@ static struct {
 	{ .t = obj_both_libs, .name = "both_libs" },
 	{ .t = obj_typeinfo, .name = "typeinfo" },
 	{ .t = obj_func, .name = "func_def" },
-	{ .t = obj_capture, .name = "function" },
+	{ .t = obj_closure, .name = "function" },
 	{ .t = obj_source_set, .name = "source_set" },
 	{ .t = obj_source_configuration, .name = "source_configuration" },
 	{ .t = obj_iterator, .name = "iterator" },
@@ -2066,9 +2066,9 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		tstr_pushs(wk, sb, ">");
 		break;
 	}
-	case obj_capture: {
+	case obj_closure: {
 		tstr_pushf(wk, sb, "<capture (");
-		struct obj_capture *c = get_obj_capture(wk, o);
+		struct obj_closure *c = get_obj_closure(wk, o);
 		if (c->func) {
 			for (uint32_t i = 0; i < c->func->nargs; ++i) {
 				tstr_pushf(wk,

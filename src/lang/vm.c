@@ -945,15 +945,15 @@ vm_push_dummy(struct workspace *wk)
 }
 
 static void
-vm_execute_capture(struct workspace *wk, obj a)
+vm_execute_closure(struct workspace *wk, obj a)
 {
 	uint32_t i;
-	struct obj_capture *capture;
+	struct obj_closure *closure;
 
-	capture = get_obj_capture(wk, a);
+	closure = get_obj_closure(wk, a);
 
 	stack_push(&wk->stack, wk->vm.saw_disabler, false);
-	bool ok = pop_args(wk, capture->func->an, capture->func->akw);
+	bool ok = pop_args(wk, closure->func->an, closure->func->akw);
 	bool saw_disabler = wk->vm.saw_disabler;
 	stack_pop(&wk->stack, wk->vm.saw_disabler);
 
@@ -961,7 +961,7 @@ vm_execute_capture(struct workspace *wk, obj a)
 		if (saw_disabler) {
 			object_stack_push(wk, obj_disabler);
 		} else {
-			object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, capture->func->return_type)));
+			object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, closure->func->return_type)));
 		}
 		return;
 	}
@@ -970,30 +970,30 @@ vm_execute_capture(struct workspace *wk, obj a)
 		&(struct call_frame){
 			.type = call_frame_type_func,
 			.return_ip = wk->vm.ip,
-			.expected_return_type = capture->func->return_type,
+			.expected_return_type = closure->func->return_type,
 			.lang_mode = wk->vm.lang_mode,
-			.capture = capture,
+			.closure = closure,
 		});
 
-	wk->vm.lang_mode = capture->func->lang_mode;
+	wk->vm.lang_mode = closure->func->lang_mode;
 
-	for (i = 0; capture->func->an[i].type != ARG_TYPE_NULL; ++i) {
-		object_stack_push_ip(wk, capture->func->an[i].val, capture->func->an[i].node);
+	for (i = 0; closure->func->an[i].type != ARG_TYPE_NULL; ++i) {
+		object_stack_push_ip(wk, closure->func->an[i].val, closure->func->an[i].node);
 	}
 
-	for (i = 0; capture->func->akw[i].key; ++i) {
+	for (i = 0; closure->func->akw[i].key; ++i) {
 		obj val = 0;
-		if (capture->func->akw[i].set) {
-			val = capture->func->akw[i].val;
-		} else if (capture->defargs) {
-			const struct str s = STRL(capture->func->akw[i].key);
-			obj_dict_index_strn(wk, capture->defargs, s.s, s.len, &val);
+		if (closure->func->akw[i].set) {
+			val = closure->func->akw[i].val;
+		} else if (closure->defargs) {
+			const struct str s = STRL(closure->func->akw[i].key);
+			obj_dict_index_strn(wk, closure->defargs, s.s, s.len, &val);
 		}
 
-		object_stack_push_ip(wk, val, capture->func->akw[i].node);
+		object_stack_push_ip(wk, val, closure->func->akw[i].node);
 	}
 
-	wk->vm.ip = capture->func->entry;
+	wk->vm.ip = closure->func->entry;
 	return;
 }
 
@@ -1115,49 +1115,49 @@ static void
 vm_op_constant_func(struct workspace *wk)
 {
 	obj a, c, defargs;
-	struct obj_capture *capture;
+	struct obj_closure *closure;
 
 	defargs = object_stack_pop(&wk->vm.stack);
 	a = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
-	c = make_obj(wk, obj_capture);
-	capture = get_obj_capture(wk, c);
+	c = make_obj(wk, obj_closure);
+	closure = get_obj_closure(wk, c);
 
-	capture->func = get_obj_func(wk, a);
-	capture->defargs = defargs;
-	capture->upvalues = ar_maken(wk->a, struct upvalue *, capture->func->nupvalues);
+	closure->func = get_obj_func(wk, a);
+	closure->defargs = defargs;
+	closure->upvalues = ar_maken(wk->a, struct upvalue *, closure->func->nupvalues);
 
 	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
-	for (uint32_t i = 0; i < capture->func->nupvalues; ++i) {
-			uint32_t slot = capture->func->upvalues[i].slot;
-			if (capture->func->upvalues[i].is_local) {
+	for (uint32_t i = 0; i < closure->func->nupvalues; ++i) {
+			uint32_t slot = closure->func->upvalues[i].slot;
+			if (closure->func->upvalues[i].is_local) {
 				slot += frame->stack_base;
 
 				for (int32_t j = wk->vm.open_upvalues.len - 1; j >= 0; --j) {
 					struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, j);
 					if (u->slot == slot) {
 						// L("found existing upvalue for %d @ %p", slot, (void*)u->u);
-						capture->upvalues[i] = u->u;
+						closure->upvalues[i] = u->u;
 						break;
 					}
 				}
 
-				if (!capture->upvalues[i]) {
+				if (!closure->upvalues[i]) {
 					struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, slot);
-					capture->upvalues[i] = ar_make(wk->a, struct upvalue);
-					capture->upvalues[i]->location = &e->o;
-					// L("creating upvalue for %d, %p", slot, (void*)capture->upvalues[i] );
+					closure->upvalues[i] = ar_make(wk->a, struct upvalue);
+					closure->upvalues[i]->location = &e->o;
+					// L("creating upvalue for %d, %p", slot, (void*)closure->upvalues[i] );
 
 					arr_push(wk->a,
 						&wk->vm.open_upvalues,
 						&(struct open_upvalue){
-							.u = capture->upvalues[i],
+							.u = closure->upvalues[i],
 							.slot = slot,
 						});
 				}
 			} else {
-				// L("grabbing nonlocal capture @ %d (%p)", slot, (void*)frame->capture->upvalues[slot]);
-				capture->upvalues[i] = frame->capture->upvalues[slot];
+				// L("grabbing nonlocal closure @ %d (%p)", slot, (void*)frame->closure->upvalues[slot]);
+				closure->upvalues[i] = frame->closure->upvalues[slot];
 			}
 	}
 
@@ -1703,8 +1703,8 @@ vm_perform_store_mutations(struct workspace *wk, obj val)
 		*get_obj_typeinfo(wk, res) = *get_obj_typeinfo(wk, val);
 		break;
 	}
-	case obj_capture: {
-		struct obj_capture *c = get_obj_capture(wk, val);
+	case obj_closure: {
+		struct obj_closure *c = get_obj_closure(wk, val);
 		// TODO
 		// if (c->func && !c->func->name) {
 		// 	c->func->name = get_str(wk, id)->s;
@@ -1979,7 +1979,7 @@ vm_op_add_store_l(struct workspace *wk)
 #define vm_op_store_load_u_common() \
 	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1); \
 	obj slot_idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip); \
-	obj *slot = frame->capture->upvalues[slot_idx]->location;
+	obj *slot = frame->closure->upvalues[slot_idx]->location;
 
 static void
 vm_op_load_u(struct workspace *wk)
@@ -2174,8 +2174,8 @@ vm_op_member(struct workspace *wk)
 		return;
 	}
 
-	obj res = make_obj(wk, obj_capture);
-	struct obj_capture *c = get_obj_capture(wk, res);
+	obj res = make_obj(wk, obj_closure);
+	struct obj_closure *c = get_obj_closure(wk, res);
 
 	if (f) {
 		if (get_obj_type(wk, f) == obj_typeinfo) {
@@ -2183,7 +2183,7 @@ vm_op_member(struct workspace *wk)
 			return;
 		}
 
-		*c = *get_obj_capture(wk, f);
+		*c = *get_obj_closure(wk, f);
 	} else {
 		c->native_func = idx;
 
@@ -2214,18 +2214,18 @@ vm_op_call(struct workspace *wk)
 	if (wk->vm.in_analyzer && get_obj_type(wk, f) == obj_typeinfo) {
 		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
 		vm_push_dummy(wk);
-		typecheck(wk, 0, f, tc_capture);
+		typecheck(wk, 0, f, tc_closure);
 		return;
-	} else if (!typecheck(wk, 0, f, tc_capture)) {
+	} else if (!typecheck(wk, 0, f, tc_closure)) {
 		object_stack_discard(&wk->vm.stack, wk->vm.nargs + wk->vm.nkwargs * 2);
 		vm_push_dummy(wk);
 		return;
 	}
 
-	struct obj_capture *c = get_obj_capture(wk, f);
+	struct obj_closure *c = get_obj_closure(wk, f);
 	workspace_scratch_begin(wk);
 	if (c->func) {
-		vm_execute_capture(wk, f);
+		vm_execute_closure(wk, f);
 	} else {
 		vm_execute_native(wk, c->native_func, c->self);
 	}
@@ -2617,7 +2617,7 @@ vm_op_dbg_break(struct workspace *wk)
  ******************************************************************************/
 
 bool
-vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
+vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
 {
 	bool ok;
 
@@ -2651,7 +2651,7 @@ vm_eval_capture(struct workspace *wk, obj c, const struct args_norm an[], const 
 
 	// Set the vm ip to 0 where vm_compile_initial_code_segment has placed a return statement
 	wk->vm.ip = 0;
-	vm_execute_capture(wk, c);
+	vm_execute_closure(wk, c);
 
 	if (wk->vm.error) {
 		object_stack_pop(&wk->vm.stack);
@@ -2690,8 +2690,8 @@ vm_unwind_call_stack(struct workspace *wk)
 		case call_frame_type_func: break;
 		}
 
-		const char *fmt = frame->capture->func->name ? "in function '%s'" : "in %s";
-		const char *fname = frame->capture->func->name ? frame->capture->func->name : "anonymous function";
+		const char *fmt = frame->closure->func->name ? "in function '%s'" : "in %s";
+		const char *fname = frame->closure->func->name ? frame->closure->func->name : "anonymous function";
 		vm_diagnostic(wk,
 			frame->return_ip - 1,
 			log_error,
@@ -3417,7 +3417,7 @@ vm_init_objects(struct workspace *wk)
 		[obj_both_libs] = { P(struct obj_both_libs), 4 },
 		[obj_typeinfo] = { P(struct obj_typeinfo), 32 },
 		[obj_func] = { P(struct obj_func), 32 },
-		[obj_capture] = { P(struct obj_capture), 64 },
+		[obj_closure] = { P(struct obj_closure), 64 },
 		[obj_source_set] = { P(struct obj_source_set), 4 },
 		[obj_source_configuration] = { P(struct obj_source_configuration), 4 },
 		[obj_iterator] = { P(struct obj_iterator), 32 },

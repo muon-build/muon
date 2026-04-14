@@ -246,7 +246,7 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 struct dump_function_opts {
 	const char *module;
 	const struct func_impl *impl;
-	obj capture;
+	obj closure;
 	enum obj_type rcvr_t;
 	bool module_func;
 };
@@ -294,7 +294,7 @@ dump_function(struct workspace *wk, struct dump_function_opts *opts)
 		opts->impl->func(wk, 0, 0);
 	} else {
 		obj _res;
-		vm_eval_capture(wk, opts->capture, 0, 0, &_res);
+		vm_eval_closure(wk, opts->closure, 0, 0, &_res);
 	}
 	stack_pop(&wk->stack, wk->vm.behavior.pop_args);
 
@@ -338,12 +338,12 @@ dump_module_function_native(struct workspace *wk, enum module module, const stru
 }
 
 obj
-dump_module_function_capture(struct workspace *wk, const char *module, obj name, obj o)
+dump_module_function_closure(struct workspace *wk, const char *module, obj name, obj o)
 {
-	struct obj_capture *capture = get_obj_capture(wk, o);
+	struct obj_closure *closure = get_obj_closure(wk, o);
 
 	struct vm_inst_location loc;
-	vm_inst_location(wk, capture->func->def, &loc);
+	vm_inst_location(wk, closure->func->def, &loc);
 
 	TSTR(file);
 	if (loc.embedded) {
@@ -353,8 +353,8 @@ dump_module_function_capture(struct workspace *wk, const char *module, obj name,
 
 	struct func_impl impl = {
 		.name = get_cstr(wk, name),
-		.desc = capture->func->desc,
-		.return_type = capture->func->return_type,
+		.desc = closure->func->desc,
+		.return_type = closure->func->return_type,
 		.file = file.buf,
 		.line = loc.line,
 	};
@@ -364,7 +364,7 @@ dump_module_function_capture(struct workspace *wk, const char *module, obj name,
 			.module_func = true,
 			.module = module,
 			.impl = &impl,
-			.capture = o,
+			.closure = o,
 		});
 }
 
@@ -491,7 +491,7 @@ dump_function_docs_for_mode(struct workspace *wk, obj doc, struct hash *map)
 			obj k, v;
 			obj_dict_for(wk, m->exports, k, v) {
 				workspace_scratch_begin(wk);
-				obj fn = dump_module_function_capture(wk, mod_path.buf, k, v);
+				obj fn = dump_module_function_closure(wk, mod_path.buf, k, v);
 				workspace_scratch_end(wk);
 				dump_function_docs_push(wk, doc, fn, map);
 			}

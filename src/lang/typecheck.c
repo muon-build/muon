@@ -590,7 +590,7 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 			tc_dict,
 			make_complex_type(wk,
 				complex_type_or,
-				tc_capture,
+				tc_closure,
 				make_complex_type(wk,
 					complex_type_or,
 					tc_bool,
@@ -605,7 +605,7 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 }
 
 static bool
-typecheck_capture_arg(struct workspace *wk, type_tag a, type_tag b)
+typecheck_closure_arg(struct workspace *wk, type_tag a, type_tag b)
 {
 	bool a_complex = a & TYPE_TAG_COMPLEX, b_complex = b & TYPE_TAG_COMPLEX;
 	type_tag tmp;
@@ -629,9 +629,9 @@ typecheck_capture_arg(struct workspace *wk, type_tag a, type_tag b)
 }
 
 void
-typecheck_capture_type_to_s(struct workspace *wk,
+typecheck_closure_type_to_s(struct workspace *wk,
 	struct tstr *res,
-	const struct typecheck_capture_sig *sig)
+	const struct typecheck_closure_sig *sig)
 {
 	obj expected = make_obj(wk, obj_array);
 	if (sig->an) {
@@ -647,17 +647,17 @@ typecheck_capture_type_to_s(struct workspace *wk,
 }
 
 bool
-typecheck_capture(struct workspace *wk,
+typecheck_closure(struct workspace *wk,
 	uint32_t ip,
 	obj v,
-	const struct typecheck_capture_sig *sig,
+	const struct typecheck_closure_sig *sig,
 	const char *name)
 {
-	if (!typecheck(wk, ip, v, obj_capture)) {
+	if (!typecheck(wk, ip, v, obj_closure)) {
 		return false;
 	}
 
-	struct obj_func *fn = get_obj_capture(wk, v)->func;
+	struct obj_func *fn = get_obj_closure(wk, v)->func;
 
 	uint32_t i;
 	for (i = 0; i < fn->nargs; ++i) {
@@ -666,7 +666,7 @@ typecheck_capture(struct workspace *wk,
 			goto type_err;
 		}
 
-		if (!typecheck_capture_arg(wk, sig->an[i].type, fn->an[i].type)) {
+		if (!typecheck_closure_arg(wk, sig->an[i].type, fn->an[i].type)) {
 			// posargs type mismatch
 			goto type_err;
 		}
@@ -694,7 +694,7 @@ typecheck_capture(struct workspace *wk,
 
 type_err: {
 	TSTR(buf);
-	typecheck_capture_type_to_s(wk, &buf, sig);
+	typecheck_closure_type_to_s(wk, &buf, sig);
 
 	vm_error_at(wk,
 		ip,

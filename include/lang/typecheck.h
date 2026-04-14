@@ -78,7 +78,7 @@ enum complex_type {
 #define tc_source_configuration (obj_typechecking_type_tag | (((type_tag)1) << 30))
 #define tc_iterator             (obj_typechecking_type_tag | (((type_tag)1) << 31))
 #define tc_func                 (obj_typechecking_type_tag | (((type_tag)1) << 32))
-#define tc_capture              (obj_typechecking_type_tag | (((type_tag)1) << 33))
+#define tc_closure              (obj_typechecking_type_tag | (((type_tag)1) << 33))
 #define tc_typeinfo             (obj_typechecking_type_tag | (((type_tag)1) << 34))
 #define tc_type_count         35
 
@@ -91,7 +91,7 @@ enum complex_type {
 			       | tc_option | tc_generator | tc_generated_list \
 			       | tc_alias_target | tc_both_libs | tc_disabler \
 			       | tc_meson | tc_machine | tc_source_set | tc_source_configuration | tc_func \
-			       | tc_iterator | tc_capture \
+			       | tc_iterator | tc_closure \
 			       )
 
 #define tc_exe                (tc_string | tc_file | tc_external_program | tc_python_installation \
@@ -157,21 +157,21 @@ type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset 
 type_tag complex_type_enum_get_(struct workspace *wk, const char *n);
 #define complex_type_enum_get(wk__, n__) complex_type_enum_get_(wk__, #n__)
 
-struct typecheck_capture_sig {
+struct typecheck_closure_sig {
 	const struct args_norm *an;
 	const struct args_kw *akw;
 	type_tag return_type;
 };
 
 bool
-typecheck_capture(struct workspace *wk,
+typecheck_closure(struct workspace *wk,
 	uint32_t ip,
 	obj v,
-	const struct typecheck_capture_sig *sig,
+	const struct typecheck_closure_sig *sig,
 	const char *name);
 
 void
-typecheck_capture_type_to_s(struct workspace *wk,
+typecheck_closure_type_to_s(struct workspace *wk,
 	struct tstr *res,
-	const struct typecheck_capture_sig *sig);
+	const struct typecheck_closure_sig *sig);
 #endif

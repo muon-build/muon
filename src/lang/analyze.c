@@ -706,7 +706,7 @@ az_op_jmp_if_true(struct workspace *wk)
 }
 
 struct az_func_context {
-	struct obj_capture *capture;
+	struct obj_closure *closure;
 };
 
 static struct az_func_context cur_func_context;
@@ -714,10 +714,10 @@ static struct az_func_context cur_func_context;
 static void
 az_op_return(struct workspace *wk)
 {
-	if (cur_func_context.capture) {
+	if (cur_func_context.closure) {
 		obj v = object_stack_peek(&wk->vm.stack, 1);
 		typecheck_custom(
-			wk, 0, v, cur_func_context.capture->func->return_type, "expected return type %s, got %s");
+			wk, 0, v, cur_func_context.closure->func->return_type, "expected return type %s, got %s");
 	}
 }
 
@@ -728,7 +728,7 @@ az_op_return_end(struct workspace *wk)
 
 	if (frame->type == call_frame_type_func) {
 		object_stack_pop(&wk->vm.stack);
-		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.capture->func->return_type)));
+		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.closure->func->return_type)));
 	}
 
 	analyzer.unpatched_ops.ops[op_return_end](wk);
@@ -1108,23 +1108,23 @@ az_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 void
 az_analyze_func(struct workspace *wk, obj c)
 {
-	struct obj_capture *capture = get_obj_capture(wk, c);
+	struct obj_closure *closure = get_obj_closure(wk, c);
 
 	struct args_norm *an = 0; // TODO
 	struct args_kw *akw = 0; // TODO
 	{
 		uint32_t i;
-		for (i = 0; i < capture->func->nargs; ++i) {
+		for (i = 0; i < closure->func->nargs; ++i) {
 			an[i].val = make_typeinfo(
-				wk, flatten_type_flags(wk, capture->func->an[i].type, flatten_type_flag_keep_enums));
+				wk, flatten_type_flags(wk, closure->func->an[i].type, flatten_type_flag_keep_enums));
 			an[i].node = wk->vm.ip - 1;
 		}
 		an[i].type = ARG_TYPE_NULL;
 
-		for (i = 0; i < capture->func->nkwargs; ++i) {
-			akw[i].key = capture->func->akw[i].key;
+		for (i = 0; i < closure->func->nkwargs; ++i) {
+			akw[i].key = closure->func->akw[i].key;
 			akw[i].val = make_typeinfo(
-				wk, flatten_type_flags(wk, capture->func->akw[i].type, flatten_type_flag_keep_enums));
+				wk, flatten_type_flags(wk, closure->func->akw[i].type, flatten_type_flag_keep_enums));
 			akw[i].node = wk->vm.ip - 1;
 		}
 		akw[i].key = 0;
@@ -1133,13 +1133,13 @@ az_analyze_func(struct workspace *wk, obj c)
 	{
 		obj res;
 		struct az_func_context new_func_context = {
-			.capture = capture,
+			.closure = closure,
 		};
 
 		stack_push(&wk->stack, pop_args_ctx, (struct az_pop_args_ctx){ 0 });
 		stack_push(&wk->stack, cur_func_context, new_func_context);
 
-		vm_eval_capture(wk, c, an, akw, &res);
+		vm_eval_closure(wk, c, an, akw, &res);
 
 		stack_pop(&wk->stack, cur_func_context);
 		stack_pop(&wk->stack, pop_args_ctx);
@@ -1169,10 +1169,10 @@ az_op_call(struct workspace *wk)
 	pop_args_error = pop_args_ctx.encountered_error;
 	stack_pop(&wk->stack, pop_args_ctx);
 
-	if (get_obj_type(wk, c) == obj_capture && !pop_args_error) {
-		struct obj_capture *capture = get_obj_capture(wk, c);
+	if (get_obj_type(wk, c) == obj_closure && !pop_args_error) {
+		struct obj_closure *closure = get_obj_closure(wk, c);
 
-		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, capture->func->return_type)));
+		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, closure->func->return_type)));
 		analyzer.unpatched_ops.ops[op_return](wk);
 	}
 }

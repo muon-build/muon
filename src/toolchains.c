@@ -433,7 +433,7 @@ toolchain_component_detect_check_list(struct workspace *wk,
 
 		if (rc->detect) {
 			obj res;
-			if (!vm_eval_capture(wk, rc->detect, detect_an, 0, &res)) {
+			if (!vm_eval_closure(wk, rc->detect, detect_an, 0, &res)) {
 				return false;
 			}
 
@@ -558,13 +558,13 @@ toolchain_component_detect(struct workspace *wk,
 				obj res;
 
 				struct args_norm an[] = { { .val = comp }, { ARG_TYPE_NULL } };
-				if (!vm_eval_capture(wk, rc->sub_components[component].fn, an, 0, &res)) {
+				if (!vm_eval_closure(wk, rc->sub_components[component].fn, an, 0, &res)) {
 					return false;
 				}
 
 				if (!toolchain_component_type_from_s(wk, component, get_cstr(wk, res), &preferred_type)) {
 					vm_error_at(wk,
-						get_obj_capture(wk, rc->sub_components[component].fn)->func->entry,
+						get_obj_closure(wk, rc->sub_components[component].fn)->func->entry,
 						"unknown %s type returned from toolchain function",
 						toolchain_component_to_s(component));
 					return false;
@@ -1018,7 +1018,7 @@ struct toolchain_handler_info {
 	const char *desc;
 	const char *enum_arg;
 	struct args_norm an[4];
-	struct typecheck_capture_sig sig;
+	struct typecheck_closure_sig sig;
 };
 
 #define TOOLCHAIN_ARG_MEMBER_(name, comp, return_type, __type, params, names) { #name, toolchain_arg_arity_##__type },
@@ -1245,7 +1245,7 @@ toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct
 		const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
 
 		TSTR(sig);
-		typecheck_capture_type_to_s(wk, &sig, &handler->sig);
+		typecheck_closure_type_to_s(wk, &sig, &handler->sig);
 
 		tstr_pushf(wk, buf, "%s|`", handler->name);
 		for (uint32_t i = 0; i < sig.len; ++i) {
@@ -1271,14 +1271,14 @@ toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, en
 			return false;
 		}
 
-		if (get_obj_type(wk, v) == obj_capture) {
-			if (!typecheck_capture(wk, ip, v, &handler->sig, name->s)) {
+		if (get_obj_type(wk, v) == obj_closure) {
+			if (!typecheck_closure(wk, ip, v, &handler->sig, name->s)) {
 				return false;
 			}
 
 			if (handler->enum_arg) {
-				struct obj_capture *capture = get_obj_capture(wk, v);
-				capture->func->an[1].type = handler->an[1].type;
+				struct obj_closure *closure = get_obj_closure(wk, v);
+				closure->func->an[1].type = handler->an[1].type;
 
 				if (wk->vm.in_analyzer) {
 					az_analyze_func(wk, v);
@@ -1333,7 +1333,7 @@ handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_n
 	if (get_obj_type(wk, handle_toolchain_arg_override) == obj_array) {
 		list = handle_toolchain_arg_override;
 	} else {
-		if (!vm_eval_capture(wk, handle_toolchain_arg_override, an, 0, &list)) {
+		if (!vm_eval_closure(wk, handle_toolchain_arg_override, an, 0, &list)) {
 			UNREACHABLE;
 		}
 	}
@@ -1349,7 +1349,7 @@ handle_toolchain_arg_override_returning_bool(struct workspace *wk, struct args_n
 	}
 
 	obj b;
-	if (!vm_eval_capture(wk, handle_toolchain_arg_override, an, 0, &b)) {
+	if (!vm_eval_closure(wk, handle_toolchain_arg_override, an, 0, &b)) {
 		UNREACHABLE;
 	}
 

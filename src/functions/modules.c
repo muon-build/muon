@@ -82,7 +82,7 @@ module_lookup_script(struct workspace *wk,
 	if (!typecheck_custom(wk,
 		    0,
 		    res,
-		    make_complex_type(wk, complex_type_nested, tc_dict, tc_capture),
+		    make_complex_type(wk, complex_type_nested, tc_dict, tc_closure),
 		    "expected %s, got %s for module return type")) {
 		goto ret;
 	}

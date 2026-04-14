@@ -682,12 +682,12 @@ static const native_dependency_lookup_handler dependency_lookup_handlers[] = {
 struct dependency_lookup_handler {
 	enum dependency_lookup_handler_type {
 		dependency_lookup_handler_type_native,
-		dependency_lookup_handler_type_capture,
+		dependency_lookup_handler_type_closure,
 	} type;
 	enum dependency_lookup_method m;
 	union {
 		native_dependency_lookup_handler native;
-		obj capture;
+		obj closure;
 	} handler;
 };
 
@@ -707,7 +707,7 @@ dependency_lookup_handler_push_native(struct dependency_lookup_handlers *handler
 }
 
 static void
-dependency_lookup_handler_push_capture(struct dependency_lookup_handlers *handlers,
+dependency_lookup_handler_push_closure(struct dependency_lookup_handlers *handlers,
 	enum dependency_lookup_method m,
 	obj o)
 {
@@ -715,20 +715,20 @@ dependency_lookup_handler_push_capture(struct dependency_lookup_handlers *handle
 		dependency_lookup_handler_push_native(handlers, m);
 	} else {
 		assert(handlers->len < ARRAY_LEN(handlers->e));
-		handlers->e[handlers->len].type = dependency_lookup_handler_type_capture;
+		handlers->e[handlers->len].type = dependency_lookup_handler_type_closure;
 		handlers->e[handlers->len].m = m;
-		handlers->e[handlers->len].handler.capture = o;
+		handlers->e[handlers->len].handler.closure = o;
 		++handlers->len;
 	}
 }
 
-static bool dependency_is_resolving_from_capture = false;
+static bool dependency_is_resolving_from_closure = false;
 
 static bool
 build_lookup_handler_list(struct workspace *wk, struct dep_lookup_ctx *ctx, struct dependency_lookup_handlers *handlers)
 {
 	obj handler_dict = 0;
-	if (!dependency_is_resolving_from_capture
+	if (!dependency_is_resolving_from_closure
 		&& obj_dict_index(wk, wk->dependency_handlers, ctx->name, &handler_dict)) {
 		obj handler;
 
@@ -741,11 +741,11 @@ build_lookup_handler_list(struct workspace *wk, struct dep_lookup_ctx *ctx, stru
 				return false;
 			}
 
-			dependency_lookup_handler_push_capture(handlers, ctx->lookup_method, handler);
+			dependency_lookup_handler_push_closure(handlers, ctx->lookup_method, handler);
 		} else {
 			obj method;
 			obj_dict_for(wk, handler_dict, method, handler) {
-				dependency_lookup_handler_push_capture(handlers, method, handler);
+				dependency_lookup_handler_push_closure(handlers, method, handler);
 			}
 		}
 	} else {
@@ -847,12 +847,12 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 			}
 			break;
 		}
-		case dependency_lookup_handler_type_capture: {
-			stack_push(&wk->stack, dependency_is_resolving_from_capture, true);
-			TracyCZoneN(tctx_1, "dependency_lookup_handler_type_capture", true);
-			bool ok = vm_eval_capture(wk, handlers.e[i].handler.capture, 0, ctx->handler_kwargs, ctx->res);
+		case dependency_lookup_handler_type_closure: {
+			stack_push(&wk->stack, dependency_is_resolving_from_closure, true);
+			TracyCZoneN(tctx_1, "dependency_lookup_handler_type_closure", true);
+			bool ok = vm_eval_closure(wk, handlers.e[i].handler.closure, 0, ctx->handler_kwargs, ctx->res);
 			TracyCZoneEnd(tctx_1);
-			stack_pop(&wk->stack, dependency_is_resolving_from_capture);
+			stack_pop(&wk->stack, dependency_is_resolving_from_closure);
 			if (ok) {
 				struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
 				// For pkgconfig dependencies, preserve the actual pkg-config package name

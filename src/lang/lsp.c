@@ -895,7 +895,7 @@ az_srv_get_completions(struct az_srv *srv, struct workspace *wk, struct az_srv_b
 					}
 
 					// We don't use the module name here, it could be anything
-					obj f = dump_module_function_capture(wk, "<module_name>", name, val);
+					obj f = dump_module_function_closure(wk, "<module_name>", name, val);
 
 					az_srv_push_func_completion(srv, wk, LspCompletionItemKindFunction, f);
 				}
