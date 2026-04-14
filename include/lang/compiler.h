@@ -15,7 +15,7 @@ struct local_binding {
 	struct node *n;
 	obj id;
 	uint32_t depth, slot;
-	bool bound;
+	bool bound, accessed;
 };
 
 struct upvalue_binding {

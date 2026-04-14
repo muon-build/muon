@@ -305,6 +305,8 @@ vm_comp_resolve_local(struct workspace *wk, obj id, enum vm_comp_resolve_flag fl
 		if (obj_equal(wk, id, l->id)) {
 			if (flags & vm_comp_resolve_flag_bind) {
 				l->bound = true;
+			} else if (flags & vm_comp_resolve_flag_bound_only) {
+				l->accessed = true;
 			}
 			return l->slot;
 		}
@@ -498,6 +500,13 @@ vm_comp_pop_call_frame(struct workspace *wk)
 			};
 			arr_del(&wk->vm.compiler_state.upvalues, i);
 			--upvalue_i;
+		}
+	}
+
+	for (uint32_t i = frame->locals_base; i < wk->vm.compiler_state.locals.len; ++i) {
+		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
+		if (!l->accessed && wk->vm.in_analyzer) {
+			vm_comp_warning(wk, l->n, "unused variable");
 		}
 	}
 
@@ -1383,6 +1392,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 				vm_comp_declare_local(wk, n, make_str(wk, an[i].name));
 				l = arr_peek(&wk->vm.compiler_state.locals, 1);
 				l->bound = true;
+				l->accessed = true;
 			}
 		}
 
