@@ -1213,6 +1213,13 @@ vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
 			case op_call_native:
 			case op_return:
 			case op_store_g:
+			case op_store_l:
+			case op_store_u:
+			case op_store_m:
+			case op_add_store_g:
+			case op_add_store_l:
+			case op_add_store_u:
+			case op_add_store_m:
 				return true;
 			default: break;
 		}
