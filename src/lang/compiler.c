@@ -503,11 +503,15 @@ vm_comp_pop_call_frame(struct workspace *wk)
 		}
 	}
 
+	uint32_t locals_debug_len = 0;
+	frame->locals_debug = ar_maken(wk->a, obj, wk->vm.compiler_state.locals.len - frame->locals_base);
 	for (uint32_t i = frame->locals_base; i < wk->vm.compiler_state.locals.len; ++i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
 		if (!l->accessed && wk->vm.in_analyzer) {
 			vm_comp_warning(wk, l->n, "unused variable");
 		}
+		frame->locals_debug[locals_debug_len] = l->id;
+		++locals_debug_len;
 	}
 
 	wk->vm.compiler_state.locals.len = frame->locals_base;
@@ -1128,7 +1132,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					.type = arg->l->r->l->data.type,
 					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
-				L("kwarg %d: %s", kwarg_i, func->akw[kwarg_i].key);
 				++kwarg_i;
 
 				if (arg->l->l) {
@@ -1144,7 +1147,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 					.type = arg->l->l->data.type,
 					.desc = doc ? get_cstr(wk, doc->data.str) : 0,
 				};
-				L("arg %d: %s", arg_i, func->an[arg_i].name);
 				++arg_i;
 			}
 		}
@@ -1155,7 +1157,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		func->lang_mode = wk->vm.lang_mode;
 		func->nupvalues = frame->nupvalues;
 		func->upvalues = frame->upvalues;
-
+		func->locals_debug = frame->locals_debug;
 
 		if (ndefargs) {
 			push_code(wk, op_constant_dict);
@@ -1409,7 +1411,14 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	vm_compile_block(wk, n, flags);
 
 	if (mode & vm_compile_mode_locals) {
-		vm_comp_pop_call_frame(wk);
+		struct compiler_call_frame *frame = vm_comp_pop_call_frame(wk);
+
+		push_code(wk, op_constant_func);
+		obj f = make_obj(wk, obj_func);
+		struct obj_func *func = get_obj_func(wk, f);
+		func->entry = *entry;
+		func->locals_debug = frame->locals_debug;
+		push_constant(wk, f);
 	}
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);

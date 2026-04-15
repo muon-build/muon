@@ -100,6 +100,7 @@ struct obj_func {
 	struct args_norm *an;
 	struct args_kw *akw;
 	struct func_upvalue *upvalues;
+	obj *locals_debug;
 };
 
 struct obj_closure {

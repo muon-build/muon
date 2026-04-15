@@ -27,6 +27,7 @@ struct compiler_call_frame {
 	uint32_t locals_base, upvalues_base;
 	uint32_t nupvalues;
 	struct func_upvalue *upvalues;
+	obj *locals_debug;
 };
 
 enum vm_compile_mode {

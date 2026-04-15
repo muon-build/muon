@@ -1857,6 +1857,34 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 }
 
 static void
+obj_func_to_s(struct workspace *wk, struct obj_func *func, struct tstr *sb)
+{
+	for (uint32_t i = 0; i < func->nargs; ++i) {
+		tstr_pushf(wk, sb, "%s %s", func->an[i].name, typechecking_type_to_s(wk, func->an[i].type));
+		if (i < func->nargs - 1 || func->nkwargs) {
+			tstr_pushf(wk, sb, ", ");
+		}
+	}
+	for (uint32_t i = 0; i < func->nkwargs; ++i) {
+		tstr_pushf(wk, sb, " %s %s:,", func->akw[i].key, typechecking_type_to_s(wk, func->akw[i].type));
+		if (i < func->nkwargs - 1) {
+			tstr_pushf(wk, sb, ", ");
+		}
+	}
+
+	struct vm_inst_location loc = { 0 };
+	vm_inst_location(wk, func->entry, &loc);
+	tstr_pushf(wk,
+		sb,
+		") -> %s @ %s%s:%d:%d>",
+		typechecking_type_to_s(wk, func->return_type),
+		loc.embedded ? "[embedded] " : "",
+		loc.file,
+		loc.line,
+		loc.col);
+}
+
+static void
 obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts *opts)
 {
 	struct obj_to_s_ctx ctx = { .sb = sb, .opts = opts };
@@ -2066,42 +2094,17 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		tstr_pushs(wk, sb, ">");
 		break;
 	}
+	case obj_func: {
+		tstr_pushf(wk, sb, "<func (");
+		obj_func_to_s(wk, get_obj_func(wk, o), sb);
+		break;
+	}
 	case obj_closure: {
 		tstr_pushf(wk, sb, "<capture (");
 		struct obj_closure *c = get_obj_closure(wk, o);
 		if (c->func) {
-			for (uint32_t i = 0; i < c->func->nargs; ++i) {
-				tstr_pushf(wk,
-					sb,
-					"%s %s",
-					c->func->an[i].name,
-					typechecking_type_to_s(wk, c->func->an[i].type));
-				if (i < c->func->nargs - 1 || c->func->nkwargs) {
-					tstr_pushf(wk, sb, ", ");
-				}
-			}
-			for (uint32_t i = 0; i < c->func->nkwargs; ++i) {
-				tstr_pushf(wk,
-					sb,
-					" %s %s:,",
-					c->func->akw[i].key,
-					typechecking_type_to_s(wk, c->func->akw[i].type));
-				if (i < c->func->nkwargs - 1) {
-					tstr_pushf(wk, sb, ", ");
-				}
-			}
-
-			struct vm_inst_location loc = { 0 };
-			vm_inst_location(wk, c->func->entry, &loc);
-			tstr_pushf(wk,
-				sb,
-				") -> %s @ %s%s:%d:%d>",
-				typechecking_type_to_s(wk, c->func->return_type),
-				loc.embedded ? "[embedded] " : "",
-				loc.file,
-				loc.line,
-				loc.col);
-		} else {
+			obj_func_to_s(wk, c->func, sb);
+		}else {
 			const struct func_impl *n = &native_funcs[c->native_func];
 			tstr_pushf(wk, sb, "%s) @ [native] %s:%d>", n->name, n->file, n->line);
 		}

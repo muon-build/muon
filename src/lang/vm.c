@@ -23,6 +23,7 @@
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "platform/term.h"
 #include "tracy.h"
 
 const uint32_t op_operands[op_count] = {
@@ -709,6 +710,27 @@ vm_get_constant(uint8_t *code, uint32_t *ip)
 	return r;
 }
 
+void
+vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
+{
+	frame->stack_base = wk->vm.stack.ba.len;
+	arr_push(wk->a, &wk->vm.call_stack, frame);
+}
+
+struct call_frame *
+vm_pop_call_stack_frame(struct workspace *wk)
+{
+	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
+	switch (frame->type) {
+	case call_frame_type_eval: break;
+	case call_frame_type_func:
+		wk->vm.lang_mode = frame->lang_mode;
+		break;
+	}
+
+	return frame;
+}
+
 /******************************************************************************
  * disassembler
  ******************************************************************************/
@@ -828,10 +850,32 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 
 	case op_load_u:
 	case op_store_u:
-	case op_add_store_u:
+	case op_add_store_u: {
+		const struct call_frame *frame = arr_peek(&wk->vm.call_stack, 1);
+		if (frame->closure && frame->closure->func) {
+			uint32_t depth = 2;
+			const struct func_upvalue *u = &frame->closure->func->upvalues[constants[0]];
+			const struct call_frame *parent = arr_peek(&wk->vm.call_stack, depth);
+
+			while (!u->is_local && depth < wk->vm.call_stack.len) {
+				u = &parent->closure->func->upvalues[u->slot];
+				++depth;
+				parent = arr_peek(&wk->vm.call_stack, depth);
+			}
+
+			buf_push(":%#o", parent->closure->func->locals_debug[u->slot]);
+		}
+		buf_push(":%04x", constants[0]);
+		break;
+	}
+
 	case op_load_l:
 	case op_store_l:
 	case op_add_store_l: {
+		const struct call_frame *frame = arr_peek(&wk->vm.call_stack, 1);
+		if (frame->closure && frame->closure->func) {
+			buf_push(":%#o", frame->closure->func->locals_debug[constants[0]]);
+		}
 		buf_push(":%04x", constants[0]);
 		break;
 	}
@@ -841,7 +885,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	case op_constant: buf_push(":%o", constants[0]); break;
 	case op_constant_list: buf_push(":len:%d", constants[0]); break;
 	case op_constant_dict: buf_push(":len:%d", constants[0]); break;
-	case op_constant_func: buf_push(":%d", constants[0]); break;
+	case op_constant_func: buf_push(":%o", constants[0]); break;
 	case op_call: buf_push(":%d,%d", constants[0], constants[1]); break;
 	case op_member: {
 		uint32_t a;
@@ -880,34 +924,104 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 void
 vm_dis(struct workspace *wk)
 {
-	uint32_t w = 60;
+	uint32_t term_w = 80;
+	{
+		uint32_t term_h;
+		int term_fd;
+		if (fs_fileno(_log_file(), &term_fd)) {
+			term_winsize(wk, term_fd, &term_h, &term_w);
+		}
+	}
+	const uint32_t w = term_w / 2;
 
-	char loc_buf[256];
+	struct dis_func {
+		struct obj_func *func;
+	};
+	struct arr funcs = { 0 };
+	arr_init(wk->a_scratch, &funcs, 64, struct dis_func);
+
+	for (uint32_t i = 0; i < wk->vm.code.len; i += OP_WIDTH(wk->vm.code.e[i])) {
+		if (wk->vm.code.e[i] == op_constant_func) {
+			uint32_t ip = i + 1;
+			obj func = vm_get_constant(wk->vm.code.e, &ip);
+			arr_push(wk->a_scratch, &funcs, &(struct dis_func) { get_obj_func(wk, func) } );
+		}
+	}
+
+	vm_push_call_stack_frame(wk, &(struct call_frame){ .type = call_frame_type_eval });
+
 	for (uint32_t i = 0; i < wk->vm.code.len;) {
 		uint8_t op = wk->vm.code.e[i];
-		const char *dis = vm_dis_inst(wk, wk->vm.code.e, i);
-		struct source_location loc;
-		struct source *src;
-		vm_lookup_inst_location(&wk->vm, i, &loc, &src);
-		struct detailed_source_location dloc = { 0 };
-		if (src) {
-			get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
+
+		bool is_entry = false;
+		for (uint32_t j = 0; j < funcs.len; ++j) {
+			struct dis_func *f = arr_get(&funcs, j);
+			if (f->func->entry == i) {
+				struct obj_closure *closure = get_obj_closure(wk, make_obj(wk, obj_closure));
+				closure->func = f->func;
+				vm_push_call_stack_frame(
+					wk, &(struct call_frame){ .type = call_frame_type_func, .closure = closure });
+				is_entry = true;
+			}
 		}
-		snprintf(loc_buf,
-			sizeof(loc_buf),
-			"%s:%3d:%02d - %3d:%02d [%d,%d]",
-			src ? src->label : 0,
-			dloc.line,
-			dloc.col,
-			dloc.end_line,
-			dloc.end_col,
-			loc.off,
-			loc.len);
-		log_plain(log_info, "%-*s%s\n", w, dis, loc_buf);
+
+		const char *dis = vm_dis_inst(wk, wk->vm.code.e, i);
+
+		char loc_buf[256] = { 0 };
+		// enable to print instruction source locations
+		if (false) {
+			struct source_location loc;
+			struct source *src;
+			vm_lookup_inst_location(&wk->vm, i, &loc, &src);
+			struct detailed_source_location dloc = { 0 };
+			if (src) {
+				get_detailed_source_location(
+					src, loc, &dloc, (enum get_detailed_source_location_flag)0);
+			}
+			snprintf(loc_buf,
+				sizeof(loc_buf),
+				"%s:%3d:%02d - %3d:%02d [%d,%d]",
+				src ? src->label : 0,
+				dloc.line,
+				dloc.col,
+				dloc.end_line,
+				dloc.end_col,
+				loc.off,
+				loc.len);
+		}
+
+		log_plain(log_info, "%-*.*s%s", w, w, dis, loc_buf);
+
+		for (int32_t i = wk->vm.call_stack.len - 1; i >= 0; --i) {
+			if ((uint32_t)i != wk->vm.call_stack.len - 1) {
+				log_plain(log_info, "  ");
+			}
+			const char *label = "|";
+			if (!i && is_entry) {
+				label = ">";
+			} else if (!i && op == op_return_end) {
+				label = "<";
+			}
+			log_plain(log_info, "%s", label);
+		}
+
+		if (is_entry) {
+			struct call_frame *frame = arr_peek(&wk->vm.call_stack, 1);
+			if (frame->closure) {
+				obj_lprintf(wk, log_info, " %s", frame->closure->func->name ? frame->closure->func->name : "anonymous function");
+			}
+		}
+
+		log_plain(log_info, "\n");
 
 		/* if (src) { */
 		/* 	list_line_range(src, loc, 0); */
 		/* } */
+
+		if (op == op_return_end) {
+			vm_pop_call_stack_frame(wk);
+		}
+
 		i += OP_WIDTH(op);
 	}
 }
@@ -915,27 +1029,6 @@ vm_dis(struct workspace *wk)
 /******************************************************************************
  * vm ops
  ******************************************************************************/
-
-void
-vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
-{
-	frame->stack_base = wk->vm.stack.ba.len;
-	arr_push(wk->a, &wk->vm.call_stack, frame);
-}
-
-struct call_frame *
-vm_pop_call_stack_frame(struct workspace *wk)
-{
-	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
-	switch (frame->type) {
-	case call_frame_type_eval: break;
-	case call_frame_type_func:
-		wk->vm.lang_mode = frame->lang_mode;
-		break;
-	}
-
-	return frame;
-}
 
 static void
 vm_push_dummy(struct workspace *wk)
