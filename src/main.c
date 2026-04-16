@@ -236,7 +236,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 					return false;
 				}
 
-				if (wk->vm.lang_mode == language_internal || wk->vm.lang_mode == language_extended) {
+				if (lang_mode == language_internal || lang_mode == language_extended) {
 					opts.compile_mode |= vm_compile_mode_language_extended;
 				}
 			}
