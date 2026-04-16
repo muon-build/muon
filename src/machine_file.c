@@ -161,7 +161,7 @@ machine_file_eval(struct workspace *wk, const char *path, enum machine_kind mach
 
 	L("translated machine file:\n%s", translated.buf);
 
-	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+	workspace_push_lang_mode(wk, language_extended);
 
 	TSTR(translated_label);
 	tstr_pushf(wk, &translated_label, "%s-translated", path);
@@ -173,7 +173,7 @@ machine_file_eval(struct workspace *wk, const char *path, enum machine_kind mach
 		return false;
 	}
 
-	stack_pop(&wk->stack, wk->vm.lang_mode);
+	workspace_pop_lang_mode(wk);
 
 	return true;
 }

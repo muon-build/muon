@@ -602,10 +602,8 @@ az_op_az_branch(struct workspace *wk)
 		// L("--> branch");
 		cur_branch_group.branch = (union az_branch_element){ .i64 = get_obj_number(wk, branch) }.data;
 		cur_branch_group.result = (struct branch_map_data){ 0 };
-		wk->vm.ip = cur_branch_group.branch.ip;
-		vm_push_call_stack_frame(wk, &(struct call_frame){ .type = call_frame_type_eval });
 		push_scope_group_scope(wk);
-		vm_execute(wk);
+		vm_execute(wk, cur_branch_group.branch.ip);
 
 		if (cur_branch_group.result.impure) {
 			pure = false;
@@ -652,10 +650,7 @@ az_op_az_merge(struct workspace *wk)
 		return;
 	}
 
-	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
-
 	assert(cur_branch_group.merge_point == wk->vm.ip - 1);
-	assert(frame->type == call_frame_type_eval);
 
 	object_stack_push(wk, 0);
 	wk->vm.run = false;
@@ -724,12 +719,8 @@ az_op_return(struct workspace *wk)
 static void
 az_op_return_end(struct workspace *wk)
 {
-	struct call_frame *frame = arr_peek(&wk->vm.call_stack, 1);
-
-	if (frame->type == call_frame_type_func) {
-		object_stack_pop(&wk->vm.stack);
-		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.closure->func->return_type)));
-	}
+	object_stack_pop(&wk->vm.stack);
+	object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.closure->func->return_type)));
 
 	analyzer.unpatched_ops.ops[op_return_end](wk);
 }
@@ -1598,7 +1589,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		}
 	}
 
-	wk->vm.lang_mode = opts->lang_mode;
+	workspace_push_lang_mode(wk, opts->lang_mode);
 
 	if (wk->vm.lang_mode == language_internal) {
 		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0);
@@ -1742,6 +1733,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 done:
 	TracyCZoneAutoE;
+	workspace_pop_lang_mode(wk);
 	return res;
 }
 

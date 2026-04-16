@@ -108,10 +108,10 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 	}
 
 	if (opts->lang == build_language_cmake && opts->mode == eval_mode_first) {
-		stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+		workspace_push_lang_mode(wk, language_extended);
 		obj _;
 		bool ok = module_import(wk, "cmake_prelude", false, &_);
-		stack_pop(&wk->stack, wk->vm.lang_mode);
+		workspace_pop_lang_mode(wk);
 
 		assert(ok);
 	}
@@ -189,17 +189,7 @@ compile_done:
 		stack_push(&wk->stack, wk->vm.dbg_state.eval_trace_subdir, false);
 	}
 
-	uint32_t call_stack_base = wk->vm.call_stack.len;
-	struct call_frame eval_frame = {
-		.type = call_frame_type_eval,
-		.return_ip = wk->vm.ip,
-	};
-	vm_push_call_stack_frame(wk, &eval_frame);
-
-	wk->vm.ip = entry;
-
-	*res = vm_execute(wk);
-	assert(call_stack_base == wk->vm.call_stack.len);
+	*res = vm_execute(wk, entry);
 
 	if (wk->vm.dbg_state.eval_trace) {
 		stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace_subdir);

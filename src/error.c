@@ -408,7 +408,7 @@ error_message(struct workspace *wk,
 					&& error_message_previously_emitted.location.len == location.len
 					&& error_message_previously_emitted.flags == flags_masked
 					&& error_message_previously_emitted.src == src
-					/* && strcmp(error_message_previously_emitted.msg, msg) == 0 */
+					&& strcmp(error_message_previously_emitted.msg, msg) == 0
 					;
 
 		if (previous_matches) {

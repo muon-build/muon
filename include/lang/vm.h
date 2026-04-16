@@ -108,17 +108,11 @@ struct source_location_mapping {
 	uint32_t src_idx, ip;
 };
 
-enum call_frame_type {
-	call_frame_type_eval,
-	call_frame_type_func,
-};
-
 struct call_frame {
 	type_tag expected_return_type;
-	enum call_frame_type type;
 	uint32_t return_ip, stack_base;
 	enum language_mode lang_mode;
-	struct obj_closure *closure;
+	const struct obj_closure *closure;
 };
 
 struct vm_compiler_state {
@@ -230,7 +224,7 @@ struct vm_type_registry {
 struct vm {
 	struct object_stack stack;
 	struct arr call_stack, locations, code, src;
-	uint32_t ip, nargs, nkwargs;
+	uint32_t ip, nargs, nkwargs, call_stack_base;
 	obj global_scope, default_global_scope;
 	obj modules;
 	struct arr open_upvalues;
@@ -266,9 +260,8 @@ void object_stack_print(struct workspace *wk, struct object_stack *s);
 
 obj vm_get_constant(uint8_t *code, uint32_t *ip);
 uint32_t vm_constant_host_to_bc(uint32_t n);
-obj vm_execute(struct workspace *wk);
+obj vm_execute(struct workspace *wk, uint32_t ip);
 bool vm_eval_closure(struct workspace *wk, obj closure, const struct args_norm an[], const struct args_kw akw[], obj *res);
-void vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
 struct vm_inst_location

@@ -60,7 +60,7 @@ module_lookup_script(struct workspace *wk,
 {
 	bool ret = false;
 	bool stack_popped = false;
-	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+	workspace_push_lang_mode(wk, language_extended);
 
 	obj res;
 	if (opts->embedded) {
@@ -92,7 +92,7 @@ module_lookup_script(struct workspace *wk,
 		m->has_impl = true;
 		m->exports = res;
 	} else {
-		stack_pop(&wk->stack, wk->vm.lang_mode);
+		workspace_pop_lang_mode(wk);
 		stack_popped = true;
 		obj k, v;
 		obj_dict_for(wk, res, k, v) {
@@ -103,7 +103,7 @@ module_lookup_script(struct workspace *wk,
 	ret = true;
 ret:
 	if (!stack_popped) {
-		stack_pop(&wk->stack, wk->vm.lang_mode);
+		workspace_pop_lang_mode(wk);
 	}
 	return ret;
 }

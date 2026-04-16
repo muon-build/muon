@@ -551,17 +551,17 @@ dump_function_docs_obj(struct workspace *wk)
 
 	obj docs = make_obj(wk, obj_array);
 
-	stack_push(&wk->stack, wk->vm.lang_mode, language_opts);
+	workspace_push_lang_mode(wk, language_opts);
 	dump_function_docs_for_mode(wk, docs, &map);
-	stack_pop(&wk->stack, wk->vm.lang_mode);
+	workspace_pop_lang_mode(wk);
 
-	stack_push(&wk->stack, wk->vm.lang_mode, language_external);
+	workspace_push_lang_mode(wk, language_external);
 	dump_function_docs_for_mode(wk, docs, &map);
-	stack_pop(&wk->stack, wk->vm.lang_mode);
+	workspace_pop_lang_mode(wk);
 
-	stack_push(&wk->stack, wk->vm.lang_mode, language_internal);
+	workspace_push_lang_mode(wk, language_internal);
 	dump_function_docs_for_mode(wk, docs, &map);
-	stack_pop(&wk->stack, wk->vm.lang_mode);
+	workspace_pop_lang_mode(wk);
 
 	obj sorted;
 	obj_array_sort(wk, 0, docs, dump_function_docs_sort_func, &sorted);

@@ -103,10 +103,11 @@ struct obj_func {
 	struct args_kw *akw;
 	struct func_upvalue *upvalues;
 	obj *locals_debug;
+	bool automatically_defined;
 };
 
 struct obj_closure {
-	struct obj_func *func;
+	const struct obj_func *func;
 	obj scope_stack, defargs, self;
 	uint32_t native_func;
 	struct upvalue **upvalues;

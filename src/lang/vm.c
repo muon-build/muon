@@ -710,24 +710,32 @@ vm_get_constant(uint8_t *code, uint32_t *ip)
 	return r;
 }
 
-void
+static void
 vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
 {
+	static const struct obj_func auto_func = { .automatically_defined = true };
+	static const struct obj_closure auto_closure = { .func = &auto_func };
+
+	struct call_frame auto_frame;
+	if (!frame) {
+		frame = &auto_frame;
+		auto_frame = (struct call_frame) {
+			.expected_return_type = TYPE_TAG_ALLOW_NULL | tc_any,
+			.lang_mode = wk->vm.lang_mode,
+			.closure = &auto_closure,
+		};
+	}
+	frame->return_ip = wk->vm.ip;
 	frame->stack_base = wk->vm.stack.ba.len;
 	arr_push(wk->a, &wk->vm.call_stack, frame);
+	workspace_push_lang_mode(wk, frame->lang_mode);
 }
 
-struct call_frame *
+static struct call_frame *
 vm_pop_call_stack_frame(struct workspace *wk)
 {
 	struct call_frame *frame = arr_pop(&wk->vm.call_stack);
-	switch (frame->type) {
-	case call_frame_type_eval: break;
-	case call_frame_type_func:
-		wk->vm.lang_mode = frame->lang_mode;
-		break;
-	}
-
+	workspace_pop_lang_mode(wk);
 	return frame;
 }
 
@@ -936,7 +944,7 @@ vm_dis(struct workspace *wk)
 		}
 	}
 
-	vm_push_call_stack_frame(wk, &(struct call_frame){ .type = call_frame_type_eval });
+	vm_push_call_stack_frame(wk, 0);
 
 	for (uint32_t i = 0; i < wk->vm.code.len;) {
 		uint8_t op = wk->vm.code.e[i];
@@ -954,8 +962,7 @@ vm_dis(struct workspace *wk)
 					closure->upvalues[i]->debug_id = closure->func->upvalues[i].id;
 				}
 
-				vm_push_call_stack_frame(
-					wk, &(struct call_frame){ .type = call_frame_type_func, .closure = closure });
+				vm_push_call_stack_frame(wk, &(struct call_frame){ .closure = closure });
 				is_entry = true;
 			}
 		}
@@ -1033,7 +1040,7 @@ vm_push_dummy(struct workspace *wk)
 }
 
 static void
-vm_execute_closure(struct workspace *wk, obj a)
+vm_begin_execute_closure(struct workspace *wk, obj a)
 {
 	uint32_t i;
 	struct obj_closure *closure;
@@ -1056,14 +1063,10 @@ vm_execute_closure(struct workspace *wk, obj a)
 
 	vm_push_call_stack_frame(wk,
 		&(struct call_frame){
-			.type = call_frame_type_func,
-			.return_ip = wk->vm.ip,
 			.expected_return_type = closure->func->return_type,
-			.lang_mode = wk->vm.lang_mode,
+			.lang_mode = closure->func->lang_mode,
 			.closure = closure,
 		});
-
-	wk->vm.lang_mode = closure->func->lang_mode;
 
 	for (i = 0; closure->func->an[i].type != ARG_TYPE_NULL; ++i) {
 		object_stack_push_ip(wk, closure->func->an[i].val, closure->func->an[i].node);
@@ -1082,7 +1085,6 @@ vm_execute_closure(struct workspace *wk, obj a)
 	}
 
 	wk->vm.ip = closure->func->entry;
-	return;
 }
 
 static void
@@ -2311,13 +2313,13 @@ vm_op_call(struct workspace *wk)
 	}
 
 	struct obj_closure *c = get_obj_closure(wk, f);
-	workspace_scratch_begin(wk);
 	if (c->func) {
-		vm_execute_closure(wk, f);
+		vm_begin_execute_closure(wk, f);
 	} else {
+		workspace_scratch_begin(wk);
 		vm_execute_native(wk, c->native_func, c->self);
+		workspace_scratch_end(wk);
 	}
-	workspace_scratch_end(wk);
 }
 
 static void
@@ -2668,16 +2670,10 @@ vm_op_return(struct workspace *wk)
 	object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - frame->stack_base);
 	object_stack_push_ip(wk, a, a_ip);
 
-	switch (frame->type) {
-	case call_frame_type_eval: {
-		wk->vm.run = false;
-		break;
-	}
-	case call_frame_type_func: {
+	typecheck_custom(wk, a_ip, a, frame->expected_return_type, "expected return type %s, got %s");
 
-		typecheck_custom(wk, a_ip, a, frame->expected_return_type, "expected return type %s, got %s");
-		break;
-	}
+	if (wk->vm.call_stack_base == wk->vm.call_stack.len) {
+		wk->vm.run = false;
 	}
 }
 
@@ -2704,17 +2700,12 @@ vm_op_dbg_break(struct workspace *wk)
  * vm_execute
  ******************************************************************************/
 
+static obj vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure);
+
 bool
 vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
 {
 	bool ok;
-
-	uint32_t call_stack_base = wk->vm.call_stack.len;
-	vm_push_call_stack_frame(wk,
-		&(struct call_frame){
-			.type = call_frame_type_eval,
-			.return_ip = wk->vm.ip,
-		});
 
 	wk->vm.nargs = 0;
 	if (an) {
@@ -2737,23 +2728,8 @@ vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const 
 		}
 	}
 
-	// Set the vm ip to 0 where vm_compile_initial_code_segment has placed a return statement
-	wk->vm.ip = 0;
-	vm_execute_closure(wk, c);
-
-	if (wk->vm.error) {
-		object_stack_pop(&wk->vm.stack);
-		vm_pop_call_stack_frame(wk);
-		goto err;
-	}
-
-	*res = vm_execute(wk);
-
-err:
-	assert(call_stack_base == wk->vm.call_stack.len);
-
+	*res = vm_execute_impl(wk, 0, c);
 	ok = !wk->vm.error;
-
 	wk->vm.error = false;
 	return ok;
 }
@@ -2763,56 +2739,75 @@ vm_unwind_call_stack(struct workspace *wk)
 {
 	struct call_frame *frame;
 
-	while (wk->vm.call_stack.len) {
+	while (wk->vm.call_stack.len > wk->vm.call_stack_base) {
 		frame = vm_pop_call_stack_frame(wk);
+		wk->vm.ip = frame->return_ip;
 
-		switch (frame->type) {
-		case call_frame_type_eval: {
-			error_message_flush_coalesced_message(wk);
-			wk->vm.ip = frame->return_ip;
-			// TODO: this is a little hacky?  We need to make sure that
-			// execution can continue even if we emitted errors.
-			wk->vm.run = true;
-			return;
+		if (!frame->closure->func->automatically_defined) {
+			const char *fmt = frame->closure->func->name ? "in function '%s'" : "in %s";
+			const char *fname = frame->closure->func->name ? frame->closure->func->name :
+									 "anonymous function";
+			vm_diagnostic(wk,
+				frame->return_ip - OP_WIDTH(op_call),
+				log_error,
+				error_message_flag_no_source | error_message_flag_coalesce,
+				fmt,
+				fname);
 		}
-		case call_frame_type_func: break;
-		}
-
-		const char *fmt = frame->closure->func->name ? "in function '%s'" : "in %s";
-		const char *fname = frame->closure->func->name ? frame->closure->func->name : "anonymous function";
-		vm_diagnostic(wk,
-			frame->return_ip - 1,
-			log_error,
-			error_message_flag_no_source | error_message_flag_coalesce,
-			fmt,
-			fname);
 	}
 
 	error_message_flush_coalesced_message(wk);
 }
 
-obj
-vm_execute(struct workspace *wk)
+static obj
+vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure)
 {
 	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
 
 	stack_push(&wk->stack, wk->vm.run, true);
+	stack_push(&wk->stack, wk->vm.call_stack_base, wk->vm.call_stack.len);
+
+	// struct call_frame eval_frame = {
+	// 	.type = call_frame_type_eval,
+	// 	.return_ip = wk->vm.ip,
+	// 	.lang_mode = wk->vm.lang_mode,
+	// };
+	// vm_push_call_stack_frame(wk, &eval_frame);
+
+	if (closure) {
+		vm_begin_execute_closure(wk, closure);
+		if (wk->vm.error) {
+			object_stack_pop(&wk->vm.stack);
+		}
+	} else {
+		vm_push_call_stack_frame(wk, 0);
+		wk->vm.ip = ip;
+	}
 
 	wk->vm.behavior.execute_loop(wk);
 
-	stack_pop(&wk->stack, wk->vm.run);
-
+	obj res = 0;
 	if (wk->vm.error) {
 		vm_unwind_call_stack(wk);
 		assert(wk->vm.stack.ba.len >= object_stack_base);
 		object_stack_discard(&wk->vm.stack, wk->vm.stack.ba.len - object_stack_base);
-		TracyCZoneAutoE;
-		return 0;
 	} else {
-		TracyCZoneAutoE;
-		return object_stack_pop(&wk->vm.stack);
+		res = object_stack_pop(&wk->vm.stack);
 	}
+
+	assert(wk->vm.call_stack_base == wk->vm.call_stack.len);
+	stack_pop(&wk->stack, wk->vm.call_stack_base);
+	stack_pop(&wk->stack, wk->vm.run);
+
+	TracyCZoneAutoE;
+	return res;
+}
+
+obj
+vm_execute(struct workspace *wk, uint32_t ip)
+{
+	return vm_execute_impl(wk, ip, 0);
 }
 
 /******************************************************************************

@@ -123,11 +123,11 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 		return false;
 	}
 
-	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+	workspace_push_lang_mode(wk, language_extended);
 
 	ret = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_);
 
-	stack_pop(&wk->stack, wk->vm.lang_mode);
+	workspace_pop_lang_mode(wk);
 	return ret;
 }
 
@@ -516,14 +516,14 @@ workspace_do_setup(struct workspace *wk, struct arr *preload_files)
 					goto ret;
 				}
 
-				stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+				workspace_push_lang_mode(wk, language_extended);
 
 				obj _res;
 				if (!eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_res)) {
 					goto ret;
 				}
 
-				stack_pop(&wk->stack, wk->vm.lang_mode);
+				workspace_pop_lang_mode(wk);
 			} else {
 				enum machine_kind machine = machine_kind_host;
 				if (str_try_remove_prefix(&path_str, &STR("cross:"))) {
@@ -596,4 +596,16 @@ workspace_perm_end(struct workspace *wk)
 {
 	ar_pop_to(wk->a, wk->a_pos);
 	stack_pop(&wk->stack, wk->a_pos);
+}
+
+void
+workspace_push_lang_mode(struct workspace *wk, enum language_mode mode)
+{
+	stack_push(&wk->stack, wk->vm.lang_mode, mode);
+}
+
+void
+workspace_pop_lang_mode(struct workspace *wk)
+{
+	stack_pop(&wk->stack, wk->vm.lang_mode);
 }

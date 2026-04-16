@@ -766,13 +766,12 @@ init_builtin_options(struct workspace *wk, const char *script)
 		return false;
 	}
 
-	enum language_mode old_mode = wk->vm.lang_mode;
-	wk->vm.lang_mode = language_opts;
+	workspace_push_lang_mode(wk, language_opts);
 	obj _;
 	initializing_builtin_options = true;
 	bool ret = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_);
 	initializing_builtin_options = false;
-	wk->vm.lang_mode = old_mode;
+	workspace_pop_lang_mode(wk);
 	return ret;
 }
 
@@ -867,13 +866,12 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	bool exists = determine_option_file(wk, cwd, &meson_opts);
 
 	if (exists) {
-		enum language_mode old_mode = wk->vm.lang_mode;
-		wk->vm.lang_mode = language_opts;
+		workspace_push_lang_mode(wk, language_opts);
 		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
-			wk->vm.lang_mode = old_mode;
+		workspace_pop_lang_mode(wk);
 			return false;
 		}
-		wk->vm.lang_mode = old_mode;
+		workspace_pop_lang_mode(wk);
 	}
 
 	bool is_master_project = wk->cur_project == 0;
@@ -1664,7 +1662,7 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 	if (!(wk->init_flags & workspace_init_flag_runtime)) {
 		workspace_init_runtime(wk);
 	}
-	wk->vm.lang_mode = language_opts;
+	workspace_push_lang_mode(wk, language_opts);
 
 	bool load_from_build_dir = false;
 
@@ -1818,5 +1816,6 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 
 	ret = true;
 ret:
+	workspace_pop_lang_mode(wk);
 	return ret;
 }

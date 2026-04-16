@@ -377,9 +377,9 @@ func_kwargs_lookup(struct workspace *wk, obj self, const char *name, struct arr 
 		obj _func;
 		bool ok;
 
-		stack_push(&wk->stack, wk->vm.lang_mode, language_external);
+		workspace_push_lang_mode(wk, language_external);
 		ok = func_lookup(wk, self, name, &idx, &_func);
-		stack_pop(&wk->stack, wk->vm.lang_mode);
+		workspace_pop_lang_mode(wk);
 
 		assert(ok && "function not found");
 		assert(!_func && "only native functions supported");

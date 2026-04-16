@@ -520,6 +520,20 @@ vm_comp_pop_call_frame(struct workspace *wk)
 	return frame;
 }
 
+static void
+vm_comp_init_func(struct workspace *wk, struct obj_func *func, const struct compiler_call_frame *frame, uint32_t nargs, uint32_t nkwargs)
+{
+	func->nargs = nargs;
+	func->nkwargs = nkwargs;
+	func->an = ar_maken(wk->a, struct args_norm, func->nargs + 1);
+	func->akw = ar_maken(wk->a, struct args_kw, func->nkwargs + 1);
+	func->an[func->nargs].type = ARG_TYPE_NULL;
+	func->akw[func->nkwargs].key = 0;
+	func->nupvalues = frame->nupvalues;
+	func->upvalues = frame->upvalues;
+	func->locals_debug = frame->locals_debug;
+	func->lang_mode = wk->vm.lang_mode;
+}
 
 static void
 vm_comp_node(struct workspace *wk, struct node *n)
@@ -1085,10 +1099,10 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		/* function body start */
 
 		func->entry = wk->vm.code.len;
+		func->return_type = n->data.type;
 
 		vm_comp_push_call_frame(wk);
 
-		struct local_binding *l;
 		for (arg = n->l->r; arg; arg = arg->r) {
 			if (!arg->l) {
 				break;
@@ -1102,7 +1116,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				++func->nargs;
 			}
 
-			l = arr_peek(&wk->vm.compiler_state.locals, 1);
+			struct local_binding *l = arr_peek(&wk->vm.compiler_state.locals, 1);
 			l->bound = true;
 		}
 
@@ -1110,16 +1124,13 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		vm_compile_block(wk, n->r, vm_compile_block_final_return);
 		struct compiler_call_frame *frame = vm_comp_pop_call_frame(wk);
+		vm_comp_init_func(wk, func, frame, func->nargs, func->nkwargs);
 
 		/* function body end */
 
 		push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, func_jump_over_patch_tgt));
 
-		func->an = ar_maken(wk->a, struct args_norm, func->nargs + 1);
-		func->akw = ar_maken(wk->a, struct args_kw, func->nkwargs + 1);
-
 		uint32_t kwarg_i = 0, arg_i = 0;
-
 		for (arg = n->l->r; arg; arg = arg->r) {
 			if (!arg->l) {
 				break;
@@ -1150,14 +1161,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 				++arg_i;
 			}
 		}
-
-		func->an[func->nargs].type = ARG_TYPE_NULL;
-		func->akw[func->nkwargs].key = 0;
-		func->return_type = n->data.type;
-		func->lang_mode = wk->vm.lang_mode;
-		func->nupvalues = frame->nupvalues;
-		func->upvalues = frame->upvalues;
-		func->locals_debug = frame->locals_debug;
 
 		if (ndefargs) {
 			push_code(wk, op_constant_dict);
@@ -1417,21 +1420,15 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 		push_code(wk, op_constant_func);
 		obj f = make_obj(wk, obj_func);
 		struct obj_func *func = get_obj_func(wk, f);
-		func->nargs = wrapper_func_args;
-		func->an = ar_maken(wk->a, struct args_norm, func->nargs + 1);
+		vm_comp_init_func(wk, func, frame, wrapper_func_args, 0);
 		if (an) {
 			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
 				func->an[i].type = tc_any;
 			}
 		}
-		func->an[func->nargs].type = ARG_TYPE_NULL;
-		func->akw = ar_maken(wk->a, struct args_kw, func->nkwargs + 1);
-		func->akw[func->nkwargs].key = 0;
+		func->automatically_defined = true;
 		func->def = wrapper_func_entry;
 		func->entry = wrapper_func_entry;
-		func->locals_debug = frame->locals_debug;
-		func->nupvalues = frame->nupvalues;
-		func->upvalues = frame->upvalues;
 		func->return_type = TYPE_TAG_ALLOW_NULL | tc_any;
 		push_constant(wk, f);
 

@@ -221,6 +221,8 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		enum vm_compile_mode compile_mode;
 	} opts = { 0 };
 
+	enum language_mode lang_mode = wk->vm.lang_mode;
+
 	opt_for(1, .usage_post = " <filename>") {
 		if (opt_match('p', "print parsed ast")) {
 			opts.print_ast = true;
@@ -230,7 +232,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 			opts.breakpoint = opt_ctx.optarg;
 		} else if (opt_match('m', "parse with language mode", opt_match_enum_table(opt_language_mode_table))) {
 			{
-				if (!language_mode_from_optarg(opt_ctx.optarg, &wk->vm.lang_mode)) {
+				if (!language_mode_from_optarg(opt_ctx.optarg, &lang_mode)) {
 					return false;
 				}
 
@@ -246,25 +248,28 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	}
 	opt_end();
 
+	workspace_push_lang_mode(wk, lang_mode);
+
 	opts.filename = argv[argi];
 
 	arr_push(wk->a, &wk->vm.src, &(struct source){ 0 });
 	struct source *src = arr_get(&wk->vm.src, 0);
 
+	bool res = false;
 	if (!fs_read_entire_file(wk->a_scratch, opts.filename, src)) {
-		return false;
+		goto ret;
 	}
 
 	if (opts.breakpoint) {
 		if (!vm_dbg_push_breakpoint_str(wk, opts.breakpoint)) {
-			return false;
+			goto ret;
 		}
 	}
 
 	if (opts.print_ast) {
 		struct node *n;
 		if (!(n = parse(wk, src, opts.compile_mode))) {
-			return false;
+			goto ret;
 		}
 
 		if (opts.compile_mode & vm_compile_mode_fmt) {
@@ -275,7 +280,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	} else {
 		uint32_t _entry;
 		if (!vm_compile(wk, src, opts.compile_mode, &_entry)) {
-			return false;
+			goto ret;
 		}
 
 		if (opts.print_dis) {
@@ -283,7 +288,10 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		}
 	}
 
-	return true;
+	res = true;
+ret:
+	workspace_pop_lang_mode(wk);
+	return res;
 }
 
 static bool
@@ -494,7 +502,7 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 
-	wk->vm.lang_mode = language_internal;
+	workspace_push_lang_mode(wk, language_internal);
 
 	workspace_setup_paths(wk, path_cwd(), argv[0], argc, argv);
 
@@ -539,6 +547,8 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		goto ret;
 	}
 
+	workspace_pop_lang_mode(wk);
+
 	ret = true;
 ret:
 	return ret;
@@ -551,13 +561,15 @@ cmd_repl(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	opt_end();
 
-	wk->vm.lang_mode = language_internal;
+	workspace_push_lang_mode(wk, language_internal);
 
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
 	make_dummy_project(wk, false);
 
 	repl(wk, false);
+
+	workspace_pop_lang_mode(wk);
 	return true;
 }
 

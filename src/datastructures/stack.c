@@ -102,6 +102,11 @@ stack_pop_sized(struct stack *stack, void *mem, uint32_t size)
 #if MUON_STACK_SANITIZE
 	struct stack_tag tag;
 	stack_pop_raw(stack, &tag, sizeof(tag));
+#if MUON_STACK_DEBUG
+	if (size != tag.size) {
+		LOG_E("size mismatch %d != %d (%s)", size, tag.size, tag.name);
+	}
+#endif
 	assert(size == tag.size);
 #endif
 

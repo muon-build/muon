@@ -145,4 +145,6 @@ void workspace_scratch_begin(struct workspace *wk);
 void workspace_scratch_end(struct workspace *wk);
 void workspace_perm_begin(struct workspace *wk);
 void workspace_perm_end(struct workspace *wk);
+void workspace_push_lang_mode(struct workspace *wk, enum language_mode mode);
+void workspace_pop_lang_mode(struct workspace *wk);
 #endif
