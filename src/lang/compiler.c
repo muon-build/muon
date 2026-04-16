@@ -869,7 +869,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		arr_push(wk->a, &wk->vm.compiler_state.loop_jmp_stack, &top);
 
 		push_constant(wk, 0);
-		push_constant(wk, *(uint32_t *)arr_peek(&wk->vm.compiler_state.loop_jmp_stack, 1));
 		break;
 	}
 	case node_type_if: {
