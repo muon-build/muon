@@ -230,12 +230,11 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 			opts.breakpoint = opt_ctx.optarg;
 		} else if (opt_match('m', "parse with language mode", opt_match_enum_table(opt_language_mode_table))) {
 			{
-				enum language_mode mode;
-				if (!language_mode_from_optarg(opt_ctx.optarg, &mode)) {
+				if (!language_mode_from_optarg(opt_ctx.optarg, &wk->vm.lang_mode)) {
 					return false;
 				}
 
-				if (mode == language_internal || mode == language_extended) {
+				if (wk->vm.lang_mode == language_internal || wk->vm.lang_mode == language_extended) {
 					opts.compile_mode |= vm_compile_mode_language_extended;
 				}
 			}
