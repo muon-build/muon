@@ -1873,7 +1873,7 @@ obj_func_to_s(struct workspace *wk, struct obj_func *func, struct tstr *sb)
 	}
 
 	struct vm_inst_location loc = { 0 };
-	vm_inst_location(wk, func->entry, &loc);
+	vm_inst_location(wk, func->def, &loc);
 	tstr_pushf(wk,
 		sb,
 		") -> %s @ %s%s:%d:%d>",

@@ -20,6 +20,7 @@ struct local_binding {
 
 struct upvalue_binding {
 	uint32_t depth, slot;
+	obj id;
 	bool is_local;
 };
 
@@ -41,7 +42,6 @@ enum vm_compile_mode {
 };
 
 void vm_compile_state_reset(struct workspace *wk);
-void vm_compile_initial_code_segment(struct workspace *wk);
 struct node;
 bool
 vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, const struct args_norm *an, uint32_t *entry);

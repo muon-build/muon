@@ -13,7 +13,6 @@
 #include "lang/compiler.h"
 #include "lang/eval.h"
 #include "lang/parser.h"
-#include "lang/typecheck.h"
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -196,12 +195,6 @@ compile_done:
 		.return_ip = wk->vm.ip,
 	};
 	vm_push_call_stack_frame(wk, &eval_frame);
-
-	if (opts->an) {
-		for (uint32_t i = 0; opts->an[i].type != ARG_TYPE_NULL; ++i) {
-			object_stack_push(wk, opts->an[i].val);
-		}
-	}
 
 	wk->vm.ip = entry;
 

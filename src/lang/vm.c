@@ -811,7 +811,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	uint32_t ip = base_ip;
 	buf_push("%04x ", ip);
 
-	uint32_t op = code[ip], constants[3];
+	uint32_t op = code[ip], constants[3] = { 0 };
 	{
 		++ip;
 		uint32_t j;
@@ -852,19 +852,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 	case op_store_u:
 	case op_add_store_u: {
 		const struct call_frame *frame = arr_peek(&wk->vm.call_stack, 1);
-		if (frame->closure && frame->closure->func) {
-			uint32_t depth = 2;
-			const struct func_upvalue *u = &frame->closure->func->upvalues[constants[0]];
-			const struct call_frame *parent = arr_peek(&wk->vm.call_stack, depth);
-
-			while (!u->is_local && depth < wk->vm.call_stack.len) {
-				u = &parent->closure->func->upvalues[u->slot];
-				++depth;
-				parent = arr_peek(&wk->vm.call_stack, depth);
-			}
-
-			buf_push(":%#o", parent->closure->func->locals_debug[u->slot]);
-		}
+		buf_push(":%#o", frame->closure->upvalues[constants[0]]->debug_id);
 		buf_push(":%04x", constants[0]);
 		break;
 	}
@@ -959,6 +947,13 @@ vm_dis(struct workspace *wk)
 			if (f->func->entry == i) {
 				struct obj_closure *closure = get_obj_closure(wk, make_obj(wk, obj_closure));
 				closure->func = f->func;
+
+				closure->upvalues = ar_maken(wk->a, struct upvalue *, closure->func->nupvalues);
+				for (uint32_t i = 0; i < closure->func->nupvalues; ++i) {
+					closure->upvalues[i] = ar_make(wk->a, struct upvalue);
+					closure->upvalues[i]->debug_id = closure->func->upvalues[i].id;
+				}
+
 				vm_push_call_stack_frame(
 					wk, &(struct call_frame){ .type = call_frame_type_func, .closure = closure });
 				is_entry = true;
@@ -1239,7 +1234,7 @@ vm_op_constant_func(struct workspace *wk)
 					struct obj_stack_entry *e = bucket_arr_get(&wk->vm.stack.ba, slot);
 					closure->upvalues[i] = ar_make(wk->a, struct upvalue);
 					closure->upvalues[i]->location = &e->o;
-					// L("creating upvalue for %d, %p", slot, (void*)closure->upvalues[i] );
+					closure->upvalues[i]->debug_id = closure->func->upvalues[i].id;
 
 					arr_push(wk->a,
 						&wk->vm.open_upvalues,
@@ -3650,9 +3645,6 @@ vm_init(struct workspace *wk)
 
 	/* global scope */
 	wk->vm.global_scope = wk->vm.behavior.global_scope_dup(wk, wk->vm.default_global_scope);
-
-	/* initial code segment */
-	vm_compile_initial_code_segment(wk);
 }
 
 void

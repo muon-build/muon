@@ -205,7 +205,7 @@ vm_comp_node_skip(enum node_type t)
 }
 
 static uint32_t
-vm_comp_add_upvalue(struct workspace *wk, uint32_t depth, uint32_t slot, bool is_local)
+vm_comp_add_upvalue(struct workspace *wk, obj id, uint32_t depth, uint32_t slot, bool is_local)
 {
 	const struct compiler_call_frame *frame = arr_get(&wk->vm.compiler_state.call_stack, depth);
 
@@ -224,7 +224,7 @@ vm_comp_add_upvalue(struct workspace *wk, uint32_t depth, uint32_t slot, bool is
 		++res_slot;
 	}
 
-	arr_push(wk->a, &wk->vm.compiler_state.upvalues, &(struct upvalue_binding){ depth, slot, is_local });
+	arr_push(wk->a, &wk->vm.compiler_state.upvalues, &(struct upvalue_binding){ depth, slot, id, is_local });
 	return res_slot;
 }
 
@@ -244,7 +244,7 @@ vm_comp_resolve_upvalue_depth(struct workspace *wk, uint32_t depth, obj id)
 			break;
 		}
 		if (obj_equal(wk, id, l->id)) {
-			return vm_comp_add_upvalue(wk, depth, l->slot, true);
+			return vm_comp_add_upvalue(wk, id, depth, l->slot, true);
 		}
 	}
 
@@ -254,7 +254,7 @@ vm_comp_resolve_upvalue_depth(struct workspace *wk, uint32_t depth, obj id)
 
 	int32_t slot = vm_comp_resolve_upvalue_depth(wk, depth - 1, id);
 	if (slot != -1) {
-		return vm_comp_add_upvalue(wk, depth, slot, false);
+		return vm_comp_add_upvalue(wk, id, depth, slot, false);
 	}
 
 	return -1;
@@ -497,6 +497,7 @@ vm_comp_pop_call_frame(struct workspace *wk)
 			frame->upvalues[upvalue_i] = (struct func_upvalue){
 				.slot = u->slot,
 				.is_local = u->is_local,
+				.id = u->id,
 			};
 			arr_del(&wk->vm.compiler_state.upvalues, i);
 			--upvalue_i;
@@ -1272,19 +1273,6 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 }
 
 void
-vm_compile_initial_code_segment(struct workspace *wk)
-{
-	arr_push(wk->a, &wk->vm.locations,
-		&(struct source_location_mapping){
-			.ip = 0,
-			.loc = { 0 },
-			.src_idx = UINT32_MAX,
-		});
-
-	push_code(wk, op_return_end);
-}
-
-void
 vm_compile_state_reset(struct workspace *wk)
 {
 	bucket_arr_clear(&wk->vm.compiler_state.nodes);
@@ -1391,6 +1379,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 		flags |= vm_compile_block_expr;
 	}
 
+	uint32_t wrapper_func_args = 0;
 	if (mode & vm_compile_mode_locals) {
 		vm_comp_push_call_frame(wk);
 
@@ -1401,6 +1390,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 				l = arr_peek(&wk->vm.compiler_state.locals, 1);
 				l->bound = true;
 				l->accessed = true;
+				++wrapper_func_args;
 			}
 		}
 
@@ -1412,12 +1402,44 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	if (mode & vm_compile_mode_locals) {
 		struct compiler_call_frame *frame = vm_comp_pop_call_frame(wk);
 
+		uint32_t wrapper_func_entry = *entry;
+		*entry = wk->vm.code.len;
+
+		if (an) {
+			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+				push_code(wk, op_constant);
+				push_constant(wk, an[i].val);
+			}
+		}
+
+		push_code(wk, op_constant);
+		push_constant(wk, 0);
 		push_code(wk, op_constant_func);
 		obj f = make_obj(wk, obj_func);
 		struct obj_func *func = get_obj_func(wk, f);
-		func->entry = *entry;
+		func->nargs = wrapper_func_args;
+		func->an = ar_maken(wk->a, struct args_norm, func->nargs + 1);
+		if (an) {
+			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+				func->an[i].type = tc_any;
+			}
+		}
+		func->an[func->nargs].type = ARG_TYPE_NULL;
+		func->akw = ar_maken(wk->a, struct args_kw, func->nkwargs + 1);
+		func->akw[func->nkwargs].key = 0;
+		func->def = wrapper_func_entry;
+		func->entry = wrapper_func_entry;
 		func->locals_debug = frame->locals_debug;
+		func->nupvalues = frame->nupvalues;
+		func->upvalues = frame->upvalues;
+		func->return_type = TYPE_TAG_ALLOW_NULL | tc_any;
 		push_constant(wk, f);
+
+		push_code(wk, op_call);
+		push_constant(wk, func->nargs);
+		push_constant(wk, func->nkwargs);
+
+		push_code(wk, op_return_end);
 	}
 
 	assert(wk->vm.compiler_state.node_stack.len == 0);

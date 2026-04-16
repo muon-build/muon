@@ -74,6 +74,7 @@ struct obj_typeinfo {
 
 // metadata for upvalues that a func captures
 struct func_upvalue {
+	obj id;
 	uint16_t slot;
 	bool is_local;
 };
@@ -82,6 +83,7 @@ struct func_upvalue {
 struct upvalue {
 	obj *location;
 	obj closed;
+	obj debug_id;
 };
 
 // tracking open upvalues
