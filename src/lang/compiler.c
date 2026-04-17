@@ -1462,6 +1462,7 @@ vm_compile(struct workspace *wk, const struct source *src, enum vm_compile_mode 
 
 	if (!(n = parse(wk, src, mode))) {
 		wk->vm.compiler_state.err = true;
+		return false;
 	}
 
 	return vm_compile_ast(wk, n, mode, 0, entry);
