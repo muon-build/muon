@@ -220,7 +220,7 @@ az_dict_member_location_lookup_str(struct workspace *wk, obj dict, const char *k
  * if statement, all the sub scopes are merged (conflicting object types get
  * merged) into the parent scope, and the scope group is popped.
  *
- * The scope stack, rather than simply an array of dicts as in normal vm
+ * The global scope, rather than simply a dict in normal vm
  * execution, is an array of "scope groups".  The first group is a plain dict,
  * which represents the root scope for this level in the scope stack.  When
  * entering a branch, additional groups are pushed onto this list each
@@ -560,19 +560,20 @@ pop_scope_group(struct workspace *wk)
 struct az_branch_group {
 	enum az_branch_type type;
 	bool loop_impure;
-	uint32_t merge_point; // TODO: remove this, it is unused
+	uint32_t merge_point;
 
 	struct az_branch_element_data branch;
 	struct branch_map_data result;
 };
 
 static struct az_branch_group cur_branch_group;
+static void az_execute_loop_impl(struct workspace *wk);
 
 static void
 az_op_az_branch(struct workspace *wk)
 {
 	enum az_branch_type branch_type = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
-	uint32_t merge_point = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	const uint32_t merge_point = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 	uint32_t branches = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
 
 	{
@@ -594,16 +595,21 @@ az_op_az_branch(struct workspace *wk)
 
 	push_scope_group(wk);
 
-	// L("---> branching, merging @ %03x", cur_branch_group.merge_point);
+	L("---> branching, merging @ %03x", cur_branch_group.merge_point);
 
 	bool pure = true;
 	obj branch, expr_result = 0;
 	obj_array_for(wk, branches, branch) {
-		// L("--> branch");
+		L("--> branch");
 		cur_branch_group.branch = (union az_branch_element){ .i64 = get_obj_number(wk, branch) }.data;
 		cur_branch_group.result = (struct branch_map_data){ 0 };
 		push_scope_group_scope(wk);
-		vm_execute(wk, cur_branch_group.branch.ip);
+
+		stack_push(&wk->stack, wk->vm.ip, cur_branch_group.branch.ip);
+		stack_push(&wk->stack, wk->vm.run, true);
+		az_execute_loop_impl(wk);
+		stack_pop(&wk->stack, wk->vm.run);
+		stack_pop(&wk->stack, wk->vm.ip);
 
 		if (cur_branch_group.result.impure) {
 			pure = false;
@@ -625,7 +631,7 @@ az_op_az_branch(struct workspace *wk)
 		}
 	}
 
-	// L("<--- all branches merged %03x <---", cur_branch_group.merge_point);
+	L("<--- all branches merged %03x <---", cur_branch_group.merge_point);
 
 	pop_scope_group(wk);
 
@@ -634,12 +640,14 @@ az_op_az_branch(struct workspace *wk)
 	if (expr_result && !pure) {
 		object_stack_push(wk, expr_result);
 	}
+
+	wk->vm.ip = merge_point + OP_WIDTH(op_az_merge);
 }
 
 static void
 az_op_az_merge(struct workspace *wk)
 {
-	/* L("<--- joining branch %03x, %03x", cur_branch_group.merge_point, wk->vm.ip - 1); */
+	L("<--- joining branch %03x, %03x", cur_branch_group.merge_point, wk->vm.ip - 1);
 
 	if (cur_branch_group.type == az_branch_type_loop) {
 		if (cur_branch_group.loop_impure) {
@@ -652,7 +660,7 @@ az_op_az_merge(struct workspace *wk)
 
 	assert(cur_branch_group.merge_point == wk->vm.ip - 1);
 
-	object_stack_push(wk, 0);
+	// object_stack_push(wk, 0);
 	wk->vm.run = false;
 }
 
@@ -701,7 +709,7 @@ az_op_jmp_if_true(struct workspace *wk)
 }
 
 struct az_func_context {
-	struct obj_closure *closure;
+	const struct obj_closure *closure;
 };
 
 static struct az_func_context cur_func_context;
@@ -721,6 +729,8 @@ az_op_return_end(struct workspace *wk)
 {
 	object_stack_pop(&wk->vm.stack);
 	object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.closure->func->return_type)));
+
+	stack_pop(&wk->stack, cur_func_context);
 
 	analyzer.unpatched_ops.ops[op_return_end](wk);
 }
@@ -746,24 +756,6 @@ az_lookup_wrapper(struct workspace *wk, const char *name, obj *res)
 	} else {
 		return false;
 	}
-}
-
-static void
-az_push_local_scope(struct workspace *wk)
-{
-	obj scope_group;
-	scope_group = make_obj(wk, obj_array);
-	obj scope;
-	scope = make_obj(wk, obj_dict);
-	obj_array_push(wk, scope_group, scope);
-	obj_array_push(wk, wk->vm.global_scope, scope_group);
-}
-
-static void
-az_pop_local_scope(struct workspace *wk)
-{
-	obj scope_group = obj_array_pop(wk, wk->vm.global_scope);
-	assert(get_obj_array(wk, scope_group)->len == 1);
 }
 
 static obj
@@ -837,14 +829,14 @@ az_eval_project_file(struct workspace *wk,
 }
 
 static void
-az_execute_loop(struct workspace *wk)
+az_execute_loop_impl(struct workspace *wk)
 {
-	arr_grow_to(wk->a, &analyzer.visited_ops, wk->vm.code.len);
-
 	uint32_t cip;
 	while (wk->vm.run) {
-		// LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-		// object_stack_print(wk, &wk->vm.stack);
+		if (log_should_print(log_debug)) {
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			object_stack_print(wk, &wk->vm.stack);
+		}
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
@@ -860,6 +852,18 @@ az_execute_loop(struct workspace *wk)
 
 		// TracyCZoneEnd(tctx);
 	}
+}
+
+static void
+az_execute_loop(struct workspace *wk)
+{
+	arr_grow_to(wk->a, &analyzer.visited_ops, wk->vm.code.len);
+
+	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
+	struct az_func_context new_func_context = { .closure = frame->closure };
+	stack_push(&wk->stack, cur_func_context, new_func_context);
+
+	az_execute_loop_impl(wk);
 }
 
 /******************************************************************************
@@ -1101,8 +1105,8 @@ az_analyze_func(struct workspace *wk, obj c)
 {
 	struct obj_closure *closure = get_obj_closure(wk, c);
 
-	struct args_norm *an = 0; // TODO
-	struct args_kw *akw = 0; // TODO
+	struct args_norm *an = ar_maken(wk->a_scratch, struct args_norm, closure->func->nargs + 1);
+	struct args_kw *akw = ar_maken(wk->a_scratch, struct args_kw, closure->func->nkwargs + 1);
 	{
 		uint32_t i;
 		for (i = 0; i < closure->func->nargs; ++i) {
@@ -1123,16 +1127,10 @@ az_analyze_func(struct workspace *wk, obj c)
 
 	{
 		obj res;
-		struct az_func_context new_func_context = {
-			.closure = closure,
-		};
-
 		stack_push(&wk->stack, pop_args_ctx, (struct az_pop_args_ctx){ 0 });
-		stack_push(&wk->stack, cur_func_context, new_func_context);
 
 		vm_eval_closure(wk, c, an, akw, &res);
 
-		stack_pop(&wk->stack, cur_func_context);
 		stack_pop(&wk->stack, pop_args_ctx);
 	}
 }
@@ -1155,10 +1153,10 @@ az_op_call(struct workspace *wk)
 	const struct az_pop_args_ctx new_pop_args_ctx = {
 		.encountered_error = true,
 	};
-	stack_push(&wk->stack, pop_args_ctx, new_pop_args_ctx);
+	cstack_push(const struct az_pop_args_ctx, pop_args_ctx, new_pop_args_ctx);
 	analyzer.unpatched_ops.ops[op_call](wk);
 	pop_args_error = pop_args_ctx.encountered_error;
-	stack_pop(&wk->stack, pop_args_ctx);
+	cstack_pop(pop_args_ctx);
 
 	if (get_obj_type(wk, c) == obj_closure && !pop_args_error) {
 		struct obj_closure *closure = get_obj_closure(wk, c);
@@ -1509,8 +1507,8 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	arr_init(wk->a, &analyzer.visited_ops, 1024, char);
 
 	{ /* re-initialize the default scope */
-		obj original_scope, scope_group, scope;
-		original_scope = obj_array_index(wk, wk->vm.default_global_scope, 0);
+		obj scope_group, scope;
+		obj original_scope = wk->vm.default_global_scope;
 		wk->vm.default_global_scope = make_obj(wk, obj_array);
 		scope_group = make_obj(wk, obj_array);
 		scope = make_obj(wk, obj_dict);

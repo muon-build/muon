@@ -334,8 +334,11 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags
 	} else if ((res.slot = vm_comp_resolve_upvalue(wk, id)) != -1) {
 		res.type = vm_comp_local_type_upvalue;
 	} else {
-		obj var;
-		if (obj_dict_index(wk, wk->vm.default_global_scope, id, &var)) {
+		obj var, scope = wk->vm.default_global_scope;
+		if (wk->vm.in_analyzer) {
+			scope = obj_array_get_tail(wk, obj_array_get_tail(wk, scope));
+		}
+		if (obj_dict_index(wk, scope, id, &var)) {
 			res.slot = var;
 			res.type = vm_comp_local_type_constant;
 		}

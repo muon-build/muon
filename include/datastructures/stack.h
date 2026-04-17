@@ -31,4 +31,8 @@ void stack_peek_sized(struct stack *stack, void *mem, uint32_t size);
 #define stack_pop(__stack, __it) stack_pop_sized((__stack), &(__it), (sizeof(__it)))
 #define stack_peek(__stack, __it) stack_peek_sized((__stack), &(__it), (sizeof(__it)))
 
+#define cstack_push(__type, __it, __nv) __type __it##_old = __it; __it = __nv
+
+#define cstack_pop(__it) __it = __it##_old
+
 #endif

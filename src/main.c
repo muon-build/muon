@@ -312,7 +312,7 @@ cmd_analyze(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 		} action;
 		enum language_mode lang_mode;
 	} opts = {
-		.enabled_diagnostics = az_diagnostic_unused_variable | az_diagnostic_dead_code,
+		.enabled_diagnostics = az_diagnostic_unused_variable, //| az_diagnostic_dead_code,
 		.action = action_default,
 		.lang_mode = language_external,
 	};
