@@ -511,7 +511,7 @@ vm_comp_pop_call_frame(struct workspace *wk)
 	frame->locals_debug = ar_maken(wk->a, obj, wk->vm.compiler_state.locals.len - frame->locals_base);
 	for (uint32_t i = frame->locals_base; i < wk->vm.compiler_state.locals.len; ++i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
-		if (!l->accessed && wk->vm.in_analyzer) {
+		if (!l->accessed && wk->vm.in_analyzer && get_str(wk, l->id)->s[0] != '_') {
 			vm_comp_warning(wk, l->n, "unused variable");
 		}
 		frame->locals_debug[locals_debug_len] = l->id;
