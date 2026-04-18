@@ -10,7 +10,6 @@
 #include "lang/analyze.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
-#include "lang/parser.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -1218,50 +1217,18 @@ az_op_add(struct workspace *wk)
 }
 
 static void
-az_op_store(struct workspace *wk)
+az_op_store_g(struct workspace *wk)
 {
 	obj dup = 0;
 
-	enum node_assign_flag flags;
-	{
-		uint32_t ip = wk->vm.ip;
-		flags = vm_get_constant(wk->vm.code.e, &ip);
-	}
-
-	if (flags & node_assign_flag_member) {
-		obj tgt, key;
-		tgt = object_stack_peek(&wk->vm.stack, 2);
-		key = object_stack_peek(&wk->vm.stack, 3);
-
-		if (get_obj_type(wk, tgt) == obj_dict && get_obj_type(wk, key) == obj_string) {
-			const struct obj_stack_entry *e;
-			e = object_stack_peek_entry(&wk->vm.stack, 1);
-
-			uint64_t *hv;
-			if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
-				hash_set(wk->a, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
-				hv = hash_get(&analyzer.dict_locations, &tgt);
-			}
-
-			obj_dict_set(wk, *hv, key, e->ip);
-		}
-	} else {
-		obj tgt = object_stack_peek(&wk->vm.stack, 2);
-		if (get_obj_type(wk, tgt) == obj_dict) {
-			if (flags & node_assign_flag_add_store) {
-				obj val = object_stack_peek(&wk->vm.stack, 1);
-				if (get_obj_type(wk, val) == obj_dict) {
-					az_dict_locations_merge(wk, tgt, val, tgt);
-				}
-			} else {
-				uint64_t *hv;
-				// tgt should only be missing from analyzer.dict_locations in
-				// the case of a dict created in native code, e.g. returned
-				// from a native function.
-				if ((hv = hash_get(&analyzer.dict_locations, &tgt))) {
-					obj_dict_dup_light(wk, *hv, &dup);
-				}
-			}
+	obj tgt = object_stack_peek(&wk->vm.stack, 2);
+	if (get_obj_type(wk, tgt) == obj_dict) {
+		uint64_t *hv;
+		// tgt should only be missing from analyzer.dict_locations in
+		// the case of a dict created in native code, e.g. returned
+		// from a native function.
+		if ((hv = hash_get(&analyzer.dict_locations, &tgt))) {
+			obj_dict_dup_light(wk, *hv, &dup);
 		}
 	}
 
@@ -1271,6 +1238,43 @@ az_op_store(struct workspace *wk)
 		obj tgt = object_stack_peek(&wk->vm.stack, 1);
 		hash_set(wk->a, &analyzer.dict_locations, &tgt, dup);
 	}
+}
+
+static void
+az_op_add_store_g(struct workspace *wk)
+{
+	obj tgt = object_stack_peek(&wk->vm.stack, 2);
+	if (get_obj_type(wk, tgt) == obj_dict) {
+		obj val = object_stack_peek(&wk->vm.stack, 1);
+		if (get_obj_type(wk, val) == obj_dict) {
+			az_dict_locations_merge(wk, tgt, val, tgt);
+		}
+	}
+
+	analyzer.unpatched_ops.ops[op_add_store_g](wk);
+}
+
+static void
+az_op_store_m(struct workspace *wk)
+{
+	obj tgt, key;
+	tgt = object_stack_peek(&wk->vm.stack, 2);
+	key = object_stack_peek(&wk->vm.stack, 3);
+
+	if (get_obj_type(wk, tgt) == obj_dict && get_obj_type(wk, key) == obj_string) {
+		const struct obj_stack_entry *e;
+		e = object_stack_peek_entry(&wk->vm.stack, 1);
+
+		uint64_t *hv;
+		if (!(hv = hash_get(&analyzer.dict_locations, &tgt))) {
+			hash_set(wk->a, &analyzer.dict_locations, &tgt, make_obj(wk, obj_dict));
+			hv = hash_get(&analyzer.dict_locations, &tgt);
+		}
+
+		obj_dict_set(wk, *hv, key, e->ip);
+	}
+
+	analyzer.unpatched_ops.ops[op_store_m](wk);
 }
 
 static void
@@ -1549,7 +1553,9 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.ops.ops[op_return] = az_op_return;
 	wk->vm.ops.ops[op_return_end] = az_op_return_end;
 	wk->vm.ops.ops[op_call] = az_op_call;
-	wk->vm.ops.ops[op_store_g] = az_op_store;
+	wk->vm.ops.ops[op_store_g] = az_op_store_g;
+	wk->vm.ops.ops[op_add_store_g] = az_op_add_store_g;
+	wk->vm.ops.ops[op_store_m] = az_op_store_m;
 	wk->vm.ops.ops[op_constant_dict] = az_op_constant_dict;
 	wk->vm.ops.ops[op_add] = az_op_add;
 	wk->vm.ops.ops[op_az_noop] = az_op_noop;
