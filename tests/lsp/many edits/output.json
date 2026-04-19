@@ -16,7 +16,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -45,7 +45,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -74,7 +74,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -103,7 +103,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -132,7 +132,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -161,7 +161,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -190,7 +190,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
@@ -219,7 +219,7 @@
             }
           },
           "severity": 1,
-          "message": "undefined object xecutable"
+          "message": "undefined global xecutable"
         }
       ]
     }
