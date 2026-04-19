@@ -1793,14 +1793,6 @@ vm_perform_store_mutations(struct workspace *wk, obj val)
 		*get_obj_typeinfo(wk, res) = *get_obj_typeinfo(wk, val);
 		break;
 	}
-	case obj_closure: {
-		struct obj_closure *c = get_obj_closure(wk, val);
-		// TODO
-		// if (c->func && !c->func->name) {
-		// 	c->func->name = get_str(wk, id)->s;
-		// }
-		break;
-	}
 	default: break;
 	}
 	return res;
