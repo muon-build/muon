@@ -1596,8 +1596,6 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	workspace_push_lang_mode(wk, opts->lang_mode);
 
 	if (wk->vm.lang_mode == language_internal) {
-		struct az_assignment *a = scope_assign(wk, "argv", make_typeinfo(wk, tc_array), 0);
-		a->default_var = true;
 		if (!opts->single_file) {
 			LOG_E("cannot analyze multi-file in script mode");
 			res = false;
@@ -1616,12 +1614,19 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	}
 
 	if (opts->single_file) {
+		struct args_norm eval_an[2] = { { ARG_TYPE_NULL }, { ARG_TYPE_NULL } };
+		if (wk->vm.lang_mode == language_internal) {
+			eval_an[0].name = "argv";
+			eval_an[0].type = complex_type_preset_get(wk, tc_cx_list_of_str);
+			eval_an[0].val = make_typeinfo(wk, eval_an[0].type);
+		}
+
 		struct source src;
 		if (!fs_read_entire_file(wk->a, opts->single_file, &src)) {
 			res = false;
 		} else {
 			obj _v;
-			res = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_v);
+			res = eval(wk, &src, &(struct eval_opts) { build_language_meson, .an = eval_an }, &_v);
 		}
 
 	} else {
