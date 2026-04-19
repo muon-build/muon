@@ -657,7 +657,7 @@ typecheck_closure(struct workspace *wk,
 		return false;
 	}
 
-	struct obj_func *fn = get_obj_closure(wk, v)->func;
+	const struct obj_func *fn = get_obj_closure(wk, v)->func;
 
 	uint32_t i;
 	for (i = 0; i < fn->nargs; ++i) {
