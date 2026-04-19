@@ -146,7 +146,7 @@ struct vm_behavior {
 		obj o,
 		uint32_t n_id));
 	void((*unassign_global)(struct workspace *wk, const char *name));
-	obj((*global_scope_dup)(struct workspace *wk, obj scope));
+	obj((*global_scope_dup)(struct workspace *wk));
 	bool((*get_global)(struct workspace *wk, const char *name, obj *res));
 	bool((*eval_project_file)(struct workspace *wk,
 		const char *path,

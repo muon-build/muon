@@ -636,11 +636,8 @@ parse_number(struct parser *p, bool assignment_allowed)
 static bool
 id_is_assignable(struct workspace *wk, const struct str *id)
 {
-	obj _, scope = wk->vm.default_global_scope;
-	if (wk->vm.in_analyzer) {
-		scope = obj_array_get_tail(wk, obj_array_get_tail(wk, scope));
-	}
-	return !obj_dict_index_strn(wk, scope, id->s, id->len, &_);
+	obj _;
+	return !obj_dict_index_strn(wk, wk->vm.default_global_scope, id->s, id->len, &_);
 }
 
 static struct node *

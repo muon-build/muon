@@ -61,7 +61,7 @@ make_project(struct workspace *wk, uint32_t *id, const char *subproject_name, co
 	proj->build_dir = make_str(wk, build_dir);
 	proj->build_root = proj->build_dir;
 
-	proj->global_scope = wk->vm.behavior.global_scope_dup(wk, wk->vm.default_global_scope);
+	proj->global_scope = wk->vm.behavior.global_scope_dup(wk);
 
 	return proj;
 }

@@ -22,6 +22,7 @@
 static struct {
 	const struct az_opts *opts;
 	uint32_t impure_loop_depth;
+	obj az_default_global_scope;
 	bool error;
 
 	struct vm_ops unpatched_ops;
@@ -758,13 +759,13 @@ az_lookup_wrapper(struct workspace *wk, const char *name, obj *res)
 }
 
 static obj
-az_scope_stack_dup(struct workspace *wk, obj scope_stack)
+az_scope_stack_dup(struct workspace *wk)
 {
 	obj dup, local_scope, scope_group, scope;
 	obj local_scope_dup, scope_group_dup, scope_dup;
 	dup = make_obj(wk, obj_array);
 
-	obj_array_for(wk, scope_stack, local_scope) {
+	obj_array_for(wk, analyzer.az_default_global_scope, local_scope) {
 		local_scope_dup = make_obj(wk, obj_array);
 
 		uint32_t i = 0;
@@ -1512,14 +1513,13 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	{ /* re-initialize the default scope */
 		obj scope_group, scope;
-		obj original_scope = wk->vm.default_global_scope;
-		wk->vm.default_global_scope = make_obj(wk, obj_array);
+		analyzer.az_default_global_scope = make_obj(wk, obj_array);
 		scope_group = make_obj(wk, obj_array);
 		scope = make_obj(wk, obj_dict);
 		obj_array_push(wk, scope_group, scope);
-		obj_array_push(wk, wk->vm.default_global_scope, scope_group);
+		obj_array_push(wk, analyzer.az_default_global_scope, scope_group);
 		obj k, v;
-		obj_dict_for(wk, original_scope, k, v) {
+		obj_dict_for(wk, wk->vm.default_global_scope, k, v) {
 			obj aid = push_assignment(wk, get_cstr(wk, k), v, 0);
 
 			struct az_assignment *a = bucket_arr_get(&assignments, aid);
@@ -1527,7 +1527,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 			obj_dict_set(wk, scope, k, aid);
 		}
-		wk->vm.global_scope = az_scope_stack_dup(wk, wk->vm.default_global_scope);
+		wk->vm.global_scope = az_scope_stack_dup(wk);
 	}
 
 	wk->vm.behavior.assign_global = az_assign_wrapper;

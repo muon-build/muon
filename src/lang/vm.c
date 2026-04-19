@@ -2821,10 +2821,10 @@ vm_get_global(struct workspace *wk, const char *name, obj *res)
 }
 
 static obj
-vm_global_scope_dup(struct workspace *wk, obj scope)
+vm_global_scope_dup(struct workspace *wk)
 {
 	obj res;
-	obj_dict_dup(wk, scope, &res);
+	obj_dict_dup(wk, wk->vm.default_global_scope, &res);
 	return res;
 }
 
@@ -3618,7 +3618,7 @@ vm_init(struct workspace *wk)
 	build_func_impl_tables(wk);
 
 	/* default scope */
-	wk->vm.default_global_scope  = make_obj(wk, obj_dict);
+	wk->vm.default_global_scope = make_obj(wk, obj_dict);
 
 	obj_dict_set(wk, wk->vm.default_global_scope, make_str(wk, "meson"), obj_meson);
 
@@ -3639,7 +3639,7 @@ vm_init(struct workspace *wk)
 	wk->vm.objects.complex_types = make_obj(wk, obj_dict);
 
 	/* global scope */
-	wk->vm.global_scope = wk->vm.behavior.global_scope_dup(wk, wk->vm.default_global_scope);
+	wk->vm.global_scope = wk->vm.behavior.global_scope_dup(wk);
 }
 
 void
