@@ -833,10 +833,10 @@ az_execute_loop_impl(struct workspace *wk)
 {
 	uint32_t cip;
 	while (wk->vm.run) {
-		if (log_should_print(log_debug)) {
-			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-			object_stack_print(wk, &wk->vm.stack);
-		}
+		// if (log_should_print(log_debug)) {
+		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+		// 	object_stack_print(wk, &wk->vm.stack);
+		// }
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
