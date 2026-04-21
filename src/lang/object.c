@@ -1857,7 +1857,7 @@ obj_to_s_str(struct workspace *wk, struct obj_to_s_ctx *ctx, obj s)
 }
 
 static void
-obj_func_to_s(struct workspace *wk, struct obj_func *func, struct tstr *sb)
+obj_func_to_s(struct workspace *wk, const struct obj_func *func, struct tstr *sb)
 {
 	for (uint32_t i = 0; i < func->nargs; ++i) {
 		tstr_pushf(wk, sb, "%s %s", func->an[i].name, typechecking_type_to_s(wk, func->an[i].type));
