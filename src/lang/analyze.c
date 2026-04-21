@@ -727,8 +727,10 @@ az_op_return(struct workspace *wk)
 static void
 az_op_return_end(struct workspace *wk)
 {
-	object_stack_pop(&wk->vm.stack);
-	object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.closure->func->return_type)));
+	if (!cur_func_context.closure->func->automatically_defined) {
+		object_stack_pop(&wk->vm.stack);
+		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, cur_func_context.closure->func->return_type)));
+	}
 
 	stack_pop(&wk->stack, cur_func_context);
 
@@ -1141,7 +1143,10 @@ az_op_constant_func(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_constant_func](wk);
 
 	obj c = object_stack_peek(&wk->vm.stack, 1);
-	az_analyze_func(wk, c);
+	if (!get_obj_closure(wk, c)->func->automatically_defined)
+	{
+		az_analyze_func(wk, c);
+	}
 }
 
 static void
@@ -1161,8 +1166,13 @@ az_op_call(struct workspace *wk)
 	if (get_obj_type(wk, c) == obj_closure && !pop_args_error) {
 		struct obj_closure *closure = get_obj_closure(wk, c);
 
-		object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, closure->func->return_type)));
-		analyzer.unpatched_ops.ops[op_return](wk);
+		if (closure->func->automatically_defined) {
+			struct az_func_context new_func_context = { .closure = closure };
+			stack_push(&wk->stack, cur_func_context, new_func_context);
+		} else {
+			object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, closure->func->return_type)));
+			analyzer.unpatched_ops.ops[op_return](wk);
+		}
 	}
 }
 
