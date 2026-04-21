@@ -461,7 +461,7 @@ push_scope_group_scope(struct workspace *wk)
 }
 
 static void
-merge_objects(struct workspace *wk, struct az_assignment *dest, struct az_assignment *src)
+merge_assignments(struct workspace *wk, struct az_assignment *dest, struct az_assignment *src)
 {
 	type_tag dest_type = get_obj_type(wk, dest->o);
 	type_tag src_type = get_obj_type(wk, src->o);
@@ -482,6 +482,52 @@ merge_objects(struct workspace *wk, struct az_assignment *dest, struct az_assign
 	assert(get_obj_type(wk, dest->o) == obj_typeinfo);
 	assert(get_obj_type(wk, src->o) == obj_typeinfo);
 	src->o = 0;
+}
+
+type_tag
+merge_complex_types(struct workspace *wk, type_tag a, type_tag b)
+{
+	struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
+
+	if (!(a & TYPE_TAG_COMPLEX)) {
+		if (b & TYPE_TAG_COMPLEX) {
+			// only b is complex, swap
+			type_tag tmp = a;
+			a = b;
+			b = tmp;
+		} else {
+			// neither are complex
+			return a | b;
+		}
+	}
+
+	if (!(b & TYPE_TAG_COMPLEX)) {
+		return make_complex_type(wk, complex_type_or, a, b);
+	}
+
+	uint32_t a_idx = COMPLEX_TYPE_INDEX(a);
+	enum complex_type a_ct = COMPLEX_TYPE_TYPE(a);
+	struct obj_typeinfo *a_ti = bucket_arr_get(typeinfo_arr, a_idx);
+
+	uint32_t b_idx = COMPLEX_TYPE_INDEX(a);
+	enum complex_type b_ct = COMPLEX_TYPE_TYPE(a);
+	struct obj_typeinfo *b_ti = bucket_arr_get(typeinfo_arr, b_idx);
+
+	if (a_ct == b_ct && a_ct == complex_type_nested && a_ti->type == b_ti->type) {
+		return make_complex_type(wk, complex_type_nested, a_ti->type, merge_complex_types(wk, a_ti->subtype, b_ti->subtype));
+	}
+
+	return make_complex_type(wk, complex_type_or, a, b);
+}
+
+static obj
+merge_objects(struct workspace *wk, obj a, obj b)
+{
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	type_tag a_tt = a_t == obj_typeinfo ? get_obj_typeinfo(wk, a)->type : obj_type_to_tc_type(a_t),
+			 b_tt = b_t == obj_typeinfo ? get_obj_typeinfo(wk, b)->type : obj_type_to_tc_type(b_t);
+
+	return make_typeinfo(wk, merge_complex_types(wk, a_tt, b_tt));
 }
 
 static void
@@ -512,7 +558,7 @@ pop_scope_group(struct workspace *wk)
 				struct az_assignment *b, *a = bucket_arr_get(&assignments, aid);
 				if (obj_dict_index(wk, merged, k, &bid)) {
 					b = bucket_arr_get(&assignments, bid);
-					merge_objects(wk, b, a);
+					merge_assignments(wk, b, a);
 				} else {
 					obj_dict_set(wk, merged, k, aid);
 				}
@@ -526,7 +572,7 @@ pop_scope_group(struct workspace *wk)
 			(void)k;
 			struct az_assignment *a = bucket_arr_get(&assignments, aid), *b;
 			if ((b = az_assign_lookup(wk, a->name))) {
-				merge_objects(wk, b, a);
+				merge_assignments(wk, b, a);
 			} else {
 				if (false) {
 					// This code makes all assignments within scope groups become
@@ -835,10 +881,10 @@ az_execute_loop_impl(struct workspace *wk)
 {
 	uint32_t cip;
 	while (wk->vm.run) {
-		// if (log_should_print(log_debug)) {
-		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-		// 	object_stack_print(wk, &wk->vm.stack);
-		// }
+		if (log_should_print(log_debug)) {
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			object_stack_print(wk, &wk->vm.stack);
+		}
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
@@ -1288,6 +1334,32 @@ az_op_store_m(struct workspace *wk)
 	analyzer.unpatched_ops.ops[op_store_m](wk);
 }
 
+#define az_op_store_load_u_common() \
+	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1); \
+	obj slot_idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip); \
+	obj *slot = frame->closure->upvalues[slot_idx]->location;
+
+static void
+az_op_store_u(struct workspace *wk)
+{
+	az_op_store_load_u_common();
+	obj val = object_stack_peek(&wk->vm.stack, 1);
+	*slot = merge_objects(wk, *slot, val);
+}
+
+static void
+az_op_add_store_u(struct workspace *wk)
+{
+	uint32_t ip = wk->vm.ip;
+	obj slot_idx = vm_get_constant(wk->vm.code.e, &ip);
+
+	analyzer.unpatched_ops.ops[op_add_store_u](wk);
+
+	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1);
+	obj *slot = frame->closure->upvalues[slot_idx]->location;
+	*slot = make_typeinfo(wk, flatten_type(wk, coerce_type_tag(wk, *slot)));
+}
+
 static void
 az_op_noop(struct workspace *wk)
 {
@@ -1565,6 +1637,8 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 	wk->vm.ops.ops[op_call] = az_op_call;
 	wk->vm.ops.ops[op_store_g] = az_op_store_g;
 	wk->vm.ops.ops[op_add_store_g] = az_op_add_store_g;
+	wk->vm.ops.ops[op_add_store_u] = az_op_add_store_u;
+	wk->vm.ops.ops[op_store_u] = az_op_store_u;
 	wk->vm.ops.ops[op_store_m] = az_op_store_m;
 	wk->vm.ops.ops[op_constant_dict] = az_op_constant_dict;
 	wk->vm.ops.ops[op_add] = az_op_add;
