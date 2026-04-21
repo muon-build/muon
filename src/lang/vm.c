@@ -1278,6 +1278,22 @@ typecheck_typeinfo_operands(struct workspace *wk,
 	struct check_obj_typeinfo_map map[obj_type_count])
 {
 	type_tag ot, tc, a_t = get_obj_typeinfo(wk, a)->type, result = 0;
+	type_tag subtype = 0;
+
+	if (a_t & TYPE_TAG_COMPLEX) {
+		uint32_t idx = COMPLEX_TYPE_INDEX(a_t);
+		enum complex_type ct = COMPLEX_TYPE_TYPE(a_t);
+
+		if (ct != complex_type_nested) {
+			assert(false && "unsupported complex type");
+		}
+
+		struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
+		struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
+		a_t = ti->type;
+		subtype = ti->subtype;
+	}
+
 	uint32_t matches = 0;
 	for (ot = 1; ot <= tc_type_count; ++ot) {
 		tc = obj_type_to_tc_type(ot);
@@ -1288,7 +1304,11 @@ typecheck_typeinfo_operands(struct workspace *wk,
 		}
 
 		if (typecheck_custom(wk, 0, b, map[ot].expect, 0)) {
-			result |= map[ot].result;
+			if (subtype) {
+				result |= subtype;
+			} else {
+				result |= map[ot].result;
+			}
 			++matches;
 		}
 	}
