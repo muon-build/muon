@@ -3,7 +3,13 @@
 
 fs = import('fs')
 
-opts = {}
+opts = {
+    'src': '',
+    'dest': '',
+    'sep': '',
+    'fallback': '',
+    'source_root': '',
+}
 
 handlers = {
     's': {'desc': 'src'},
@@ -13,7 +19,7 @@ handlers = {
     'r': {'desc': 'source_root'},
 }
 
-func handler(k str, v dict[str]) -> function
+func handler(_k str, v dict[str]) -> function
     return func(optarg str)
         opts[v.desc] = optarg
     endfunc
