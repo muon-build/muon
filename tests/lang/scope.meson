@@ -2,62 +2,56 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 # Test that flags declared before function is used as an upvalue
-(func ()
-    flags = []
+(
+    func()
+        flags = []
 
-    func bar() -> list[str]
-        flags = [
-            'a'
-        ]
+        func bar() -> list[str]
+            flags = ['a']
 
-        flags += [
-           'b'
-        ]
+            flags += ['b']
 
-        return flags
+            return flags
+        endfunc
+
+        flags = ['c']
+        assert(bar() == ['a', 'b'])
+        assert(flags == ['a', 'b'])
     endfunc
-
-    flags = ['c']
-    assert(bar() == ['a', 'b'])
-    assert(flags == ['a', 'b'])
-endfunc)()
+)()
 
 # Test that flags declared after function is not used as an upvalue
-(func ()
-    func bar() -> list[str]
-        flags = [
-            'a'
-        ]
+(
+    func()
+        func bar() -> list[str]
+            flags = ['a']
 
-        flags += [
-           'b'
-        ]
+            flags += ['b']
 
-        return flags
+            return flags
+        endfunc
+
+        flags = ['c']
+        assert(bar() == ['a', 'b'])
+        assert(flags == ['c'])
     endfunc
-
-    flags = ['c']
-    assert(bar() == ['a', 'b'])
-    assert(flags == ['c'])
-endfunc)()
+)()
 
 # Test flags declared before function, but assignment forced
-(func ()
-    flags = []
+(
+    func()
+        flags = []
 
-    func bar() -> list[str]
-        flags := [
-            'a'
-        ]
+        func bar() -> list[str]
+            flags := ['a']
 
-        flags += [
-           'b'
-        ]
+            flags += ['b']
 
-        return flags
+            return flags
+        endfunc
+
+        flags = ['c']
+        assert(bar() == ['a', 'b'])
+        assert(flags == ['c'])
     endfunc
-
-    flags = ['c']
-    assert(bar() == ['a', 'b'])
-    assert(flags == ['c'])
-endfunc)()
+)()

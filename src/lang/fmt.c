@@ -1095,6 +1095,8 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 		const char *token;
 		if (n->type == node_type_assign && (n->data.type & node_assign_flag_add_store)) {
 			token = "+=";
+		} else if (n->type == node_type_assign && (n->data.type & node_assign_flag_force_declaration)) {
+			token = ":=";
 		} else {
 			token = fmt_node_to_token(n->type);
 		}
