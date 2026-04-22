@@ -387,6 +387,13 @@ vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_ass
 }
 
 static void
+vm_comp_reserve_local_stack_slot(struct workspace *wk, obj id)
+{
+	push_code(wk, op_constant);
+	push_constant(wk, id);
+}
+
+static void
 vm_comp_try_declare_block_local(struct workspace *wk, struct node *n, obj id)
 {
 	// Try to find a local variable defined in the current scope or any higher
@@ -420,8 +427,7 @@ vm_comp_try_declare_block_local(struct workspace *wk, struct node *n, obj id)
 	}
 
 	vm_comp_declare_local_unchecked(wk, n, id);
-	push_code(wk, op_constant);
-	push_constant(wk, id);
+	vm_comp_reserve_local_stack_slot(wk, id);
 }
 
 static void
@@ -432,10 +438,12 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 	case node_type_assign: {
 		if (!(n->data.type & node_assign_flag_member) && !(n->data.type & node_assign_flag_add_store)) {
 			assert(n->l->type == node_type_id_lit);
+			obj id = n->l->data.str;
 			if (n->data.type & node_assign_flag_force_declaration) {
-				vm_comp_declare_local(wk, n->l, n->l->data.str);
+				vm_comp_declare_local(wk, n->l, id);
+				vm_comp_reserve_local_stack_slot(wk, id);
 			} else {
-				vm_comp_try_declare_block_local(wk, n->l, n->l->data.str);
+				vm_comp_try_declare_block_local(wk, n->l, id);
 			}
 		}
 		break;
