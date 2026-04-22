@@ -2059,7 +2059,7 @@ static void
 vm_op_load_l(struct workspace *wk)
 {
 	vm_op_store_load_l_common();
-	object_stack_push_ip(wk, slot->o, slot->ip);
+	object_stack_push(wk, slot->o);
 }
 
 static void
