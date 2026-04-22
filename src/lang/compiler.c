@@ -228,9 +228,9 @@ vm_comp_add_upvalue(struct workspace *wk, obj id, uint32_t depth, uint32_t slot,
 	return res_slot;
 }
 
-enum vm_comp_resolve_flag {
-	vm_comp_resolve_flag_bound_only = 1 << 0,
-	vm_comp_resolve_flag_bind = 1 << 1,
+enum vm_comp_resolve_mode {
+	vm_comp_resolve_mode_access,
+	vm_comp_resolve_mode_assign,
 };
 
 static int32_t
@@ -292,21 +292,21 @@ vm_comp_declare_local_unchecked(struct workspace *wk, struct node *n, obj id)
 }
 
 static int32_t
-vm_comp_resolve_local(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags)
+vm_comp_resolve_local(struct workspace *wk, obj id, enum vm_comp_resolve_mode mode)
 {
 	const uint32_t depth = vm_comp_current_depth(wk);
 	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
 		if (l->depth != depth) {
 			return -1;
-		} else if (!l->bound && (flags & vm_comp_resolve_flag_bound_only)) {
+		} else if (!l->bound && (mode == vm_comp_resolve_mode_access)) {
 			continue;
 		}
 
 		if (obj_equal(wk, id, l->id)) {
-			if (flags & vm_comp_resolve_flag_bind) {
+			if (mode == vm_comp_resolve_mode_assign) {
 				l->bound = true;
-			} else if (flags & vm_comp_resolve_flag_bound_only) {
+			} else if (mode == vm_comp_resolve_mode_access) {
 				l->accessed = true;
 			}
 			return l->slot;
@@ -327,10 +327,10 @@ struct vm_comp_local {
 };
 
 static struct vm_comp_local
-vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_flag flags)
+vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_mode mode)
 {
 	struct vm_comp_local res = { -1 };
-	if ((res.slot = vm_comp_resolve_local(wk, id, flags)) != -1) {
+	if ((res.slot = vm_comp_resolve_local(wk, id, mode)) != -1) {
 		res.type = vm_comp_local_type_local;
 	} else if ((res.slot = vm_comp_resolve_upvalue(wk, id)) != -1) {
 		res.type = vm_comp_local_type_upvalue;
@@ -369,7 +369,7 @@ vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_ass
 {
 	struct vm_comp_local l = vm_comp_resolve_id(wk,
 		id,
-		(flags & node_assign_flag_add_store) ? vm_comp_resolve_flag_bound_only : vm_comp_resolve_flag_bind);
+		(flags & node_assign_flag_add_store) ? vm_comp_resolve_mode_access : vm_comp_resolve_mode_assign);
 	if (l.slot == -1) {
 		if (flags & node_assign_flag_add_store) {
 			vm_comp_error(wk, n, "undefined variable");
@@ -581,7 +581,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		break;
 	case node_type_id: {
 		if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-			struct vm_comp_local l = vm_comp_resolve_id(wk, n->data.str, vm_comp_resolve_flag_bound_only);
+			struct vm_comp_local l = vm_comp_resolve_id(wk, n->data.str, vm_comp_resolve_mode_access);
 			if (l.slot == -1) {
 				vm_comp_error(wk, n, "undefined variable");
 			} else {
