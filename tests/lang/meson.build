@@ -21,6 +21,7 @@ tests = [
     ['return_during_iteration.meson'],
     ['run_command.meson'],
     ['scope.meson'],
+    ['scope_err_hoist.meson', {'should_fail': true}],
     ['shlex.meson'],
     ['string_format_escape.meson'],
     ['strings.meson'],

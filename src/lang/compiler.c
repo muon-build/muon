@@ -242,7 +242,10 @@ vm_comp_resolve_upvalue_depth(struct workspace *wk, uint32_t depth, obj id)
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
 		if (l->depth != depth) {
 			break;
+		} else if (!l->bound) {
+			continue;
 		}
+
 		if (obj_equal(wk, id, l->id)) {
 			l->accessed = true;
 			return vm_comp_add_upvalue(wk, id, depth, l->slot, true);
