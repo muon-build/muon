@@ -130,6 +130,24 @@ add_test(
     endfunc
 )
 
+add_test(
+    'a += b and a = a + b are mutations for container types',
+    func()
+        a = [1]
+        b = [2]
+
+        func foo(a list[int], b list[int])
+            a = a + a
+            b += b
+        endfunc
+
+        foo(a, b)
+
+        assert(a == [1], '`a` should not be mutated, = was used')
+        assert(b == [2, 2], '`b` should be mutated, += was used')
+    endfunc
+)
+
 foreach t : tests
     print(f'---- @0@ ----\n'.format(t.desc))
     t.fn()
