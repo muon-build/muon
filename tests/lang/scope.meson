@@ -1,8 +1,15 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-# Test that flags declared before function is used as an upvalue
-(
+tests = []
+
+func add_test(desc str, fn function)
+    tests += {'desc': desc, 'fn': fn}
+endfunc
+
+
+add_test(
+    'Test that flags declared before function is used as an upvalue',
     func()
         flags = []
 
@@ -18,10 +25,10 @@
         assert(bar() == ['a', 'b'])
         assert(flags == ['a', 'b'])
     endfunc
-)()
+)
 
-# Test that flags declared after function is not used as an upvalue
-(
+add_test(
+    'Test that flags declared after function is not used as an upvalue',
     func()
         func bar() -> list[str]
             flags = ['a']
@@ -35,10 +42,10 @@
         assert(bar() == ['a', 'b'])
         assert(flags == ['c'])
     endfunc
-)()
+)
 
-# Test flags declared before function, but assignment forced
-(
+add_test(
+    'Test flags declared before function, but assignment forced',
     func()
         flags = []
 
@@ -54,10 +61,10 @@
         assert(bar() == ['a', 'b'])
         assert(flags == ['c'])
     endfunc
-)()
+)
 
-# Test recursive calls and equivalence of = and +=
-(
+add_test(
+    'Test recursive calls and equivalence of = and +=',
     func ()
         i = 0
         j = 0
@@ -80,4 +87,50 @@
         assert(s == t and s == '_5_4_3_2_1_0_1_2_1_0_3_2_1_0_1')
         assert(n == 0)
     endfunc
-)()
+)
+
+add_test(
+    '`func foo` does not force a local declaration, so it may bind with an upvalue',
+    func()
+        foo = 'a string'
+
+        func bar()
+            func foo()
+                message('hello from foo')
+            endfunc
+        endfunc
+
+        assert(typeof(foo) == 'str')
+        message('foo is a ' + typeof(foo))
+        bar()
+        assert(typeof(foo) == 'function')
+        message('foo is now a ' + typeof(foo))
+        foo()
+    endfunc,
+)
+
+add_test(
+    'force-declaration in the middle of a function body only affects later code',
+    func()
+        foo = 'set at outer scope'
+
+        func bar()
+            message(foo)
+            foo = 'set at inner scope' # This mutates the foo upvalue declared above
+            message(foo)
+            foo := 'local to bar' # This declares a new local variable that shadows foo
+            foo = 'still local to bar' # This mutates the foo local
+            message(foo)
+            assert(foo == 'still local to bar')
+        endfunc
+
+        bar()
+        message(foo)
+        assert(foo == 'set at inner scope')
+    endfunc
+)
+
+foreach t : tests
+    print(f'---- @0@ ----\n'.format(t.desc))
+    t.fn()
+endforeach
