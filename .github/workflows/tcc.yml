@@ -57,7 +57,7 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/muon-build/tcc
         cd tcc
-        ./configure --prefix="$HOME/tcc-install" && make && make install
+        ./configure --prefix="$HOME/tcc-install" && make -j4 && make install
     - name: 'muon ci with tcc'
       run: |
         export CC="$HOME/tcc-install/bin/tcc"
@@ -79,7 +79,7 @@ jobs:
       run: |
         git clone --depth 1 https://github.com/muon-build/tcc
         cd tcc
-        ./configure --prefix="$HOME/tcc-install" && make && make install
+        ./configure --prefix="$HOME/tcc-install" && make -j4 && make install
     - name: 'muon ci with tcc'
       run: |
         export CC="$HOME/tcc-install/bin/tcc"
