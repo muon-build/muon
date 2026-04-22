@@ -861,6 +861,7 @@ parse_index(struct parser *p, struct node *l, bool assignment_allowed)
 		n->r->r = parse_expr(p, false);
 	} else {
 		n = make_node_t(p, node_type_index);
+		n->location = key->location;
 		n->l = l;
 		n->r = key;
 	}

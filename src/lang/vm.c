@@ -1944,9 +1944,14 @@ vm_op_load_g(struct workspace *wk)
 	object_stack_push(wk, b);
 }
 
+static void
+vm_member_not_found_error(struct workspace *wk, obj key, obj container)
+{
+	vm_error(wk, "member %o not found on %#o", key, obj_type_to_typestr(wk, container));
+}
+
 static bool
 vm_op_store_member_target(struct workspace *wk,
-	uint32_t ip,
 	obj target_container,
 	obj id,
 	obj **member_target,
@@ -1963,7 +1968,7 @@ vm_op_store_member_target(struct workspace *wk,
 		int64_t i;
 		i = get_obj_number(wk, id);
 
-		if (!boundscheck(wk, ip, get_obj_array(wk, target_container)->len, &i)) {
+		if (!boundscheck(wk, 0, get_obj_array(wk, target_container)->len, &i)) {
 			return false;
 		}
 
@@ -1978,7 +1983,7 @@ vm_op_store_member_target(struct workspace *wk,
 
 		if (!*member_target) {
 			if (add_store) {
-				vm_error_at(wk, ip, "member %o not found on %s", id, obj_typestr(wk, target_container));
+				vm_member_not_found_error(wk, id, target_container);
 				return false;
 			}
 
@@ -1999,8 +2004,8 @@ vm_op_store_member_target(struct workspace *wk,
 	}
 	default:
 type_err:
-		vm_error_at(
-			wk, ip, "unable to index %s with %s", obj_typestr(wk, target_container), obj_typestr(wk, id));
+		vm_error(
+			wk, "unable to index %s with %s", obj_typestr(wk, target_container), obj_typestr(wk, id));
 		break;
 	}
 
@@ -2017,7 +2022,7 @@ vm_op_store_m(struct workspace *wk)
 	struct obj_stack_entry *id = object_stack_pop_entry(&wk->vm.stack);
 
 	obj *member_target;
-	if (!vm_op_store_member_target(wk, id->ip, target_container, id->o, &member_target, false)) {
+	if (!vm_op_store_member_target(wk, target_container, id->o, &member_target, false)) {
 		object_stack_push(wk, val);
 		return;
 	}
@@ -2035,7 +2040,7 @@ vm_op_add_store_m(struct workspace *wk)
 	struct obj_stack_entry *id = object_stack_pop_entry(&wk->vm.stack);
 
 	obj *member_target;
-	if (!vm_op_store_member_target(wk, id->ip, target_container, id->o, &member_target, true)) {
+	if (!vm_op_store_member_target(wk, target_container, id->o, &member_target, true)) {
 		object_stack_push(wk, val);
 		return;
 	}
@@ -2162,7 +2167,7 @@ vm_op_index(struct workspace *wk)
 		typecheck_operand(b, b_t, obj_string, tc_string, tc_any);
 
 		if (!obj_dict_index(wk, a, b, &res)) {
-			vm_error_at(wk, b_ip, "key not in dictionary: %o", b);
+			vm_member_not_found_error(wk, b, a);
 			vm_push_dummy(wk);
 			return;
 		}
@@ -2176,7 +2181,7 @@ vm_op_index(struct workspace *wk)
 		struct obj_custom_target *tgt = get_obj_custom_target(wk, a);
 		struct obj_array *arr = get_obj_array(wk, tgt->output);
 
-		if (!boundscheck(wk, b_ip, arr->len, &i)) {
+		if (!boundscheck(wk, 0, arr->len, &i)) {
 			break;
 		}
 
@@ -2271,7 +2276,7 @@ vm_op_member(struct workspace *wk)
 			return;
 		}
 
-		vm_error(wk, "member %o not found on %#o", id, obj_type_to_typestr(wk, self));
+		vm_member_not_found_error(wk, id, self);
 		vm_push_dummy(wk);
 		return;
 	}
