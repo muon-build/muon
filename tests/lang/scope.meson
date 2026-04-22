@@ -7,7 +7,6 @@ func add_test(desc str, fn function)
     tests += {'desc': desc, 'fn': fn}
 endfunc
 
-
 add_test(
     'Test that flags declared before function is used as an upvalue',
     func()
@@ -24,7 +23,7 @@ add_test(
         flags = ['c']
         assert(bar() == ['a', 'b'])
         assert(flags == ['a', 'b'])
-    endfunc
+    endfunc,
 )
 
 add_test(
@@ -41,7 +40,7 @@ add_test(
         flags = ['c']
         assert(bar() == ['a', 'b'])
         assert(flags == ['c'])
-    endfunc
+    endfunc,
 )
 
 add_test(
@@ -60,12 +59,12 @@ add_test(
         flags = ['c']
         assert(bar() == ['a', 'b'])
         assert(flags == ['c'])
-    endfunc
+    endfunc,
 )
 
 add_test(
     'Test recursive calls and equivalence of = and +=',
-    func ()
+    func()
         i = 0
         j = 0
         n = 0
@@ -79,14 +78,14 @@ add_test(
             s = s + '_' + n.to_string()
             t += '_' + n.to_string()
 
-            return n <= 1 ? n : fib(n-1) + fib(n-2)
+            return n <= 1 ? n : fib(n - 1) + fib(n - 2)
         endfunc
 
         assert(fib(5) == 5)
         assert(i == j and i == 15)
         assert(s == t and s == '_5_4_3_2_1_0_1_2_1_0_3_2_1_0_1')
         assert(n == 0)
-    endfunc
+    endfunc,
 )
 
 add_test(
@@ -127,7 +126,7 @@ add_test(
         bar()
         message(foo)
         assert(foo == 'set at inner scope')
-    endfunc
+    endfunc,
 )
 
 add_test(
@@ -145,7 +144,7 @@ add_test(
 
         assert(a == [1], '`a` should not be mutated, = was used')
         assert(b == [2, 2], '`b` should be mutated, += was used')
-    endfunc
+    endfunc,
 )
 
 foreach t : tests
