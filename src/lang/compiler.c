@@ -231,6 +231,7 @@ vm_comp_add_upvalue(struct workspace *wk, obj id, uint32_t depth, uint32_t slot,
 enum vm_comp_resolve_mode {
 	vm_comp_resolve_mode_access,
 	vm_comp_resolve_mode_assign,
+	vm_comp_resolve_mode_assign_forced_declaration,
 };
 
 static int32_t
@@ -280,7 +281,7 @@ vm_comp_resolve_upvalue(struct workspace *wk, obj id)
 	return vm_comp_resolve_upvalue_depth(wk, depth - 1, id);
 }
 
-static void
+static struct local_binding *
 vm_comp_declare_local_unchecked(struct workspace *wk, struct node *n, obj id)
 {
 	const uint32_t depth = vm_comp_current_depth(wk);
@@ -291,7 +292,8 @@ vm_comp_declare_local_unchecked(struct workspace *wk, struct node *n, obj id)
 		depth,
 		wk->vm.compiler_state.locals.len - frame->locals_base,
 	};
-	arr_push(wk->a, &wk->vm.compiler_state.locals, &l);
+	uint32_t i = arr_push(wk->a, &wk->vm.compiler_state.locals, &l);
+	return arr_get(&wk->vm.compiler_state.locals, i);
 }
 
 static int32_t
@@ -302,16 +304,21 @@ vm_comp_resolve_local(struct workspace *wk, obj id, enum vm_comp_resolve_mode mo
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
 		if (l->depth != depth) {
 			return -1;
-		} else if (!l->bound && (mode == vm_comp_resolve_mode_access)) {
+		} else if (!l->bound && mode == vm_comp_resolve_mode_access) {
 			continue;
 		}
 
 		if (obj_equal(wk, id, l->id)) {
-			if (mode == vm_comp_resolve_mode_assign) {
-				l->bound = true;
-			} else if (mode == vm_comp_resolve_mode_access) {
-				l->accessed = true;
+			if (!l->bound && l->forced_declaration && mode != vm_comp_resolve_mode_assign_forced_declaration) {
+				continue;
 			}
+
+			switch (mode) {
+			case vm_comp_resolve_mode_access: l->accessed = true; break;
+			case vm_comp_resolve_mode_assign:
+			case vm_comp_resolve_mode_assign_forced_declaration: l->bound = true; break;
+			}
+
 			return l->slot;
 		}
 	}
@@ -347,7 +354,7 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_mode mode)
 	return res;
 }
 
-static bool
+static struct local_binding *
 vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
 {
 	const uint32_t depth = vm_comp_current_depth(wk);
@@ -359,20 +366,24 @@ vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
 		if (obj_equal(wk, id, l->id)) {
 			vm_comp_error(wk, n, "duplicate variable name %s", get_cstr(wk, id));
 			vm_comp_note(wk, l->n, "already declared here");
-			return false;
+			return 0;
 		}
 	}
 
-	vm_comp_declare_local_unchecked(wk, n, id);
-	return true;
+	return vm_comp_declare_local_unchecked(wk, n, id);
 }
 
 static void
 vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_assign_flag flags)
 {
-	struct vm_comp_local l = vm_comp_resolve_id(wk,
-		id,
-		(flags & node_assign_flag_add_store) ? vm_comp_resolve_mode_access : vm_comp_resolve_mode_assign);
+	enum vm_comp_resolve_mode mode = vm_comp_resolve_mode_assign;
+	if (flags & node_assign_flag_add_store) {
+		mode = vm_comp_resolve_mode_access;
+	} else if (flags & node_assign_flag_force_declaration) {
+		mode = vm_comp_resolve_mode_assign_forced_declaration;
+	}
+
+	struct vm_comp_local l = vm_comp_resolve_id(wk, id, mode);
 	if (l.slot == -1) {
 		if (flags & node_assign_flag_add_store) {
 			vm_comp_error(wk, n, "undefined variable");
@@ -443,8 +454,11 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 			assert(n->l->type == node_type_id_lit);
 			obj id = n->l->data.str;
 			if (n->data.type & node_assign_flag_force_declaration) {
-				vm_comp_declare_local(wk, n->l, id);
+				struct local_binding *l = vm_comp_declare_local(wk, n->l, id);
 				vm_comp_reserve_local_stack_slot(wk, id);
+				if (l) {
+					l->forced_declaration = true;
+				}
 			} else {
 				vm_comp_try_declare_block_local(wk, n->l, id);
 			}
