@@ -389,9 +389,32 @@ vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_ass
 static void
 vm_comp_try_declare_block_local(struct workspace *wk, struct node *n, obj id)
 {
+	// Try to find a local variable defined in the current scope or any higher
+	// scope.
+	//
+	// If a matching variable is found at the current scope, then do not
+	// declare a new local since it has already been declared.
+	//
+	// If a matching variable is found at a higher scope, only declare a new
+	// local variable if it has been bound.  This fixes behavior like:
+	//
+	// func foo()
+	//     name = 'foo'
+	// endfunc
+	//
+	// name = 'bar'
+	// foo()
+	// assert(name == 'bar')
+	//
+	// Without this, `name` in foo will incorrectly resolve to the outer
+	// scope's name.
+	const uint32_t depth = vm_comp_current_depth(wk);
 	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
 		if (obj_equal(wk, id, l->id)) {
+			if (depth != l->depth && !l->bound) {
+				continue;
+			}
 			return;
 		}
 	}
