@@ -49,7 +49,8 @@ FUNC_IMPL(module_json, parse, tc_array | tc_dict, .desc = "Parse a json string i
 FUNC_IMPL(module_json, stringify, tc_any, .desc = "Convert an object into a json string")
 {
 	struct args_norm an[] = {
-		{ tc_array | tc_dict, .desc = "the object to stringify" },
+		{ TYPE_TAG_ALLOW_NULL | tc_array | tc_dict | tc_number | tc_bool | tc_string | tc_file | tc_feature_opt,
+			.desc = "the object to stringify" },
 		ARG_TYPE_NULL,
 	};
 	if (!pop_args(wk, an, NULL)) {
