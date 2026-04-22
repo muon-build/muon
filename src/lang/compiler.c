@@ -1130,6 +1130,16 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		func_jump_over_patch_tgt = wk->vm.code.len;
 		push_constant(wk, 0);
 
+		struct node *id = n->l->l->l;
+
+		if (id) {
+			// If this function is written with an id resolve it here before
+			// the function body is compiled so that recursive calls can be
+			// resolved.
+			struct vm_comp_local l = vm_comp_resolve_id(wk, id->data.str, vm_comp_resolve_mode_assign);
+			assert(l.slot != -1);
+		}
+
 		/* function body start */
 
 		func->entry = wk->vm.code.len;
@@ -1204,7 +1214,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 			push_constant(wk, 0);
 		}
 
-		struct node *id = n->l->l->l;
 		struct node *doc = n->l->l->r;
 		push_location(wk, id ? id : n->l);
 

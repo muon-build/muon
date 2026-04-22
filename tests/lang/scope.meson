@@ -55,3 +55,29 @@
         assert(flags == ['c'])
     endfunc
 )()
+
+# Test recursive calls and equivalence of = and +=
+(
+    func ()
+        i = 0
+        j = 0
+        n = 0
+        s = ''
+        t = ''
+
+        func fib(n int) -> int
+            i = i + 1
+            j += 1
+
+            s = s + '_' + n.to_string()
+            t += '_' + n.to_string()
+
+            return n <= 1 ? n : fib(n-1) + fib(n-2)
+        endfunc
+
+        assert(fib(5) == 5)
+        assert(i == j and i == 15)
+        assert(s == t and s == '_5_4_3_2_1_0_1_2_1_0_3_2_1_0_1')
+        assert(n == 0)
+    endfunc
+)()
