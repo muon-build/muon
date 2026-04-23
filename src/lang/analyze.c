@@ -876,6 +876,12 @@ az_eval_project_file(struct workspace *wk,
 	}
 }
 
+#define az_execute_instruction(__cip)      \
+	__cip = wk->vm.ip;                 \
+	++wk->vm.ip;                       \
+	analyzer.visited_ops.e[__cip] = 1; \
+	wk->vm.ops.ops[wk->vm.code.e[__cip]](wk)
+
 static void
 az_execute_loop_impl(struct workspace *wk)
 {
@@ -885,20 +891,7 @@ az_execute_loop_impl(struct workspace *wk)
 		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
 		// 	object_stack_print(wk, &wk->vm.stack);
 		// }
-
-		cip = wk->vm.ip;
-		++wk->vm.ip;
-		analyzer.visited_ops.e[cip] = 1;
-
-		// TracyCZoneN(tctx, "op", true);
-		// {
-		// 	const char *op_name = vm_op_to_s(wk->vm.code.e[cip]);
-		// 	TracyCZoneName(tctx, op_name, strlen(op_name));
-		// }
-
-		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
-
-		// TracyCZoneEnd(tctx);
+		az_execute_instruction(cip);
 	}
 }
 
@@ -1191,6 +1184,14 @@ az_op_constant_func(struct workspace *wk)
 	obj c = object_stack_peek(&wk->vm.stack, 1);
 	if (!get_obj_closure(wk, c)->func->automatically_defined)
 	{
+		// If the next instruction is a form of store, go ahead and execute
+		// that so that recursive calls can be analyzed properly
+		uint32_t ip = wk->vm.ip;
+		if (wk->vm.code.e[ip] == op_store_l || wk->vm.code.e[ip] == op_store_u
+			|| wk->vm.code.e[ip] == op_store_m) {
+			az_execute_instruction(ip);
+		}
+
 		az_analyze_func(wk, c);
 	}
 }
