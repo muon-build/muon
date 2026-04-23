@@ -147,6 +147,55 @@ add_test(
     endfunc,
 )
 
+add_test(
+    'foreach does not create scopes',
+    func()
+        k = 'not set'
+
+        func foo() -> int
+            foreach k, v : {'a': 1}
+                c = 1
+            endforeach
+            assert(c == 1)
+            return v
+        endfunc
+
+        assert(foo() == 1, 'v should be equal to the last iteration')
+        assert(k == 'a', 'k should have been reused as an upvalue')
+    endfunc,
+)
+
+add_test(
+    'simulated object with private member',
+    func()
+        counter = (
+            func() -> dict[function]
+                i = 0
+
+                return {
+                    'is': func(val int) -> bool
+                        return i == val
+                    endfunc,
+                    'reset': func(val int: 0)
+                        i = val
+                    endfunc,
+                    'inc': func()
+                        i += 1
+                    endfunc,
+                }
+            endfunc
+        )()
+        assert(counter.is(0))
+        counter.inc()
+        counter.inc()
+        assert(counter.is(2))
+        counter.reset()
+        assert(counter.is(0))
+        counter.reset(val: 3)
+        assert(counter.is(3))
+    endfunc,
+)
+
 foreach t : tests
     print(f'---- @0@ ----\n'.format(t.desc))
     t.fn()
