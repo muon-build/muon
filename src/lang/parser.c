@@ -835,9 +835,9 @@ parse_ternary(struct parser *p, struct node *l, bool assignment_allowed)
 	n = make_node_t(p, node_type_ternary);
 	n->l = l;
 	n->r = make_node_t(p, node_type_list);
-	n->r->l = parse_prec(p, parse_precedence_assignment, assignment_allowed);
+	n->r->l = parse_prec(p, parse_precedence_assignment, false);
 	parse_expect(p, ':');
-	n->r->r = parse_prec(p, parse_precedence_assignment, assignment_allowed);
+	n->r->r = parse_prec(p, parse_precedence_assignment, false);
 
 	n->location = source_location_merge(n->l->location, n->r->r->location);
 	return n;
