@@ -108,7 +108,7 @@ FUNC_IMPL(feature_opt, enable_if, tc_feature_opt)
 		*res = self;
 		return true;
 	} else if (state == feature_opt_disabled) {
-		const char *err_msg = akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].set) :
+		const char *err_msg = akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].val) :
 								  "requirement not met";
 
 		vm_error_at(wk, an[0].node, "%s", err_msg);
@@ -139,7 +139,7 @@ FUNC_IMPL(feature_opt, disable_if, tc_feature_opt)
 		*res = self;
 		return true;
 	} else if (state == feature_opt_enabled) {
-		const char *err_msg = akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].set) :
+		const char *err_msg = akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].val) :
 								  "requirement not met";
 
 		vm_error_at(wk, an[0].node, "%s", err_msg);
@@ -171,7 +171,7 @@ FUNC_IMPL(feature_opt, require, tc_feature_opt)
 			vm_error_at(wk,
 				an[0].node,
 				"%s",
-				akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].set) :
+				akw[kw_error_message].set ? get_cstr(wk, akw[kw_error_message].val) :
 							    "requirement not met");
 			return false;
 		} else {
