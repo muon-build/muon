@@ -151,6 +151,7 @@ struct vm_behavior {
 	bool((*eval_project_file)(struct workspace *wk,
 		const char *path,
 		enum build_language lang,
+		enum language_mode mode,
 		enum eval_project_file_flags flags,
 		obj *res));
 	bool((*native_func_dispatch)(struct workspace *wk, uint32_t func_idx, obj self, obj *res));

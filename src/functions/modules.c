@@ -59,8 +59,6 @@ module_lookup_script(struct workspace *wk,
 	const struct module_lookup_script_opts *opts)
 {
 	bool ret = false;
-	bool stack_popped = false;
-	workspace_push_lang_mode(wk, language_extended);
 
 	obj res;
 	if (opts->embedded) {
@@ -74,7 +72,7 @@ module_lookup_script(struct workspace *wk,
 			goto ret;
 		}
 	} else {
-		if (!wk->vm.behavior.eval_project_file(wk, path->buf, build_language_meson, 0, &res)) {
+		if (!wk->vm.behavior.eval_project_file(wk, path->buf, build_language_meson, language_extended, 0, &res)) {
 			goto ret;
 		}
 	}
@@ -92,8 +90,6 @@ module_lookup_script(struct workspace *wk,
 		m->has_impl = true;
 		m->exports = res;
 	} else {
-		workspace_pop_lang_mode(wk);
-		stack_popped = true;
 		obj k, v;
 		obj_dict_for(wk, res, k, v) {
 			wk->vm.behavior.assign_global(wk, get_cstr(wk, k), v, 0);
@@ -102,9 +98,6 @@ module_lookup_script(struct workspace *wk,
 
 	ret = true;
 ret:
-	if (!stack_popped) {
-		workspace_pop_lang_mode(wk);
-	}
 	return ret;
 }
 

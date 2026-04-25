@@ -866,12 +866,9 @@ setup_project_options(struct workspace *wk, const char *cwd)
 	bool exists = determine_option_file(wk, cwd, &meson_opts);
 
 	if (exists) {
-		workspace_push_lang_mode(wk, language_opts);
-		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
-		workspace_pop_lang_mode(wk);
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, language_opts, 0, 0)) {
 			return false;
 		}
-		workspace_pop_lang_mode(wk);
 	}
 
 	bool is_master_project = wk->cur_project == 0;
@@ -1642,7 +1639,7 @@ list_options_for_subproject(struct workspace *wk, struct subprojects_common_ctx 
 	current_project(wk)->cfg.name = make_str(wk, wrap.name.buf);
 
 	if (exists) {
-		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
+		if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, language_opts, 0, 0)) {
 			goto cont;
 		}
 	} else {
@@ -1662,7 +1659,6 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 	if (!(wk->init_flags & workspace_init_flag_runtime)) {
 		workspace_init_runtime(wk);
 	}
-	workspace_push_lang_mode(wk, language_opts);
 
 	bool load_from_build_dir = false;
 
@@ -1693,7 +1689,7 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 		bool exists = determine_option_file(wk, ".", &meson_opts);
 
 		if (exists) {
-			if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, 0, 0)) {
+			if (!wk->vm.behavior.eval_project_file(wk, meson_opts.buf, build_language_meson, language_opts, 0, 0)) {
 				goto ret;
 			}
 		} else {
@@ -1816,6 +1812,5 @@ list_options(struct workspace *wk, const struct list_options_opts *list_opts)
 
 	ret = true;
 ret:
-	workspace_pop_lang_mode(wk);
 	return ret;
 }

@@ -59,7 +59,7 @@ eval_project(struct workspace *wk,
 
 	wk->vm.dbg_state.eval_trace_subdir = true;
 
-	if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, eval_project_file_flag_first, 0)) {
+	if (!wk->vm.behavior.eval_project_file(wk, build_file, lang, language_external, eval_project_file_flag_first, 0)) {
 		goto cleanup;
 	}
 
@@ -221,9 +221,13 @@ eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
 }
 
 bool
-eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags, obj *res)
+eval_project_file(struct workspace *wk,
+	const char *path,
+	enum build_language lang,
+	enum language_mode mode,
+	enum eval_project_file_flags flags,
+	obj *res)
 {
-	bool ret = false;
 	obj path_str = make_str(wk, path);
 	workspace_add_regenerate_deps(wk, path_str);
 
@@ -243,13 +247,11 @@ eval_project_file(struct workspace *wk, const char *path, enum build_language la
 		eval_mode |= eval_mode_relaxed_parse;
 	}
 
-	if (!eval(wk, &src, &(struct eval_opts){ lang, eval_mode }, res)) {
-		goto ret;
-	}
+	workspace_push_lang_mode(wk, mode);
+	bool ok = eval(wk, &src, &(struct eval_opts){ lang, eval_mode }, res);
+	workspace_pop_lang_mode(wk);
 
-	ret = true;
-ret:
-	return ret;
+	return ok;
 }
 
 static bool

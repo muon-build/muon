@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include "lang/workspace.h"
 #include <string.h>
 
 #include "args.h"
@@ -1409,7 +1410,7 @@ FUNC_IMPL(kernel, subdir, 0)
 		if (!build_file) {
 			goto ret;
 		}
-		ret = wk->vm.behavior.eval_project_file(wk, build_file, lang, 0, 0);
+		ret = wk->vm.behavior.eval_project_file(wk, build_file, lang, language_external, 0, 0);
 	}
 
 ret:

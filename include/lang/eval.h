@@ -37,7 +37,12 @@ bool eval_project(struct workspace *wk,
 	const char *cwd,
 	const char *build_dir,
 	uint32_t *proj_id);
-bool eval_project_file(struct workspace *wk, const char *path, enum build_language lang, enum eval_project_file_flags flags, obj *res);
+bool eval_project_file(struct workspace *wk,
+	const char *path,
+	enum build_language lang,
+	enum language_mode mode,
+	enum eval_project_file_flags flags,
+	obj *res);
 bool eval(struct workspace *wk, const struct source *src, const struct eval_opts *opts, obj *res);
 bool eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res);
 bool eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res);

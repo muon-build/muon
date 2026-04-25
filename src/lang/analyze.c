@@ -845,6 +845,7 @@ static bool
 az_eval_project_file(struct workspace *wk,
 	const char *path,
 	enum build_language lang,
+	enum language_mode mode,
 	enum eval_project_file_flags flags,
 	obj *res)
 {
@@ -872,7 +873,7 @@ az_eval_project_file(struct workspace *wk,
 			flags |= eval_project_file_flag_relaxed_parse;
 		}
 
-		return eval_project_file(wk, path, lang, flags, res);
+		return eval_project_file(wk, path, lang, mode, flags, res);
 	}
 }
 
