@@ -161,19 +161,15 @@ machine_file_eval(struct workspace *wk, const char *path, enum machine_kind mach
 
 	L("translated machine file:\n%s", translated.buf);
 
-	workspace_push_lang_mode(wk, language_extended);
-
 	TSTR(translated_label);
 	tstr_pushf(wk, &translated_label, "%s-translated", path);
 
 	struct source translated_src = { .src = translated.buf, .len = translated.len, .label = translated_label.buf };
 
 	obj res;
-	if (!eval(wk, &translated_src, &(struct eval_opts) { build_language_meson }, &res)) {
+	if (!eval(wk, &translated_src, &(struct eval_opts) { build_language_meson, language_extended }, &res)) {
 		return false;
 	}
-
-	workspace_pop_lang_mode(wk);
 
 	return true;
 }

@@ -502,8 +502,6 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 
-	workspace_push_lang_mode(wk, language_internal);
-
 	workspace_setup_paths(wk, path_cwd(), argv[0], argc, argv);
 
 	if (string_src) {
@@ -543,11 +541,9 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	obj res;
-	if (!eval(wk, &src, &(struct eval_opts) { build_language_meson, .an = an }, &res)) {
+	if (!eval(wk, &src, &(struct eval_opts) { build_language_meson, language_internal, .an = an }, &res)) {
 		goto ret;
 	}
-
-	workspace_pop_lang_mode(wk);
 
 	ret = true;
 ret:
@@ -561,15 +557,12 @@ cmd_repl(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 	opt_end();
 
-	workspace_push_lang_mode(wk, language_internal);
-
 	workspace_init_runtime(wk);
 	workspace_init_startup_files(wk);
 	make_dummy_project(wk, false);
 
 	repl(wk, false);
 
-	workspace_pop_lang_mode(wk);
 	return true;
 }
 

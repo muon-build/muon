@@ -325,7 +325,7 @@ coerce_option_override(struct workspace *wk, struct obj_option *opt, obj sval, o
 			// make -Doption= equivalent to an empty list
 			*res = make_obj(wk, obj_array);
 		} else if (val->s[0] == '[') {
-			if (!eval_str(wk, val->s, eval_mode_repl, res)) {
+			if (!eval_str(wk, val->s, language_internal, eval_mode_repl, res)) {
 				LOG_E("malformed array option value '%s'", val->s);
 				return false;
 			}
@@ -766,12 +766,10 @@ init_builtin_options(struct workspace *wk, const char *script)
 		return false;
 	}
 
-	workspace_push_lang_mode(wk, language_opts);
 	obj _;
 	initializing_builtin_options = true;
-	bool ret = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_);
+	bool ret = eval(wk, &src, &(struct eval_opts) { build_language_meson, language_opts }, &_);
 	initializing_builtin_options = false;
-	workspace_pop_lang_mode(wk);
 	return ret;
 }
 

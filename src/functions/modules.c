@@ -68,7 +68,7 @@ module_lookup_script(struct workspace *wk,
 		}
 		src.label = get_cstr(wk, tstr_into_str(wk, path));
 		src.len = strlen(src.src);
-		if (!eval(wk, &src, &(struct eval_opts) { build_language_meson }, &res)) {
+		if (!eval(wk, &src, &(struct eval_opts) { build_language_meson, language_extended }, &res)) {
 			goto ret;
 		}
 	} else {

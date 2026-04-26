@@ -58,7 +58,7 @@ cmd_subprojects_eval_cmd(struct workspace *wk,
 	L("evaluating %s", snippet);
 
 	obj res;
-	return eval_str(wk, snippet, eval_mode_repl, &res);
+	return eval_str(wk, snippet, language_extended, eval_mode_repl, &res);
 }
 
 static bool
@@ -194,9 +194,5 @@ cmd_subprojects(struct workspace *wk, uint32_t argc, uint32_t argi, char *const 
 		proj->subprojects_dir = tstr_into_str(wk, &path);
 	}
 
-	workspace_push_lang_mode(wk, language_extended);
-	bool res = commands[cmd_i].cmd(wk, argc, argi, argv);
-	workspace_pop_lang_mode(wk);
-
-	return res;
+	return commands[cmd_i].cmd(wk, argc, argi, argv);
 }

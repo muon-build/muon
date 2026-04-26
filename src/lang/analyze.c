@@ -863,7 +863,7 @@ az_eval_project_file(struct workspace *wk,
 
 		struct source weak_src = *src;
 
-		return eval(wk, &weak_src, &(struct eval_opts) { lang, eval_mode }, res);
+		return eval(wk, &weak_src, &(struct eval_opts) { lang, mode, eval_mode }, res);
 	} else {
 		if (analyzer.opts->analyze_project_call_only) {
 			flags |= eval_project_file_flag_return_after_project;
@@ -1679,9 +1679,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 		}
 	}
 
-	workspace_push_lang_mode(wk, opts->lang_mode);
-
-	if (wk->vm.lang_mode == language_internal) {
+	if (opts->lang_mode == language_internal) {
 		if (!opts->single_file) {
 			LOG_E("cannot analyze multi-file in script mode");
 			res = false;
@@ -1701,7 +1699,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 	if (opts->single_file) {
 		struct args_norm eval_an[2] = { { ARG_TYPE_NULL }, { ARG_TYPE_NULL } };
-		if (wk->vm.lang_mode == language_internal) {
+		if (opts->lang_mode == language_internal) {
 			eval_an[0].name = "argv";
 			eval_an[0].type = complex_type_preset_get(wk, tc_cx_list_of_str);
 			eval_an[0].val = make_typeinfo(wk, eval_an[0].type);
@@ -1712,7 +1710,7 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 			res = false;
 		} else {
 			obj _v;
-			res = eval(wk, &src, &(struct eval_opts) { build_language_meson, .an = eval_an }, &_v);
+			res = eval(wk, &src, &(struct eval_opts) { build_language_meson, opts->lang_mode, .an = eval_an }, &_v);
 		}
 
 	} else {
@@ -1828,7 +1826,6 @@ do_analyze(struct workspace *wk, struct az_opts *opts)
 
 done:
 	TracyCZoneAutoE;
-	workspace_pop_lang_mode(wk);
 	return res;
 }
 

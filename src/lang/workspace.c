@@ -115,7 +115,6 @@ static bool
 workspace_eval_startup_file(struct workspace *wk, const char *script)
 {
 	obj _;
-	bool ret;
 	struct source src;
 
 	if (!embedded_get(wk, script, &src)) {
@@ -123,12 +122,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 		return false;
 	}
 
-	workspace_push_lang_mode(wk, language_extended);
-
-	ret = eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_);
-
-	workspace_pop_lang_mode(wk);
-	return ret;
+	return eval(wk, &src, &(struct eval_opts){ build_language_meson, language_extended }, &_);
 }
 
 void
@@ -516,14 +510,10 @@ workspace_do_setup(struct workspace *wk, struct arr *preload_files)
 					goto ret;
 				}
 
-				workspace_push_lang_mode(wk, language_extended);
-
 				obj _res;
-				if (!eval(wk, &src, &(struct eval_opts) { build_language_meson }, &_res)) {
+				if (!eval(wk, &src, &(struct eval_opts) { build_language_meson, language_extended }, &_res)) {
 					goto ret;
 				}
-
-				workspace_pop_lang_mode(wk);
 			} else {
 				enum machine_kind machine = machine_kind_host;
 				if (str_try_remove_prefix(&path_str, &STR("cross:"))) {

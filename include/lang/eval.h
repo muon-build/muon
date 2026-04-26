@@ -28,6 +28,7 @@ enum eval_project_file_flags {
 
 struct eval_opts {
 	enum build_language lang;
+	enum language_mode lang_mode;
 	enum eval_mode mode;
 	const struct args_norm *an;
 };
@@ -44,8 +45,8 @@ bool eval_project_file(struct workspace *wk,
 	enum eval_project_file_flags flags,
 	obj *res);
 bool eval(struct workspace *wk, const struct source *src, const struct eval_opts *opts, obj *res);
-bool eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res);
-bool eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res);
+bool eval_str(struct workspace *wk, const char *str, enum language_mode lang_mode, enum eval_mode eval_mode, obj *res);
+bool eval_str_label(struct workspace *wk, const char *label, const char *str, enum language_mode lang_mode, enum eval_mode eval_mode, obj *res);
 void repl(struct workspace *wk, bool dbg);
 
 const char *determine_project_root(struct workspace *wk, const char *path);

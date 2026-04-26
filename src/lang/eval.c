@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "lang/workspace.h"
 #include <stdlib.h>
 
 #include "error.h"
@@ -108,11 +109,8 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 	}
 
 	if (opts->lang == build_language_cmake && opts->mode == eval_mode_first) {
-		workspace_push_lang_mode(wk, language_extended);
 		obj _;
 		bool ok = module_import(wk, "cmake_prelude", false, &_);
-		workspace_pop_lang_mode(wk);
-
 		assert(ok);
 	}
 
@@ -120,7 +118,7 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 	src = arr_peek(&wk->vm.src, 1);
 
 	enum vm_compile_mode compile_mode
-		= (wk->vm.lang_mode == language_extended || wk->vm.lang_mode == language_internal) ?
+		= (opts->lang_mode == language_extended || opts->lang_mode == language_internal) ?
 			  vm_compile_mode_language_extended :
 			  0;
 
@@ -140,6 +138,7 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 
 		vm_compile_state_reset(wk);
 		workspace_scratch_begin(wk);
+		workspace_push_lang_mode(wk, opts->lang_mode);
 
 		bool ok = false;
 
@@ -165,7 +164,9 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 
 		ok = true;
 compile_done:
+		workspace_pop_lang_mode(wk);
 		workspace_scratch_end(wk);
+
 
 		if (!ok) {
 			TracyCZoneAutoE;
@@ -208,16 +209,16 @@ compile_done:
 }
 
 bool
-eval_str_label(struct workspace *wk, const char *label, const char *str, enum eval_mode mode, obj *res)
+eval_str_label(struct workspace *wk, const char *label, const char *str, enum language_mode lang_mode, enum eval_mode eval_mode, obj *res)
 {
 	struct source src = { .label = get_cstr(wk, make_str(wk, label)), .src = str, .len = strlen(str) };
-	return eval(wk, &src, &(struct eval_opts){ build_language_meson, mode }, res);
+	return eval(wk, &src, &(struct eval_opts){ build_language_meson, lang_mode, eval_mode }, res);
 }
 
 bool
-eval_str(struct workspace *wk, const char *str, enum eval_mode mode, obj *res)
+eval_str(struct workspace *wk, const char *str, enum language_mode lang_mode, enum eval_mode eval_mode, obj *res)
 {
-	return eval_str_label(wk, "<internal>", str, mode, res);
+	return eval_str_label(wk, "<internal>", str, lang_mode, eval_mode, res);
 }
 
 bool
@@ -247,18 +248,14 @@ eval_project_file(struct workspace *wk,
 		eval_mode |= eval_mode_relaxed_parse;
 	}
 
-	workspace_push_lang_mode(wk, mode);
-	bool ok = eval(wk, &src, &(struct eval_opts){ lang, eval_mode }, res);
-	workspace_pop_lang_mode(wk);
-
-	return ok;
+	return eval(wk, &src, &(struct eval_opts){ lang, mode, eval_mode }, res);
 }
 
 static bool
 repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
 {
 	stack_push(&wk->stack, wk->vm.dbg_state.stepping, false);
-	bool ret = eval_str(wk, str, eval_mode_repl, repl_res);
+	bool ret = eval_str(wk, str, language_internal, eval_mode_repl, repl_res);
 	stack_pop(&wk->stack, wk->vm.dbg_state.stepping);
 	return ret;
 }

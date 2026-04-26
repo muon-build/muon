@@ -1183,7 +1183,6 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 {
 	bool ret = false;
 
-	workspace_push_lang_mode(wk, language_internal);
 	wk->argv0 = argv0;
 
 	setup_platform_env(wk, ".", setup_platform_env_requirement_from_cache);
@@ -1302,6 +1301,5 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	}
 
 ret:
-	workspace_pop_lang_mode(wk);
 	return ret;
 }
