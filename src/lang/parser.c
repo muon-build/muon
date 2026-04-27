@@ -666,7 +666,9 @@ parse_id(struct parser *p, bool assignment_allowed)
 		if (parse_accept(p, ':')) {
 			type_tag type;
 			parse_type(p, &type, true);
-			parse_expect(p, '=');
+			if (!parse_expect(p, '=')) {
+				return id;
+			}
 			return parse_id_assign(p, id, node_assign_flag_force_declaration);
 		} else if (parse_accept(p, '=') || parse_accept(p, token_type_plus_assign)) {
 			return parse_id_assign(p, id, 0);
