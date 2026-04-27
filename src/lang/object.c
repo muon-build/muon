@@ -7,6 +7,7 @@
 
 #include "compat.h"
 
+#include "lang/vm.h"
 #include <inttypes.h>
 #include <stdlib.h>
 
@@ -105,6 +106,9 @@ make_default_objects(struct workspace *wk)
 	id = make_obj(wk, obj_bool);
 	assert(id == obj_bool_false);
 	*(bool *)get_obj_internal(wk, id, obj_bool) = false;
+
+	id = make_obj(wk, obj_null);
+	assert(id == obj_uninitialized);
 
 	making_default_objects = false;
 }
@@ -1889,6 +1893,11 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 {
 	struct obj_to_s_ctx ctx = { .sb = sb, .opts = opts };
 	enum obj_type t = get_obj_type(wk, o);
+
+	if (o == obj_uninitialized) {
+		tstr_pushs(wk, sb, "<uninit>");
+		return;
+	}
 
 	switch (t) {
 	case obj_include_directory: {

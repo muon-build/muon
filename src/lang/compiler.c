@@ -424,7 +424,7 @@ static void
 vm_comp_reserve_local_stack_slot(struct workspace *wk, obj id)
 {
 	push_code(wk, op_constant);
-	push_constant(wk, id);
+	push_constant(wk, obj_uninitialized);
 }
 
 static void

@@ -2050,6 +2050,15 @@ vm_op_add_store_m(struct workspace *wk)
 	object_stack_push(wk, *member_target);
 }
 
+#define vm_op_store_uninit_check(__val)                    \
+	if (__val == obj_uninitialized)                    \
+	vm_diagnostic(wk,                                  \
+		0,                                         \
+		wk->vm.in_analyzer ? log_warn : log_error, \
+		0,                                         \
+		"load of %suninitialized variable",        \
+		wk->vm.in_analyzer ? "potentially " : "")
+
 #define vm_op_store_load_l_common() \
 	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1); \
 	obj slot_idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip) + frame->stack_base; \
@@ -2059,6 +2068,8 @@ static void
 vm_op_load_l(struct workspace *wk)
 {
 	vm_op_store_load_l_common();
+	vm_op_store_uninit_check(slot->o);
+
 	object_stack_push(wk, slot->o);
 }
 
@@ -2076,6 +2087,7 @@ static void
 vm_op_add_store_l(struct workspace *wk)
 {
 	vm_op_store_load_l_common();
+	vm_op_store_uninit_check(slot->o);
 
 	const struct obj_stack_entry *src = object_stack_pop_entry(&wk->vm.stack);
 	slot->o = vm_perform_add_store_mutations(wk, src->o, slot->o);
@@ -2086,12 +2098,13 @@ vm_op_add_store_l(struct workspace *wk)
 #define vm_op_store_load_u_common() \
 	const struct call_frame *frame = arr_get(&wk->vm.call_stack, wk->vm.call_stack.len - 1); \
 	obj slot_idx = vm_get_constant(wk->vm.code.e, &wk->vm.ip); \
-	obj *slot = frame->closure->upvalues[slot_idx]->location;
+	obj *slot = frame->closure->upvalues[slot_idx]->location \
 
 static void
 vm_op_load_u(struct workspace *wk)
 {
 	vm_op_store_load_u_common();
+	vm_op_store_uninit_check(*slot);
 	object_stack_push(wk, *slot);
 }
 
@@ -2107,6 +2120,7 @@ static void
 vm_op_add_store_u(struct workspace *wk)
 {
 	vm_op_store_load_u_common();
+	vm_op_store_uninit_check(*slot);
 	obj val = object_stack_pop(&wk->vm.stack);
 	*slot = vm_perform_add_store_mutations(wk, val, *slot);
 	object_stack_push(wk, *slot);

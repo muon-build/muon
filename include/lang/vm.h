@@ -89,6 +89,7 @@ enum compile_time_constant_objects {
 	/* obj_meson = 2, */
 	obj_bool_true = 3,
 	obj_bool_false = 4,
+	obj_uninitialized = 5,
 	compile_time_constant_objects_end,
 };
 
