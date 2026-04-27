@@ -147,20 +147,50 @@ add_test(
 )
 
 add_test(
-    'foreach does not create scopes',
+    'foreach does not create scopes, but iterator variables do not bind to upvalues',
     func()
-        k = 'not set'
+        foo = 'set at outer scope'
 
-        func foo() -> int
-            foreach k, v : {'a': 1}
-                c = 1
+        func a()
+            assert(foo == 'set at outer scope')
+
+            foo = 'set inside a()' # This mutates the foo upvalue declared above
+            assert(foo == 'set inside a()')
+
+            # Iterator variables are like :=, they force declare new block
+            # locals. They are special in that they reuse existing locals
+            # instead of throwing a duplicate error.
+            foreach foo : ['set in iterator']
             endforeach
-            assert(c == 1)
-            return v
+            assert(foo == 'set in iterator')
         endfunc
 
-        assert(foo() == 1, 'v should be equal to the last iteration')
-        assert(k == 'a', 'k should have been reused as an upvalue')
+        a()
+        assert(foo == 'set inside a()')
+
+        func b()
+            assert(foo == 'set inside a()')
+
+            foo = 'set inside b()' # This mutates the foo upvalue declared above
+            assert(foo == 'set inside b()')
+
+            foo := 'local to b'
+            assert(foo == 'local to b')
+
+            # Iterator variables are like :=, they force declare new block
+            # locals. They are special in that they reuse existing locals
+            # instead of throwing a duplicate error.
+            foreach foo : ['set in iterator']
+            endforeach
+            assert(foo == 'set in iterator')
+
+            foreach foo : ['reset in iterator']
+            endforeach
+            assert(foo == 'reset in iterator')
+        endfunc
+
+        b()
+        assert(foo == 'set inside b()')
     endfunc,
 )
 

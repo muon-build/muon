@@ -355,22 +355,42 @@ vm_comp_resolve_id(struct workspace *wk, obj id, enum vm_comp_resolve_mode mode)
 }
 
 static struct local_binding *
-vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
+vm_comp_lookup_local(struct workspace *wk, obj id, bool upvalues)
 {
+	// Try to find a local variable defined in the current scope or any higher
+	// scope.
+	//
+	// If a matching variable is found at the current scope, then do not
+	// declare a new local since it has already been declared.
+	//
+	// If a matching variable is found at a higher scope, only declare a new
+	// local variable if it has been bound.  This fixes behavior like:
+	//
+	// func foo()
+	//     name = 'foo'
+	// endfunc
+	//
+	// name = 'bar'
+	// foo()
+	// assert(name == 'bar')
+	//
+	// Without this, `name` in foo will incorrectly resolve to the outer
+	// scope's name.
 	const uint32_t depth = vm_comp_current_depth(wk);
 	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
 		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
 		if (l->depth != depth) {
-			break;
+			if (!upvalues) {
+				break;
+			} else if (!l->bound) {
+				continue;
+			}
 		}
 		if (obj_equal(wk, id, l->id)) {
-			vm_comp_error(wk, n, "duplicate variable name %s", get_cstr(wk, id));
-			vm_comp_note(wk, l->n, "already declared here");
-			return 0;
+			return l;
 		}
 	}
-
-	return vm_comp_declare_local_unchecked(wk, n, id);
+	return 0;
 }
 
 static void
@@ -408,40 +428,49 @@ vm_comp_reserve_local_stack_slot(struct workspace *wk, obj id)
 }
 
 static void
-vm_comp_try_declare_block_local(struct workspace *wk, struct node *n, obj id)
+vm_comp_duplicate_local_error(struct workspace *wk, struct node *n, obj id, struct local_binding *prev)
 {
-	// Try to find a local variable defined in the current scope or any higher
-	// scope.
-	//
-	// If a matching variable is found at the current scope, then do not
-	// declare a new local since it has already been declared.
-	//
-	// If a matching variable is found at a higher scope, only declare a new
-	// local variable if it has been bound.  This fixes behavior like:
-	//
-	// func foo()
-	//     name = 'foo'
-	// endfunc
-	//
-	// name = 'bar'
-	// foo()
-	// assert(name == 'bar')
-	//
-	// Without this, `name` in foo will incorrectly resolve to the outer
-	// scope's name.
-	const uint32_t depth = vm_comp_current_depth(wk);
-	for (int32_t i = wk->vm.compiler_state.locals.len - 1; i >= 0; --i) {
-		struct local_binding *l = arr_get(&wk->vm.compiler_state.locals, i);
-		if (obj_equal(wk, id, l->id)) {
-			if (depth != l->depth && !l->bound) {
-				continue;
-			}
-			return;
-		}
+	vm_comp_error(wk, n, "duplicate variable name %s", get_cstr(wk, id));
+	vm_comp_note(wk, prev->n, "already declared here");
+}
+
+static void
+vm_comp_declare_local(struct workspace *wk, struct node *n, obj id)
+{
+	struct local_binding *prev;
+	if ((prev = vm_comp_lookup_local(wk, id, false))) {
+		vm_comp_duplicate_local_error(wk, n, id, prev);
 	}
 
 	vm_comp_declare_local_unchecked(wk, n, id);
+}
+
+static void
+vm_comp_force_declare_local(struct workspace *wk, struct node *n, obj id, bool reuse)
+{
+	struct local_binding *prev;
+	if ((prev = vm_comp_lookup_local(wk, id, false))) {
+		if (reuse) {
+			return;
+		} else {
+			vm_comp_duplicate_local_error(wk, n, id, prev);
+		}
+	}
+
+	struct local_binding *l = vm_comp_declare_local_unchecked(wk, n, id);
+	l->forced_declaration = true;
 	vm_comp_reserve_local_stack_slot(wk, id);
+}
+
+static void
+vm_comp_try_declare_local(struct workspace *wk,
+	struct node *n,
+	obj id)
+{
+	if (!vm_comp_lookup_local(wk, id, true)) {
+		vm_comp_declare_local_unchecked(wk, n, id);
+		vm_comp_reserve_local_stack_slot(wk, id);
+	}
 }
 
 static void
@@ -454,29 +483,25 @@ vm_comp_block_locals_visitor(struct workspace *wk, struct node *n)
 			assert(n->l->type == node_type_id_lit);
 			obj id = n->l->data.str;
 			if (n->data.type & node_assign_flag_force_declaration) {
-				struct local_binding *l = vm_comp_declare_local(wk, n->l, id);
-				vm_comp_reserve_local_stack_slot(wk, id);
-				if (l) {
-					l->forced_declaration = true;
-				}
+				vm_comp_force_declare_local(wk, n->l, id, false);
 			} else {
-				vm_comp_try_declare_block_local(wk, n->l, id);
+				vm_comp_try_declare_local(wk, n->l, id);
 			}
 		}
 		break;
 	}
 	case node_type_foreach: {
 		struct node *ida = n->l->l->l, *idb = n->l->l->r;
-		vm_comp_try_declare_block_local(wk, ida, ida->data.str);
+		vm_comp_force_declare_local(wk, ida, ida->data.str, true);
 		if (idb) {
-			vm_comp_try_declare_block_local(wk, idb, idb->data.str);
+			 vm_comp_force_declare_local(wk, idb, idb->data.str, true);
 		}
 		break;
 	}
 	case node_type_func_def: {
 		struct node *id = n->l->l->l;
 		if (id) {
-			vm_comp_try_declare_block_local(wk, id, id->data.str);
+			vm_comp_try_declare_local(wk, id, id->data.str);
 		}
 		break;
 	}
@@ -870,7 +895,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		push_constant(wk, 0);
 
 		if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-			vm_comp_assign_local(wk, ida, ida->data.str, 0);
+			vm_comp_assign_local(wk, ida, ida->data.str, node_assign_flag_force_declaration);
 		} else {
 			vm_comp_assign_global(wk, ida->data.str, 0);
 		}
@@ -878,7 +903,7 @@ vm_comp_node(struct workspace *wk, struct node *n)
 
 		if (idb) {
 			if (wk->vm.compiler_state.mode & vm_compile_mode_locals) {
-				vm_comp_assign_local(wk, idb, idb->data.str, 0);
+				vm_comp_assign_local(wk, idb, idb->data.str, node_assign_flag_force_declaration);
 			} else {
 				vm_comp_assign_global(wk, idb->data.str, 0);
 			}
