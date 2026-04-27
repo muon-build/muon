@@ -94,17 +94,15 @@ add_test(
         foo = 'a string'
 
         func bar()
-            func foo()
-                message('hello from foo')
+            func foo() -> str
+                return 'hello from foo'
             endfunc
         endfunc
 
         assert(typeof(foo) == 'str')
-        message('foo is a ' + typeof(foo))
         bar()
         assert(typeof(foo) == 'function')
-        message('foo is now a ' + typeof(foo))
-        foo()
+        assert(foo() == 'hello from foo')
     endfunc,
 )
 
@@ -114,17 +112,18 @@ add_test(
         foo = 'set at outer scope'
 
         func bar()
-            message(foo)
+            assert(foo == 'set at outer scope')
+
             foo = 'set at inner scope' # This mutates the foo upvalue declared above
-            message(foo)
+            assert(foo == 'set at inner scope')
+
             foo := 'local to bar' # This declares a new local variable that shadows foo
+
             foo = 'still local to bar' # This mutates the foo local
-            message(foo)
             assert(foo == 'still local to bar')
         endfunc
 
         bar()
-        message(foo)
         assert(foo == 'set at inner scope')
     endfunc,
 )
