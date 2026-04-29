@@ -36,7 +36,13 @@ platform_sigaction(int sig)
 {
 	struct sigaction act = {
 		.sa_flags = SA_SIGINFO | SA_RESETHAND,
+#ifndef __FreeBSD__
 		.sa_sigaction = platform_signal_handler,
+#else
+		.__sigaction_u = {
+			.__sa_sigaction =platform_signal_handler
+		},
+#endif
 	};
 	if (sigaction(sig, &act, 0) == -1) {
 		LOG_W("failed to install signal handler: %s", strerror(errno));
