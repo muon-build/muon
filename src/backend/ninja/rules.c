@@ -360,8 +360,9 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 					const enum compiler_language l = _l;
 					const uint32_t count = _count;
 					bool specialized_rule = count > 2;
+					bool generic_rule = tgt->pch || !specialized_rule;
 
-					obj rule_name;
+					obj specialized_rule_name = 0;
 					TSTR(rule_name_buf);
 					if (specialized_rule) {
 						tstr_pushf(wk,
@@ -373,9 +374,13 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 						escape_rule(&rule_name_buf);
 						obj name = tstr_into_str(wk, &rule_name_buf);
-						uniqify_name(wk, compiler_rule_arr, name, &rule_name);
-					} else {
-						if (!obj_dict_geti(wk, proj->generic_rules[tgt->machine], l, &rule_name)) {
+						uniqify_name(wk, compiler_rule_arr, name, &specialized_rule_name);
+					}
+
+					obj generic_rule_name = 0;
+					if (generic_rule) {
+						if (!obj_dict_geti(wk, proj->generic_rules[tgt->machine], l, &generic_rule_name)) {
+							tstr_clear(&rule_name_buf);
 							tstr_pushf(wk,
 								&rule_name_buf,
 								"%s_%s_%s_compiler",
@@ -385,14 +390,14 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 							escape_rule(&rule_name_buf);
 							obj name = tstr_into_str(wk, &rule_name_buf);
-							uniqify_name(wk, compiler_rule_arr, name, &rule_name);
-							obj_dict_seti(wk, proj->generic_rules[tgt->machine], l, rule_name);
+							uniqify_name(wk, compiler_rule_arr, name, &generic_rule_name);
+							obj_dict_seti(wk, proj->generic_rules[tgt->machine], l, generic_rule_name);
 						}
 					}
 
 					obj arr;
 					arr = make_obj(wk, obj_array);
-					obj_array_push(wk, arr, rule_name);
+					obj_array_push(wk, arr, specialized_rule_name ? specialized_rule_name : generic_rule_name);
 					obj_array_push(wk, arr, specialized_rule);
 
 					obj_dict_seti(wk, tgt->required_compilers, l, arr);
