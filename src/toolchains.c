@@ -476,7 +476,7 @@ toolchain_component_detect(struct workspace *wk,
 	enum toolchain_component component,
 	obj comp,
 	bool *found,
-	bool *is_user_provided)
+	bool *set_from_option)
 {
 	L("> detecting component %s", toolchain_component_to_s(component));
 
@@ -484,7 +484,7 @@ toolchain_component_detect(struct workspace *wk,
 	const struct arr *registry = &wk->toolchain_registry.components[component];
 
 	*found = false;
-	*is_user_provided = false;
+	*set_from_option = false;
 
 	// determine candidate executable list
 
@@ -506,7 +506,7 @@ toolchain_component_detect(struct workspace *wk,
 				candidates = ar_maken(wk->a_scratch, obj, 1);
 				candidates_len = 1;
 				candidates[0] = cmd_arr->val;
-				*is_user_provided = true;
+				*set_from_option = true;
 				LO("  using candidate exe from option %s: %o\n", opt_name.buf, candidates[0]);
 			}
 		}
@@ -849,6 +849,76 @@ toolchain_component_compiler_refine_machine(struct workspace *wk, obj comp, stru
 	run_cmd_ctx_destroy(&cmd_ctx);
 }
 
+static bool
+toolchain_component_compiler_apply_wrapper(struct workspace *wk, struct obj_compiler *compiler, bool set_from_option)
+{
+
+	obj compiler_wrapper_opt;
+	get_option_value(wk, NULL, "b_compiler_wrapper", &compiler_wrapper_opt);
+	const struct str *compiler_wrapper = get_str(wk, compiler_wrapper_opt);
+
+	bool is_auto = false;
+	if (str_eql(compiler_wrapper, &STR("none"))) {
+		return true;
+	} else if (str_eql(compiler_wrapper, &STR("auto"))) {
+		if (set_from_option
+			|| !(compiler->lang == compiler_language_c
+				|| compiler->lang == compiler_language_cpp
+				|| compiler->lang == compiler_language_objc
+				|| compiler->lang == compiler_language_objcpp)) {
+			return true;
+		}
+		is_auto = true;
+	}
+
+	workspace_scratch_begin(wk);
+
+	struct arr wrappers = { 0 };
+	arr_init(wk->a_scratch, &wrappers, 4, obj);
+
+	if (is_auto) {
+		obj o = make_str(wk, "sccache");
+		arr_push(wk->a_scratch, &wrappers, &o);
+		o = make_str(wk, "ccache");
+		arr_push(wk->a_scratch, &wrappers, &o);
+	} else {
+		arr_push(wk->a_scratch, &wrappers, &compiler_wrapper_opt);
+	}
+
+
+	bool found = false;
+	for (uint32_t i = 0; i < wrappers.len; ++i) {
+		obj wrapper = *(obj*)arr_get(&wrappers, i), found_wrapper = 0;
+		struct find_program_ctx ctx = {
+			.res = &found_wrapper,
+			.machine = compiler->machine,
+		};
+
+		if (find_program(wk, &ctx, wrapper) && ctx.found) {
+			LOG_N("using compiler wrapper %s", get_cstr(wk, wrapper));
+			struct obj_external_program *wrap_ep = get_obj_external_program(wk, found_wrapper);
+			obj cmd_arr = compiler->cmd_arr[toolchain_component_compiler];
+			obj new_cmd_arr = make_obj(wk, obj_array);
+
+			obj_array_extend(wk, new_cmd_arr, wrap_ep->cmd_array);
+			obj_array_extend(wk, new_cmd_arr, cmd_arr);
+			compiler->cmd_arr[toolchain_component_compiler] = new_cmd_arr;
+			found = true;
+			break;
+		}
+	}
+
+	bool ok = true;
+	if (!found && !is_auto) {
+		LOG_E("failed to use compiler wrapper %s", get_cstr(wk, compiler_wrapper_opt));
+		ok = false;
+	}
+
+	workspace_scratch_end(wk);
+
+	return ok;
+}
+
 bool
 toolchain_detect(struct workspace *wk,
 	obj *comp,
@@ -868,39 +938,16 @@ toolchain_detect(struct workspace *wk,
 	compiler->lang = lang;
 
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
-		bool found, is_user_provided;
-		if (!toolchain_component_detect(wk, i, *comp, &found, &is_user_provided) || !found) {
+		bool found, set_from_option;
+		if (!toolchain_component_detect(wk, i, *comp, &found, &set_from_option) || !found) {
 			return false;
 		}
 
 		if (i == toolchain_component_compiler) {
 			toolchain_component_compiler_refine_machine(wk, *comp, compiler);
 			toolchain_component_compiler_populate_libdirs(wk, *comp, compiler);
-
-			if (!is_user_provided && (lang == compiler_language_c
-				|| lang == compiler_language_cpp
-				|| lang == compiler_language_objc
-				|| lang == compiler_language_objcpp)) {
-				const char *wrappers[] = { "sccache", "ccache" };
-				for (uint32_t j = 0; j < ARRAY_LEN(wrappers); ++j) {
-					obj found_wrapper = 0;
-					struct find_program_ctx ctx = {
-						.res = &found_wrapper,
-						.machine = machine,
-					};
-
-					if (find_program(wk, &ctx, make_str(wk, wrappers[j])) && ctx.found) {
-						struct obj_external_program *wrap_ep =
-							get_obj_external_program(wk, found_wrapper);
-						obj cmd_arr = compiler->cmd_arr[toolchain_component_compiler];
-						obj new_cmd_arr = make_obj(wk, obj_array);
-
-						obj_array_extend(wk, new_cmd_arr, wrap_ep->cmd_array);
-						obj_array_extend(wk, new_cmd_arr, cmd_arr);
-						compiler->cmd_arr[toolchain_component_compiler] = new_cmd_arr;
-						break;
-					}
-				}
+			if (!toolchain_component_compiler_apply_wrapper(wk, compiler, set_from_option)) {
+				return false;
 			}
 		}
 	}

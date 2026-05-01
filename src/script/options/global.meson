@@ -370,6 +370,19 @@ option(
     description: 'Enable clang format build targets',
 )
 
+option(
+    'b_compiler_wrapper',
+    type: 'combo',
+    value: 'none',
+    choices: [
+        'none',
+        'auto',
+        'sccache',
+        'ccache',
+    ],
+    description: 'Specify a ccache-like compiler wrapper to use',
+)
+
 # Compiler options
 
 option(
