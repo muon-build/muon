@@ -5,8 +5,10 @@
 
 #include "compat.h"
 
-// dladdr requires _GNU_SOURCE or _BSD_SOURCE
+// dladdr requires _GNU_SOURCE or _BSD_SOURCE and neither of _POSIX_C_SOURCE
+// and _XOPEN_SOURCE
 #undef _POSIX_C_SOURCE
+#undef _XOPEN_SOURCE
 #define _BSD_SOURCE
 
 #include <dlfcn.h>
