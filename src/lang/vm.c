@@ -14,6 +14,7 @@
 #include "error.h"
 #include "lang/analyze.h"
 #include "lang/compiler.h"
+#include "lang/dap.h"
 #include "lang/func_lookup.h"
 #include "lang/object_iterators.h"
 #include "lang/parser.h"
@@ -242,7 +243,7 @@ vm_callstack(struct workspace *wk)
 	obj res;
 	res = make_obj(wk, obj_array);
 
-	obj_array_push(wk, res, vm_inst_location_obj(wk, wk->vm.ip - 1));
+	obj_array_push(wk, res, vm_inst_location_obj(wk, wk->vm.ip - OP_WIDTH(op_call)));
 
 	int32_t i;
 	struct call_frame *frame;
@@ -250,7 +251,7 @@ vm_callstack(struct workspace *wk)
 		frame = arr_get(&wk->vm.call_stack, i);
 
 		if (frame->return_ip) {
-			obj_array_push(wk, res, vm_inst_location_obj(wk, frame->return_ip - 1));
+			obj_array_push(wk, res, vm_inst_location_obj(wk, frame->return_ip - OP_WIDTH(op_call)));
 		}
 	}
 
@@ -3000,6 +3001,13 @@ vm_check_break(struct workspace *wk, uint32_t ip)
 			repl(wk, true);
 		}
 	}
+}
+
+bool
+vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path)
+{
+	vm_dgb_enable(wk);
+	return dap_init_pipe(wk, pipe_path);
 }
 
 static void

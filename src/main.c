@@ -490,8 +490,6 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 			embedded = true;
 		} else if (opt_match('s', "disable functions for fuzzing")) {
 			wk->vm.disable_fuzz_unsafe_functions = true;
-		} else if (opt_match('b', "set breakpoint", "breakpoint")) {
-			vm_dbg_push_breakpoint_str(wk, opt_ctx.optarg);
 		} else if (opt_match('c', "evaluate program passed in as string", "program text")) {
 			string_src = opt_ctx.optarg;
 		}
@@ -986,7 +984,6 @@ cmd_setup_common(struct workspace *wk,
 	const char *build = 0;
 
 	uint32_t original_argi = argi + 1;
-
 	opt_for(ctx->n_operands, .usage_post = ctx->usage, .extra_help = cmd_setup_help) {
 		if (opt_match('#', "enable setup progress bar")) {
 			log_progress_enable(wk);
@@ -994,8 +991,10 @@ cmd_setup_common(struct workspace *wk,
 			if (!parse_and_set_cmdline_option(wk, opt_ctx.optarg)) {
 				goto ret;
 			}
-		} else if (opt_match('b', "set breakpoint", "breakpoint")) {
-			vm_dbg_push_breakpoint_str(wk, opt_ctx.optarg);
+		} else if (opt_match('b', "enable DAP server connected to pipe", "debugger pipe")) {
+			if (!vm_dbg_dap_setup(wk, opt_ctx.optarg)) {
+				return false;
+			}
 		} else if (opt_match('w', "wipe all caches before setup")) {
 			flags |= workspace_do_setup_flag_clear_cache;
 			ctx->cached = false;

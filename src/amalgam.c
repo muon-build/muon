@@ -94,6 +94,7 @@
 #include "install.c"
 #include "lang/analyze.c"
 #include "lang/compiler.c"
+#include "lang/dap.c"
 #include "lang/docs.c"
 #include "lang/eval.c"
 #include "lang/fmt.c"

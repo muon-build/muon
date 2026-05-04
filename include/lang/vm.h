@@ -130,6 +130,7 @@ struct vm_compiler_state {
 struct vm_dbg_state {
 	void (*break_cb)(struct workspace *wk);
 	void *usr_ctx;
+	struct dap_srv *dap;
 	struct source_location prev_source_location;
 	obj watched;
 	obj breakpoints;
@@ -304,6 +305,7 @@ MUON_ATTR_FORMAT(printf, 4, 5) void vm_deprecation_at(struct workspace *wk, uint
 void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col);
 bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
 void vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col);
+bool vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path);
 
 
 obj vm_reflected_obj_fields(struct workspace *wk, enum obj_type t);
