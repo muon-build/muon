@@ -325,6 +325,11 @@ make_str(struct workspace *wk, const char *str)
 	return _make_str(wk, str, strlen(str), 0, true);
 }
 
+obj make_strs(struct workspace *wk, const struct str *str)
+{
+	return _make_str(wk, str->s, str->len, 0, true);
+}
+
 obj
 make_strfv(struct workspace *wk, const char *fmt, va_list args)
 {

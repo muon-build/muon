@@ -91,6 +91,7 @@ bool str_has_null(const struct str *ss);
 
 const char *get_cstr(struct workspace *wk, obj s);
 obj make_str(struct workspace *wk, const char *str);
+obj make_strs(struct workspace *wk, const struct str *str);
 obj make_strn(struct workspace *wk, const char *str, uint32_t n);
 obj make_strf(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
 obj make_strfv(struct workspace *wk, const char *fmt, va_list args);
