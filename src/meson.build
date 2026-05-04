@@ -84,6 +84,7 @@ src = files(
     'lang/object_iterators.c',
     'lang/parser.c',
     'lang/serial.c',
+    'lang/server.c',
     'lang/string.c',
     'lang/typecheck.c',
     'lang/vm.c',

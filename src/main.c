@@ -168,7 +168,7 @@ cmd_exe(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	if (opts.capture) {
-		ret = fs_write(opts.capture, (uint8_t *)ctx.out.buf, ctx.out.len);
+		ret = fs_write_entire_file(opts.capture, (uint8_t *)ctx.out.buf, ctx.out.len);
 	} else {
 		ret = true;
 	}
@@ -1273,7 +1273,7 @@ cont:
 			fs_fclose(out);
 
 			if (!fmt_ret) {
-				fs_write(opts.filenames[i], (const uint8_t *)src.src, src.len);
+				fs_write_entire_file(opts.filenames[i], (const uint8_t *)src.src, src.len);
 			}
 		}
 		ret &= fmt_ret;

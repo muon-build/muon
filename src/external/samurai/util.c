@@ -242,7 +242,7 @@ samu_makedirs(struct samu_ctx *ctx, struct samu_string *path, bool parent)
 int
 samu_writefile(const char *name, struct samu_string *s)
 {
-	if (!fs_write(name, (uint8_t *)s->s, s->n)) {
+	if (!fs_write_entire_file(name, (uint8_t *)s->s, s->n)) {
 		return -1;
 	}
 

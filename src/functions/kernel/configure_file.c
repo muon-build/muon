@@ -426,7 +426,7 @@ substitute_config(struct workspace *wk,
 		goto cleanup;
 	}
 
-	if (!fs_write(output_path, (uint8_t *)out2.buf, out2.len)) {
+	if (!fs_write_entire_file(output_path, (uint8_t *)out2.buf, out2.len)) {
 		ret = false;
 		goto cleanup;
 	}
@@ -548,7 +548,7 @@ generate_config(struct workspace *wk,
 	}
 
 	if (!file_exists_with_content(wk, get_cstr(wk, out_path), out_buf.buf, out_buf.len)) {
-		if (!fs_write(get_cstr(wk, out_path), (uint8_t *)out_buf.buf, out_buf.len)) {
+		if (!fs_write_entire_file(get_cstr(wk, out_path), (uint8_t *)out_buf.buf, out_buf.len)) {
 			goto ret;
 		}
 	}
@@ -627,7 +627,7 @@ configure_file_with_command(struct workspace *wk,
 		if (file_exists_with_content(wk, get_cstr(wk, out_path), cmd_ctx.out.buf, cmd_ctx.out.len)) {
 			ret = true;
 		} else {
-			ret = fs_write(get_cstr(wk, out_path), (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len);
+			ret = fs_write_entire_file(get_cstr(wk, out_path), (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len);
 		}
 	} else {
 		ret = true;
@@ -859,7 +859,7 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		}
 
 		if (!file_exists_with_content(wk, get_cstr(wk, output_str), src.src, src.len)) {
-			if (!fs_write(get_cstr(wk, output_str), (uint8_t *)src.src, src.len)) {
+			if (!fs_write_entire_file(get_cstr(wk, output_str), (uint8_t *)src.src, src.len)) {
 				return false;
 			}
 

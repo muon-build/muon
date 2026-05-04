@@ -252,7 +252,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	if (!opts->src_is_path) {
 		L("compiling: '%s'", src);
 
-		if (!fs_write(get_cstr(wk, source_path), (const uint8_t *)src, strlen(src))) {
+		if (!fs_write_entire_file(get_cstr(wk, source_path), (const uint8_t *)src, strlen(src))) {
 			return false;
 		}
 	} else {

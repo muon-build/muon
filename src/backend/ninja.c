@@ -318,7 +318,7 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		}
 
 		if (capture) {
-			if (!fs_write(capture, (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len)) {
+			if (!fs_write_entire_file(capture, (uint8_t *)cmd_ctx.out.buf, cmd_ctx.out.len)) {
 				goto run_cmd_done;
 			}
 		}

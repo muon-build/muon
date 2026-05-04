@@ -188,35 +188,6 @@ fs_copy_link(struct workspace *wk, const char *src, const char *dest)
 	return fs_make_symlink(buf, dest, true);
 }
 
-static bool
-fs_close(int fd)
-{
-	if (close(fd) == -1) {
-		LOG_E("failed close(): %s", strerror(errno));
-		return false;
-	}
-	return true;
-}
-
-static bool
-fs_write_fd(int fd, const void *buf_v, size_t len)
-{
-	const char *buf = buf_v;
-	while (len > 0) {
-		ssize_t w = write(fd, buf, len);
-		if (w < 0) {
-			if (errno == EINTR) {
-				continue;
-			}
-			LOG_E("failed write(): %s", strerror(errno));
-			return false;
-		}
-		buf += w;
-		len -= w;
-	}
-	return true;
-}
-
 // NOTE: better to also return the dirfd, so that it can use renameat()
 // instead of rename(). but path_dirname needs a workspace, we don't have one.
 static int
@@ -277,7 +248,7 @@ fs_copy_file(struct workspace *wk, const char *src, const char *dest, bool force
 	while ((r = fread(buf, 1, BUF_SIZE_32k, f_src)) > 0) {
 		errno = 0; // to ensure that we get the error from write() only
 
-		if (!fs_write_fd(f_dest, buf, r)) {
+		if (!fs_write(f_dest, buf, r)) {
 			goto ret;
 		}
 	}
@@ -287,11 +258,10 @@ fs_copy_file(struct workspace *wk, const char *src, const char *dest, bool force
 		goto ret;
 	}
 
-	if (!fs_close(f_dest)) {
+	if (!fs_close(&f_dest)) {
 		f_dest = 0;
 		goto ret;
 	}
-	f_dest = 0;
 
 	// now time to atomically rename the tmpfile into the proper place
 	if (rename(f_dest_tmpname, dest) < 0) {
@@ -326,7 +296,7 @@ ret:
 	}
 
 	if (f_dest > 0) {
-		if (!fs_close(f_dest)) {
+		if (!fs_close(&f_dest)) {
 			res = false;
 		}
 	}

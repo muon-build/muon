@@ -218,7 +218,7 @@ vsenv_setup(struct workspace *wk, const char *cache_path, enum setup_platform_en
 
 	if (cache_path) {
 		L("writing %s", cache_path);
-		if (!fs_write(cache_path, (const uint8_t *)bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len)) {
+		if (!fs_write_entire_file(cache_path, (const uint8_t *)bat_cmd_ctx.out.buf, bat_cmd_ctx.out.len)) {
 			goto ret;
 		}
 	}

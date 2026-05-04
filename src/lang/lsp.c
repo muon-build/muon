@@ -5,19 +5,19 @@
 
 #include "compat.h"
 
+#include <stddef.h>
 #include <string.h>
 
 #include "error.h"
 #include "formats/ini_cfg.h"
-#include "formats/json.h"
 #include "functions/modules.h"
 #include "lang/analyze.h"
 #include "lang/docs.h"
 #include "lang/fmt.h"
 #include "lang/object_iterators.h"
+#include "lang/server.h"
 #include "lang/typecheck.h"
 #include "log.h"
-#include "memmem.h"
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/os.h"
@@ -32,11 +32,7 @@ enum az_srv_req_type {
 };
 
 struct az_srv {
-	struct {
-		struct tstr *in_buf;
-		int in;
-		FILE *out;
-	} transport;
+	struct server srv;
 
 	bool verbose;
 	bool should_analyze;
@@ -101,159 +97,6 @@ enum LspCompletionItemKind {
 	LspCompletionItemKindTypeParameter = 25,
 };
 
-enum az_srv_read_result {
-	az_srv_read_result_err,
-	az_srv_read_result_ok,
-	az_srv_read_result_eof,
-};
-
-static enum az_srv_read_result
-az_srv_read_bytes(struct az_srv *srv)
-{
-	struct tstr *buf = srv->transport.in_buf;
-
-	if (buf->cap - buf->len < 16) {
-		tstr_grow(srv->srv_wk, buf, 1024);
-	}
-
-	const uint32_t space_available = buf->cap - buf->len;
-	uint32_t bytes_available = space_available;
-	if (!fs_wait_for_input(srv->transport.in, &bytes_available)) {
-		return az_srv_read_result_err;
-	}
-
-	if (bytes_available > space_available) {
-		bytes_available = space_available;
-	}
-
-	int32_t n = fs_read(srv->transport.in, buf->buf + buf->len, bytes_available);
-	if (n <= 0) {
-		return az_srv_read_result_eof;
-	}
-
-	buf->len += n;
-
-	return az_srv_read_result_ok;
-}
-
-static void
-az_srv_buf_shift(struct az_srv *srv, uint32_t amnt)
-{
-	struct tstr *buf = srv->transport.in_buf;
-
-	char *start = buf->buf + amnt;
-	buf->len = buf->len - (start - buf->buf);
-	memmove(buf->buf, start, buf->len);
-}
-
-static enum az_srv_read_result
-az_srv_read(struct az_srv *srv, struct workspace *wk, obj *msg)
-{
-	TracyCZoneAutoS;
-	int64_t content_length = 0;
-	struct tstr *buf = srv->transport.in_buf;
-
-	{
-		char *end;
-		while (!(end = memmem(buf->buf, buf->len, "\r\n\r\n", 4))) {
-			switch(az_srv_read_bytes(srv)) {
-			case az_srv_read_result_err:
-				LOG_E("error when reading message header");
-				return az_srv_read_result_err;
-			case az_srv_read_result_ok:
-				break;
-			case az_srv_read_result_eof:
-				if (buf->len) {
-					LOG_E("eof when reading message header");
-					return az_srv_read_result_err;
-				}
-				return az_srv_read_result_eof;
-			}
-		}
-
-		*(end + 2) = 0;
-
-		const char *hdr = buf->buf;
-		char *hdr_end;
-		while ((hdr_end = strstr(hdr, "\r\n"))) {
-			*hdr_end = 0;
-			char *val;
-			if ((val = strchr(buf->buf, ':'))) {
-				*val = 0;
-				val += 2;
-
-				if (strcmp(hdr, "Content-Length") == 0) {
-					if (!str_to_i(&STRL(val), &content_length, false)) {
-						LOG_E("Invalid value for Content-Length");
-					}
-				} else if (strcmp(hdr, "Content-Type") == 0) {
-					// Ignore
-				} else {
-					LOG_E("Unknown header: %s", hdr);
-				}
-			} else {
-				LOG_E("Header missing ':': %s", hdr);
-			}
-
-			if (hdr_end == end) {
-				break;
-			}
-		}
-
-		if (!content_length) {
-			LOG_E("Missing Content-Length header.");
-			return false;
-		}
-
-		az_srv_buf_shift(srv, (hdr_end - buf->buf) + 4);
-	}
-
-	{
-		while (buf->len < content_length) {
-			switch (az_srv_read_bytes(srv)) {
-			case az_srv_read_result_err:
-				LOG_E("error when reading message body");
-				return az_srv_read_result_err;
-			case az_srv_read_result_eof:
-				LOG_E("eof when reading message body");
-				return az_srv_read_result_err;
-			case az_srv_read_result_ok:
-				break;
-			}
-		}
-
-		char end = buf->buf[content_length];
-		buf->buf[content_length] = 0;
-		const struct str json_msg = { .s = buf->buf, .len = content_length };
-		if (!muon_json_to_obj(wk, &json_msg, msg)) {
-			obj_lprintf(wk, log_error, "failed to parse json: %o", *msg);
-			return false;
-		} else if (get_obj_type(wk, *msg) != obj_dict) {
-			obj_lprintf(wk, log_error, "message was not a dict, got %s", obj_type_to_s(get_obj_type(wk, *msg)));
-			return false;
-		}
-		buf->buf[content_length] = end;
-
-		az_srv_buf_shift(srv, content_length);
-	}
-
-	TracyCZoneAutoE;
-	return true;
-}
-
-static void
-az_srv_write(struct az_srv *srv, struct workspace *wk, obj msg)
-{
-	obj_lprintf(wk, log_debug, ">>> %#o\n", msg);
-	TSTR(buf);
-	if (!obj_to_json(wk, msg, &buf)) {
-		UNREACHABLE;
-	}
-
-	fprintf(srv->transport.out, "Content-Length: %d\r\n\r\n%s", buf.len, buf.buf);
-	fflush(srv->transport.out);
-}
-
 static obj
 az_srv_jsonrpc_msg(struct workspace *wk)
 {
@@ -270,7 +113,7 @@ az_srv_respond(struct az_srv *srv, struct workspace *wk, obj id, obj result)
 	obj_dict_set(wk, rsp, make_str(wk, "id"), id);
 	obj_dict_set(wk, rsp, make_str(wk, "result"), result);
 
-	az_srv_write(srv, wk, rsp);
+	srv_write(&srv->srv, wk, rsp);
 }
 
 static void
@@ -280,7 +123,7 @@ az_srv_request(struct az_srv *srv, struct workspace *wk, const char *method, obj
 	obj_dict_set(wk, req, make_str(wk, "method"), make_str(wk, method));
 	obj_dict_set(wk, req, make_str(wk, "params"), params);
 
-	az_srv_write(srv, wk, req);
+	srv_write(&srv->srv, wk, req);
 }
 
 static void az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 3, 4);
@@ -1163,13 +1006,9 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		}
 	}
 
-	struct az_srv srv = {
-		.transport = {
-			.in = 0, // STDIN_FILENO
-			.out = stdout,
-		},
-		.srv_wk = srv_wk,
-	};
+	struct az_srv srv = { 0 };
+
+	srv_init_stdio(srv_wk, &srv.srv);
 
 	hash_init_str(srv_wk->a, &srv.diagnostics_map, 256);
 	arr_init(srv_wk->a, &srv.diagnostics_to_clear, 16, struct arr);
@@ -1185,9 +1024,6 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 
 	LOG_I("muon %s%s%s lsp listening...", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
-	TSTR(in_buf);
-	srv.transport.in_buf = &in_buf;
-
 	while (true) {
 		TracyCFrameMark;
 
@@ -1200,13 +1036,13 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		srv.req.id = srv.req.result = srv.req.type = 0;
 
 		obj msg;
-		switch (az_srv_read(&srv, &wk, &msg)) {
-		case az_srv_read_result_err:
+		switch (srv_read(&srv.srv, &wk, &msg)) {
+		case srv_read_result_err:
 			ok = false;
 			goto shutdown;
-		case az_srv_read_result_eof:
+		case srv_read_result_eof:
 			goto shutdown;
-		case az_srv_read_result_ok:
+		case srv_read_result_ok:
 			break;
 		}
 

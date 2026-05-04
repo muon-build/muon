@@ -221,7 +221,7 @@ workspace_create_build_dir(struct workspace *wk)
 	{
 		const struct str *gitignore_src = &STR("*\n");
 		path_join(wk, &path, wk->build_root, ".gitignore");
-		if (!fs_write(path.buf, (const uint8_t *)gitignore_src->s, gitignore_src->len)) {
+		if (!fs_write_entire_file(path.buf, (const uint8_t *)gitignore_src->s, gitignore_src->len)) {
 			return false;
 		}
 	}
@@ -229,7 +229,7 @@ workspace_create_build_dir(struct workspace *wk)
 	{
 		const struct str *hgignore_src = &STR("syntax: glob\n**/*\n");
 		path_join(wk, &path, wk->build_root, ".hgignore");
-		if (!fs_write(path.buf, (const uint8_t *)hgignore_src->s, hgignore_src->len)) {
+		if (!fs_write_entire_file(path.buf, (const uint8_t *)hgignore_src->s, hgignore_src->len)) {
 			return false;
 		}
 	}

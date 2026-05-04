@@ -118,6 +118,19 @@ fs_fopen(const char *path, const char *mode)
 }
 
 bool
+fs_close(int *fd)
+{
+	if (*fd) {
+		if (close(*fd) == -1) {
+			LOG_E("failed close(): %s", strerror(errno));
+			return false;
+		}
+		*fd = 0;
+	}
+	return true;
+}
+
+bool
 fs_fclose(FILE *file)
 {
 	if (fclose(file) != 0) {
@@ -351,7 +364,26 @@ fs_read(int fd, void *buf, uint32_t buf_len)
 }
 
 bool
-fs_write(const char *path, const uint8_t *buf, uint64_t buf_len)
+fs_write(int fd, const void *buf_v, uint32_t len)
+{
+	const char *buf = buf_v;
+	while (len > 0) {
+		ssize_t w = write(fd, buf, len);
+		if (w < 0) {
+			if (errno == EINTR) {
+				continue;
+			}
+			LOG_E("failed write(): %s", strerror(errno));
+			return false;
+		}
+		buf += w;
+		len -= w;
+	}
+	return true;
+}
+
+bool
+fs_write_entire_file(const char *path, const uint8_t *buf, uint64_t buf_len)
 {
 	FILE *f;
 	if (!(f = fs_fopen(path, "wb"))) {

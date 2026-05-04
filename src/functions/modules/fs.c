@@ -542,7 +542,7 @@ FUNC_IMPL(module_fs, write, 0, func_impl_flag_impure | func_impl_flag_sandbox_di
 	}
 
 	const struct str *ss = get_str(wk, an[1].val);
-	if (!fs_write(path.buf, (uint8_t *)ss->s, ss->len)) {
+	if (!fs_write_entire_file(path.buf, (uint8_t *)ss->s, ss->len)) {
 		return false;
 	}
 	return true;

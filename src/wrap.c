@@ -1139,7 +1139,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 				}
 				path_push(wk, &cache_path, ctx->fetch_ctx.filename);
 
-				if (!fs_write(
+				if (!fs_write_entire_file(
 					    cache_path.buf, (const uint8_t *)ctx->fetch_ctx.buf, ctx->fetch_ctx.len)) {
 					return false;
 				}
@@ -1328,7 +1328,7 @@ wrap_handle_async(struct workspace *wk, const char *wrap_file, struct wrap_handl
 			TSTR(hash_path);
 			path_join(wk, &hash_path, ctx->wrap.dest_dir.buf, meson_subproject_wrap_hash_txt);
 
-			if (!fs_write(hash_path.buf, (uint8_t *)buf, 64)) {
+			if (!fs_write_entire_file(hash_path.buf, (uint8_t *)buf, 64)) {
 				return false;
 			}
 		}

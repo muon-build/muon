@@ -19,6 +19,7 @@ foreach f : [
     'os.c',
     'path.c',
     'run_cmd.c',
+    'socket.c',
     'term.c',
     'timer.c',
     'uname.c',
