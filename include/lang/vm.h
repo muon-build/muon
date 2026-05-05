@@ -122,24 +122,25 @@ struct vm_compiler_state {
 	struct arr locals, upvalues, call_stack;
 	struct arr loop_jmp_stack, if_jmp_stack;
 	uint32_t loop_depth;
-	obj breakpoints;
 	enum vm_compile_mode mode;
 	bool err;
+};
+
+struct vm_breakpoint {
+	obj path;
+	uint32_t line, col, off, ip;
+	bool resolved, invalid, tmp;
+	uint8_t old_instruction;
 };
 
 struct vm_dbg_state {
 	void (*break_cb)(struct workspace *wk);
 	void *usr_ctx;
 	struct dap_srv *dap;
-	struct source_location prev_source_location;
-	obj watched;
-	obj breakpoints;
-	obj root_eval_trace;
-	obj eval_trace;
-	uint32_t icount;
-	uint32_t break_after;
-	bool dbg, stepping;
-	bool eval_trace_subdir;
+	struct vm_breakpoint *cur_bp;
+	struct arr breakpoints;
+	obj eval_trace, root_eval_trace;
+	bool dbg, eval_trace_subdir, break_on_entry, break_after_return;
 };
 
 struct vm_behavior {
@@ -302,9 +303,14 @@ MUON_ATTR_FORMAT(printf, 3, 4) void vm_warning_at(struct workspace *wk, uint32_t
 MUON_ATTR_FORMAT(printf, 2, 3) void vm_warning(struct workspace *wk, const char *fmt, ...);
 MUON_ATTR_FORMAT(printf, 4, 5) void vm_deprecation_at(struct workspace *wk, uint32_t ip, const char *since, const char *fmt, ...);
 
+enum vm_dbg_step_flag {
+	vm_dbg_step_flag_line = 1 << 0,
+};
+
 void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col);
 bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
 void vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col);
+void vm_dbg_prepare_step(struct workspace *wk, enum vm_dbg_step_flag flags);
 bool vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path);
 
 

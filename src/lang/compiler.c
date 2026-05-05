@@ -26,14 +26,31 @@
  ******************************************************************************/
 
 static void
-push_location(struct workspace *wk, struct node *n)
+push_location_raw(struct workspace *wk, struct source_location *loc, uint32_t src_idx)
 {
+	if (wk->vm.locations.len) {
+		struct source_location_mapping *prev = arr_get(&wk->vm.locations, wk->vm.locations.len - 1);
+		if (prev->ip == wk->vm.code.len) {
+			prev->loc = *loc;
+			prev->src_idx = src_idx;
+			return;
+		}
+
+		assert(prev->ip < wk->vm.code.len);
+	}
+
 	arr_push(wk->a, &wk->vm.locations,
 		&(struct source_location_mapping){
 			.ip = wk->vm.code.len,
-			.loc = n->location,
-			.src_idx = wk->vm.src.len - 1,
+			.loc = *loc,
+			.src_idx = src_idx,
 		});
+}
+
+static void
+push_location(struct workspace *wk, struct node *n)
+{
+	push_location_raw(wk, &n->location, wk->vm.src.len - 1);
 }
 
 typedef void((*vm_visit_nodes_cb)(struct workspace *wk, struct node *n));
@@ -421,8 +438,9 @@ vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_ass
 }
 
 static void
-vm_comp_reserve_local_stack_slot(struct workspace *wk, obj id)
+vm_comp_reserve_local_stack_slot(struct workspace *wk, struct node *n, obj id)
 {
+	push_location(wk, n);
 	push_code(wk, op_constant);
 	push_constant(wk, obj_uninitialized);
 }
@@ -459,7 +477,7 @@ vm_comp_force_declare_local(struct workspace *wk, struct node *n, obj id, bool r
 
 	struct local_binding *l = vm_comp_declare_local_unchecked(wk, n, id);
 	l->forced_declaration = true;
-	vm_comp_reserve_local_stack_slot(wk, id);
+	vm_comp_reserve_local_stack_slot(wk, n, id);
 }
 
 static void
@@ -469,7 +487,7 @@ vm_comp_try_declare_local(struct workspace *wk,
 {
 	if (!vm_comp_lookup_local(wk, id, true)) {
 		vm_comp_declare_local_unchecked(wk, n, id);
-		vm_comp_reserve_local_stack_slot(wk, id);
+		vm_comp_reserve_local_stack_slot(wk, n, id);
 	}
 }
 
@@ -616,10 +634,6 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	}
 
 	/* L("compiling %s", node_to_s(wk, n)); */
-
-	if (n->flags & node_flag_breakpoint) {
-		push_code(wk, op_dbg_break);
-	}
 
 	switch (n->type) {
 	case node_type_stringify: push_code(wk, op_stringify); break;
@@ -1318,6 +1332,7 @@ vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
 static void
 vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags)
 {
+	struct node *on = n;
 	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
@@ -1348,6 +1363,8 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 			--wk->vm.code.len;
 			wk->vm.code.e[wk->vm.code.len - 1] = op_return_end;
 		} else {
+			push_location_raw(wk, &(struct source_location){ 0 }, UINT32_MAX);
+
 			push_code(wk, op_constant);
 			push_constant(wk, 0);
 			push_code(wk, op_return_end);
@@ -1361,84 +1378,6 @@ void
 vm_compile_state_reset(struct workspace *wk)
 {
 	bucket_arr_clear(&wk->vm.compiler_state.nodes);
-	wk->vm.compiler_state.breakpoints = 0;
-}
-
-static bool
-vm_compile_breakpoint_to_off(struct workspace *wk, const struct source *src, obj bp, uint32_t *off)
-{
-	uint32_t t_line, t_col;
-	vm_dbg_unpack_breakpoint(wk, bp, &t_line, &t_col);
-
-	uint32_t i, line = 1, col = 1;
-	for (i = 0; i < src->len; ++i) {
-		if (line == t_line && (col == t_col || !t_col)) {
-			*off = i;
-			return true;
-		}
-
-		if (src->src[i] == '\n') {
-			++line;
-			col = 1;
-		} else {
-			++col;
-		}
-	}
-
-	return false;
-}
-
-static void
-vm_resolve_breakpoint_cb(struct workspace *wk, struct node *n)
-{
-	if (vm_comp_node_skip(n->type)) {
-		return;
-	}
-
-	obj off, node;
-	obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
-		struct node *o = node ? (void *)(intptr_t)get_obj_number(wk, node) : 0;
-		bool in_range = n->location.off <= off && off <= n->location.off + n->location.len;
-		if (in_range && (!o || n->location.len < o->location.len)) {
-			obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, make_number(wk, (uintptr_t)n));
-		}
-	}
-}
-
-static void
-vm_resolve_breakpoints(struct workspace *wk, struct node *n)
-{
-	const struct source *src = arr_peek(&wk->vm.src, 1);
-
-	obj file_bp;
-	if (obj_dict_index_str(wk, wk->vm.dbg_state.breakpoints, src->label, &file_bp)) {
-		wk->vm.compiler_state.breakpoints = make_obj(wk, obj_dict);
-
-		obj bp;
-		obj_array_for(wk, file_bp, bp) {
-			uint32_t off;
-			if (vm_compile_breakpoint_to_off(wk, src, bp, &off)) {
-				obj_dict_seti(wk, wk->vm.compiler_state.breakpoints, off, 0);
-			} else {
-				uint32_t t_line, t_col;
-				vm_dbg_unpack_breakpoint(wk, bp, &t_line, &t_col);
-				LOG_W("failed to resolve breakpoint %s:%d:%d", src->label, t_line, t_col);
-			}
-		}
-
-		vm_visit_nodes(wk, n, 0, 0, vm_resolve_breakpoint_cb);
-
-		obj off, node;
-		obj_dict_for(wk, wk->vm.compiler_state.breakpoints, off, node) {
-			struct node *o = node ? (void *)(intptr_t)get_obj_number(wk, node) : 0;
-			if (!o) {
-				LOG_W("failed to resolve breakpoint %s@%d", src->label, off);
-				continue;
-			}
-
-			o->flags |= node_flag_breakpoint;
-		}
-	}
 }
 
 bool
@@ -1451,10 +1390,6 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 
 	wk->vm.compiler_state.err = false;
 	wk->vm.compiler_state.mode = mode;
-
-	if (wk->vm.dbg_state.breakpoints) {
-		vm_resolve_breakpoints(wk, n);
-	}
 
 	*entry = wk->vm.code.len;
 

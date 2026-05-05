@@ -254,9 +254,9 @@ eval_project_file(struct workspace *wk,
 static bool
 repl_eval_str(struct workspace *wk, const char *str, obj *repl_res)
 {
-	stack_push(&wk->stack, wk->vm.dbg_state.stepping, false);
+	// stack_push(&wk->stack, wk->vm.dbg_state.stepping, false);
 	bool ret = eval_str(wk, str, language_internal, eval_mode_repl, repl_res);
-	stack_pop(&wk->stack, wk->vm.dbg_state.stepping);
+	// stack_pop(&wk->stack, wk->vm.dbg_state.stepping);
 	return ret;
 }
 
@@ -274,8 +274,6 @@ repl(struct workspace *wk, bool dbg)
 		repl_cmd_step,
 		repl_cmd_list,
 		repl_cmd_inspect,
-		repl_cmd_watch,
-		repl_cmd_unwatch,
 		repl_cmd_eval,
 		repl_cmd_breakpoint,
 		repl_cmd_backtrace,
@@ -294,8 +292,6 @@ repl(struct workspace *wk, bool dbg)
 		{ { "i", "inspect", 0 }, repl_cmd_inspect, true, true },
 		{ { "l", "list", 0 }, repl_cmd_list, dbg },
 		{ { "s", "step", 0 }, repl_cmd_step, dbg },
-		{ { "w", "watch", 0 }, repl_cmd_watch, dbg, true },
-		{ { "uw", "unwatch", 0 }, repl_cmd_unwatch, dbg, true },
 		{ { "e", "p", "eval", "print", 0 }, repl_cmd_eval, true, true },
 		{ { "br", "breakpoint", 0 }, repl_cmd_breakpoint, dbg, true },
 		{ { "bt", "backtrace", 0 }, repl_cmd_backtrace, dbg },
@@ -304,7 +300,7 @@ repl(struct workspace *wk, bool dbg)
 	if (dbg) {
 		struct source_location loc;
 		uint32_t src_idx;
-		vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.ip, &loc, &src_idx);
+		vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.dbg_state.cur_bp->ip, &loc, &src_idx);
 		list_line_range(wk->a_scratch, arr_get(&wk->vm.src, src_idx), loc, 1);
 	}
 
@@ -355,7 +351,7 @@ cmd_found:
 		switch (cmd) {
 		case repl_cmd_abort: exit(1); break;
 		case repl_cmd_exit: {
-			wk->vm.dbg_state.stepping = false;
+			// wk->vm.dbg_state.stepping = false;
 			loop = false;
 			break;
 		}
@@ -388,7 +384,7 @@ cmd_found:
 			break;
 		}
 		case repl_cmd_step: {
-			wk->vm.dbg_state.stepping = true;
+			vm_dbg_prepare_step(wk, 0);
 			loop = false;
 			break;
 		}
@@ -398,21 +394,6 @@ cmd_found:
 			}
 
 			obj_inspect(wk, repl_res);
-			break;
-		case repl_cmd_watch:
-			if (!wk->vm.dbg_state.watched) {
-				wk->vm.dbg_state.watched = make_obj(wk, obj_array);
-			}
-
-			obj_array_push(wk, wk->vm.dbg_state.watched, make_str(wk, arg));
-			break;
-		case repl_cmd_unwatch:
-			if (wk->vm.dbg_state.watched) {
-				uint32_t idx;
-				if (obj_array_index_of(wk, wk->vm.dbg_state.watched, make_str(wk, arg), &idx)) {
-					obj_array_del(wk, wk->vm.dbg_state.watched, idx);
-				}
-			}
 			break;
 		case repl_cmd_eval: {
 			if (!repl_eval_str(wk, arg, &repl_res)) {

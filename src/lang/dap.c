@@ -74,15 +74,16 @@ static obj
 dap_stack_frame(struct dap_srv *srv, struct workspace *wk, uint32_t ip)
 {
 	struct vm_inst_location loc;
-	vm_inst_location(srv->srv.wk, srv->srv.wk->vm.ip - OP_WIDTH(op_call), &loc);
+	vm_inst_location(srv->srv.wk, ip, &loc);
 
 	obj frame = make_obj(wk, obj_dict);
+	obj file = make_str(wk, loc.file);
 
 	obj_dict_set(wk, frame, make_str(wk, "id"), make_number(wk, 0));
-	obj_dict_set(wk, frame, make_str(wk, "name"), make_str(wk, "meson.build"));
+	obj_dict_set(wk, frame, make_str(wk, "name"), file);
 	if (!loc.embedded) {
 		obj source = make_obj(wk, obj_dict);
-		obj_dict_set(wk, source, make_str(wk, "path"), make_str(wk, loc.file));
+		obj_dict_set(wk, source, make_str(wk, "path"), file);
 		obj_dict_set(wk, frame, make_str(wk, "source"), source);
 		obj_dict_set(wk, frame, make_str(wk, "line"), make_number(wk, loc.line));
 		obj_dict_set(wk, frame, make_str(wk, "column"), make_number(wk, loc.col));
@@ -121,7 +122,7 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 	} else if (str_eql(command, &STR("stackTrace"))) {
 		obj frames = make_obj(wk, obj_array);
 		{
-			obj_array_push(wk, frames, dap_stack_frame(srv, wk, srv->srv.wk->vm.ip - OP_WIDTH(op_call)));
+			obj_array_push(wk, frames, dap_stack_frame(srv, wk, srv->srv.wk->vm.dbg_state.cur_bp->ip));
 
 // 			for (int32_t i = srv->srv.wk->vm.call_stack.len - 1; i >= 0; --i) {
 // 				struct call_frame *frame = arr_get(&srv->srv.wk->vm.call_stack, i);
@@ -173,7 +174,7 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 
 		dap_respond(srv, wk, &req, body);
 	} else if (str_eql(command, &STR("next"))) {
-		srv->srv.wk->vm.dbg_state.stepping = true;
+		vm_dbg_prepare_step(srv->srv.wk, vm_dbg_step_flag_line);
 		srv->state = dap_srv_state_running;
 		dap_respond(srv, wk, &req, 0);
 	}

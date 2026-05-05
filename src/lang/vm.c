@@ -1030,6 +1030,338 @@ vm_dis(struct workspace *wk)
 }
 
 /******************************************************************************
+ * vm debugger
+ ******************************************************************************/
+
+static void
+vm_dgb_enable(struct workspace *wk)
+{
+	if (wk->vm.dbg_state.dbg) {
+		return;
+	}
+
+	wk->vm.dbg_state.dbg = true;
+	wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
+	wk->vm.dbg_state.root_eval_trace = wk->vm.dbg_state.eval_trace;
+
+	arr_init(wk->a, &wk->vm.dbg_state.breakpoints, 64, struct vm_breakpoint);
+}
+
+static bool
+vm_dbg_breakpoint_to_off(struct workspace *wk, const struct source *src, uint32_t t_line, uint32_t t_col, uint32_t *off)
+{
+	uint32_t i, line = 1, col = 1;
+	for (i = 0; i < src->len; ++i) {
+		if (line == t_line && (col == t_col || !t_col)) {
+			*off = i;
+			return true;
+		}
+
+		if (src->src[i] == '\n') {
+			++line;
+			col = 1;
+		} else {
+			++col;
+		}
+	}
+
+	return false;
+}
+
+static void
+vm_dbg_breakpoint_patch_instruction(struct workspace *wk, struct vm_breakpoint *bp, uint32_t ip)
+{
+	bp->old_instruction = wk->vm.code.e[ip];
+	L("patching instruction @ %04x %s", ip, vm_op_to_s(bp->old_instruction));
+	wk->vm.code.e[ip] = op_dbg_break;
+	bp->ip = ip;
+}
+
+static void
+vm_dbg_resolve_breakpoints(struct workspace *wk)
+{
+	L("resolving breakpoints");
+	for (uint32_t i = 0; i < wk->vm.dbg_state.breakpoints.len; ++i) {
+		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
+		if (bp->resolved || bp->invalid) {
+			continue;
+		}
+
+
+		uint32_t src_idx;
+		struct source *src = 0;
+		const struct str *bp_path = get_str(wk, bp->path);
+
+		for (src_idx = 0; src_idx < wk->vm.src.len; ++src_idx) {
+			src = arr_get(&wk->vm.src, src_idx);
+			if (str_eql(&STRL(src->label), bp_path)) {
+				break;
+			}
+		}
+
+		if (src_idx == wk->vm.src.len) {
+			continue;
+		}
+
+		if (!vm_dbg_breakpoint_to_off(wk, src, bp->line, bp->col, &bp->off)) {
+			goto invalid_breakpoint;
+		}
+
+		L("> %s:%d:%d[%d]", bp_path->s, bp->line, bp->col, bp->off);
+
+		const struct source_location_mapping *best = 0, *l,
+			*locations = (struct source_location_mapping *)wk->vm.locations.e;
+		for (uint32_t j = 0; j < wk->vm.locations.len; ++j) {
+			l = &locations[j];
+			if (l->src_idx != src_idx) {
+				continue;
+			}
+
+			if (l->loc.off <= bp->off && bp->off <= l->loc.off + l->loc.len) {
+				vm_dbg_breakpoint_patch_instruction(wk, bp, l->ip);
+				bp->resolved = true;
+				goto cont;
+			} else if (!best && bp->off <= l->loc.off) {
+				best = l;
+			}
+		}
+
+		if (best) {
+			vm_dbg_breakpoint_patch_instruction(wk, bp, best->ip);
+			bp->resolved = true;
+			goto cont;
+		}
+
+invalid_breakpoint:
+		LOG_W("invalid breakpoint: %s:%d:%d", src->label, bp->line, bp->col);
+		bp->invalid = true;
+cont:
+		continue;
+	}
+}
+
+void
+vm_dbg_push_breakpoint(struct workspace *wk, obj path, uint32_t line, uint32_t col)
+{
+	vm_dgb_enable(wk);
+
+	struct vm_breakpoint bp = {
+		.path = path,
+		.line = line,
+		.col = col,
+	};
+
+	L("pushing breakpoint for %s:%d:%d", get_cstr(wk, path), line, col);
+
+	arr_push(wk->a, &wk->vm.dbg_state.breakpoints, &bp);
+
+	vm_dbg_resolve_breakpoints(wk);
+}
+
+bool
+vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
+{
+	const char *sep = strchr(bp, ':');
+	obj name;
+	uint32_t line, col = 0;
+	if (sep) {
+		const char *sep_col = strchr(sep + 1, ':');
+		struct str l = STRL(sep + 1), c = { 0 };
+
+		if (sep_col) {
+			c = STRL(sep_col + 1);
+			l.len -= (c.len + 1);
+		}
+
+		int64_t i;
+		if (!str_to_i(&l, &i, true)) {
+			LOG_E("invalid line number: %.*s", l.len, l.s);
+			return false;
+		}
+		line = i;
+
+		if (c.s) {
+			if (!str_to_i(&c, &i, true)) {
+				LOG_E("invalid column: %.*s", c.len, c.s);
+				return false;
+			}
+			col = i;
+		}
+
+		TSTR(p);
+		path_make_absolute(wk, &p, get_cstr(wk, make_strn(wk, bp, sep - bp)));
+		name = tstr_into_str(wk, &p);
+	} else {
+		name = make_str(wk, bp);
+		line = 0;
+	}
+
+	vm_dbg_push_breakpoint(wk, name, line, col);
+	return true;
+}
+
+static void
+vm_dbg_push_tmp_breakpoint(struct workspace *wk, const struct detailed_source_location *dloc, uint32_t ip)
+{
+	arr_push(wk->a,
+		&wk->vm.dbg_state.breakpoints,
+		&(struct vm_breakpoint){
+			.resolved = true,
+			.tmp = true,
+			.off = dloc->loc.off,
+			.line = dloc->line,
+			.col = dloc->col,
+		});
+	struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, wk->vm.dbg_state.breakpoints.len - 1);
+	vm_dbg_breakpoint_patch_instruction(wk, bp, ip);
+}
+
+static void
+vm_dbg_prepare_step_scan(struct workspace *wk, uint32_t start, enum vm_dbg_step_flag flags)
+{
+	L(">> %d", start);
+	for (uint32_t ip = start; ip < wk->vm.code.len; ip += OP_WIDTH(wk->vm.code.e[ip])) {
+		struct detailed_source_location dloc;
+		struct source *src;
+
+restart:
+
+		dloc = (struct detailed_source_location){ 0 };
+		src = 0;
+		{
+			struct source_location loc = { 0 };
+			vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
+			if (flags & vm_dbg_step_flag_line) {
+				get_detailed_source_location(src, loc, &dloc, (enum get_detailed_source_location_flag)0);
+			} else {
+				dloc.loc = loc;
+			}
+		}
+
+		L(" > checking %04x, off:%d, %s:%d:%d (%s)",
+			ip,
+			dloc.loc.off,
+			src->label,
+			dloc.line,
+			dloc.col,
+			vm_op_to_s(wk->vm.code.e[ip]));
+
+		switch (wk->vm.code.e[ip]) {
+		case op_return:
+		case op_return_end:
+		case op_dbg_break:
+			L("skipping");
+			return;
+		case op_jmp_if_true:
+		case op_jmp_if_false:
+		case op_jmp_if_disabler:
+		case op_jmp_if_disabler_keep: {
+			uint32_t oip = ip + 1;
+			uint32_t target_ip = vm_get_constant(wk->vm.code.e, &oip);
+			vm_dbg_prepare_step_scan(wk, target_ip, flags);
+			continue;
+		}
+		case op_jmp: {
+			uint32_t oip = ip + 1;
+			ip = vm_get_constant(wk->vm.code.e, &oip);
+			goto restart;
+		}
+		}
+
+		if (!src->label) {
+			continue;
+		}
+
+		if (dloc.loc.off != wk->vm.dbg_state.cur_bp->off) {
+			if (flags & vm_dbg_step_flag_line) {
+				if (dloc.line == wk->vm.dbg_state.cur_bp->line) {
+					continue;
+				}
+			}
+
+			vm_dbg_push_tmp_breakpoint(wk, &dloc, ip);
+			return;
+		}
+	}
+}
+
+void
+vm_dbg_prepare_step(struct workspace *wk, enum vm_dbg_step_flag flags)
+{
+	uint32_t next_ip = wk->vm.ip + OP_WIDTH(wk->vm.dbg_state.cur_bp->old_instruction);
+	wk->vm.dbg_state.break_on_entry = true;
+	wk->vm.dbg_state.break_after_return = true;
+	L("prepare step, %04x, off:%d", next_ip, wk->vm.dbg_state.cur_bp->off);
+	vm_dbg_prepare_step_scan(wk, next_ip, flags);
+}
+
+bool
+vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path)
+{
+	vm_dgb_enable(wk);
+	return dap_init_pipe(wk, pipe_path);
+}
+
+static struct vm_breakpoint *
+vm_dbg_get_breakpoint_by_ip(struct workspace *wk, uint32_t ip)
+{
+	for (uint32_t i = 0; i < wk->vm.dbg_state.breakpoints.len; ++i) {
+		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
+		if (bp->resolved && bp->ip == ip) {
+			L("found cur breakpoint @ %d", i);
+			return bp;
+		}
+	}
+
+	UNREACHABLE_RETURN;
+}
+
+static void
+vm_dbg_delete_breakpoint(struct workspace *wk, uint32_t i)
+{
+	struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
+
+	wk->vm.code.e[bp->ip] = bp->old_instruction;
+
+	arr_del(&wk->vm.dbg_state.breakpoints, i);
+}
+
+static void
+vm_dbg_break(struct workspace *wk)
+{
+	wk->vm.dbg_state.break_on_entry = false;
+	wk->vm.dbg_state.break_after_return = false;
+
+	for (int32_t i = wk->vm.dbg_state.breakpoints.len - 1; i >= 0; --i) {
+		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
+		if (bp->tmp) {
+			vm_dbg_delete_breakpoint(wk, i);
+		}
+	}
+
+
+	if (wk->vm.dbg_state.break_cb) {
+		wk->vm.dbg_state.break_cb(wk);
+	} else {
+		repl(wk, true);
+	}
+}
+
+static void
+vm_dbg_push_tmp_breakpoint_here(struct workspace *wk)
+{
+		struct detailed_source_location dloc = { 0 };
+		struct source *src;
+		vm_lookup_inst_location(&wk->vm, wk->vm.ip, &dloc.loc, &src);
+		if (src->type == source_type_file) {
+			L("pushing tmp breakpoint here");
+			vm_dbg_push_tmp_breakpoint(wk, &dloc, wk->vm.ip);
+		}
+		wk->vm.dbg_state.break_on_entry = false;
+		wk->vm.dbg_state.break_after_return = false;
+}
+
+/******************************************************************************
  * vm ops
  ******************************************************************************/
 
@@ -2684,6 +3016,10 @@ vm_op_return(struct workspace *wk)
 	struct call_frame *frame = vm_pop_call_stack_frame(wk);
 	wk->vm.ip = frame->return_ip;
 
+	if (wk->vm.dbg_state.break_after_return) {
+		vm_dbg_push_tmp_breakpoint_here(wk);
+	}
+
 	for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
 		struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
 		if (u->slot < frame->stack_base) {
@@ -2721,11 +3057,14 @@ vm_op_typecheck(struct workspace *wk)
 static void
 vm_op_dbg_break(struct workspace *wk)
 {
-	if (wk->vm.dbg_state.break_cb) {
-		wk->vm.dbg_state.break_cb(wk);
-	} else {
-		repl(wk, true);
-	}
+	wk->vm.ip -= 1;
+	struct vm_breakpoint bp = *vm_dbg_get_breakpoint_by_ip(wk, wk->vm.ip);
+	wk->vm.dbg_state.cur_bp = &bp;
+	assert(wk->vm.ip == bp.ip);
+	vm_dbg_break(wk);
+	++wk->vm.ip;
+	L("executing old inst %s @ %04x", vm_op_to_s(bp.old_instruction), wk->vm.ip);
+	wk->vm.ops.ops[bp.old_instruction](wk);
 }
 
 /******************************************************************************
@@ -2796,6 +3135,8 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure)
 {
 	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
+
+	vm_dbg_resolve_breakpoints(wk);
 
 	stack_push(&wk->stack, wk->vm.run, true);
 	stack_push(&wk->stack, wk->vm.call_stack_base, wk->vm.call_stack.len);
@@ -2870,11 +3211,6 @@ static void
 vm_assign_global(struct workspace *wk, const char *name, obj o, uint32_t ip)
 {
 	obj_dict_set(wk, wk->vm.global_scope, make_str(wk, name), o);
-
-	if (wk->vm.dbg_state.watched && obj_array_in(wk, wk->vm.dbg_state.watched, make_str(wk, name))) {
-		LOG_I("watched variable \"%s\" changed", name);
-		repl(wk, true);
-	}
 }
 
 static bool
@@ -2883,146 +3219,23 @@ vm_native_func_dispatch(struct workspace *wk, uint32_t func_idx, obj self, obj *
 	return native_funcs[func_idx].func(wk, self, res);
 }
 
-union vm_breakpoint {
-	struct {
-		uint32_t line, col;
-	} dat;
-	int64_t i;
-};
-
-static void
-vm_dgb_enable(struct workspace *wk)
-{
-	if (wk->vm.dbg_state.dbg) {
-		return;
-	}
-
-	wk->vm.dbg_state.dbg = true;
-	wk->vm.dbg_state.eval_trace = make_obj(wk, obj_array);
-	wk->vm.dbg_state.root_eval_trace = wk->vm.dbg_state.eval_trace;
-}
-
-void
-vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col)
-{
-	vm_dgb_enable(wk);
-
-	union vm_breakpoint breakpoint = { .dat = { line, col } };
-	if (!wk->vm.dbg_state.breakpoints) {
-		wk->vm.dbg_state.breakpoints = make_obj(wk, obj_dict);
-	}
-
-	obj file_bp;
-	if (!obj_dict_index(wk, wk->vm.dbg_state.breakpoints, file, &file_bp)) {
-		file_bp = make_obj(wk, obj_array);
-		obj_dict_set(wk, wk->vm.dbg_state.breakpoints, file, file_bp);
-	}
-
-	L("pushing breakpoint for %s:%d:%d", get_cstr(wk, file), line, col);
-
-	obj_array_push(wk, file_bp, make_number(wk, breakpoint.i));
-}
-
-void
-vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col)
-{
-	union vm_breakpoint breakpoint = { .i = get_obj_number(wk, v) };
-	*line = breakpoint.dat.line;
-	*col = breakpoint.dat.col;
-}
-
-bool
-vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
-{
-	const char *sep = strchr(bp, ':');
-	obj name;
-	uint32_t line, col = 0;
-	if (sep) {
-		const char *sep_col = strchr(sep + 1, ':');
-		struct str l = STRL(sep + 1), c = { 0 };
-
-		if (sep_col) {
-			c = STRL(sep_col + 1);
-			l.len -= (c.len + 1);
-		}
-
-		int64_t i;
-		if (!str_to_i(&l, &i, true)) {
-			LOG_E("invalid line number: %.*s", l.len, l.s);
-			return false;
-		}
-		line = i;
-
-		if (c.s) {
-			if (!str_to_i(&c, &i, true)) {
-				LOG_E("invalid column: %.*s", c.len, c.s);
-				return false;
-			}
-			col = i;
-		}
-
-		TSTR(p);
-		path_make_absolute(wk, &p, get_cstr(wk, make_strn(wk, bp, sep - bp)));
-		name = tstr_into_str(wk, &p);
-	} else {
-		name = make_str(wk, bp);
-		line = 0;
-	}
-
-	vm_dbg_push_breakpoint(wk, name, line, col);
-	return true;
-}
-
-static void
-vm_check_break(struct workspace *wk, uint32_t ip)
-{
-	bool should_break = false;
-
-	struct source *src = 0;
-
-	if (wk->vm.dbg_state.stepping) {
-		struct source_location loc = { 0 };
-		vm_lookup_inst_location(&wk->vm, ip, &loc, &src);
-
-		if (wk->vm.dbg_state.prev_source_location.off != loc.off) {
-			wk->vm.dbg_state.prev_source_location = loc;
-			should_break = true;
-		}
-	}
-
-	if (!should_break && wk->vm.dbg_state.break_after) {
-		should_break = wk->vm.dbg_state.icount >= wk->vm.dbg_state.break_after;
-	}
-
-	if (should_break) {
-		if (wk->vm.dbg_state.break_cb) {
-			wk->vm.dbg_state.break_cb(wk);
-		} else {
-			repl(wk, true);
-		}
-	}
-}
-
-bool
-vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path)
-{
-	vm_dgb_enable(wk);
-	return dap_init_pipe(wk, pipe_path);
-}
-
 static void
 vm_execute_loop(struct workspace *wk)
 {
+	if (wk->vm.dbg_state.break_on_entry) {
+		vm_dbg_push_tmp_breakpoint_here(wk);
+	}
+
 	uint32_t cip;
 	while (wk->vm.run) {
-		// if (log_should_print(log_debug)) {
-		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-		// 	object_stack_print(wk, &wk->vm.stack);
-		// }
+		if (log_should_print(log_debug)) {
+			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+			object_stack_print(wk, &wk->vm.stack);
+		}
 
 		log_progress(wk, wk->vm.ip);
 
-		vm_check_break(wk, wk->vm.ip);
+		// vm_check_break(wk, wk->vm.ip);
 
 		cip = wk->vm.ip;
 		++wk->vm.ip;
@@ -3036,8 +3249,6 @@ vm_execute_loop(struct workspace *wk)
 		wk->vm.ops.ops[wk->vm.code.e[cip]](wk);
 
 		// TracyCZoneEnd(tctx);
-
-		++wk->vm.dbg_state.icount;
 	}
 }
 

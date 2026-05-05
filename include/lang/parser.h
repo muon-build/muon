@@ -80,10 +80,6 @@ struct node_fmt_ws {
 	bool used;
 };
 
-enum node_flag {
-	node_flag_breakpoint = 1 << 0,
-};
-
 enum node_assign_flag {
 	node_assign_flag_add_store = 1 << 0,
 	node_assign_flag_member = 1 << 1,
@@ -97,8 +93,7 @@ struct node {
 	struct {
 		struct node_fmt_ws pre, post;
 	} fmt;
-	uint16_t type;
-	uint16_t flags;
+	enum node_type type;
 };
 
 void print_ast(struct workspace *wk, struct node *root);
