@@ -36,6 +36,7 @@ struct az_srv {
 
 	bool verbose;
 	bool should_analyze;
+	bool exit;
 
 	struct {
 		obj id;
@@ -483,6 +484,10 @@ az_srv_handle(struct az_srv *srv, struct workspace *wk, obj msg)
 		if ((uri_str = az_srv_uri_to_str(wk, uri_s))) {
 			az_srv_handle_range_formatting(srv, wk, get_str(wk, uri_str), params);
 		}
+	} else if (str_eql(method, &STR("shutdown"))) {
+		az_srv_respond(srv, wk, obj_dict_index_as_obj(wk, msg, "id"), 0);
+	} else if (str_eql(method, &STR("exit"))) {
+		srv->exit = true;
 	}
 
 	TracyCZoneAutoE;
