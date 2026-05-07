@@ -47,7 +47,6 @@ struct az_srv {
 		enum az_srv_req_type type;
 	} req;
 
-	struct workspace *srv_wk;
 	struct hash diagnostics_map;
 	struct arr diagnostics_to_clear;
 	struct az_opts opts;
@@ -244,22 +243,22 @@ az_srv_diagnostics(struct az_srv *srv, struct workspace *wk, const struct source
 	az_srv_request(srv, wk, "textDocument/publishDiagnostics", params);
 
 	if (diagnostics_to_clear) {
-		const struct str *label = get_str(srv->srv_wk, make_str(srv->srv_wk, src->label));
-		arr_push(srv->srv_wk->a, diagnostics_to_clear, &label);
+		const struct str *label = get_str(srv->srv.wk, make_str(srv->srv.wk, src->label));
+		arr_push(srv->srv.wk->a, diagnostics_to_clear, &label);
 	}
 }
 
 static void
 az_srv_all_diagnostics(struct az_srv *srv, struct workspace *wk)
 {
-	struct workspace *srv_wk = srv->srv_wk;
+	struct workspace *srv_wk = srv->srv.wk;
 	struct arr *diagnostics_to_clear = 0;
 	{
 		uint64_t *val;
 		if ((val = hash_get_strn(&srv->diagnostics_map, srv->req.root_path, strlen(srv->req.root_path)))) {
 			diagnostics_to_clear = arr_get(&srv->diagnostics_to_clear, *val);
 		} else {
-			const char *root_path = get_str(srv->srv_wk, make_str(srv->srv_wk, srv->req.root_path))->s;
+			const char *root_path = get_str(srv->srv.wk, make_str(srv->srv.wk, srv->req.root_path))->s;
 
 			const uint64_t diagnostics_to_clear_i = srv->diagnostics_to_clear.len;
 			hash_set_strn(srv_wk->a,
@@ -323,7 +322,7 @@ az_srv_set_src_override(struct az_srv *srv, struct workspace *wk, const struct s
 	az_srv_set_request_path(srv, wk, uri_s);
 
 	srv->should_analyze = true;
-	analyze_opts_push_override(srv->srv_wk, &srv->opts, srv->req.path, 0, content);
+	analyze_opts_push_override(srv->srv.wk, &srv->opts, srv->req.path, 0, content);
 }
 
 static void
@@ -1011,15 +1010,15 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		}
 	}
 
-	struct az_srv srv = { 0 };
+	struct az_srv srv[1] = { 0 };
 
-	srv_init_stdio(srv_wk, &srv.srv);
+	srv_init_stdio(srv_wk, &srv->srv);
 
-	hash_init_str(srv_wk->a, &srv.diagnostics_map, 256);
-	arr_init(srv_wk->a, &srv.diagnostics_to_clear, 16, struct arr);
+	hash_init_str(srv_wk->a, &srv->diagnostics_map, 256);
+	arr_init(srv_wk->a, &srv->diagnostics_to_clear, 16, struct arr);
 
-	analyze_opts_init(srv.srv_wk, &srv.opts);
-	srv.opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
+	analyze_opts_init(srv->srv.wk, &srv->opts);
+	srv->opts.enabled_diagnostics = cmdline_opts->enabled_diagnostics;
 
 	struct arena a, a_scratch;
 	arena_init(&a,);
@@ -1029,7 +1028,7 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 
 	LOG_I("muon %s%s%s lsp listening...", muon_version.version, *muon_version.vcs_tag ? "-" : "", muon_version.vcs_tag);
 
-	while (true) {
+	while (!srv->exit) {
 		TracyCFrameMark;
 
 		log_set_indent(0);
@@ -1037,11 +1036,11 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 		struct workspace wk = { .a = &a, .a_scratch = &a_scratch };
 		workspace_init_bare(&wk, &a, &a_scratch);
 
-		srv.should_analyze = false;
-		srv.req.id = srv.req.result = srv.req.type = 0;
+		srv->should_analyze = false;
+		srv->req.id = srv->req.result = srv->req.type = 0;
 
 		obj msg;
-		switch (srv_read(&srv.srv, &wk, &msg)) {
+		switch (srv_read(&srv->srv, &wk, &msg)) {
 		case srv_read_result_err:
 			ok = false;
 			goto shutdown;
@@ -1053,26 +1052,24 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 
 		workspace_scratch_begin(srv_wk);
 
-		obj_lprintf(&wk, log_debug, "<<< %#o\n", msg);
+		az_srv_handle(srv, &wk, msg);
 
-		az_srv_handle(&srv, &wk, msg);
-
-		if (srv.should_analyze) {
+		if (srv->should_analyze) {
 			bool did_chdir = false;
 
 			struct az_opts opts = { 0 };
 
-			if (srv.req.path) {
-				if (str_endswith(get_str(&wk, srv.req.path_str), &STR(".meson"))) {
-					srv.req.root_path = srv.req.path;
-					opts.single_file = srv.req.path;
+			if (srv->req.path) {
+				if (str_endswith(get_str(&wk, srv->req.path_str), &STR(".meson"))) {
+					srv->req.root_path = srv->req.path;
+					opts.single_file = srv->req.path;
 					opts.lang_mode = language_extended;
 				} else {
-					if ((srv.req.root_path = determine_project_root(&wk, srv.req.path))) {
+					if ((srv->req.root_path = determine_project_root(&wk, srv->req.path))) {
 						// TODO: it would be nice to not rely on chdiring at
 						// all here
-						L("chdiring to %s", srv.req.root_path);
-						if (!path_chdir(&wk, srv.req.root_path)) {
+						L("chdiring to %s", srv->req.root_path);
+						if (!path_chdir(&wk, srv->req.root_path)) {
 							goto analyze_done;
 						}
 						did_chdir = true;
@@ -1081,41 +1078,41 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 			}
 
 			opts.file_override = make_obj(&wk, obj_dict);
-			opts.file_override_src = srv.opts.file_override_src;
-			opts.enabled_diagnostics = srv.opts.enabled_diagnostics;
+			opts.file_override_src = srv->opts.file_override_src;
+			opts.enabled_diagnostics = srv->opts.enabled_diagnostics;
 			opts.replay_opts = error_diagnostic_store_replay_prepare_only;
 
-			if (srv.req.id && srv.req.type == az_srv_req_type_completion) {
+			if (srv->req.id && srv->req.type == az_srv_req_type_completion) {
 				opts.relaxed_parse = true;
 			}
 
 			{
 				obj path, idx;
-				obj_dict_for(srv.srv_wk, srv.opts.file_override, path, idx) {
-					obj_dict_set(&wk, opts.file_override, str_clone(srv.srv_wk, &wk, path), idx);
+				obj_dict_for(srv->srv.wk, srv->opts.file_override, path, idx) {
+					obj_dict_set(&wk, opts.file_override, str_clone(srv->srv.wk, &wk, path), idx);
 				}
 			}
 
 			wk.vm.dbg_state.break_cb = az_srv_dbg_break_cb;
-			wk.vm.dbg_state.usr_ctx = &srv;
+			wk.vm.dbg_state.usr_ctx = srv;
 
 			do_analyze(&wk, &opts);
 
-			if (srv.req.id) {
-				switch (srv.req.type) {
+			if (srv->req.id) {
+				switch (srv->req.type) {
 				case az_srv_req_type_definition:
 				case az_srv_req_type_completion:
-					az_srv_respond(&srv, &wk, srv.req.id, srv.req.result);
+					az_srv_respond(srv, &wk, srv->req.id, srv->req.result);
 					break;
 				case az_srv_req_type_hover: {
 					obj result = make_obj(&wk, obj_dict);
-					obj_dict_set(&wk, result, make_str(&wk, "contents"), srv.req.result);
-					az_srv_respond(&srv, &wk, srv.req.id, result);
+					obj_dict_set(&wk, result, make_str(&wk, "contents"), srv->req.result);
+					az_srv_respond(srv, &wk, srv->req.id, result);
 					break;
 				}
 				}
 			} else {
-				az_srv_all_diagnostics(&srv, &wk);
+				az_srv_all_diagnostics(srv, &wk);
 			}
 
 			if (did_chdir) {
