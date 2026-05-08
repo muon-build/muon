@@ -905,7 +905,7 @@ az_srv_inst_seq_matches(struct workspace *wk, uint32_t ip, const uint8_t *seq, u
 {
 	uint32_t seq_i = 0;
 	for (; seq_i < seq_len && ip < wk->vm.code.len;) {
-		uint32_t op = wk->vm.code.e[ip];
+		uint32_t op = seq_i ? wk->vm.code.e[ip] : wk->vm.dbg_state.cur_bp->old_instruction;
 		if (op != seq[seq_i]) {
 			return false;
 		}
@@ -922,14 +922,6 @@ az_srv_dbg_break_cb(struct workspace *wk)
 {
 	struct az_srv *srv = wk->vm.dbg_state.usr_ctx;
 	uint32_t ip = wk->vm.ip;
-
-#if 0
-	L("hit breakpoint");
-	for (uint32_t i = ip; i < wk->vm.code.len; i += OP_WIDTH(wk->vm.code.e[i])) {
-		L("%s", vm_dis_inst(wk, wk->vm.code.e, i));
-	}
-	L("---");
-#endif
 
 	struct az_srv_break_info info = { 0 };
 

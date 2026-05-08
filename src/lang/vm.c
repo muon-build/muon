@@ -1423,7 +1423,6 @@ vm_begin_execute_closure(struct workspace *wk, obj a)
 
 	wk->vm.ip = closure->func->entry;
 
-	L("begin execute closure, break on entry: %d", wk->vm.dbg_state.break_on_entry);
 	if (wk->vm.dbg_state.break_on_entry) {
 		vm_dbg_prepare_step_scan(wk, wk->vm.ip, 0, wk->vm.call_stack.len - 1);
 	}
