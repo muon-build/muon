@@ -5,13 +5,17 @@
 
 #include "compat.h"
 
+#include "error.h"
 #include "lang/dap.h"
+#include "lang/object.h"
 #include "lang/object_iterators.h"
 #include "lang/server.h"
 #include "lang/string.h"
+#include "lang/vm.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
+#include "platform/path.h"
 #include "tracy.h"
 
 enum dap_srv_state {
@@ -20,6 +24,15 @@ enum dap_srv_state {
 	dap_srv_state_initialized,
 	dap_srv_state_running,
 	dap_srv_state_stopped,
+};
+
+enum dap_srv_variable_group {
+	dap_srv_variable_group_none,
+	dap_srv_variable_group_globals,
+	dap_srv_variable_group_locals,
+	dap_srv_variable_group_upvalues,
+	dap_srv_variable_group_container,
+	dap_srv_variable_group_struct,
 };
 
 struct dap_srv {
@@ -71,25 +84,131 @@ dap_event(struct dap_srv *srv, struct workspace *wk, const char *event, obj body
 }
 
 static obj
-dap_stack_frame(struct dap_srv *srv, struct workspace *wk, uint32_t ip)
+dap_stack_frame(struct dap_srv *srv, struct workspace *wk, struct call_frame *frame, uint32_t ip, uint32_t idx)
 {
 	struct vm_inst_location loc;
 	vm_inst_location(srv->srv.wk, ip, &loc);
 
-	obj frame = make_obj(wk, obj_dict);
+	obj f = make_obj(wk, obj_dict);
 	obj file = make_str(wk, loc.file);
 
-	obj_dict_set(wk, frame, make_str(wk, "id"), make_number(wk, 0));
-	obj_dict_set(wk, frame, make_str(wk, "name"), file);
+	obj name;
+	if (frame->closure->func->name) {
+		name = make_str(wk, frame->closure->func->name);
+	} else if (frame->eval_name) {
+		TSTR(buf);
+		path_relative_to(wk, &buf, srv->srv.wk->source_root, get_str(srv->srv.wk, frame->eval_name)->s);
+
+		name = tstr_into_str(wk, &buf);
+	} else {
+		name = make_str(wk, "anonymous function");
+	}
+
+	obj_dict_set(wk, f, make_str(wk, "id"), make_number(wk, idx));
+	obj_dict_set(wk, f, make_str(wk, "name"), name);
 	if (!loc.embedded) {
 		obj source = make_obj(wk, obj_dict);
 		obj_dict_set(wk, source, make_str(wk, "path"), file);
-		obj_dict_set(wk, frame, make_str(wk, "source"), source);
-		obj_dict_set(wk, frame, make_str(wk, "line"), make_number(wk, loc.line));
-		obj_dict_set(wk, frame, make_str(wk, "column"), make_number(wk, loc.col));
+		obj_dict_set(wk, f, make_str(wk, "source"), source);
+		obj_dict_set(wk, f, make_str(wk, "line"), make_number(wk, loc.line));
+		obj_dict_set(wk, f, make_str(wk, "column"), make_number(wk, loc.col));
 	}
 
-	return frame;
+	return f;
+}
+
+union dap_variable_ref {
+	int64_t num;
+	struct {
+		uint32_t group;
+		uint32_t data;
+	} dat;
+};
+
+static obj
+dap_scope_group(struct workspace *wk, enum dap_srv_variable_group group, uint32_t frame_idx)
+{
+	const char *name = 0;
+	switch (group) {
+	case dap_srv_variable_group_container:
+	case dap_srv_variable_group_struct:
+	case dap_srv_variable_group_none: UNREACHABLE_RETURN;
+	case dap_srv_variable_group_globals: name = "globals"; break;
+	case dap_srv_variable_group_locals: name = "locals"; break;
+	case dap_srv_variable_group_upvalues: name = "upvalues"; break;
+	}
+
+	union dap_variable_ref ref = {
+		.dat = { group, frame_idx },
+	};
+
+	obj scope = make_obj(wk, obj_dict);
+	obj_dict_set(wk, scope, make_str(wk, "name"), make_str(wk, name));
+	obj_dict_set(wk, scope, make_str(wk, "variablesReference"), make_number(wk, ref.num));
+	return scope;
+}
+
+static obj
+dap_variable_simple(struct workspace *wk, obj name, obj val, enum obj_type type)
+{
+	obj variable = make_obj(wk, obj_dict);
+	obj_dict_set(wk, variable, make_str(wk, "name"), name);
+	obj_dict_set(wk, variable, make_str(wk, "value"), val);
+	obj_dict_set(wk, variable, make_str(wk, "type"), make_str(wk, obj_type_to_s(type)));
+	return variable;
+}
+
+static obj
+dap_variable_named(struct dap_srv *srv, struct workspace *wk, obj name, obj val)
+{
+	obj variable = make_obj(wk, obj_dict);
+	obj_dict_set(wk, variable, make_str(wk, "name"), name);
+
+	TSTR(buf);
+	obj_to_s(srv->srv.wk, val, &buf);
+	obj_dict_set(wk, variable, make_str(wk, "value"), tstr_into_str(wk, &buf));
+
+	enum obj_type t = get_obj_type(srv->srv.wk, val);
+	obj_dict_set(wk, variable, make_str(wk, "type"), make_str(wk, obj_type_to_s(t)));
+
+	enum dap_srv_variable_group group = 0;
+
+	switch (t) {
+	case obj_null:
+	case obj_disabler:
+	case obj_bool:
+	case obj_number:
+	case obj_string: break;
+	case obj_array:
+	case obj_dict:
+		group = dap_srv_variable_group_container;
+		break;
+	default:
+		if (vm_reflected_obj_fields(srv->srv.wk, t)) {
+			L("struct children");
+			group = dap_srv_variable_group_struct;
+		}
+		break;
+	}
+
+	L("type: %s, group: %d", obj_type_to_s(t), group);
+
+
+	if (group) {
+		union dap_variable_ref ref = {
+			.dat = { group, val },
+		};
+
+		obj_dict_set(wk, variable, make_str(wk, "variablesReference"), make_number(wk, ref.num));
+	}
+
+	return variable;
+}
+
+static obj
+dap_variable(struct dap_srv *srv, struct workspace *wk, obj name, obj val)
+{
+	return dap_variable_named(srv, wk, make_strs(wk, get_str(srv->srv.wk, name)), val);
 }
 
 static void
@@ -111,8 +230,12 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 		srv->state = dap_srv_state_running;
 		dap_respond(srv, wk, &req, 0);
 	} else if (str_eql(command, &STR("setBreakpoints"))) {
+
 		obj source = obj_dict_index_as_obj(wk, req.arguments, "source");
 		obj path = make_strs(srv->srv.wk, obj_dict_index_as_str(wk, source, "path"));
+
+		vm_dbg_clear_breakpoints_for_src(srv->srv.wk, path);
+
 		obj breakpoints = obj_dict_index_as_obj(wk, req.arguments, "breakpoints");
 		obj breakpoint;
 		obj_array_for(wk, breakpoints, breakpoint) {
@@ -122,16 +245,30 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 	} else if (str_eql(command, &STR("stackTrace"))) {
 		obj frames = make_obj(wk, obj_array);
 		{
-			obj_array_push(wk, frames, dap_stack_frame(srv, wk, srv->srv.wk->vm.dbg_state.cur_bp->ip));
+			{ // push current location as a frame
+				struct call_frame *frame
+					= arr_get(&srv->srv.wk->vm.call_stack, srv->srv.wk->vm.call_stack.len - 1);
+				obj f = dap_stack_frame(srv,
+					wk,
+					frame,
+					srv->srv.wk->vm.dbg_state.cur_bp->ip,
+					srv->srv.wk->vm.call_stack.len);
+				obj_array_push(wk, frames, f);
+			}
 
-// 			for (int32_t i = srv->srv.wk->vm.call_stack.len - 1; i >= 0; --i) {
-// 				struct call_frame *frame = arr_get(&srv->srv.wk->vm.call_stack, i);
-// 				if (!frame->return_ip) {
-// 					continue;
-// 				}
-// 				obj_array_push(
-// 					wk, frames, dap_stack_frame(srv, wk, frame->return_ip - OP_WIDTH(op_call)));
-// 			}
+			for (int32_t i = srv->srv.wk->vm.call_stack.len - 1; i >= 0; --i) {
+				struct call_frame *frame = arr_get(&srv->srv.wk->vm.call_stack, i);
+
+				if (!frame->return_ip || frame->closure->func->wrapper) {
+					continue;
+				}
+
+				struct call_frame *prev_frame = i > 0 ? arr_get(&srv->srv.wk->vm.call_stack, i - 1) :
+									frame;
+
+				obj f = dap_stack_frame(srv, wk, prev_frame, frame->return_ip - OP_WIDTH(op_call), i);
+				obj_array_push(wk, frames, f);
+			}
 		}
 
 		obj body = make_obj(wk, obj_dict);
@@ -140,33 +277,122 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 		dap_respond(srv, wk, &req, body);
 	} else if (str_eql(command, &STR("scopes"))) {
 		int64_t frame_id = obj_dict_index_as_number(wk, req.arguments, "frameId");
+		uint32_t frame_idx = frame_id == srv->srv.wk->vm.call_stack.len ? srv->srv.wk->vm.call_stack.len - 1 : frame_id;
+
+		struct call_frame *frame = arr_get(&srv->srv.wk->vm.call_stack, frame_idx);
 
 		obj scopes = make_obj(wk, obj_array);
-		obj scope = make_obj(wk, obj_dict);
-		obj_dict_set(wk, scope, make_str(wk, "name"), make_str(wk, "globals"));
-		obj_dict_set(wk, scope, make_str(wk, "variablesReference"), make_number(wk, 1));
-		obj_array_push(wk, scopes, scope);
+
+		if (frame->closure->func->automatically_defined && !frame->closure->func->wrapper)  {
+			// eval frame, globals only
+			obj_array_push(wk, scopes, dap_scope_group(wk, dap_srv_variable_group_globals, frame_idx));
+		} else {
+			// script frame, locals and upvalues only
+			obj_array_push(wk, scopes, dap_scope_group(wk, dap_srv_variable_group_locals, frame_idx));
+			obj_array_push(wk, scopes, dap_scope_group(wk, dap_srv_variable_group_upvalues, frame_idx));
+		}
 
 		obj body = make_obj(wk, obj_dict);
 		obj_dict_set(wk, body, make_str(wk, "scopes"), scopes);
 
 		dap_respond(srv, wk, &req, body);
 	} else if (str_eql(command, &STR("variables"))) {
-		int64_t ref = obj_dict_index_as_number(wk, req.arguments, "variablesReference");
+		union dap_variable_ref ref = {
+			.num = obj_dict_index_as_number(wk, req.arguments, "variablesReference"),
+		};
+
+		L("----------------- group: %d", ref.dat.group);
 
 		obj variables = make_obj(wk, obj_array);
 
-		if (ref == 1) {
+		switch (ref.dat.group) {
+		case dap_srv_variable_group_globals: {
 			obj k, v;
 			obj_dict_for(srv->srv.wk, srv->srv.wk->vm.global_scope, k, v) {
-				obj variable = make_obj(wk, obj_dict);
-				obj_dict_set(wk, variable, make_str(wk, "name"), make_strs(wk, get_str(srv->srv.wk, k)));
-
-				TSTR(buf);
-				obj_to_s(srv->srv.wk, v, &buf);
-				obj_dict_set(wk, variable, make_str(wk, "value"), tstr_into_str(wk, &buf));
-				obj_array_push(wk, variables, variable);
+				obj_array_push(wk, variables, dap_variable(srv, wk, k, v));
 			}
+			break;
+		}
+		case dap_srv_variable_group_locals: {
+			struct call_frame *frame = arr_get(&srv->srv.wk->vm.call_stack, ref.dat.data);
+
+			for (uint32_t i = 0; i < frame->closure->func->nlocals; ++i) {
+				obj slot_idx = i + frame->stack_base;
+				const struct obj_stack_entry *slot
+					= bucket_arr_get(&srv->srv.wk->vm.stack.ba, slot_idx);
+				obj var = dap_variable(srv, wk, frame->closure->func->locals_debug[i], slot->o);
+				obj_array_push(wk, variables, var);
+			}
+			break;
+		}
+		case dap_srv_variable_group_upvalues: {
+			struct call_frame *frame = arr_get(&srv->srv.wk->vm.call_stack, ref.dat.data);
+			for (uint32_t i = 0; i < frame->closure->func->nupvalues; ++i) {
+				obj var = dap_variable(srv,
+					wk,
+					frame->closure->upvalues[i]->debug_id,
+					*frame->closure->upvalues[i]->location);
+				obj_array_push(wk, variables, var);
+			}
+			break;
+		}
+		case dap_srv_variable_group_container: {
+			obj container = ref.dat.data;
+			switch (get_obj_type(srv->srv.wk, container)) {
+			case obj_array: {
+				obj v;
+				obj_array_for_(srv->srv.wk, container, v, iter) {
+					obj var = dap_variable_named(srv, wk, make_strf(wk, "[%d]", iter.i), v);
+					obj_array_push(wk, variables, var);
+				}
+				break;
+			}
+			case obj_dict: {
+				obj k, v;
+				obj_dict_for(srv->srv.wk, container, k, v) {
+					obj var = dap_variable(srv, wk, k, v);
+					obj_array_push(wk, variables, var);
+				}
+				break;
+			}
+			default: break;
+			}
+			break;
+		}
+		case dap_srv_variable_group_struct: {
+			obj val = ref.dat.data;
+			enum obj_type t = get_obj_type(srv->srv.wk, val);
+			obj fields = vm_reflected_obj_fields(srv->srv.wk, t);
+			char *src = get_obj_internal(srv->srv.wk, val, t);
+
+			obj fi;
+			const struct vm_reflected_field *f;
+			obj_array_for(srv->srv.wk, fields, fi) {
+				f = vm_reflected_obj_field(srv->srv.wk, fi);
+				void *src_field = src + f->off;
+				obj name = f->name ? make_str(wk, f->name) : make_str(wk, "[0]");
+				if (strcmp(f->type, "obj") == 0) {
+					obj var = dap_variable_named(srv, wk, name, *(obj*)src_field);
+					obj_array_push(wk, variables, var);
+				} else if (strcmp(f->type, "int32_t") == 0) {
+					obj var = dap_variable_simple(wk, name, make_strf(wk, "%d", *(int32_t *)src_field), obj_number);
+					obj_array_push(wk, variables, var);
+				} else if (strcmp(f->type, "uint32_t") == 0) {
+					obj var = dap_variable_simple(wk, name, make_strf(wk, "%d", *(uint32_t *)src_field), obj_number);
+					obj_array_push(wk, variables, var);
+				} else if (strcmp(f->type, "bool") == 0) {
+					obj var = dap_variable_simple(wk,
+						name,
+						make_str(wk, *(bool *)src_field ? "true" : "false"),
+						obj_bool);
+					obj_array_push(wk, variables, var);
+				} else {
+					// TODO: show the numeric value for enums?
+					obj var = dap_variable_simple(wk, name, make_str(wk, f->type), obj_string);
+					obj_array_push(wk, variables, var);
+				}
+			}
+		}
 		}
 
 		obj body = make_obj(wk, obj_dict);
@@ -175,6 +401,17 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 		dap_respond(srv, wk, &req, body);
 	} else if (str_eql(command, &STR("next"))) {
 		vm_dbg_prepare_step(srv->srv.wk, vm_dbg_step_flag_line);
+		srv->state = dap_srv_state_running;
+		dap_respond(srv, wk, &req, 0);
+	} else if (str_eql(command, &STR("stepIn"))) {
+		vm_dbg_prepare_step(srv->srv.wk, vm_dbg_step_flag_line | vm_dbg_step_flag_in);
+		srv->state = dap_srv_state_running;
+		dap_respond(srv, wk, &req, 0);
+	} else if (str_eql(command, &STR("stepOut"))) {
+		vm_dbg_prepare_step(srv->srv.wk, vm_dbg_step_flag_line | vm_dbg_step_flag_out);
+		srv->state = dap_srv_state_running;
+		dap_respond(srv, wk, &req, 0);
+	} else if (str_eql(command, &STR("continue"))) {
 		srv->state = dap_srv_state_running;
 		dap_respond(srv, wk, &req, 0);
 	}
@@ -244,8 +481,6 @@ dap_server_update(struct workspace *srv_wk)
 	case srv_read_result_ok: break;
 	}
 
-	obj_lprintf(wk, log_debug, "<<< %#o\n", msg);
-
 	dap_handle(srv, wk, msg);
 
 	dap_server_end(srv_wk);
@@ -269,7 +504,7 @@ dap_break_cb(struct workspace *srv_wk)
 
 	while (srv->state != dap_srv_state_running) {
 		if (!dap_server_update(srv_wk)) {
-			// Hmm?
+			// Should we just die here?
 			return;
 		}
 	}

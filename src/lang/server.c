@@ -113,7 +113,7 @@ srv_read(struct server *srv, struct workspace *wk, obj *msg)
 
 		if (!content_length) {
 			LOG_E("Missing Content-Length header.");
-			return false;
+			return srv_read_result_err;
 		}
 
 		srv_buf_shift(srv, (hdr_end - buf->buf) + 4);
@@ -138,18 +138,20 @@ srv_read(struct server *srv, struct workspace *wk, obj *msg)
 		const struct str json_msg = { .s = buf->buf, .len = content_length };
 		if (!muon_json_to_obj(wk, &json_msg, msg)) {
 			obj_lprintf(wk, log_error, "failed to parse json: %o", *msg);
-			return false;
+			return srv_read_result_err;
 		} else if (get_obj_type(wk, *msg) != obj_dict) {
 			obj_lprintf(wk, log_error, "message was not a dict, got %s", obj_type_to_s(get_obj_type(wk, *msg)));
-			return false;
+			return srv_read_result_err;
 		}
 		buf->buf[content_length] = end;
 
 		srv_buf_shift(srv, content_length);
 	}
 
+	// obj_lprintf(wk, log_debug, "<<< %#o\n", *msg);
+
 	TracyCZoneAutoE;
-	return true;
+	return srv_read_result_ok;
 }
 
 void

@@ -190,7 +190,7 @@ compile_done:
 		stack_push(&wk->stack, wk->vm.dbg_state.eval_trace_subdir, false);
 	}
 
-	*res = vm_execute(wk, entry);
+	*res = vm_execute(wk, entry, make_str(wk, src->label));
 
 	if (wk->vm.dbg_state.eval_trace) {
 		stack_pop(&wk->stack, wk->vm.dbg_state.eval_trace_subdir);

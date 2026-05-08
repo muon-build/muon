@@ -114,6 +114,7 @@ struct call_frame {
 	uint32_t return_ip, stack_base;
 	enum language_mode lang_mode;
 	const struct obj_closure *closure;
+	obj eval_name;
 };
 
 struct vm_compiler_state {
@@ -140,7 +141,7 @@ struct vm_dbg_state {
 	struct vm_breakpoint *cur_bp;
 	struct arr breakpoints;
 	obj eval_trace, root_eval_trace;
-	bool dbg, eval_trace_subdir, break_on_entry, break_after_return;
+	bool dbg, eval_trace_subdir, break_on_entry;
 };
 
 struct vm_behavior {
@@ -264,7 +265,7 @@ void object_stack_print(struct workspace *wk, struct object_stack *s);
 
 obj vm_get_constant(uint8_t *code, uint32_t *ip);
 uint32_t vm_constant_host_to_bc(uint32_t n);
-obj vm_execute(struct workspace *wk, uint32_t ip);
+obj vm_execute(struct workspace *wk, uint32_t ip, obj frame_name);
 bool vm_eval_closure(struct workspace *wk, obj closure, const struct args_norm an[], const struct args_kw akw[], obj *res);
 void vm_lookup_inst_location_src_idx(struct vm *vm, uint32_t ip, struct source_location *loc, uint32_t *src_idx);
 void vm_lookup_inst_location(struct vm *vm, uint32_t ip, struct source_location *loc, struct source **src);
@@ -305,11 +306,13 @@ MUON_ATTR_FORMAT(printf, 4, 5) void vm_deprecation_at(struct workspace *wk, uint
 
 enum vm_dbg_step_flag {
 	vm_dbg_step_flag_line = 1 << 0,
+	vm_dbg_step_flag_in = 1 << 1,
+	vm_dbg_step_flag_out = 1 << 2,
 };
 
 void vm_dbg_push_breakpoint(struct workspace *wk, obj file, uint32_t line, uint32_t col);
 bool vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp);
-void vm_dbg_unpack_breakpoint(struct workspace *wk, obj v, uint32_t *line, uint32_t *col);
+void vm_dbg_clear_breakpoints_for_src(struct workspace *wk, obj file);
 void vm_dbg_prepare_step(struct workspace *wk, enum vm_dbg_step_flag flags);
 bool vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path);
 

@@ -26,7 +26,7 @@ struct upvalue_binding {
 
 struct compiler_call_frame {
 	uint32_t locals_base, upvalues_base;
-	uint32_t nupvalues;
+	uint32_t nupvalues, nlocals;
 	struct func_upvalue *upvalues;
 	obj *locals_debug;
 };

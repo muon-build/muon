@@ -24,7 +24,7 @@
 
 static bool making_default_objects = false;
 
-static void *
+void *
 get_obj_internal(struct workspace *wk, obj id, enum obj_type type)
 {
 	struct obj_internal *o = bucket_arr_get(&wk->vm.objects.objs, id);

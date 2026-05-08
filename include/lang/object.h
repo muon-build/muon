@@ -95,7 +95,7 @@ struct open_upvalue {
 struct obj_func {
 	const char *name, *desc;
 	enum language_mode lang_mode;
-	uint32_t nargs, nkwargs, nupvalues;
+	uint32_t nargs, nkwargs, nupvalues, nlocals;
 	type_tag return_type;
 
 	uint32_t def, entry;
@@ -103,7 +103,7 @@ struct obj_func {
 	struct args_kw *akw;
 	struct func_upvalue *upvalues;
 	obj *locals_debug;
-	bool automatically_defined;
+	bool automatically_defined, wrapper;
 };
 
 struct obj_closure {
@@ -169,6 +169,7 @@ struct obj_internal {
 	enum obj_type t;
 	uint32_t val;
 };
+void *get_obj_internal(struct workspace *wk, obj id, enum obj_type type);
 
 struct obj_subproject {
 	uint32_t id;

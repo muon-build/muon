@@ -703,16 +703,22 @@ vm_constant_bc_to_host(uint32_t n)
 }
 
 obj
+vm_get_constant_ip(uint8_t *code, uint32_t ip)
+{
+	obj r = (code[ip + 0] << 16) | (code[ip + 1] << 8) | code[ip + 2];
+	return vm_constant_bc_to_host(r);
+}
+
+obj
 vm_get_constant(uint8_t *code, uint32_t *ip)
 {
-	obj r = (code[*ip + 0] << 16) | (code[*ip + 1] << 8) | code[*ip + 2];
-	r = vm_constant_bc_to_host(r);
+	obj r = vm_get_constant_ip(code, *ip);
 	*ip += 3;
 	return r;
 }
 
 static void
-vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
+vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame, obj eval_name)
 {
 	static const struct obj_func auto_func = { .automatically_defined = true };
 	static const struct obj_closure auto_closure = { .func = &auto_func };
@@ -724,6 +730,7 @@ vm_push_call_stack_frame(struct workspace *wk, struct call_frame *frame)
 			.expected_return_type = TYPE_TAG_ALLOW_NULL | tc_any,
 			.lang_mode = wk->vm.lang_mode,
 			.closure = &auto_closure,
+			.eval_name = eval_name,
 		};
 	}
 	frame->return_ip = wk->vm.ip;
@@ -945,7 +952,7 @@ vm_dis(struct workspace *wk)
 		}
 	}
 
-	vm_push_call_stack_frame(wk, 0);
+	vm_push_call_stack_frame(wk, 0, make_str(wk, "wrapper"));
 
 	for (uint32_t i = 0; i < wk->vm.code.len;) {
 		uint8_t op = wk->vm.code.e[i];
@@ -963,7 +970,7 @@ vm_dis(struct workspace *wk)
 					closure->upvalues[i]->debug_id = closure->func->upvalues[i].id;
 				}
 
-				vm_push_call_stack_frame(wk, &(struct call_frame){ .closure = closure });
+				vm_push_call_stack_frame(wk, &(struct call_frame){ .closure = closure }, 0);
 				is_entry = true;
 			}
 		}
@@ -972,7 +979,7 @@ vm_dis(struct workspace *wk)
 
 		char loc_buf[256] = { 0 };
 		// enable to print instruction source locations
-		if (false) {
+		if (true) {
 			struct source_location loc;
 			struct source *src;
 			vm_lookup_inst_location(&wk->vm, i, &loc, &src);
@@ -1072,15 +1079,24 @@ static void
 vm_dbg_breakpoint_patch_instruction(struct workspace *wk, struct vm_breakpoint *bp, uint32_t ip)
 {
 	bp->old_instruction = wk->vm.code.e[ip];
-	L("patching instruction @ %04x %s", ip, vm_op_to_s(bp->old_instruction));
 	wk->vm.code.e[ip] = op_dbg_break;
 	bp->ip = ip;
+}
+
+static bool
+vm_dbg_breakpoint_should_skip_instruction(struct workspace *wk, uint32_t ip)
+{
+	if (wk->vm.code.e[ip] == op_constant
+		&& vm_get_constant_ip(wk->vm.code.e, ip + 1) == obj_uninitialized) {
+		return true;
+	}
+
+	return false;
 }
 
 static void
 vm_dbg_resolve_breakpoints(struct workspace *wk)
 {
-	L("resolving breakpoints");
 	for (uint32_t i = 0; i < wk->vm.dbg_state.breakpoints.len; ++i) {
 		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
 		if (bp->resolved || bp->invalid) {
@@ -1109,11 +1125,15 @@ vm_dbg_resolve_breakpoints(struct workspace *wk)
 
 		L("> %s:%d:%d[%d]", bp_path->s, bp->line, bp->col, bp->off);
 
+		uint32_t best_dist = UINT32_MAX;
 		const struct source_location_mapping *best = 0, *l,
 			*locations = (struct source_location_mapping *)wk->vm.locations.e;
 		for (uint32_t j = 0; j < wk->vm.locations.len; ++j) {
 			l = &locations[j];
+
 			if (l->src_idx != src_idx) {
+				continue;
+			} else if (vm_dbg_breakpoint_should_skip_instruction(wk, l->ip)) {
 				continue;
 			}
 
@@ -1121,8 +1141,12 @@ vm_dbg_resolve_breakpoints(struct workspace *wk)
 				vm_dbg_breakpoint_patch_instruction(wk, bp, l->ip);
 				bp->resolved = true;
 				goto cont;
-			} else if (!best && bp->off <= l->loc.off) {
-				best = l;
+			} else if (bp->off <= l->loc.off) {
+				uint32_t dist = l->loc.off - bp->off;
+				if (dist < best_dist) {
+					best_dist = dist;
+					best = l;
+				}
 			}
 		}
 
@@ -1137,6 +1161,32 @@ invalid_breakpoint:
 		bp->invalid = true;
 cont:
 		continue;
+	}
+}
+
+static void
+vm_dbg_delete_breakpoint(struct workspace *wk, uint32_t i)
+{
+	struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
+
+	wk->vm.code.e[bp->ip] = bp->old_instruction;
+
+	arr_del(&wk->vm.dbg_state.breakpoints, i);
+}
+
+void
+vm_dbg_clear_breakpoints_for_src(struct workspace *wk, obj file)
+{
+	const struct str *fstr = get_str(wk, file);
+	for (int32_t i = wk->vm.dbg_state.breakpoints.len - 1; i >= 0; --i) {
+		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
+		if (bp->tmp) {
+			continue;
+		} else if (!str_eql(get_str(wk, bp->path), fstr)) {
+			continue;
+		}
+
+		vm_dbg_delete_breakpoint(wk, i);
 	}
 }
 
@@ -1201,25 +1251,26 @@ vm_dbg_push_breakpoint_str(struct workspace *wk, const char *bp)
 }
 
 static void
-vm_dbg_push_tmp_breakpoint(struct workspace *wk, const struct detailed_source_location *dloc, uint32_t ip)
+vm_dbg_push_tmp_breakpoint(struct workspace *wk, obj path, const struct detailed_source_location *dloc, uint32_t ip)
 {
 	arr_push(wk->a,
 		&wk->vm.dbg_state.breakpoints,
 		&(struct vm_breakpoint){
 			.resolved = true,
 			.tmp = true,
+			.path = path,
 			.off = dloc->loc.off,
 			.line = dloc->line,
 			.col = dloc->col,
 		});
 	struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, wk->vm.dbg_state.breakpoints.len - 1);
 	vm_dbg_breakpoint_patch_instruction(wk, bp, ip);
+	L("  adding tmp breakpoint @ %s %04x %s", get_cstr(wk, path), ip, vm_op_to_s(bp->old_instruction));
 }
 
 static void
-vm_dbg_prepare_step_scan(struct workspace *wk, uint32_t start, enum vm_dbg_step_flag flags)
+vm_dbg_prepare_step_scan(struct workspace *wk, uint32_t start, enum vm_dbg_step_flag flags, int32_t frame_idx)
 {
-	L(">> %d", start);
 	for (uint32_t ip = start; ip < wk->vm.code.len; ip += OP_WIDTH(wk->vm.code.e[ip])) {
 		struct detailed_source_location dloc;
 		struct source *src;
@@ -1238,7 +1289,7 @@ restart:
 			}
 		}
 
-		L(" > checking %04x, off:%d, %s:%d:%d (%s)",
+		L("  checking %04x, off:%d, %s:%d:%d (%s)",
 			ip,
 			dloc.loc.off,
 			src->label,
@@ -1248,9 +1299,14 @@ restart:
 
 		switch (wk->vm.code.e[ip]) {
 		case op_return:
-		case op_return_end:
+		case op_return_end: {
+			if (frame_idx >= 0) {
+				const struct call_frame *frame = arr_get(&wk->vm.call_stack, frame_idx);
+				vm_dbg_prepare_step_scan(wk, frame->return_ip, flags, frame_idx - 1);
+			}
+			return;
+		}
 		case op_dbg_break:
-			L("skipping");
 			return;
 		case op_jmp_if_true:
 		case op_jmp_if_false:
@@ -1258,7 +1314,7 @@ restart:
 		case op_jmp_if_disabler_keep: {
 			uint32_t oip = ip + 1;
 			uint32_t target_ip = vm_get_constant(wk->vm.code.e, &oip);
-			vm_dbg_prepare_step_scan(wk, target_ip, flags);
+			vm_dbg_prepare_step_scan(wk, target_ip, flags, frame_idx);
 			continue;
 		}
 		case op_jmp: {
@@ -1272,6 +1328,10 @@ restart:
 			continue;
 		}
 
+		if (vm_dbg_breakpoint_should_skip_instruction(wk, ip)) {
+			continue;
+		}
+
 		if (dloc.loc.off != wk->vm.dbg_state.cur_bp->off) {
 			if (flags & vm_dbg_step_flag_line) {
 				if (dloc.line == wk->vm.dbg_state.cur_bp->line) {
@@ -1279,7 +1339,7 @@ restart:
 				}
 			}
 
-			vm_dbg_push_tmp_breakpoint(wk, &dloc, ip);
+			vm_dbg_push_tmp_breakpoint(wk, make_str(wk, src->label), &dloc, ip);
 			return;
 		}
 	}
@@ -1289,10 +1349,16 @@ void
 vm_dbg_prepare_step(struct workspace *wk, enum vm_dbg_step_flag flags)
 {
 	uint32_t next_ip = wk->vm.ip + OP_WIDTH(wk->vm.dbg_state.cur_bp->old_instruction);
-	wk->vm.dbg_state.break_on_entry = true;
-	wk->vm.dbg_state.break_after_return = true;
-	L("prepare step, %04x, off:%d", next_ip, wk->vm.dbg_state.cur_bp->off);
-	vm_dbg_prepare_step_scan(wk, next_ip, flags);
+	int32_t frame_idx = wk->vm.call_stack.len - 1;
+	if (flags & vm_dbg_step_flag_in) {
+		wk->vm.dbg_state.break_on_entry = true;
+	} else if ((flags & vm_dbg_step_flag_out)) {
+		const struct call_frame *frame = arr_get(&wk->vm.call_stack, frame_idx);
+		next_ip = frame->return_ip;
+	}
+
+	L(">> prepare step");
+	vm_dbg_prepare_step_scan(wk, next_ip, flags, frame_idx - 1);
 }
 
 bool
@@ -1303,12 +1369,12 @@ vm_dbg_dap_setup(struct workspace *wk, const char *pipe_path)
 }
 
 static struct vm_breakpoint *
-vm_dbg_get_breakpoint_by_ip(struct workspace *wk, uint32_t ip)
+vm_dbg_get_breakpoint_by_ip(struct workspace *wk, uint32_t ip, uint32_t *idx)
 {
 	for (uint32_t i = 0; i < wk->vm.dbg_state.breakpoints.len; ++i) {
 		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
 		if (bp->resolved && bp->ip == ip) {
-			L("found cur breakpoint @ %d", i);
+			*idx = i;
 			return bp;
 		}
 	}
@@ -1317,20 +1383,9 @@ vm_dbg_get_breakpoint_by_ip(struct workspace *wk, uint32_t ip)
 }
 
 static void
-vm_dbg_delete_breakpoint(struct workspace *wk, uint32_t i)
-{
-	struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
-
-	wk->vm.code.e[bp->ip] = bp->old_instruction;
-
-	arr_del(&wk->vm.dbg_state.breakpoints, i);
-}
-
-static void
 vm_dbg_break(struct workspace *wk)
 {
 	wk->vm.dbg_state.break_on_entry = false;
-	wk->vm.dbg_state.break_after_return = false;
 
 	for (int32_t i = wk->vm.dbg_state.breakpoints.len - 1; i >= 0; --i) {
 		struct vm_breakpoint *bp = arr_get(&wk->vm.dbg_state.breakpoints, i);
@@ -1354,11 +1409,9 @@ vm_dbg_push_tmp_breakpoint_here(struct workspace *wk)
 		struct source *src;
 		vm_lookup_inst_location(&wk->vm, wk->vm.ip, &dloc.loc, &src);
 		if (src->type == source_type_file) {
-			L("pushing tmp breakpoint here");
-			vm_dbg_push_tmp_breakpoint(wk, &dloc, wk->vm.ip);
+			vm_dbg_push_tmp_breakpoint(wk, make_str(wk, src->label), &dloc, wk->vm.ip);
 		}
 		wk->vm.dbg_state.break_on_entry = false;
-		wk->vm.dbg_state.break_after_return = false;
 }
 
 /******************************************************************************
@@ -1399,7 +1452,7 @@ vm_begin_execute_closure(struct workspace *wk, obj a)
 			.expected_return_type = closure->func->return_type,
 			.lang_mode = closure->func->lang_mode,
 			.closure = closure,
-		});
+		}, 0);
 
 	for (i = 0; closure->func->an[i].type != ARG_TYPE_NULL; ++i) {
 		object_stack_push_ip(wk, closure->func->an[i].val, closure->func->an[i].node);
@@ -1418,6 +1471,10 @@ vm_begin_execute_closure(struct workspace *wk, obj a)
 	}
 
 	wk->vm.ip = closure->func->entry;
+
+	if (wk->vm.dbg_state.break_on_entry) {
+		vm_dbg_prepare_step_scan(wk, wk->vm.ip, 0, wk->vm.call_stack.len - 1);
+	}
 }
 
 static void
@@ -3016,10 +3073,6 @@ vm_op_return(struct workspace *wk)
 	struct call_frame *frame = vm_pop_call_stack_frame(wk);
 	wk->vm.ip = frame->return_ip;
 
-	if (wk->vm.dbg_state.break_after_return) {
-		vm_dbg_push_tmp_breakpoint_here(wk);
-	}
-
 	for (int32_t i = wk->vm.open_upvalues.len - 1; i >= 0; --i) {
 		struct open_upvalue *u = arr_get(&wk->vm.open_upvalues, i);
 		if (u->slot < frame->stack_base) {
@@ -3058,12 +3111,16 @@ static void
 vm_op_dbg_break(struct workspace *wk)
 {
 	wk->vm.ip -= 1;
-	struct vm_breakpoint bp = *vm_dbg_get_breakpoint_by_ip(wk, wk->vm.ip);
+	uint32_t idx;
+	struct vm_breakpoint bp = *vm_dbg_get_breakpoint_by_ip(wk, wk->vm.ip, &idx);
 	wk->vm.dbg_state.cur_bp = &bp;
 	assert(wk->vm.ip == bp.ip);
+	L("--- hit breakpoint %d/%d ---", idx, wk->vm.dbg_state.breakpoints.len);
+	L("  tmp: %d", bp.tmp);
+	L("  %d %d %d %04x", bp.line, bp.col, bp.off, bp.ip);
+	L("  inst: %s", vm_op_to_s(bp.old_instruction));
 	vm_dbg_break(wk);
 	++wk->vm.ip;
-	L("executing old inst %s @ %04x", vm_op_to_s(bp.old_instruction), wk->vm.ip);
 	wk->vm.ops.ops[bp.old_instruction](wk);
 }
 
@@ -3071,7 +3128,7 @@ vm_op_dbg_break(struct workspace *wk)
  * vm_execute
  ******************************************************************************/
 
-static obj vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure);
+static obj vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure, obj frame_name);
 
 bool
 vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const struct args_kw akw[], obj *res)
@@ -3099,7 +3156,7 @@ vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const 
 		}
 	}
 
-	*res = vm_execute_impl(wk, 0, c);
+	*res = vm_execute_impl(wk, 0, c, 0);
 	ok = !wk->vm.error;
 	wk->vm.error = false;
 	return ok;
@@ -3131,7 +3188,7 @@ vm_unwind_call_stack(struct workspace *wk)
 }
 
 static obj
-vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure)
+vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure, obj frame_name)
 {
 	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
@@ -3154,7 +3211,7 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure)
 			object_stack_pop(&wk->vm.stack);
 		}
 	} else {
-		vm_push_call_stack_frame(wk, 0);
+		vm_push_call_stack_frame(wk, 0, frame_name);
 		wk->vm.ip = ip;
 	}
 
@@ -3178,9 +3235,9 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure)
 }
 
 obj
-vm_execute(struct workspace *wk, uint32_t ip)
+vm_execute(struct workspace *wk, uint32_t ip, obj frame_name)
 {
-	return vm_execute_impl(wk, ip, 0);
+	return vm_execute_impl(wk, ip, 0, frame_name);
 }
 
 /******************************************************************************
@@ -3228,10 +3285,10 @@ vm_execute_loop(struct workspace *wk)
 
 	uint32_t cip;
 	while (wk->vm.run) {
-		if (log_should_print(log_debug)) {
-			LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
-			object_stack_print(wk, &wk->vm.stack);
-		}
+		// if (log_should_print(log_debug)) {
+		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+		// 	object_stack_print(wk, &wk->vm.stack);
+		// }
 
 		log_progress(wk, wk->vm.ip);
 

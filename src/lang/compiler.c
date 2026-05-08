@@ -605,6 +605,7 @@ vm_comp_pop_call_frame(struct workspace *wk)
 		frame->locals_debug[locals_debug_len] = l->id;
 		++locals_debug_len;
 	}
+	frame->nlocals = locals_debug_len;
 
 	wk->vm.compiler_state.locals.len = frame->locals_base;
 	stack_pop(&wk->stack, wk->vm.compiler_state.loop_depth);
@@ -622,6 +623,7 @@ vm_comp_init_func(struct workspace *wk, struct obj_func *func, const struct comp
 	func->akw[func->nkwargs].key = 0;
 	func->nupvalues = frame->nupvalues;
 	func->upvalues = frame->upvalues;
+	func->nlocals = frame->nlocals;
 	func->locals_debug = frame->locals_debug;
 	func->lang_mode = wk->vm.lang_mode;
 }
@@ -1332,7 +1334,6 @@ vm_op_range_had_effect(struct workspace *wk, uint32_t start, uint32_t end)
 static void
 vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_flags flags)
 {
-	struct node *on = n;
 	struct node *prev = 0;
 	while (n && n->l) {
 		assert(n->type == node_type_stmt);
@@ -1444,6 +1445,7 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 			}
 		}
 		func->automatically_defined = true;
+		func->wrapper = true;
 		func->def = wrapper_func_entry;
 		func->entry = wrapper_func_entry;
 		func->return_type = TYPE_TAG_ALLOW_NULL | tc_any;
