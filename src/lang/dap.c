@@ -40,6 +40,7 @@ struct dap_srv {
 	struct arena a, a_scratch;
 	enum dap_srv_state state;
 	uint32_t seq;
+	bool pause_requested;
 };
 
 struct dap_request {
@@ -224,6 +225,10 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 		dap_respond(srv, wk, &req, body);
 	} else if (str_eql(command, &STR("configurationDone"))) {
 		srv->state = dap_srv_state_running;
+		dap_respond(srv, wk, &req, 0);
+	} else if (str_eql(command, &STR("pause"))) {
+		srv->pause_requested = true;
+		srv->srv.wk->vm.dbg_state.break_on_entry = true;
 		dap_respond(srv, wk, &req, 0);
 	} else if (str_eql(command, &STR("setBreakpoints"))) {
 
@@ -490,7 +495,13 @@ dap_break_cb(struct workspace *srv_wk)
 	struct workspace *wk = dap_server_begin(srv_wk);
 
 	obj body = make_obj(wk, obj_dict);
-	obj_dict_set(wk, body, make_str(wk, "reason"), make_str(wk, "breakpoint"));
+	if (srv->pause_requested) {
+		obj_dict_set(wk, body, make_str(wk, "reason"), make_str(wk, "pause"));
+		obj_dict_set(wk, body, make_str(wk, "threadId"), make_number(wk, 1));
+		srv->pause_requested = false;
+	} else {
+		obj_dict_set(wk, body, make_str(wk, "reason"), make_str(wk, "breakpoint"));
+	}
 	dap_event(srv, wk, "stopped", body);
 	srv->state = dap_srv_state_stopped;
 
