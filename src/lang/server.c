@@ -157,7 +157,7 @@ srv_read(struct server *srv, struct workspace *wk, obj *msg)
 void
 srv_write(struct server *srv, struct workspace *wk, obj msg)
 {
-	obj_lprintf(wk, log_debug, ">>> %#o\n", msg);
+	// obj_lprintf(wk, log_debug, ">>> %#o\n", msg);
 	TSTR(json_buf);
 	if (!obj_to_json(wk, msg, &json_buf)) {
 		UNREACHABLE;

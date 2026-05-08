@@ -185,14 +185,10 @@ dap_variable_named(struct dap_srv *srv, struct workspace *wk, obj name, obj val)
 		break;
 	default:
 		if (vm_reflected_obj_fields(srv->srv.wk, t)) {
-			L("struct children");
 			group = dap_srv_variable_group_struct;
 		}
 		break;
 	}
-
-	L("type: %s, group: %d", obj_type_to_s(t), group);
-
 
 	if (group) {
 		union dap_variable_ref ref = {
@@ -300,8 +296,6 @@ dap_handle(struct dap_srv *srv, struct workspace *wk, obj msg)
 		union dap_variable_ref ref = {
 			.num = obj_dict_index_as_number(wk, req.arguments, "variablesReference"),
 		};
-
-		L("----------------- group: %d", ref.dat.group);
 
 		obj variables = make_obj(wk, obj_array);
 

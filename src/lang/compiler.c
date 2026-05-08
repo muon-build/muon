@@ -53,6 +53,12 @@ push_location(struct workspace *wk, struct node *n)
 	push_location_raw(wk, &n->location, wk->vm.src.len - 1);
 }
 
+static void
+push_null_location(struct workspace *wk)
+{
+	push_location_raw(wk, &(struct source_location){ 0 }, UINT32_MAX);
+}
+
 typedef void((*vm_visit_nodes_cb)(struct workspace *wk, struct node *n));
 
 static void
@@ -440,7 +446,7 @@ vm_comp_assign_local(struct workspace *wk, struct node *n, obj id, enum node_ass
 static void
 vm_comp_reserve_local_stack_slot(struct workspace *wk, struct node *n, obj id)
 {
-	push_location(wk, n);
+	push_null_location(wk);
 	push_code(wk, op_constant);
 	push_constant(wk, obj_uninitialized);
 }
@@ -1364,8 +1370,7 @@ vm_compile_block(struct workspace *wk, struct node *n, enum vm_compile_block_fla
 			--wk->vm.code.len;
 			wk->vm.code.e[wk->vm.code.len - 1] = op_return_end;
 		} else {
-			push_location_raw(wk, &(struct source_location){ 0 }, UINT32_MAX);
-
+			push_null_location(wk);
 			push_code(wk, op_constant);
 			push_constant(wk, 0);
 			push_code(wk, op_return_end);
@@ -1421,6 +1426,8 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	vm_compile_block(wk, n, flags);
 
 	if (mode & vm_compile_mode_locals) {
+		push_null_location(wk);
+
 		struct compiler_call_frame *frame = vm_comp_pop_call_frame(wk);
 
 		uint32_t wrapper_func_entry = *entry;
