@@ -279,8 +279,7 @@ struct vm_inst_location
 void vm_inst_location(struct workspace *wk, uint32_t ip, struct vm_inst_location *res);
 obj vm_inst_location_str(struct workspace *wk, uint32_t ip);
 obj vm_callstack(struct workspace *wk);
-void vm_dis(struct workspace *wk);
-const char *vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip);
+void vm_dis(struct workspace *wk, int64_t offset);
 void vm_init(struct workspace *wk);
 void vm_init_objects(struct workspace *wk);
 void vm_reflect_objects(struct workspace *wk);

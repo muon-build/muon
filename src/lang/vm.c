@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <string.h>
@@ -816,8 +817,8 @@ vm_op_to_s(uint8_t op)
 	UNREACHABLE_RETURN;
 }
 
-const char *
-vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
+static const char *
+vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip, int64_t offset)
 {
 	uint32_t i = 0;
 	static char buf[2048];
@@ -825,7 +826,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 #define buf_push(...) i += obj_snprintf(wk, &buf[i], sizeof(buf) - i, __VA_ARGS__);
 
 	uint32_t ip = base_ip;
-	buf_push("%04x ", ip);
+	buf_push("%04" PRIx64 " ", ip + offset);
 
 	uint32_t op = code[ip], constants[3] = { 0 };
 	{
@@ -926,7 +927,7 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip)
 }
 
 void
-vm_dis(struct workspace *wk)
+vm_dis(struct workspace *wk, int64_t offset)
 {
 	uint32_t term_w = 80;
 	{
@@ -975,7 +976,7 @@ vm_dis(struct workspace *wk)
 			}
 		}
 
-		const char *dis = vm_dis_inst(wk, wk->vm.code.e, i);
+		const char *dis = vm_dis_inst(wk, wk->vm.code.e, i, offset);
 
 		char loc_buf[256] = { 0 };
 		// enable to print instruction source locations
@@ -3286,7 +3287,7 @@ vm_execute_loop(struct workspace *wk)
 	uint32_t cip;
 	while (wk->vm.run) {
 		// if (log_should_print(log_debug)) {
-		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip));
+		// 	LL("%-50s", vm_dis_inst(wk, wk->vm.code.e, wk->vm.ip, 0));
 		// 	object_stack_print(wk, &wk->vm.stack);
 		// }
 

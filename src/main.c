@@ -219,6 +219,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		const char *breakpoint;
 		bool print_ast, print_dis;
 		enum vm_compile_mode compile_mode;
+		int64_t offset;
 	} opts = { 0 };
 
 	enum language_mode lang_mode = wk->vm.lang_mode;
@@ -244,6 +245,11 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 			opts.compile_mode |= vm_compile_mode_fmt;
 		} else if (opt_match('r', "enable relaxed mode")) {
 			opts.compile_mode |= vm_compile_mode_relaxed_parse;
+		} else if (opt_match('o', "set an offset in hexadecimal when printing instructions", "offset")) {
+			if (!str_to_i_base(&STRL(opt_ctx.optarg), &opts.offset, false, 16)) {
+				LOG_E("invalid value for integer: %s", opt_ctx.optarg);
+				return false;
+			}
 		}
 	}
 	opt_end();
@@ -284,7 +290,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		}
 
 		if (opts.print_dis) {
-			vm_dis(wk);
+			vm_dis(wk, opts.offset);
 		}
 	}
 
