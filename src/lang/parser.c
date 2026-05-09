@@ -376,7 +376,8 @@ parse_advance(struct parser *p)
 	}
 
 	while (p->current.type == token_type_error) {
-		parse_error(p, &p->current.location, "%s", get_cstr(p->wk, p->current.data.str));
+		const struct str *ss = get_str(p->wk, p->current.data.str);
+		parse_error(p, &p->current.location, "%.*s", ss->len, ss->s);
 		p->err.unwinding = false;
 		lexer_next(&p->lexer, &p->current);
 	}
@@ -1435,7 +1436,8 @@ relex:
 	p->lexer.cm_mode = cm_lexer_mode_default;
 
 	while (p->current.type == token_type_error) {
-		parse_error(p, &p->current.location, "%s", get_cstr(p->wk, p->current.data.str));
+		const struct str *ss = get_str(p->wk, p->current.data.str);
+		parse_error(p, &p->current.location, "%.*s", ss->len, ss->s);
 		p->err.unwinding = false;
 		prev_lexer = p->lexer;
 		cm_lexer_next(&p->lexer, &p->current);
