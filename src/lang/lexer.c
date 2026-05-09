@@ -149,8 +149,7 @@ is_skipchar(const char c)
 static void
 lexer_push_fmt_raw_block(struct lexer *lexer, uint32_t start)
 {
-	obj s = make_strn(
-		lexer->wk, &lexer->src[lexer->fmt.raw_block_start], (start - 1) - lexer->fmt.raw_block_start);
+	obj s = make_strn(lexer->wk, &lexer->src[lexer->fmt.raw_block_start], (start - 1) - lexer->fmt.raw_block_start);
 
 	// XXX: We have to dup the array each time so that the parser can
 	// correctly reset the lexer using just value semantics
@@ -159,7 +158,6 @@ lexer_push_fmt_raw_block(struct lexer *lexer, uint32_t start)
 	lexer->fmt.raw_blocks = dup;
 	obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
 }
-
 
 static void
 lex_advance(struct lexer *lexer)
@@ -241,6 +239,19 @@ MUON_ATTR_FORMAT(printf, 3, 4) lex_error_token(struct lexer *lexer, struct token
 	va_end(args);
 }
 
+static void
+lex_error_unexpected_char(struct lexer *lexer, struct token *token)
+{
+	char c = lexer->src[lexer->i];
+	bool is_printable = ' ' <= c && c <= '~';
+
+	if (!is_printable) {
+		lex_error_token(lexer, token, "unexpected byte 0x%02x", c);
+	} else {
+		lex_error_token(lexer, token, "unexpected character '%c'", c);
+	}
+}
+
 /******************************************************************************
 * fmt related
 ******************************************************************************/
@@ -291,11 +302,23 @@ lexer_push_token_fmt(struct lexer *lexer, struct node_fmt_ws *ws, uint32_t pos)
 {
 	if (lexer->fmt.range) {
 		if (!lexer->fmt.range_pushed.start && pos >= lexer->fmt.range->start) {
-			L("%p, %d - %d - %d %d %d", (void*)lexer, lexer->fmt.range->start, pos, lexer->fmt.range->end, lexer->fmt.range_pushed.start, lexer->fmt.range_pushed.end);
+			L("%p, %d - %d - %d %d %d",
+				(void *)lexer,
+				lexer->fmt.range->start,
+				pos,
+				lexer->fmt.range->end,
+				lexer->fmt.range_pushed.start,
+				lexer->fmt.range_pushed.end);
 			lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_on);
 			lexer->fmt.range_pushed.start = true;
 		} else if (!lexer->fmt.range_pushed.end && pos >= lexer->fmt.range->end) {
-			L("%p, %d - %d - %d %d %d", (void*)lexer, lexer->fmt.range->start, pos, lexer->fmt.range->end, lexer->fmt.range_pushed.start, lexer->fmt.range_pushed.end);
+			L("%p, %d - %d - %d %d %d",
+				(void *)lexer,
+				lexer->fmt.range->start,
+				pos,
+				lexer->fmt.range->end,
+				lexer->fmt.range_pushed.start,
+				lexer->fmt.range_pushed.end);
 			lexer_push_whitespace_packed(lexer, ws, 0, node_fmt_ws_flag_fmt_off);
 			lexer->fmt.range_pushed.end = true;
 		}
@@ -937,7 +960,7 @@ restart:
 		break;
 	default:
 unexpected_character:
-		lex_error_token(lexer, token, "unexpected character: '%c'", lexer->src[lexer->i]);
+		lex_error_unexpected_char(lexer, token);
 		break;
 	}
 
@@ -955,7 +978,6 @@ lexer_next(struct lexer *lexer, struct token *token)
 	// 	token->flags |= lexer->fmt.in_range ? token_flag_fmt_on : token_flag_fmt_off;
 	// 	lexer->fmt.range_border_crossed = false;
 	// }
-
 }
 
 void
@@ -968,7 +990,7 @@ lexer_init(struct lexer *lexer, struct workspace *wk, const struct source *src, 
 		.mode = mode,
 	};
 
-	if (src->len >= 3 && memcmp(src->src, (uint8_t []){ 0xef, 0xbb, 0xbf }, 3) == 0) {
+	if (src->len >= 3 && memcmp(src->src, (uint8_t[]){ 0xef, 0xbb, 0xbf }, 3) == 0) {
 		lexer->mode |= lexer_mode_bom_error;
 	}
 
@@ -1164,7 +1186,7 @@ restart:
 		break;
 	default:
 unexpected_character:
-		lex_error_token(lexer, token, "unexpected character: '%c'", lexer->src[lexer->i]);
+		lex_error_unexpected_char(lexer, token);
 		break;
 	}
 
