@@ -498,6 +498,14 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 			wk->vm.disable_fuzz_unsafe_functions = true;
 		} else if (opt_match('c', "evaluate program passed in as string", "program text")) {
 			string_src = opt_ctx.optarg;
+		} else if (opt_match('b', "set breakpoint", "breakpoint")) {
+			if (!vm_dbg_push_breakpoint_str(wk, opt_ctx.optarg)) {
+				return false;
+			}
+		} else if (opt_match('B', "enable DAP server connected to pipe", "debugger pipe")) {
+			if (!vm_dbg_dap_setup(wk, opt_ctx.optarg)) {
+				return false;
+			}
 		}
 	}
 	opt_end();
@@ -997,7 +1005,11 @@ cmd_setup_common(struct workspace *wk,
 			if (!parse_and_set_cmdline_option(wk, opt_ctx.optarg)) {
 				goto ret;
 			}
-		} else if (opt_match('b', "enable DAP server connected to pipe", "debugger pipe")) {
+		} else if (opt_match('b', "set breakpoint", "breakpoint")) {
+			if (!vm_dbg_push_breakpoint_str(wk, opt_ctx.optarg)) {
+				return false;
+			}
+		} else if (opt_match('B', "enable DAP server connected to pipe", "debugger pipe")) {
 			if (!vm_dbg_dap_setup(wk, opt_ctx.optarg)) {
 				return false;
 			}
