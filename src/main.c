@@ -1039,6 +1039,7 @@ cmd_setup_common(struct workspace *wk,
 	}
 
 	build = argv[argi];
+	obj_array_push(wk, regen_args, make_str(wk, build));
 
 	// The following shenanigans are to support passing the source dir instead
 	// of the build dir.  We decide that the passed dir is a source dir (and
