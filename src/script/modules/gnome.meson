@@ -199,8 +199,8 @@ func generate_gir(
     includes listify[str]: [],
     install_gir bool:,
     install_typelib bool:,
-    install_dir_gir str:,
-    install_dir_typelib str:,
+    install_dir_gir bool|str:,
+    install_dir_typelib bool|str:,
     link_with listify[both_libs|build_tgt]: [],
     namespace str:,
     nsversion str:,
@@ -218,6 +218,14 @@ func generate_gir(
         error('nsversion kwarg is required')
     endif
 
+    if typeof(install_dir_gir) == 'bool' and install_dir_gir == true
+        error('install_dir_gir as boolean can only be false')
+    endif
+
+    if typeof(install_dir_typelib) == 'bool' and install_dir_typelib == true
+        error('install_dir_typelib as boolean can only be false')
+    endif
+
     # Determine install directories
     if is_null(install_dir_gir)
         install_dir_gir = get_option('datadir') / 'gir-1.0'
@@ -228,11 +236,19 @@ func generate_gir(
     endif
 
     if is_null(install_gir)
-        install_gir = install
+        if install_dir_gir == false
+            install_gir = false
+        else
+            install_gir = install
+        endif
     endif
 
     if is_null(install_typelib)
-        install_typelib = install
+        if install_dir_typelib == false
+            install_typelib = false
+        else
+            install_typelib = install
+        endif
     endif
 
     # Find required programs
