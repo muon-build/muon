@@ -453,7 +453,7 @@ dap_server_end(struct workspace *srv_wk)
 	ar_clear(&srv->a_scratch);
 }
 
-bool
+static bool
 dap_server_update(struct workspace *srv_wk)
 {
 	struct dap_srv *srv = srv_wk->vm.dbg_state.dap;
