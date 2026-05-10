@@ -953,10 +953,7 @@ ca_regenerate_build_command(struct workspace *wk, bool opts_only)
 		obj_array_push(wk, regen_args, make_strf(wk, "-D%s=%s", get_cstr(wk, o->name), buf.buf));
 	}
 
-	uint32_t i;
-	for (i = 0; i < wk->original_commandline.argc; ++i) {
-		obj_array_push(wk, regen_args, make_str(wk, wk->original_commandline.argv[i]));
-	}
+	obj_array_extend(wk, regen_args, wk->regen_args);
 
 	return regen_args;
 }

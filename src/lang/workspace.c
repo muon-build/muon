@@ -185,7 +185,7 @@ workspace_init_startup_files(struct workspace *wk)
 }
 
 void
-workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[])
+workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, obj regen_args)
 {
 	TSTR(build_root);
 	path_make_absolute(wk, &build_root, build);
@@ -202,8 +202,7 @@ workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0
 	}
 	wk->argv0 = get_cstr(wk, argv0_str);
 
-	wk->original_commandline.argc = argc;
-	wk->original_commandline.argv = argv;
+	wk->regen_args = regen_args;
 
 	TSTR(muon_private);
 	path_join(wk, &muon_private, wk->build_root, output_path.private_dir);
@@ -442,11 +441,10 @@ bool
 workspace_do_setup_prepare(struct workspace *wk,
 	const char *build,
 	const char *argv0,
-	uint32_t argc,
-	char *const argv[],
+	obj regen_args,
 	enum workspace_do_setup_flag flags)
 {
-	workspace_setup_paths(wk, build, argv0, argc, argv);
+	workspace_setup_paths(wk, build, argv0, regen_args);
 
 	if (!workspace_create_build_dir(wk)) {
 		return false;

@@ -514,7 +514,7 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 
-	workspace_setup_paths(wk, path_cwd(), argv[0], argc, argv);
+	workspace_setup_paths(wk, path_cwd(), argv[0], 0);
 
 	if (string_src) {
 		if (!opt_check_operands(argc, argi, 0)) {
@@ -1001,7 +1001,8 @@ cmd_setup_common(struct workspace *wk,
 	enum workspace_do_setup_flag flags = 0;
 	const char *build = 0;
 
-	uint32_t original_argi = argi + 1;
+	obj regen_args = make_obj(wk, obj_array);
+
 	opt_for(ctx->n_operands, .usage_post = ctx->usage, .extra_help = cmd_setup_help) {
 		if (opt_match('#', "enable setup progress bar")) {
 			log_progress_enable(wk);
@@ -1009,6 +1010,9 @@ cmd_setup_common(struct workspace *wk,
 			if (!parse_and_set_cmdline_option(wk, opt_ctx.optarg)) {
 				goto ret;
 			}
+
+			obj_array_push(wk, regen_args, make_str(wk, "-D"));
+			obj_array_push(wk, regen_args, make_str(wk, opt_ctx.optarg));
 		} else if (opt_match('b', "set breakpoint", "breakpoint")) {
 			if (!vm_dbg_push_breakpoint_str(wk, opt_ctx.optarg)) {
 				return false;
@@ -1022,6 +1026,9 @@ cmd_setup_common(struct workspace *wk,
 			ctx->cached = false;
 		} else if (opt_match('p', "preload <file>", "file")) {
 			arr_push(wk->a_scratch, &preload_files, &opt_ctx.optarg);
+
+			obj_array_push(wk, regen_args, make_str(wk, "-p"));
+			obj_array_push(wk, regen_args, make_str(wk, opt_ctx.optarg));
 		}
 	}
 	opt_end();
@@ -1063,7 +1070,7 @@ cmd_setup_common(struct workspace *wk,
 
 	++argi;
 
-	if (!workspace_do_setup_prepare(wk, build, argv[0], argi - original_argi, &argv[original_argi], flags)) {
+	if (!workspace_do_setup_prepare(wk, build, argv[0], regen_args, flags)) {
 		goto ret;
 	}
 

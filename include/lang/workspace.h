@@ -63,10 +63,7 @@ struct workspace {
 
 	const char *argv0, *source_root, *build_root, *muon_private;
 
-	struct {
-		uint32_t argc;
-		char *const *argv;
-	} original_commandline;
+	obj regen_args;
 
 	/* Global objects
 	 * ----------------- */
@@ -122,7 +119,7 @@ void workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a
 void workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scratch);
 void workspace_init_runtime(struct workspace *wk);
 void workspace_init_startup_files(struct workspace *wk);
-void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[]);
+void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, obj regen_args);
 void workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v);
 void workspace_add_regenerate_dep(struct workspace *wk, obj v);
 void workspace_add_regenerate_deps(struct workspace *wk, obj obj_or_arr);
@@ -139,7 +136,11 @@ void workspace_print_summaries(struct workspace *wk, FILE *out);
 enum workspace_do_setup_flag {
 	workspace_do_setup_flag_clear_cache = 1 << 0,
 };
-bool workspace_do_setup_prepare(struct workspace *wk, const char *build, const char *argv0, uint32_t argc, char *const argv[], enum workspace_do_setup_flag flags);
+bool workspace_do_setup_prepare(struct workspace *wk,
+	const char *build,
+	const char *argv0,
+	obj regen_args,
+	enum workspace_do_setup_flag flags);
 bool workspace_do_setup(struct workspace *wk, struct arr *preload_files);
 void workspace_scratch_begin(struct workspace *wk);
 void workspace_scratch_end(struct workspace *wk);
