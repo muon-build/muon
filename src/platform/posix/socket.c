@@ -27,13 +27,16 @@ socket_pair_create(const char *path, struct socket_pair *pair)
 		return false;
 	}
 
-	struct sockaddr_un addr = { 0 };
+	union {
+		struct sockaddr sa;
+		struct sockaddr_un un;
+	} addr;
 	memset(&addr, 0, sizeof(addr));
 	const struct str path_str = STRL(path);
-	cstr_copy(addr.sun_path, &path_str);
-	addr.sun_family = AF_UNIX;
+	cstr_copy(addr.un.sun_path, &path_str);
+	addr.un.sun_family = AF_UNIX;
 
-	if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+	if (bind(server_fd, &addr.sa, sizeof(addr)) == -1) {
 		LOG_E("failed bind: %s", strerror(errno));
 		fs_close(&server_fd);
 		return false;
