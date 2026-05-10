@@ -142,6 +142,7 @@
 #include "platform/windows/path.c"
 #include "platform/windows/rpath_fixer.c"
 #include "platform/windows/run_cmd.c"
+#include "platform/windows/socket.c"
 #include "platform/windows/term.c"
 #include "platform/windows/timer.c"
 #include "platform/windows/uname.c"
