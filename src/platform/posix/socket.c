@@ -31,7 +31,6 @@ socket_pair_create(const char *path, struct socket_pair *pair)
 	memset(&addr, 0, sizeof(addr));
 	const struct str path_str = STRL(path);
 	cstr_copy(addr.sun_path, &path_str);
-	addr.sun_len = path_str.len + 1;
 	addr.sun_family = AF_UNIX;
 
 	if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
