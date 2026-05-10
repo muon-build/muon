@@ -238,7 +238,7 @@ push_install_targets(struct workspace *wk,
 		.install_dirs_is_arr = get_obj_type(wk, install_dirs) == obj_array,
 	};
 
-	assert(ctx.install_dirs_is_arr || get_obj_type(wk, install_dirs) == obj_string);
+	assert(ctx.install_dirs_is_arr || get_obj_type(wk, install_dirs) == obj_string || get_obj_type(wk, install_dirs) == obj_bool);
 
 	if (ctx.install_dirs_is_arr) {
 		struct obj_array *a1 = get_obj_array(wk, filenames);
