@@ -68,4 +68,9 @@ if platform == 'posix'
     else
         platform_sources += files('null/backtrace.c')
     endif
+
+    if host_machine.system() == 'sunos'
+        deps += cc.find_library('socket')
+        deps += cc.find_library('nsl')
+    endif
 endif

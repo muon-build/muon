@@ -368,7 +368,7 @@ fs_write(int fd, const void *buf_v, uint32_t len)
 {
 	const char *buf = buf_v;
 	while (len > 0) {
-		ssize_t w = write(fd, buf, len);
+		int64_t w = write(fd, buf, len);
 		if (w < 0) {
 			if (errno == EINTR) {
 				continue;
