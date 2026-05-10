@@ -538,6 +538,10 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 				goto ret;
 			}
 		} else {
+			TSTR(buf);
+			path_make_absolute(wk, &buf, filename);
+			filename = get_str(wk, tstr_into_str(wk, &buf))->s;
+
 			if (!fs_read_entire_file(wk->a_scratch, filename, &src)) {
 				goto ret;
 			}
