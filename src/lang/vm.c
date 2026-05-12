@@ -1785,7 +1785,46 @@ vm_op_mul(struct workspace *wk)
 static void
 vm_op_mod(struct workspace *wk)
 {
-	vm_simple_integer_op_body(%, "%%");
+	obj a, b;
+	b = object_stack_pop(&wk->vm.stack);
+	a = object_stack_pop(&wk->vm.stack);
+	binop_disabler_check(a, b);
+
+	enum obj_type a_t = get_obj_type(wk, a), b_t = get_obj_type(wk, b);
+	obj res;
+
+	switch (a_t) {
+	case obj_number: {
+		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
+
+		int64_t b_val = get_obj_number(wk, b);
+		if (b_val == 0) {
+			vm_error(wk, "modulo by zero");
+			vm_push_dummy(wk);
+			return;
+		}
+
+		res = make_obj(wk, obj_number);
+		set_obj_number(wk, res, get_obj_number(wk, a) % b_val);
+		break;
+	}
+	case obj_typeinfo: {
+		struct check_obj_typeinfo_map map[obj_type_count] = {
+			[obj_number] = { tc_number, tc_number },
+		};
+		if (!typecheck_typeinfo_operands(wk, a, b, &res, map)) {
+			goto type_err;
+		}
+		break;
+	}
+	default:
+type_err:
+		vm_error(wk, "%% not defined for %s and %s", obj_typestr(wk, a), obj_typestr(wk, b));
+		vm_push_dummy(wk);
+		return;
+	}
+
+	object_stack_push(wk, res);
 }
 
 static void
@@ -1800,12 +1839,20 @@ vm_op_div(struct workspace *wk)
 	obj res = 0;
 
 	switch (a_t) {
-	case obj_number:
+	case obj_number: {
 		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
 
+		int64_t b_val = get_obj_number(wk, b);
+		if (b_val == 0) {
+			vm_error(wk, "division by zero");
+			vm_push_dummy(wk);
+			return;
+		}
+
 		res = make_obj(wk, obj_number);
-		set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
+		set_obj_number(wk, res, get_obj_number(wk, a) / b_val);
 		break;
+	}
 	case obj_string: {
 		typecheck_operand(b, b_t, obj_string, tc_string, tc_string);
 
