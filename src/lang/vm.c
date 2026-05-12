@@ -1735,6 +1735,16 @@ type_err:
 	object_stack_push(wk, res);
 }
 
+static bool
+vm_div_by_0_check(struct workspace *wk, int64_t val)
+{
+	if (val == 0) {
+		vm_error(wk, "division by zero");
+		return false;
+	}
+	return true;
+}
+
 #define vm_simple_integer_op_body(__op, __strop)                                                            \
 	obj a, b;                                                                                           \
 	b = object_stack_pop(&wk->vm.stack);                                                                \
@@ -1748,8 +1758,14 @@ type_err:
 	case obj_number: {                                                                                  \
 		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);                                \
                                                                                                             \
+		int64_t b_val = get_obj_number(wk, b);                                                      \
+		if (*__strop == '%' && !vm_div_by_0_check(wk, b_val)) {                                     \
+			vm_push_dummy(wk);                                                                  \
+			return;                                                                             \
+		}                                                                                           \
+                                                                                                            \
 		res = make_obj(wk, obj_number);                                                             \
-		set_obj_number(wk, res, get_obj_number(wk, a) __op get_obj_number(wk, b));                  \
+		set_obj_number(wk, res, get_obj_number(wk, a) __op b_val);                                  \
 		break;                                                                                      \
 	}                                                                                                   \
 	case obj_typeinfo: {                                                                                \
@@ -1800,12 +1816,19 @@ vm_op_div(struct workspace *wk)
 	obj res = 0;
 
 	switch (a_t) {
-	case obj_number:
+	case obj_number: {
 		typecheck_operand(b, b_t, obj_number, tc_number, tc_number);
 
+		int64_t b_val = get_obj_number(wk, b);
+		if (!vm_div_by_0_check(wk, b_val)) {
+			vm_push_dummy(wk);
+			return;
+		}
+
 		res = make_obj(wk, obj_number);
-		set_obj_number(wk, res, get_obj_number(wk, a) / get_obj_number(wk, b));
+		set_obj_number(wk, res, get_obj_number(wk, a) / b_val);
 		break;
+	}
 	case obj_string: {
 		typecheck_operand(b, b_t, obj_string, tc_string, tc_string);
 
