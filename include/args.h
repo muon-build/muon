@@ -36,4 +36,6 @@ void join_args_argstr(struct workspace *wk, const char **res, uint32_t *argc, ob
 void env_to_envstr(struct workspace *wk, const char **res, uint32_t *envc, obj val);
 
 obj make_shell_escaped_str(struct workspace *wk, const char *s);
+
+void relativize_build_file_path(struct workspace *wk, struct tstr *buf, const char *path);
 #endif

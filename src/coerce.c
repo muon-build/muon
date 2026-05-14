@@ -8,6 +8,7 @@
 #include <inttypes.h>
 #include <string.h>
 
+#include "args.h"
 #include "coerce.h"
 #include "functions/both_libs.h"
 #include "functions/environment.h"
@@ -307,7 +308,7 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		TSTR(dest);
 		TSTR(rel);
 		path_join(wk, &dest, get_cstr(wk, o->build_dir), get_cstr(wk, o->build_name));
-		path_relative_to(wk, &rel, wk->build_root, dest.buf);
+		relativize_build_file_path(wk, &rel, dest.buf);
 		path_executable(wk, &dest, rel.buf);
 		str = tstr_into_str(wk, &dest);
 		break;

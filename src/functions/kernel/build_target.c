@@ -9,6 +9,7 @@
 
 #include <string.h>
 
+#include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "functions/build_target.h"
@@ -179,7 +180,7 @@ process_source_include(struct workspace *wk, struct process_build_tgt_sources_ct
 
 	TSTR(dir);
 	TSTR(path);
-	path_relative_to(wk, &path, wk->build_root, src);
+	relativize_build_file_path(wk, &path, src);
 
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
 	obj_array_push(wk, tgt->dep_internal.order_deps, tstr_into_str(wk, &path));

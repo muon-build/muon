@@ -383,6 +383,13 @@ option(
     description: 'Specify a ccache-like compiler wrapper to use',
 )
 
+option(
+    'b_relativize_paths',
+    type: 'boolean',
+    value: true,
+    description: 'Control if paths in generated files are relative or absolute',
+)
+
 # Compiler options
 
 option(

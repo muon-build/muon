@@ -1214,7 +1214,15 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 	if (!opts->no_rebuild) {
 		obj ninja_cmd;
 		ninja_cmd = make_obj(wk, obj_array);
-		obj_array_push(wk, ninja_cmd, make_str(wk, "build.ninja"));
+
+		TSTR(build_ninja);
+		if (get_option_bool(wk, 0, "b_relativize_paths", true)) {
+			tstr_pushs(wk, &build_ninja, "build.ninja");
+		} else {
+			path_make_absolute(wk, &build_ninja, "build.ninja");
+		}
+
+		obj_array_push(wk, ninja_cmd, tstr_into_str(wk, &build_ninja));
 		if (!ninja_run(wk, ninja_cmd, NULL, NULL, 0)) {
 			goto ret;
 		}

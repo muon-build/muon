@@ -59,7 +59,7 @@ str_relative_to_build_root(struct workspace *wk, struct custom_target_cmd_fmt_ct
 		return;
 	}
 
-	path_relative_to(wk, &rel, wk->build_root, path);
+	relativize_build_file_path(wk, &rel, path);
 
 	if (ctx->i == 0) {
 		// prefix relative argv0 with ./ so that executables are looked

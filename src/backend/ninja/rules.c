@@ -296,9 +296,20 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 		const char *regenerate_deps = get_cstr(wk, join_args_ninja(wk, regenerate_deps_rel));
 
+		TSTR(build_ninja);
+
+		if (get_option_bool(wk, 0, "b_relativize_paths", true)) {
+			tstr_pushs(wk, &build_ninja, "build.ninja");
+		} else {
+			TSTR(abs);
+			path_join(wk, &abs, wk->build_root, "build.ninja");
+			ninja_escape(wk, &build_ninja, abs.buf);
+		}
+
 		fprintf(out,
-			"build build.ninja: REGENERATE_BUILD %s\n"
+			"build %s: REGENERATE_BUILD %s\n"
 			" pool = console\n\n",
+			build_ninja.buf,
 			regenerate_deps);
 
 		fprintf(out,

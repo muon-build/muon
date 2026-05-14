@@ -1520,7 +1520,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 			break;
 		}
 
-		path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, val));
+		relativize_build_file_path(wk, &rel, get_file_path(wk, val));
 		obj_array_push(wk, ctx->t->depends, tstr_into_str(wk, &rel));
 		break;
 
@@ -1532,7 +1532,7 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 	case obj_build_target: {
 		struct obj_build_target *tgt = get_obj_build_target(wk, val);
 
-		path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
+		relativize_build_file_path(wk, &rel, get_cstr(wk, tgt->build_path));
 		obj_array_push(wk, ctx->t->depends, tstr_into_str(wk, &rel));
 		break;
 	}

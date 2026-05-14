@@ -407,7 +407,7 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj comp, obj include_dirs
 			}
 
 			if (path_is_absolute(dir)) {
-				path_relative_to(wk, &rel, wk->build_root, dir);
+				relativize_build_file_path(wk, &rel, dir);
 				dir = rel.buf;
 			}
 		}
@@ -870,7 +870,7 @@ ca_relativize_paths_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	TSTR(buf);
-	path_relative_to(wk, &buf, wk->build_root, str);
+	relativize_build_file_path(wk, &buf, str);
 	obj s = tstr_into_str(wk, &buf);
 
 	if (ctx->oneshot) {

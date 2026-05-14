@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "args.h"
 #include "backend/introspect.h"
 #include "backend/output.h"
 #include "buf_size.h"
@@ -85,7 +86,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 	obj_dict_set(wk, doc, make_str(wk, "filename"), filename);
 
 	TSTR(rel);
-	path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, t->build_path));
+	relativize_build_file_path(wk, &rel, get_cstr(wk, t->build_path));
 	obj_dict_set(wk, doc, make_str(wk, "id"), introspect_id(wk, tstr_into_str(wk, &rel)));
 
 	obj_dict_set(wk,

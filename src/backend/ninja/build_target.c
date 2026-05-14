@@ -183,7 +183,7 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 
 	TSTR(src_path);
 	const char *src = get_file_path(wk, val);
-	path_relative_to(wk, &src_path, wk->build_root, src);
+	relativize_build_file_path(wk, &src_path, src);
 
 	/* Handle two-stage compilation for Vala */
 	if (lang == compiler_language_vala && !(flags & write_tgt_src_flag_pch)) {
@@ -266,7 +266,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	TSTR(esc_path);
 	TSTR(rel_build_path);
 	{
-		path_relative_to(wk, &rel_build_path, wk->build_root, get_cstr(wk, tgt->build_path));
+		relativize_build_file_path(wk, &rel_build_path, get_cstr(wk, tgt->build_path));
 		ninja_escape(wk, &esc_path, rel_build_path.buf);
 	}
 
@@ -336,7 +336,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 			const char *src = get_file_path(wk, v);
 
 			TSTR(path);
-			path_relative_to(wk, &path, wk->build_root, src);
+			relativize_build_file_path(wk, &path, src);
 			obj_array_push(wk, ctx.object_names, tstr_into_str(wk, &path));
 		}
 

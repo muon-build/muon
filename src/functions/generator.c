@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include "args.h"
 #include "coerce.h"
 #include "error.h"
 #include "functions/generator.h"
@@ -89,7 +90,7 @@ generated_list_process_file(struct workspace *wk,
 				}
 
 				TSTR(rel);
-				path_relative_to(wk, &rel, wk->build_root, generated_path);
+				relativize_build_file_path(wk, &rel, generated_path);
 
 				str_app(wk, &name, " ");
 				str_app(wk, &name, rel.buf);

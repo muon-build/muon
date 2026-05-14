@@ -8,6 +8,7 @@
 
 #include <string.h>
 
+#include "args.h"
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
@@ -40,7 +41,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 	const char *base, *private_path = get_cstr(wk, tgt->private_path);
 
 	if (opts->relative) {
-		path_relative_to(wk, &private_path_rel, wk->build_root, private_path);
+		relativize_build_file_path(wk, &private_path_rel, private_path);
 		private_path = private_path_rel.buf;
 	}
 

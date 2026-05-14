@@ -15,6 +15,7 @@
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
 #include "toolchains.h"
@@ -247,6 +248,16 @@ join_args_pkgconf(struct workspace *wk, obj arr)
 	return join_args(wk, arr, pkgconf_escape);
 }
 
+void
+relativize_build_file_path(struct workspace *wk, struct tstr *buf, const char *path)
+{
+	if (get_option_bool(wk, 0, "b_relativize_paths", true)) {
+		path_relative_to(wk, buf, wk->build_root, path);
+	} else {
+		path_push(wk, buf, path);
+	}
+}
+
 struct arr_to_args_ctx {
 	enum arr_to_args_flags mode;
 	obj res;
@@ -266,7 +277,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 	case obj_file:
 		if (ctx->mode & arr_to_args_relativize_paths) {
 			TSTR(rel);
-			path_relative_to(wk, &rel, wk->build_root, get_file_path(wk, src));
+			relativize_build_file_path(wk, &rel, get_file_path(wk, src));
 			str = tstr_into_str(wk, &rel);
 			break;
 		}
@@ -289,7 +300,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 
 		TSTR(rel);
 		if (ctx->mode & arr_to_args_relativize_paths) {
-			path_relative_to(wk, &rel, wk->build_root, get_cstr(wk, tgt->build_path));
+			relativize_build_file_path(wk, &rel, get_cstr(wk, tgt->build_path));
 			str = tstr_into_str(wk, &rel);
 		} else {
 			str = tgt->build_path;
