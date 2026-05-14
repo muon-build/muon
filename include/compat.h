@@ -23,6 +23,12 @@
 #define _NETBSD_SOURCE 1
 #endif
 
+#if defined(__FreeBSD__)
+#if !defined(_XOPEN_SOURCE)
+#define _XOPEN_SOURCE 700
+#endif
+#endif
+
 #if !defined(__SANITIZE_ADDRESS__) && defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define __SANITIZE_ADDRESS__
