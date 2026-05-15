@@ -1024,6 +1024,8 @@ cmd_setup_common(struct workspace *wk,
 		} else if (opt_match('w', "wipe all caches before setup")) {
 			flags |= workspace_do_setup_flag_clear_cache;
 			ctx->cached = false;
+		} else if (opt_match('W', "only setup if options have changed")) {
+			ctx->cached = true;
 		} else if (opt_match('p', "preload <file>", "file")) {
 			arr_push(wk->a_scratch, &preload_files, &opt_ctx.optarg);
 
