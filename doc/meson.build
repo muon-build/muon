@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
+if not meson.can_run_host_binaries()
+    subdir_done()
+endif
+
 man_page_targets = {}
 
 if not get_option('man-pages').disabled()
