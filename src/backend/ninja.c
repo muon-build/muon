@@ -200,8 +200,6 @@ ninja_write_all(struct workspace *wk)
 
 		obj compdb_args;
 		compdb_args = make_obj(wk, obj_array);
-		obj_array_push(wk, compdb_args, make_str(wk, "-C"));
-		obj_array_push(wk, compdb_args, make_str(wk, wk->build_root));
 		obj_array_push(wk, compdb_args, make_str(wk, "-t"));
 		obj_array_push(wk, compdb_args, make_str(wk, "compdb"));
 		obj_array_extend_nodup(wk, compdb_args, ctx.compiler_rule_arr);
