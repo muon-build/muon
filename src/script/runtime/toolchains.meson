@@ -166,6 +166,18 @@ toolchain.register_linker(
     'lld',
     inherit: 'ld',
     exe: 'lld',
+    detect: func(out str) -> int
+        if 'GNU' in out
+            return 100
+        elif 'zig ld' in out
+            # TODO: we need to support a way for the compiler to return a list
+            # of linkers to check, and then we can specify zig ld as its own
+            # linker type
+            return 100
+        else
+            return 0
+        endif
+    endfunc,
 )
 
 toolchain.register_linker(
