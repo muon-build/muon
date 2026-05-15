@@ -1006,6 +1006,7 @@ cmd_setup_common(struct workspace *wk,
 	opt_for(ctx->n_operands, .usage_post = ctx->usage, .extra_help = cmd_setup_help) {
 		if (opt_match('#', "enable setup progress bar")) {
 			log_progress_enable(wk);
+			obj_array_push(wk, regen_args, make_str(wk, "-#"));
 		} else if (opt_match('D', "set options", "option>=<value")) {
 			if (!parse_and_set_cmdline_option(wk, opt_ctx.optarg)) {
 				goto ret;

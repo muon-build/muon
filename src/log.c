@@ -533,6 +533,12 @@ log_set_lvl(enum log_level lvl)
 	log_cfg.level = lvl;
 }
 
+enum log_level
+log_get_lvl(void)
+{
+	return log_cfg.level;
+}
+
 FILE *
 _log_file(void)
 {

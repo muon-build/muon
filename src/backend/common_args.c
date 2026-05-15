@@ -924,6 +924,11 @@ ca_regenerate_build_command(struct workspace *wk, bool opts_only)
 
 	if (!opts_only) {
 		obj_array_push(wk, regen_args, make_str(wk, wk->argv0));
+		switch (log_get_lvl()) {
+		case log_debug: obj_array_push(wk, regen_args, make_str(wk, "-v")); break;
+		case log_error: obj_array_push(wk, regen_args, make_str(wk, "-q")); break;
+		default: break;
+		}
 		obj_array_push(wk, regen_args, make_str(wk, "-C"));
 		obj_array_push(wk, regen_args, make_str(wk, wk->source_root));
 		obj_array_push(wk, regen_args, make_str(wk, "setup"));
