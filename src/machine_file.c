@@ -102,7 +102,7 @@ machine_file_translate_cb(void *_ctx,
 			tstr_pushs(wk, &key, k);
 		}
 
-		tstr_pushf(wk, ctx->dest, "meson.override_find_program('%s', [%s], native: %s)\n", key.buf, v, native);
+		tstr_pushf(wk, ctx->dest, "meson.override_find_program('%s', [%s].flatten(), native: %s)\n", key.buf, v, native);
 		if (option_override.len) {
 			tstr_pushf(wk, ctx->dest, "meson.set_option('%s', ['%s'])\n", option_override.buf, key.buf);
 		}
