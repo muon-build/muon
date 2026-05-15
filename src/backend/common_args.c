@@ -30,7 +30,8 @@ ca_get_option_value_for_tgt(struct workspace *wk,
 	const char *name,
 	obj *res)
 {
-	get_option_value_overridable(wk, proj, tgt ? tgt->override_options : 0, name, res);
+	get_option_value_for_machine_overridable(
+		wk, proj, tgt ? tgt->override_options : 0, name, tgt ? tgt->machine : machine_kind_host, res);
 }
 
 struct ca_buildtype {

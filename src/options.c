@@ -675,12 +675,17 @@ static bool
 get_option_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const struct str *name, enum machine_kind m, obj *res)
 {
 	if (m == machine_kind_host) {
+host_fallback:
 		return get_option_overridable(wk, proj, overrides, name, res);
 	}
 
 	TSTR(n);
 	tstr_pushf(wk, &n, "%s%s", option_group_build, name->s);
-	return get_option_overridable(wk, proj, overrides, name, res);
+	if (get_option_overridable(wk, proj, overrides, &TSTR_STR(&n), res)) {
+		return true;
+	}
+
+	goto host_fallback;
 }
 
 void
