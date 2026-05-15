@@ -739,6 +739,7 @@ toolchain_component_detect(struct workspace *wk,
 			}
 
 			if (!candidate.found) {
+				LO("  skipping candidate %o: no detect function returned a score > 0\n", c);
 				goto check_next_candidate;
 			}
 
