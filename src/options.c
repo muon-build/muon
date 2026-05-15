@@ -732,7 +732,7 @@ set_compile_opt_from_env(struct workspace *wk, const char *envvar, const char *d
 	}
 
 	const char *v;
-	if (!(v = os_get_env(envvar)) || !*v) {
+	if (!(v = os_get_env(envvar))) {
 		return false;
 	}
 
