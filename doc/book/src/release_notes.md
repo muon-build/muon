@@ -6,7 +6,7 @@
     - in script mode: refactor how scope works, all variable resolution happens
       at compile time, globals are disallowed.  Improves performance and
       clarifies scoping rules.
-      https://github.com/muon-build/muon/pull/241
+      (github pr)[https://github.com/muon-build/muon/pull/241]
     - all memory is tracked an managed with an arena allocator.  This should
       improve memory usage, performance, and developer ergonomics.
 - toolchains
@@ -16,10 +16,10 @@
     - ccache and sccache
 - documentation
     - `muon help`
-    - source links in refernce manual https://docs.muon.build/reference
+    - source links in [refernce manual](https://docs.muon.build/reference)
 - tooling
     - DAP debugger protocol support & dcmake integration
-      https://github.com/muon-build/muon/issues/249
+      [github issue](https://github.com/muon-build/muon/issues/249)
 - wayland module
 - support cross/native files
 
