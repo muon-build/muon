@@ -688,6 +688,17 @@ ca_prepare_target_linker_args(struct workspace *wk,
 
 		if (!(tgt->type & tgt_shared_module) && lundef) {
 			ca_push_linker_args(wk, comp, tgt, toolchain_linker_no_undefined(wk, comp));
+
+			{
+				obj sanitize_opt;
+				ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &sanitize_opt);
+				if (!str_eql(get_str(wk, sanitize_opt), &STR("none"))
+					&& (tgt->type & tgt_dynamic_library)
+					&& toolchain_compiler_asan_lundef_warning(wk, comp)) {
+					LOG_W("target '%s': the current compiler does not support using b_sanitize and b_lundef together",
+						get_str(wk, tgt->name)->s);
+				}
+			}
 		} else {
 			ca_push_linker_args(wk, comp, tgt, toolchain_linker_allow_shlib_undefined(wk, comp));
 		}

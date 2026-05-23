@@ -1203,6 +1203,7 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(warning_lvl, compiler, .desc = "", .enum_arg = "enum compiler_warning_lvl");
 	doc(werror, compiler, .desc = "`-Werror`");
 	doc(winvalid_pch, compiler, .desc = "");
+	doc(asan_lundef_warning, compiler, .desc = "whether to warn if b_lundef is used alongside sanitizers");
 
 	// linker
 	doc(allow_shlib_undefined, linker, .desc = "Allow undefined symbols");

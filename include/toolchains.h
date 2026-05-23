@@ -131,51 +131,52 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 #define TOOLCHAIN_ARG_MEMBER_(name, return_type, type, params, names) compiler_get_arg_func_##type name;
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, type)
 
-#define FOREACH_COMPILER_ARG(_)                                  \
-	_(always, compiler, TOOLCHAIN_PARAMS_0)                  \
-	_(argument_syntax, compiler, TOOLCHAIN_PARAMS_0)         \
-	_(can_compile_llvm_ir, compiler, TOOLCHAIN_PARAMS_0rb)   \
-	_(check_ignored_option, compiler, TOOLCHAIN_PARAMS_1srb) \
-	_(color_output, compiler, TOOLCHAIN_PARAMS_1s)           \
-	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)            \
-	_(coverage, compiler, TOOLCHAIN_PARAMS_0)                \
-	_(crt, compiler, TOOLCHAIN_PARAMS_1s1b)                  \
-	_(debug, compiler, TOOLCHAIN_PARAMS_0)                   \
-	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)              \
-	_(define, compiler, TOOLCHAIN_PARAMS_1s)                 \
-	_(deps, compiler, TOOLCHAIN_PARAMS_2s)                   \
-	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)               \
+#define FOREACH_COMPILER_ARG(_)                                    \
+	_(always, compiler, TOOLCHAIN_PARAMS_0)                    \
+	_(argument_syntax, compiler, TOOLCHAIN_PARAMS_0)           \
+	_(can_compile_llvm_ir, compiler, TOOLCHAIN_PARAMS_0rb)     \
+	_(check_ignored_option, compiler, TOOLCHAIN_PARAMS_1srb)   \
+	_(color_output, compiler, TOOLCHAIN_PARAMS_1s)             \
+	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)              \
+	_(coverage, compiler, TOOLCHAIN_PARAMS_0)                  \
+	_(crt, compiler, TOOLCHAIN_PARAMS_1s1b)                    \
+	_(debug, compiler, TOOLCHAIN_PARAMS_0)                     \
+	_(debugfile, compiler, TOOLCHAIN_PARAMS_1s)                \
+	_(define, compiler, TOOLCHAIN_PARAMS_1s)                   \
+	_(deps, compiler, TOOLCHAIN_PARAMS_2s)                     \
+	_(deps_type, compiler, TOOLCHAIN_PARAMS_0)                 \
 	_(do_archiver_passthrough, compiler, TOOLCHAIN_PARAMS_0rb) \
-	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0rb) \
-	_(dumpmachine, compiler, TOOLCHAIN_PARAMS_0) \
-	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)                \
-	_(enable_lto, compiler, TOOLCHAIN_PARAMS_0)              \
-	_(force_language, compiler, TOOLCHAIN_PARAMS_1s)         \
-	_(include, compiler, TOOLCHAIN_PARAMS_1s)                \
-	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)       \
-	_(include_pch, compiler, TOOLCHAIN_PARAMS_1s)            \
-	_(include_system, compiler, TOOLCHAIN_PARAMS_1s)         \
-	_(linker_delimiter, compiler, TOOLCHAIN_PARAMS_0)        \
-	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns)     \
-	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)              \
-	_(optimization, compiler, TOOLCHAIN_PARAMS_1i)           \
-	_(output, compiler, TOOLCHAIN_PARAMS_1s)                 \
-	_(pch_ext, compiler, TOOLCHAIN_PARAMS_0)                 \
-	_(permissive, compiler, TOOLCHAIN_PARAMS_0)              \
-	_(pgo, compiler, TOOLCHAIN_PARAMS_1i)                    \
-	_(pic, compiler, TOOLCHAIN_PARAMS_0)                     \
-	_(pie, compiler, TOOLCHAIN_PARAMS_0)                     \
-	_(preprocess_only, compiler, TOOLCHAIN_PARAMS_0)         \
-	_(print_search_dirs, compiler, TOOLCHAIN_PARAMS_0) \
-	_(sanitize, compiler, TOOLCHAIN_PARAMS_1s)               \
-	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)                \
-	_(std_unsupported, compiler, TOOLCHAIN_PARAMS_1srb)      \
-	_(version, compiler, TOOLCHAIN_PARAMS_0)                 \
-	_(visibility, compiler, TOOLCHAIN_PARAMS_1i)             \
-	_(warn_everything, compiler, TOOLCHAIN_PARAMS_0)         \
-	_(warning_lvl, compiler, TOOLCHAIN_PARAMS_1i)            \
-	_(werror, compiler, TOOLCHAIN_PARAMS_0)                  \
-	_(winvalid_pch, compiler, TOOLCHAIN_PARAMS_0)
+	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0rb)   \
+	_(dumpmachine, compiler, TOOLCHAIN_PARAMS_0)               \
+	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)                  \
+	_(enable_lto, compiler, TOOLCHAIN_PARAMS_0)                \
+	_(force_language, compiler, TOOLCHAIN_PARAMS_1s)           \
+	_(include, compiler, TOOLCHAIN_PARAMS_1s)                  \
+	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)         \
+	_(include_pch, compiler, TOOLCHAIN_PARAMS_1s)              \
+	_(include_system, compiler, TOOLCHAIN_PARAMS_1s)           \
+	_(linker_delimiter, compiler, TOOLCHAIN_PARAMS_0)          \
+	_(linker_passthrough, compiler, TOOLCHAIN_PARAMS_ns)       \
+	_(object_ext, compiler, TOOLCHAIN_PARAMS_0)                \
+	_(optimization, compiler, TOOLCHAIN_PARAMS_1i)             \
+	_(output, compiler, TOOLCHAIN_PARAMS_1s)                   \
+	_(pch_ext, compiler, TOOLCHAIN_PARAMS_0)                   \
+	_(permissive, compiler, TOOLCHAIN_PARAMS_0)                \
+	_(pgo, compiler, TOOLCHAIN_PARAMS_1i)                      \
+	_(pic, compiler, TOOLCHAIN_PARAMS_0)                       \
+	_(pie, compiler, TOOLCHAIN_PARAMS_0)                       \
+	_(preprocess_only, compiler, TOOLCHAIN_PARAMS_0)           \
+	_(print_search_dirs, compiler, TOOLCHAIN_PARAMS_0)         \
+	_(sanitize, compiler, TOOLCHAIN_PARAMS_1s)                 \
+	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)                  \
+	_(std_unsupported, compiler, TOOLCHAIN_PARAMS_1srb)        \
+	_(version, compiler, TOOLCHAIN_PARAMS_0)                   \
+	_(visibility, compiler, TOOLCHAIN_PARAMS_1i)               \
+	_(warn_everything, compiler, TOOLCHAIN_PARAMS_0)           \
+	_(warning_lvl, compiler, TOOLCHAIN_PARAMS_1i)              \
+	_(werror, compiler, TOOLCHAIN_PARAMS_0)                    \
+	_(winvalid_pch, compiler, TOOLCHAIN_PARAMS_0)              \
+	_(asan_lundef_warning, compiler, TOOLCHAIN_PARAMS_0rb)
 
 #define FOREACH_LINKER_ARG(_)                                  \
 	_(allow_shlib_undefined, linker, TOOLCHAIN_PARAMS_0)   \

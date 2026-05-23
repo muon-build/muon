@@ -678,6 +678,12 @@ toolchain.register_compiler(
         endfunc,
         'pch_ext': ['.pch'],
         'warn_everything': ['-Weverything'],
+        'asan_lundef_warning': func(c compiler) -> bool
+            if c.machine().system() == 'darwin'
+                return false
+            endif
+            return true
+        endfunc,
     },
 )
 
