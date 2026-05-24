@@ -108,17 +108,28 @@ subproject(struct workspace *wk,
 	const char *subproj_name = get_cstr(wk, name);
 	TSTR(cwd);
 	TSTR(build_dir);
+	struct project *proj = arr_get(&wk->projects, 0);
 
 	path_join(wk,
 		&cwd,
-		get_cstr(wk, current_project(wk)->source_root),
-		get_cstr(wk, current_project(wk)->subprojects_dir));
+		get_cstr(wk, proj->source_root),
+		get_cstr(wk, proj->subprojects_dir));
 	path_push(wk, &cwd, subproj_name);
+
+	TSTR(wrap_path);
+	tstr_pushf(wk, &wrap_path, "%s.wrap", cwd.buf);
+
+	// Only fall back when the root has neither a directory nor a wrap.
+	if (proj != current_project(wk) && !fs_dir_exists(cwd.buf) && !fs_file_exists(wrap_path.buf)) {
+		proj = current_project(wk);
+		path_join(wk, &cwd, get_cstr(wk, proj->source_root), get_cstr(wk, proj->subprojects_dir));
+		path_push(wk, &cwd, subproj_name);
+	}
 
 	path_join(wk,
 		&build_dir,
-		get_cstr(wk, current_project(wk)->build_root),
-		get_cstr(wk, current_project(wk)->subprojects_dir));
+		get_cstr(wk, proj->build_root),
+		get_cstr(wk, proj->subprojects_dir));
 	path_push(wk, &build_dir, subproj_name);
 
 	uint32_t subproject_id = 0;

@@ -1,0 +1,8 @@
+; SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
+; SPDX-License-Identifier: GPL-3.0-only
+
+[wrap-file]
+directory = dep
+source_url = https://example.invalid/dep.tar.gz
+source_filename = dep.tar.gz
+source_hash = 0000000000000000000000000000000000000000000000000000000000000000
