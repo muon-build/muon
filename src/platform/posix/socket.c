@@ -18,7 +18,7 @@
 #include "platform/socket.h"
 
 bool
-socket_pair_create(const char *path, struct socket_pair *pair)
+socket_server_create(const char *path, struct socket_server *server)
 {
 	int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (server_fd == -1) {
@@ -56,7 +56,43 @@ socket_pair_create(const char *path, struct socket_pair *pair)
 		return false;
 	}
 
-	pair->server = server_fd;
-	pair->client = client_fd;
+	server->server = server_fd;
+	server->client = client_fd;
 	return true;
+}
+
+bool
+socket_server_read(struct socket_server *server, struct tstr *buf)
+{
+	const uint32_t space_available = buf->cap - buf->len;
+	uint32_t bytes_available = space_available;
+	if (!fs_wait_for_input(server->client, &bytes_available)) {
+		return false;
+	}
+
+	if (bytes_available > space_available) {
+		bytes_available = space_available;
+	}
+
+	int32_t n = fs_read(server->client, buf->buf + buf->len, bytes_available);
+	if (n <= 0) {
+		return false;
+	}
+
+	buf->len += n;
+
+	return true;
+}
+
+bool
+socket_server_write(struct socket_server *server, const char *buf, uint32_t len)
+{
+	return fs_write(server->client, buf, len);
+}
+
+void
+socket_server_close(struct socket_server *server)
+{
+	close(server->server);
+	close(server->client);
 }

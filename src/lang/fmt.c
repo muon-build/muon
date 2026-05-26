@@ -342,8 +342,7 @@ fmt_write_frag_set_dbg(struct fmt_ctx *f, struct fmt_frag *p, const struct tree_
 
 	fmt_write_frag_set_dbg_ws(f, p->pre_ws, &sub_ti, "pre_ws");
 
-	uint32_t i;
-	for (fr = p->child, i = 0; fr; fr = fr->next, ++i) {
+	for (fr = p->child; fr; fr = fr->next) {
 		fmt_write_frag_set_dbg(f, fr, &sub_ti, hl);
 
 		++sub_ti.i;

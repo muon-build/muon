@@ -18,6 +18,39 @@
 #include "platform/filesystem.h"
 #include "tracy.h"
 
+struct stdio_server {
+	int in, out;
+};
+
+static enum srv_read_result
+srv_read_stdio(struct stdio_server *io, struct tstr *buf)
+{
+	const uint32_t space_available = buf->cap - buf->len;
+	uint32_t bytes_available = space_available;
+	if (!fs_wait_for_input(io->in, &bytes_available)) {
+		return srv_read_result_err;
+	}
+
+	if (bytes_available > space_available) {
+		bytes_available = space_available;
+	}
+
+	int32_t n = fs_read(io->in, buf->buf + buf->len, bytes_available);
+	if (n <= 0) {
+		return srv_read_result_eof;
+	}
+
+	buf->len += n;
+
+	return srv_read_result_ok;
+}
+
+static bool
+srv_write_stdio(struct stdio_server *io, const char *buf, uint32_t len)
+{
+	return fs_write(io->out, buf, len);
+}
+
 static enum srv_read_result
 srv_read_bytes(struct server *srv)
 {
@@ -27,22 +60,15 @@ srv_read_bytes(struct server *srv)
 		tstr_grow(srv->wk, buf, 1024);
 	}
 
-	const uint32_t space_available = buf->cap - buf->len;
-	uint32_t bytes_available = space_available;
-	if (!fs_wait_for_input(srv->in, &bytes_available)) {
-		return srv_read_result_err;
+	switch (srv->io_type) {
+	case server_io_type_stdio: return srv_read_stdio(srv->io, buf);
+	case server_io_type_pipe: {
+		if (!socket_server_read(srv->io, buf)) {
+			return srv_read_result_err;
+		}
+		break;
 	}
-
-	if (bytes_available > space_available) {
-		bytes_available = space_available;
 	}
-
-	int32_t n = fs_read(srv->in, buf->buf + buf->len, bytes_available);
-	if (n <= 0) {
-		return srv_read_result_eof;
-	}
-
-	buf->len += n;
 
 	return srv_read_result_ok;
 }
@@ -163,20 +189,34 @@ srv_write(struct server *srv, struct workspace *wk, obj msg)
 		UNREACHABLE;
 	}
 
-
 	TSTR(buf);
 	tstr_pushf(wk, &buf, "Content-Length: %d\r\n\r\n%s", json_buf.len, json_buf.buf);
 
-	fs_write(srv->out, buf.buf, buf.len);
+	switch (srv->io_type) {
+	case server_io_type_stdio: {
+		srv_write_stdio(srv->io, buf.buf, buf.len);
+		break;
+	}
+	case server_io_type_pipe: {
+		socket_server_write(srv->io, buf.buf, buf.len);
+		break;
+	}
+	}
 }
 
 void
 srv_init_stdio(struct workspace *wk, struct server *srv)
 {
 	*srv = (struct server){
+		.io_type = server_io_type_pipe,
+		.wk = wk,
+	};
+
+	struct stdio_server *io = ar_make(wk->a, struct stdio_server);
+	srv->io = io;
+	*io = (struct stdio_server){
 		.in = 0, // STDIN_FILENO
 		.out = 1, // STDOUT_FILENO
-		.wk = wk,
 	};
 
 	tstr_init(&srv->in_buf, 0);
@@ -185,29 +225,28 @@ srv_init_stdio(struct workspace *wk, struct server *srv)
 bool
 srv_init_pipe(struct workspace *wk, struct server *srv, const char *pipe_path)
 {
-	struct socket_pair pair = { 0 };
-	if (!socket_pair_create(pipe_path, &pair)) {
-		return false;
-	}
-
 	*srv = (struct server){
-		.server = pair.server,
-		.in = pair.client,
-		.out = pair.client,
+		.io_type = server_io_type_pipe,
 		.wk = wk,
 	};
 
+	srv->io = ar_make(wk->a, struct socket_server);
+	if (!socket_server_create(pipe_path, srv->io)) {
+		return false;
+	}
+
+	tstr_init(&srv->in_buf, 0);
 	return true;
 }
 
 void
 srv_destroy(struct server *srv)
 {
-	fs_close(&srv->server);
-	// if srv->in is nonzero then we initialized using init_pipe, otherwise
-	// don't close stdin/stdout.
-	if (srv->in) {
-		fs_close(&srv->in);
-		fs_close(&srv->out);
+	switch (srv->io_type) {
+	case server_io_type_stdio: break;
+	case server_io_type_pipe: {
+		socket_server_close(srv->io);
+		break;
+	}
 	}
 }

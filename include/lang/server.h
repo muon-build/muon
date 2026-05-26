@@ -14,10 +14,16 @@ enum srv_read_result {
 	srv_read_result_eof,
 };
 
+enum server_io_type {
+	server_io_type_stdio,
+	server_io_type_pipe,
+};
+
 struct server {
 	struct workspace *wk;
+	void *io;
 	struct tstr in_buf;
-	int in, out, server;
+	enum server_io_type io_type;
 };
 
 
