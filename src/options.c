@@ -767,9 +767,7 @@ static bool
 init_builtin_options(struct workspace *wk, const char *script)
 {
 	struct source src;
-	if (!embedded_get(wk, script, &src)) {
-		return false;
-	}
+	embedded_get(wk, script, &src);
 
 	obj _;
 	initializing_builtin_options = true;

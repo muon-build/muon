@@ -533,7 +533,7 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		const char *filename = 0;
 		filename = argv[argi];
 		if (embedded) {
-			if (!(embedded_get(wk, filename, &src))) {
+			if (!(embedded_try_get(wk, filename, &src))) {
 				LOG_E("failed to find '%s' in embedded sources", filename);
 				goto ret;
 			}
@@ -799,9 +799,7 @@ cmd_generate_test_html(struct workspace *wk, uint32_t argc, uint32_t argi, char 
 	}
 
 	struct source src;
-	if (!embedded_get(wk, "html/test_out.html", &src)) {
-		return false;
-	}
+	embedded_get(wk, "html/test_out.html", &src);
 
 	printf(src.src, data.src);
 	return true;

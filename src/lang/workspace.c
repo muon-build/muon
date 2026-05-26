@@ -116,11 +116,7 @@ workspace_eval_startup_file(struct workspace *wk, const char *script)
 {
 	obj _;
 	struct source src;
-
-	if (!embedded_get(wk, script, &src)) {
-		LOG_E("embedded script %s not found", script);
-		return false;
-	}
+	embedded_get(wk, script, &src);
 
 	return eval(wk, &src, &(struct eval_opts){ build_language_meson, language_extended }, &_);
 }

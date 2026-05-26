@@ -26,9 +26,7 @@ static bool
 introspect_python_interpreter(struct workspace *wk, const char *path, struct obj_python_installation *python)
 {
 	struct source src;
-	if (!embedded_get(wk, "python/python_info.py", &src)) {
-		return false;
-	}
+	embedded_get(wk, "python/python_info.py", &src);
 
 	struct run_cmd_ctx cmd_ctx = { 0 };
 	char *const var_args[] = { (char *)path, "-c", (char *)src.src, 0 };

@@ -602,9 +602,7 @@ dump_function_docs_html(struct workspace *wk, struct tstr *buf)
 	dump_function_docs_json(wk, &docs_json);
 
 	struct source src;
-	if (!embedded_get(wk, "html/docs.html", &src)) {
-		UNREACHABLE;
-	}
+	embedded_get(wk, "html/docs.html", &src);
 
 	tstr_pushf(wk, buf, src.src, docs_json.buf);
 }

@@ -1143,9 +1143,7 @@ tests_output_html(struct workspace *wk, struct run_test_ctx *ctx)
 	}
 
 	struct source src;
-	if (!embedded_get(wk, "html/test_out.html", &src)) {
-		return false;
-	}
+	embedded_get(wk, "html/test_out.html", &src);
 
 	fprintf(f, src.src, data.buf);
 	LOG_I("wrote html output to %s", abs.buf);

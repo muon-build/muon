@@ -9,9 +9,11 @@
 #include <string.h>
 
 #include "embedded.h"
+#include "error.h"
 #include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
+#include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
 
@@ -23,7 +25,7 @@ static uint32_t embedded_len = 0;
 #endif
 
 bool
-embedded_get(struct workspace *wk, const char *name, struct source *src_out)
+embedded_try_get(struct workspace *wk, const char *name, struct source *src_out)
 {
 	bool bootstrapped = false;
 #ifdef MUON_BOOTSTRAPPED
@@ -37,6 +39,7 @@ embedded_get(struct workspace *wk, const char *name, struct source *src_out)
 		path_push(wk, &path, name);
 		struct source src = { 0 };
 		if (!fs_file_exists(path.buf)) {
+			L("embedded source '%s' not found", path.buf);
 			return false;
 		} else if (!fs_read_entire_file(wk->a_scratch, path.buf, &src)) {
 			return false;
@@ -54,6 +57,15 @@ embedded_get(struct workspace *wk, const char *name, struct source *src_out)
 	}
 
 	return false;
+}
+
+void
+embedded_get(struct workspace *wk, const char *name, struct source *src_out)
+{
+	if (!embedded_try_get(wk, name, src_out)) {
+		LOG_E("failed to load required embedded source %s", name);
+		UNREACHABLE;
+	}
 }
 
 const struct embedded_file *

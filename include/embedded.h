@@ -17,6 +17,7 @@ struct embedded_file {
 };
 struct workspace;
 
-bool embedded_get(struct workspace *wk, const char *name, struct source *src);
+bool embedded_try_get(struct workspace *wk, const char *name, struct source *src);
+void embedded_get(struct workspace *wk, const char *name, struct source *src);
 const struct embedded_file *embedded_file_list(uint32_t *len);
 #endif
