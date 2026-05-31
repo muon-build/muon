@@ -58,21 +58,9 @@ fs_symlink_exists(const char *path)
 bool
 fs_file_exists(const char *path)
 {
-	BY_HANDLE_FILE_INFORMATION fi;
-	HANDLE h;
-
-	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_ARCHIVE, NULL);
-	if (h == INVALID_HANDLE_VALUE) {
-		return false;
-	}
-
-	if (!GetFileInformationByHandle(h, &fi)) {
-		return false;
-	}
-
-	CloseHandle(h);
-
-	return (fi.dwFileAttributes & FILE_ATTRIBUTE_ARCHIVE) == FILE_ATTRIBUTE_ARCHIVE;
+	DWORD attrs = GetFileAttributesA(path);
+	bool result = attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY);
+	return result;
 }
 
 // https://github.com/winsiderss/systeminformer/blob/f0c0366050633d89a1fae805c7a5f344c410fbf0/phnt/include/ntioapi.h#L2881
