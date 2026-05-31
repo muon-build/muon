@@ -30,22 +30,8 @@ bool tty_is_pty = true;
 bool
 fs_exists(const char *path)
 {
-	HANDLE h;
-
-	h = CreateFile(path,
-		GENERIC_READ,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		FILE_ATTRIBUTE_ARCHIVE | FILE_FLAG_BACKUP_SEMANTICS,
-		NULL);
-	if (h == INVALID_HANDLE_VALUE) {
-		return false;
-	}
-
-	CloseHandle(h);
-
-	return true;
+	DWORD attrs = GetFileAttributesA(path);
+	return attrs != INVALID_FILE_ATTRIBUTES;
 }
 
 bool
@@ -59,8 +45,20 @@ bool
 fs_file_exists(const char *path)
 {
 	DWORD attrs = GetFileAttributesA(path);
-	bool result = attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY);
-	return result;
+	if (attrs == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+	return !(attrs & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+bool
+fs_dir_exists(const char *path)
+{
+	DWORD attrs = GetFileAttributesA(path);
+	if (attrs == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+	return attrs & FILE_ATTRIBUTE_DIRECTORY;
 }
 
 // https://github.com/winsiderss/systeminformer/blob/f0c0366050633d89a1fae805c7a5f344c410fbf0/phnt/include/ntioapi.h#L2881
@@ -268,26 +266,6 @@ close_file:
 	CloseHandle(h);
 
 	return ret;
-}
-
-bool
-fs_dir_exists(const char *path)
-{
-	BY_HANDLE_FILE_INFORMATION fi;
-	HANDLE h;
-
-	h = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
-	if (h == INVALID_HANDLE_VALUE) {
-		return false;
-	}
-
-	if (!GetFileInformationByHandle(h, &fi)) {
-		return false;
-	}
-
-	CloseHandle(h);
-
-	return (fi.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 }
 
 enum fs_mkdir_result
