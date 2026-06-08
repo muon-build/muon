@@ -999,7 +999,7 @@ cmd_setup_common(struct workspace *wk,
 
 	bool res = false;
 	enum workspace_do_setup_flag flags = 0;
-	const char *build = 0;
+	const char *build_dir = 0;
 
 	obj regen_args = make_obj(wk, obj_array);
 
@@ -1041,8 +1041,8 @@ cmd_setup_common(struct workspace *wk,
 		return false;
 	}
 
-	build = argv[argi];
-	obj_array_push(wk, regen_args, make_str(wk, build));
+	build_dir = argv[argi];
+	obj_array_push(wk, regen_args, make_str(wk, build_dir));
 
 	// The following shenanigans are to support passing the source dir instead
 	// of the build dir.  We decide that the passed dir is a source dir (and
@@ -1054,33 +1054,49 @@ cmd_setup_common(struct workspace *wk,
 	{
 		path_copy_cwd(wk, &old_cwd);
 
+		const char *source_dir = path_cwd();
+
 		enum build_language _lang;
-		if (!determine_build_file(wk, path_cwd(), &_lang, true)) {
+		if (!determine_build_file(wk, source_dir, &_lang, true)) {
+			if (!fs_dir_exists(build_dir)) {
+				// If source_dir doesn't exist, then just retry with
+				// quiet=false to print the error message.
+				determine_build_file(wk, source_dir, &_lang, false);
+				return false;
+			}
+
+			if (!determine_build_file(wk, build_dir, &_lang, true)) {
+				// If there is no build file in build_dir, also
+				// print the error message for source_dir
+				determine_build_file(wk, source_dir, &_lang, false);
+				return false;
+			}
+
 			// fix argv0 here since if it is a relative path it will be
 			// wrong after chdir
 			make_argv0_absolute(wk, &argv0, argv);
 
-			if (!path_chdir(wk, build)) {
+			if (!path_chdir(wk, build_dir)) {
 				return false;
 			}
 
 			path_copy_cwd(wk, &new_cwd);
 			wk->source_root = new_cwd.buf;
-			build = old_cwd.buf;
+			build_dir = old_cwd.buf;
 
-			((const char **)argv)[argi] = build;
+			((const char **)argv)[argi] = build_dir;
 		}
 	}
 
 	++argi;
 
-	if (!workspace_do_setup_prepare(wk, build, argv[0], regen_args, flags)) {
+	if (!workspace_do_setup_prepare(wk, build_dir, argv[0], regen_args, flags)) {
 		goto ret;
 	}
 
 	if (ctx->cached) {
 		TSTR(cmdline);
-		path_join(wk, &cmdline, build, output_path.private_dir);
+		path_join(wk, &cmdline, build_dir, output_path.private_dir);
 		path_push(wk, &cmdline, output_path.paths[output_path_cmdline].path);
 		if (fs_file_exists(cmdline.buf)) {
 			struct source src;
@@ -1133,7 +1149,7 @@ cmd_setup_common(struct workspace *wk,
 		}
 	}
 
-	setup_platform_env(wk, build, opts.vsenv_req);
+	setup_platform_env(wk, build_dir, opts.vsenv_req);
 
 	if (!workspace_do_setup(wk, &preload_files)) {
 		goto ret;
@@ -1141,7 +1157,7 @@ cmd_setup_common(struct workspace *wk,
 
 	res = true;
 ret:
-	ctx->build_dir = build ? make_str(wk, build) : 0;
+	ctx->build_dir = build_dir ? make_str(wk, build_dir) : 0;
 	ctx->argi = argi;
 	TracyCZoneAutoE;
 	return res;
