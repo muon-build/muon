@@ -208,7 +208,7 @@ void
 srv_init_stdio(struct workspace *wk, struct server *srv)
 {
 	*srv = (struct server){
-		.io_type = server_io_type_pipe,
+		.io_type = server_io_type_stdio,
 		.wk = wk,
 	};
 
