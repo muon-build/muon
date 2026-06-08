@@ -243,6 +243,9 @@ toolchain.register_linker(
             return [f'/OUT:@output@', input]
         endfunc,
         'lib': func(_c compiler, s str) -> list[str]
+            if not s.endswith('.lib')
+                s += '.lib'
+            endif
             return [s]
         endfunc,
         'shared': ['/DLL'],
