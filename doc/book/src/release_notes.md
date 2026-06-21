@@ -1,6 +1,6 @@
 # Release Notes
 
-## 0.6.0
+## ✓ 0.6.0
 
 - internals / language features
     - in script mode: refactor how scope works, all variable resolution happens
@@ -22,6 +22,19 @@
       [github issue](https://github.com/muon-build/muon/issues/249)
 - wayland module
 - support cross/native files
+- 12 contributors:
+    - Christopher Wellons (1)
+    - Daniel Wagner (1)
+    - Fredrik Foss-Indrehus (1)
+    - kzc (20)
+    - Michael Forney (3)
+    - Sertonix (1)
+    - Stone Tickle (544)
+    - Teselka (9)
+    - VaiTon (14)
+    - Vincent Torri (2)
+    - vtorri (1)
+    - Zephyr Lykos (1)
 
 ## ✓ 0.5.0
 
