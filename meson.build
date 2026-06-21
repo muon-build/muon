@@ -5,7 +5,7 @@
 project(
     'muon',
     'c',
-    version: '0.6.0',
+    version: '0.7.0-dev',
     license: 'GPL-3.0-only',
     meson_version: '>=1.3.0',
     default_options: {
