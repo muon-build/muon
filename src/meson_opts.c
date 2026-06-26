@@ -124,7 +124,6 @@ translate_meson_opts_parser(struct workspace *wk,
 {
 	uint32_t argi = 0, i;
 	bool is_opt, is_longopt, next_is_val = false;
-	const bool allow_abbrev = true;
 
 	const struct meson_option_spec *spec;
 	const char *val;
@@ -136,6 +135,8 @@ translate_meson_opts_parser(struct workspace *wk,
 		struct str *arg = &STRL(argv[argi]);
 		is_opt = !next_is_val && arg->len > 1 && arg->s[0] == '-';
 		is_longopt = is_opt && arg->len > 2 && arg->s[1] == '-';
+
+		const bool allow_abbrev = is_longopt;
 
 		if (is_longopt) {
 			arg->s += 2;
