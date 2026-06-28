@@ -456,6 +456,30 @@ workspace_do_setup_prepare(struct workspace *wk,
 }
 
 bool
+workspace_guess_language_and_mode(const struct str *path, enum build_language *lang, enum language_mode *mode)
+{
+	if (str_endswith(path, &STR(".meson"))) {
+		*lang = build_language_meson;
+		*mode = language_internal;
+		return true;
+	} else if (str_endswith(path, &STR(".cmake"))) {
+		*lang = build_language_cmake;
+		*mode = language_internal;
+		return true;
+	} else if (str_eql(path, &STR("meson.build"))) {
+		*lang = build_language_meson;
+		*mode = language_external;
+		return true;
+	} else if (str_eql(path, &STR("CMakeLists.txt"))) {
+		*lang = build_language_cmake;
+		*mode = language_external;
+		return true;
+	}
+
+	return false;
+}
+
+bool
 workspace_do_setup(struct workspace *wk, struct arr *preload_files)
 {
 	FILE *debug_file = 0;

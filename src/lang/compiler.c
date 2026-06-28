@@ -1386,16 +1386,17 @@ vm_compile_state_reset(struct workspace *wk)
 	bucket_arr_clear(&wk->vm.compiler_state.nodes);
 }
 
-bool
-vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, const struct args_norm *an, uint32_t *entry)
+bool vm_compile_ast(struct workspace *wk, struct node *n, const struct vm_compile_opts *opts, uint32_t *entry)
 {
 	TracyCZoneAutoS;
+	enum vm_compile_mode mode = opts->mode;
 	if (mode & vm_compile_mode_language_extended) {
 		mode |= vm_compile_mode_locals;
 	}
 
 	wk->vm.compiler_state.err = false;
 	wk->vm.compiler_state.mode = mode;
+	wk->vm.compiler_state.lang = opts->lang;
 
 	*entry = wk->vm.code.len;
 
@@ -1409,10 +1410,10 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	if (mode & vm_compile_mode_locals) {
 		vm_comp_push_call_frame(wk);
 
-		if (an) {
+		if (opts->an) {
 			struct local_binding *l;
-			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
-				vm_comp_declare_local(wk, n, make_str(wk, an[i].name));
+			for (uint32_t i = 0; opts->an[i].type != ARG_TYPE_NULL; ++i) {
+				vm_comp_declare_local(wk, n, make_str(wk, opts->an[i].name));
 				l = arr_peek(&wk->vm.compiler_state.locals, 1);
 				l->bound = true;
 				l->accessed = true;
@@ -1433,10 +1434,10 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 		uint32_t wrapper_func_entry = *entry;
 		*entry = wk->vm.code.len;
 
-		if (an) {
-			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+		if (opts->an) {
+			for (uint32_t i = 0; opts->an[i].type != ARG_TYPE_NULL; ++i) {
 				push_code(wk, op_constant);
-				push_constant(wk, an[i].val);
+				push_constant(wk, opts->an[i].val);
 			}
 		}
 
@@ -1446,8 +1447,8 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 		obj f = make_obj(wk, obj_func);
 		struct obj_func *func = get_obj_func(wk, f);
 		vm_comp_init_func(wk, func, frame, wrapper_func_args, 0);
-		if (an) {
-			for (uint32_t i = 0; an[i].type != ARG_TYPE_NULL; ++i) {
+		if (opts->an) {
+			for (uint32_t i = 0; opts->an[i].type != ARG_TYPE_NULL; ++i) {
 				func->an[i].type = tc_any;
 			}
 		}
@@ -1476,17 +1477,21 @@ vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, 
 	return !wk->vm.compiler_state.err;
 }
 
-bool
-vm_compile(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, uint32_t *entry)
+bool vm_compile(struct workspace *wk, const struct source *src, const struct vm_compile_opts *opts, uint32_t *entry)
 {
 	struct node *n;
 
 	vm_compile_state_reset(wk);
 
-	if (!(n = parse(wk, src, mode))) {
+	switch (opts->lang) {
+	case build_language_meson: n = parse(wk, src, opts->mode); break;
+	case build_language_cmake: n = cm_parse(wk, src); break;
+	}
+
+	if (!n) {
 		wk->vm.compiler_state.err = true;
 		return false;
 	}
 
-	return vm_compile_ast(wk, n, mode, 0, entry);
+	return vm_compile_ast(wk, n, opts, entry);
 }

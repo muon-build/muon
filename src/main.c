@@ -258,6 +258,16 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 
 	opts.filename = argv[argi];
 
+	enum build_language lang = build_language_meson;
+	{
+		enum language_mode mode;
+		if (workspace_guess_language_and_mode(&STRL(opts.filename), &lang, &mode)) {
+			if (mode == language_internal || mode == language_extended) {
+				opts.compile_mode |= vm_compile_mode_language_extended;
+			}
+		}
+	}
+
 	arr_push(wk->a, &wk->vm.src, &(struct source){ 0 });
 	struct source *src = arr_get(&wk->vm.src, 0);
 
@@ -274,8 +284,14 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 
 	if (opts.print_ast) {
 		struct node *n;
-		if (!(n = parse(wk, src, opts.compile_mode))) {
-			goto ret;
+
+		switch (lang) {
+		case build_language_meson: n = parse(wk, src, opts.compile_mode); break;
+		case build_language_cmake: n = cm_parse(wk, src); break;
+		}
+
+		if (!n) {
+			return false;
 		}
 
 		if (opts.compile_mode & vm_compile_mode_fmt) {
@@ -285,8 +301,12 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 		}
 	} else {
 		uint32_t _entry;
-		if (!vm_compile(wk, src, opts.compile_mode, &_entry)) {
-			goto ret;
+		struct vm_compile_opts compile_opts = {
+			.mode = opts.compile_mode,
+			.lang = lang,
+		};
+		if (!vm_compile(wk, src, &compile_opts, &_entry)) {
+			return false;
 		}
 
 		if (opts.print_dis) {
@@ -514,6 +534,8 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 
 	struct source src = { 0 };
 
+	enum build_language lang = build_language_meson;
+
 	workspace_setup_paths(wk, path_cwd(), argv[0], 0);
 
 	if (string_src) {
@@ -530,8 +552,12 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 			return false;
 		}
 
-		const char *filename = 0;
-		filename = argv[argi];
+		const char *filename = argv[argi];
+		{
+			enum language_mode mode;
+			workspace_guess_language_and_mode(&STRL(filename), &lang, &mode);
+		}
+
 		if (embedded) {
 			if (!(embedded_try_get(wk, filename, &src))) {
 				LOG_E("failed to find '%s' in embedded sources", filename);
@@ -559,7 +585,7 @@ cmd_eval(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 	}
 
 	obj res;
-	if (!eval(wk, &src, &(struct eval_opts) { build_language_meson, language_internal, .an = an }, &res)) {
+	if (!eval(wk, &src, &(struct eval_opts) { lang, language_internal, .an = an }, &res)) {
 		goto ret;
 	}
 

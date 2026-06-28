@@ -158,7 +158,8 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 			}
 		}
 
-		if (!vm_compile_ast(wk, n, compile_mode, opts->an, &entry)) {
+		struct vm_compile_opts compile_opts = { opts->an, compile_mode, opts->lang };
+		if (!vm_compile_ast(wk, n, &compile_opts, &entry)) {
 			goto compile_done;
 		}
 

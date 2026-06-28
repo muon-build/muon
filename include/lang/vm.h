@@ -124,6 +124,7 @@ struct vm_compiler_state {
 	struct arr loop_jmp_stack, if_jmp_stack;
 	uint32_t loop_depth;
 	enum vm_compile_mode mode;
+	enum build_language lang;
 	bool err;
 };
 

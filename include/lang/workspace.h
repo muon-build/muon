@@ -148,4 +148,5 @@ void workspace_perm_begin(struct workspace *wk);
 void workspace_perm_end(struct workspace *wk);
 void workspace_push_lang_mode(struct workspace *wk, enum language_mode mode);
 void workspace_pop_lang_mode(struct workspace *wk);
+bool workspace_guess_language_and_mode(const struct str *path, enum build_language *lang, enum language_mode *mode);
 #endif

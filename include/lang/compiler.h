@@ -43,7 +43,11 @@ enum vm_compile_mode {
 
 void vm_compile_state_reset(struct workspace *wk);
 struct node;
-bool
-vm_compile_ast(struct workspace *wk, struct node *n, enum vm_compile_mode mode, const struct args_norm *an, uint32_t *entry);
-bool vm_compile(struct workspace *wk, const struct source *src, enum vm_compile_mode mode, uint32_t *entry);
+struct vm_compile_opts {
+	const struct args_norm *an;
+	enum vm_compile_mode mode;
+	enum build_language lang;
+};
+bool vm_compile_ast(struct workspace *wk, struct node *n, const struct vm_compile_opts *opts, uint32_t *entry);
+bool vm_compile(struct workspace *wk, const struct source *src, const struct vm_compile_opts *opts, uint32_t *entry);
 #endif
