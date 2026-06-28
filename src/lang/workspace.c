@@ -13,6 +13,7 @@
 #include "embedded.h"
 #include "error.h"
 #include "formats/ansi.h"
+#include "functions/modules.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
 #include "lang/workspace.h"
@@ -178,6 +179,23 @@ workspace_init_startup_files(struct workspace *wk)
 	}
 
 	wk->init_flags |= workspace_init_flag_startup_files;
+}
+
+void
+workspace_init_cmake_runtime(struct workspace *wk)
+{
+	if (wk->init_flags & workspace_init_flag_cmake_runtime) {
+		return;
+	}
+
+	stack_push(&wk->stack, wk->vm.lang_mode, language_extended);
+	obj _;
+	bool ok = module_import(wk, "cmake_prelude", false, &_);
+	stack_pop(&wk->stack, wk->vm.lang_mode);
+
+	assert(ok);
+
+	wk->init_flags |= workspace_init_flag_cmake_runtime;
 }
 
 void

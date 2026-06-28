@@ -55,6 +55,7 @@ enum workspace_init_flag {
 	workspace_init_flag_runtime = 1 << 2,
 	workspace_init_flag_startup_files = 1 << 3,
 	workspace_init_flag_global_options = 1 << 4,
+	workspace_init_flag_cmake_runtime = 1 << 5,
 };
 
 struct workspace {
@@ -119,6 +120,7 @@ void workspace_init_arena(struct workspace *wk, struct arena *a, struct arena *a
 void workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scratch);
 void workspace_init_runtime(struct workspace *wk);
 void workspace_init_startup_files(struct workspace *wk);
+void workspace_init_cmake_runtime(struct workspace *wk);
 void workspace_setup_paths(struct workspace *wk, const char *build, const char *argv0, obj regen_args);
 void workspace_add_exclude_regenerate_dep(struct workspace *wk, obj v);
 void workspace_add_regenerate_dep(struct workspace *wk, obj v);

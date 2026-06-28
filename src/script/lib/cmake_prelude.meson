@@ -3,7 +3,8 @@
 
 M = {}
 
-add_languages('c', 'cpp')
+# TODO
+# add_languages('c', 'cpp')
 
 targets = {}
 
@@ -62,5 +63,22 @@ M.target_link_libraries = func(name str, scope str, libnames glob[str])
     # This needs rethinking
     # targets[name].add_link_with(libs)
 endfunc
+
+func stub(name str)
+    M[name] = func(_ glob[any]) endfunc
+endfunc
+
+stub('cmake_minimum_required')
+
+M.option = func(name str, desc str, default str)
+    set_variable(name, default, parent_scope: true)
+endfunc
+
+M.message = func(s str)
+    message(s)
+endfunc
+
+# M.PROJECT_SOURCE_DIR = meson.project_source_root()
+# M.PROJECT_BINARY_DIR = meson.project_build_root()
 
 return M

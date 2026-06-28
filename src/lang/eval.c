@@ -10,7 +10,6 @@
 
 #include "error.h"
 #include "external/readline.h"
-#include "functions/modules.h"
 #include "lang/compiler.h"
 #include "lang/eval.h"
 #include "lang/parser.h"
@@ -108,10 +107,8 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 		res = &res_ignored;
 	}
 
-	if (opts->lang == build_language_cmake && opts->mode == eval_mode_first) {
-		obj _;
-		bool ok = module_import(wk, "cmake_prelude", false, &_);
-		assert(ok);
+	if (opts->lang == build_language_cmake) {
+		workspace_init_cmake_runtime(wk);
 	}
 
 	arr_push(wk->a, &wk->vm.src, src);
