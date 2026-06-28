@@ -31,7 +31,7 @@ enum op {
 	op_gt,
 	op_lt,
 	op_negate,
-	op_stringify,
+	op_coerce,
 
 	// storing and loading
 	op_store_l,

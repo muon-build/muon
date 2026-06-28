@@ -29,6 +29,7 @@
 #include "tracy.h"
 
 const uint32_t op_operands[op_count] = {
+	[op_coerce] = 1,
 	[op_iterator] = 1,
 	[op_iterator_next] = 1,
 	[op_load_l] = 1,
@@ -763,7 +764,7 @@ vm_op_to_s(uint8_t op)
 	op_case(op_pop)
 	op_case(op_dup)
 	op_case(op_swap)
-	op_case(op_stringify)
+	op_case(op_coerce)
 	op_case(op_index)
 	op_case(op_add)
 	op_case(op_sub)
@@ -843,7 +844,6 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip, int64_t offse
 	case op_pop: break;
 	case op_dup: break;
 	case op_swap: break;
-	case op_stringify: break;
 	case op_index: break;
 	case op_add: break;
 	case op_sub: break;
@@ -864,6 +864,11 @@ vm_dis_inst(struct workspace *wk, uint8_t *code, uint32_t base_ip, int64_t offse
 	case op_add_store_g: break;
 	case op_store_m: break;
 	case op_add_store_m: break;
+
+	case op_coerce: {
+		buf_push(":%s", obj_type_to_s(constants[0]));
+		break;
+	}
 
 	case op_load_u:
 	case op_store_u:
@@ -2128,22 +2133,107 @@ type_err:
 }
 
 static void
-vm_op_stringify(struct workspace *wk)
+vm_op_coerce(struct workspace *wk)
 {
-	obj a;
-	a = object_stack_pop(&wk->vm.stack);
+	enum obj_type coerce_type = vm_get_constant(wk->vm.code.e, &wk->vm.ip);
+	struct obj_stack_entry *entry = object_stack_pop_entry(&wk->vm.stack);
+	obj a = entry->o;
+	enum obj_type a_type = get_obj_type(wk, a);
 
 	obj res = 0;
 
-	if (get_obj_type(wk, a) == obj_typeinfo) {
-		if (!typecheck_typeinfo(wk, a, tc_bool | tc_file | tc_number | tc_string | tc_feature_opt)) {
-			vm_error(wk, "unable to coerce %s to string", obj_typestr(wk, a));
+	switch (coerce_type) {
+	case obj_string: {
+		if (a_type == obj_typeinfo) {
+			if (!typecheck_typeinfo(wk, a, tc_bool | tc_file | tc_number | tc_string | tc_feature_opt)) {
+				goto type_error;
+			}
+			goto push_dummy;
 		}
 
-		res = make_typeinfo(wk, tc_string);
-	} else if (!coerce_string(wk, wk->vm.ip - 1, a, &res)) {
-		vm_push_dummy(wk);
-		return;
+		if (!coerce_string(wk, entry->ip, a, &res)) {
+			goto type_error;
+		}
+		break;
+	}
+	case obj_number: {
+		if (a_type == obj_typeinfo) {
+			if (!typecheck_typeinfo(wk, a, tc_bool | tc_number | tc_string)) {
+				goto type_error;
+			}
+			goto push_dummy;
+		}
+
+		switch (a_type) {
+		case obj_number: res = a; break;
+		case obj_bool:
+			res = make_obj(wk, obj_number);
+			set_obj_number(wk, res, get_obj_bool(wk, a) ? 1 : 0);
+			break;
+		case obj_string: {
+			int64_t n;
+			if (!str_to_i(get_str(wk, a), &n, false)) {
+				vm_error_at(wk,
+					entry->ip,
+					"unable to coerce string %o to %s",
+					a,
+					obj_type_to_s(coerce_type));
+				goto push_dummy;
+			}
+			res = make_obj(wk, obj_number);
+			set_obj_number(wk, res, n);
+			break;
+		}
+		default: goto type_error;
+		}
+		break;
+	}
+	case obj_bool: {
+		if (a_type == obj_typeinfo) {
+			if (!typecheck_typeinfo(wk, a, tc_bool | tc_number | tc_string)) {
+				goto type_error;
+			}
+			goto push_dummy;
+		}
+
+		switch (a_type) {
+		case obj_number: res = make_obj_bool(wk, get_obj_number(wk, a) != 0); break;
+		case obj_bool: res = a; break;
+		case obj_string: {
+			bool r = true;
+			const struct str false_strs[] = {
+				STR(""),
+				STR("N"),
+				STR("NO"),
+				STR("OFF"),
+				STR("FALSE"),
+				STR("IGNORE"),
+				STR("NOTFOUND"),
+			}, *str = get_str(wk, a);
+			for (uint32_t i = 0; i < ARRAY_LEN(false_strs); ++i) {
+				if (str_eqli(&false_strs[i], str)) {
+					r = false;
+					break;
+				}
+			}
+
+			res = make_obj_bool(wk, r);
+			break;
+		}
+		default: goto type_error;
+		}
+		break;
+	}
+	default:
+type_error:
+		vm_error_at(wk,
+			entry->ip,
+			"unable to coerce object of type %#o to %s",
+			obj_type_to_typestr(wk, a),
+			obj_type_to_s(coerce_type));
+push_dummy:
+		res = make_typeinfo(wk, obj_type_to_tc_type(coerce_type));
+		break;
 	}
 
 	object_stack_push(wk, res);
@@ -3875,7 +3965,7 @@ vm_init(struct workspace *wk)
 					      [op_gt] = vm_op_gt,
 					      [op_lt] = vm_op_lt,
 					      [op_negate] = vm_op_negate,
-					      [op_stringify] = vm_op_stringify,
+					      [op_coerce] = vm_op_coerce,
 					      [op_store_g] = vm_op_store_g,
 					      [op_add_store_g] = vm_op_add_store_g,
 					      [op_try_load_g] = vm_op_try_load,

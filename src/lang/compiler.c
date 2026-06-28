@@ -644,7 +644,10 @@ vm_comp_node(struct workspace *wk, struct node *n)
 	/* L("compiling %s", node_to_s(wk, n)); */
 
 	switch (n->type) {
-	case node_type_stringify: push_code(wk, op_stringify); break;
+	case node_type_coerce:
+		push_code(wk, op_coerce);
+		push_constant(wk, n->data.type);
+		break;
 	case node_type_index: push_code(wk, op_index); break;
 	case node_type_negate: push_code(wk, op_negate); break;
 	case node_type_add: push_code(wk, op_add); break;

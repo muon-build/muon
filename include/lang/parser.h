@@ -54,7 +54,7 @@ enum node_type {
 	node_type_if,
 	node_type_negate,
 	node_type_ternary,
-	node_type_stringify,
+	node_type_coerce,
 	node_type_func_def,
 	node_type_return,
 };

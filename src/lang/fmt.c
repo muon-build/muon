@@ -1003,7 +1003,7 @@ fmt_node(struct fmt_ctx *f, struct node *n)
 
 	switch (n->type) {
 	case node_type_maybe_id:
-	case node_type_stringify:
+	case node_type_coerce:
 	case node_type_stmt: UNREACHABLE;
 
 	case node_type_args:

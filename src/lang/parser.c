@@ -146,7 +146,7 @@ node_type_to_s(enum node_type t)
 		nt(negate);
 		nt(ternary);
 		nt(stmt);
-		nt(stringify);
+		nt(coerce);
 		nt(func_def);
 		nt(return);
 		nt(group);
@@ -700,6 +700,15 @@ parse_null(struct parser *p, bool assignment_allowed)
 }
 
 static struct node *
+parse_emit_coerce(struct parser *p, struct node *child, enum obj_type coerce_type)
+{
+	struct node *n = make_node_t(p, node_type_coerce);
+	n->data.type = coerce_type;
+	n->l = child;
+	return n;
+}
+
+static struct node *
 parse_fstring(struct parser *p, bool assignment_allowed)
 {
 	uint32_t i, j;
@@ -725,9 +734,9 @@ parse_fstring(struct parser *p, bool assignment_allowed)
 					lhs = 0;
 				}
 
-				rhs = make_node_t(p, node_type_stringify);
-				rhs->l = make_node_t(p, node_type_id);
-				rhs->l->data.str = make_strn(p->wk, identifier.s, identifier.len);
+				struct node *id = make_node_t(p, node_type_id);
+				id->data.str = make_strn(p->wk, identifier.s, identifier.len);
+				rhs = parse_emit_coerce(p, id, obj_string);
 
 				if (lhs) {
 					if (!n) {
