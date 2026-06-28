@@ -283,7 +283,7 @@ cmd_check(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[]
 	}
 
 	if (opts.print_ast) {
-		struct node *n;
+		struct node *n = 0;
 
 		switch (lang) {
 		case build_language_meson: n = parse(wk, src, opts.compile_mode); break;
