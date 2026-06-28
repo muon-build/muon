@@ -76,6 +76,7 @@ token_type_to_s(enum token_type type)
 	case token_type_returntype: return "->";
 	case token_type_doc_comment: return "doc comment";
 	case token_type_null: return "null";
+	case token_type_cm_comp_subtype: return "cm_comp_subtype";
 	}
 
 	UNREACHABLE_RETURN;
@@ -1013,26 +1014,35 @@ static const struct lex_str_token_table cm_lex_keyword_tokens_command[] = {
 };
 
 static const struct lex_str_token_table cm_lex_keyword_tokens_conditional[] = {
-	{ STR_static("NOT"), token_type_not },
-	{ STR_static("AND"), token_type_and },
-	{ STR_static("OR"), token_type_or },
-	{ STR_static("EQUAL"), token_type_eq },
+	// { STR_static("MATCHES"),  },
 	{ STR_static("LESS"), '<' },
-	{ STR_static("LESS_EQUAL"), token_type_leq },
 	{ STR_static("GREATER"), '>' },
+	{ STR_static("EQUAL"), token_type_eq },
+	{ STR_static("LESS_EQUAL"), token_type_leq },
 	{ STR_static("GREATER_EQUAL"), token_type_geq },
-	{ STR_static("STR_EQUAL"), token_type_eq, cm_token_subtype_comp_str },
-	{ STR_static("STR_LESS"), '<', cm_token_subtype_comp_str },
-	{ STR_static("STR_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_str },
-	{ STR_static("STR_GREATER"), '>', cm_token_subtype_comp_str },
-	{ STR_static("STR_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_str },
-	{ STR_static("VERSION_EQUAL"), token_type_eq, cm_token_subtype_comp_ver },
+
+	{ STR_static("STRLESS"), '<', cm_token_subtype_comp_str },
+	{ STR_static("STRGREATER"), '>', cm_token_subtype_comp_str },
+	{ STR_static("STREQUAL"), token_type_eq, cm_token_subtype_comp_str },
+	{ STR_static("STRLESS_EQUAL"), token_type_leq, cm_token_subtype_comp_str },
+	{ STR_static("STRGREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_str },
+
 	{ STR_static("VERSION_LESS"), '<', cm_token_subtype_comp_ver },
-	{ STR_static("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver },
 	{ STR_static("VERSION_GREATER"), '>', cm_token_subtype_comp_ver },
+	{ STR_static("VERSION_EQUAL"), token_type_eq, cm_token_subtype_comp_ver },
+	{ STR_static("VERSION_LESS_EQUAL"), token_type_leq, cm_token_subtype_comp_ver },
 	{ STR_static("VERSION_GREATER_EQUAL"), token_type_geq, cm_token_subtype_comp_ver },
+
 	{ STR_static("PATH_EQUAL"), token_type_eq, cm_token_subtype_comp_path },
+
+	{ STR_static("AND"), token_type_and },
 	{ STR_static("MATCHES"), token_type_eq, cm_token_subtype_comp_regex },
+	{ STR_static("NOT"), token_type_not },
+	{ STR_static("OR"), token_type_or },
+
+	{ STR_static("IN_LIST"), token_type_in },
+
+	{ STR_static("EXISTS"), token_type_cm_comp_subtype, cm_token_subtype_comp_exists },
 };
 
 void
@@ -1058,28 +1068,6 @@ restart:
 
 			while (lexer->src[lexer->i] && lexer->src[lexer->i] != '\n') {
 				lex_advance(lexer);
-			}
-
-			if (lexer->mode & lexer_mode_fmt) {
-				bool fmt_on;
-				const struct str comment = { &lexer->src[start], lexer->i - start };
-				if (lexer_is_fmt_comment(lexer, &comment, &fmt_on)) {
-					if (fmt_on) {
-						if (lexer->fmt.in_raw_block) {
-							obj s = make_strn(lexer->wk,
-								&lexer->src[lexer->fmt.raw_block_start],
-								(start - 1) - lexer->fmt.raw_block_start);
-
-							obj_array_push(lexer->wk, lexer->fmt.raw_blocks, s);
-							lexer->fmt.in_raw_block = false;
-						}
-					} else {
-						if (!lexer->fmt.in_raw_block) {
-							lexer->fmt.raw_block_start = lexer->i;
-							lexer->fmt.in_raw_block = true;
-						}
-					}
-				}
 			}
 		} else {
 			lex_advance(lexer);

@@ -755,90 +755,110 @@ vm_comp_node(struct workspace *wk, struct node *n)
 		if (n->r->type == node_type_id_lit) {
 			name = get_str(wk, n->r->data.str);
 
-			if (str_eql(name, &STR("subdir_done"))) {
-				vm_comp_disable_in_script_mode(wk, n);
+			if (wk->vm.compiler_state.lang == build_language_meson) {
+				if (str_eql(name, &STR("subdir_done"))) {
+					vm_comp_disable_in_script_mode(wk, n);
 
-				push_location(wk, n);
+					push_location(wk, n);
 
-				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
+					vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
 
-				push_code(wk, op_constant);
-				push_constant(wk, 0);
+					push_code(wk, op_constant);
+					push_constant(wk, 0);
 
-				push_code(wk, op_return);
+					push_code(wk, op_return);
 
-				break;
-			} else if (str_eql(name, &STR("set_variable"))) {
-				vm_comp_disable_in_script_mode(wk, n);
+					break;
+				} else if (str_eql(name, &STR("set_variable"))) {
+					vm_comp_disable_in_script_mode(wk, n);
 
-				push_location(wk, n);
+					push_location(wk, n);
 
-				vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
+					vm_comp_assert_inline_func_args(wk, n, n->l, 2, 2, 0);
 
-				push_code(wk, op_swap);
-				push_code(wk, op_store_g);
-				break;
-			} else if (str_eql(name, &STR("get_variable"))) {
-				vm_comp_disable_in_script_mode(wk, n);
+					push_code(wk, op_swap);
+					push_code(wk, op_store_g);
+					break;
+				} else if (str_eql(name, &STR("get_variable"))) {
+					vm_comp_disable_in_script_mode(wk, n);
 
-				push_location(wk, n);
+					push_location(wk, n);
 
-				vm_comp_assert_inline_func_args(wk, n, n->l, 1, 2, 0);
+					vm_comp_assert_inline_func_args(wk, n, n->l, 1, 2, 0);
 
-				if (n->l->data.len.args == 1) {
-					push_code(wk, op_load_g);
-				} else {
-					push_code(wk, op_try_load_g);
+					if (n->l->data.len.args == 1) {
+						push_code(wk, op_load_g);
+					} else {
+						push_code(wk, op_try_load_g);
+					}
+					break;
+				} else if (str_eql(name, &STR("disabler"))) {
+					push_location(wk, n);
+
+					vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
+
+					push_code(wk, op_constant);
+					push_constant(wk, obj_disabler);
+					break;
+				} else if (str_eql(name, &STR("is_disabler"))) {
+					/* jmp_if_disabler >-,
+				     * pop               |
+				     * const false       |
+				     * jmp >-------------|-,
+				     * const true <------` |
+				     *    <----------------`
+				     */
+					uint32_t true_jmp_tgt, false_jmp_tgt;
+
+					push_location(wk, n);
+
+					vm_comp_assert_inline_func_args(wk, n, n->l, 1, 1, 0);
+
+					push_code(wk, op_jmp_if_disabler);
+					true_jmp_tgt = wk->vm.code.len;
+					push_constant(wk, 0);
+
+					push_code(wk, op_pop);
+					push_code(wk, op_constant);
+					push_constant(wk, obj_bool_false);
+					push_code(wk, op_jmp);
+					false_jmp_tgt = wk->vm.code.len;
+					push_constant(wk, 0);
+
+					push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, true_jmp_tgt));
+
+					push_code(wk, op_constant);
+					push_constant(wk, obj_bool_true);
+
+					push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, false_jmp_tgt));
+					break;
 				}
-				break;
-			} else if (str_eql(name, &STR("disabler"))) {
-				push_location(wk, n);
 
-				vm_comp_assert_inline_func_args(wk, n, n->l, 0, 0, 0);
+				known = func_lookup(wk, 0, name->s, &idx, 0);
 
-				push_code(wk, op_constant);
-				push_constant(wk, obj_disabler);
-				break;
-			} else if (str_eql(name, &STR("is_disabler"))) {
-				/* jmp_if_disabler >-,
-				 * pop               |
-				 * const false       |
-				 * jmp >-------------|-,
-				 * const true <------` |
-				 *    <----------------`
-				 */
-				uint32_t true_jmp_tgt, false_jmp_tgt;
+			} else if (wk->vm.compiler_state.lang == build_language_cmake) {
+				if (str_eql(name, &STR("get_variable"))) {
+					push_location(wk, n);
 
-				push_location(wk, n);
-
-				vm_comp_assert_inline_func_args(wk, n, n->l, 1, 1, 0);
-
-				push_code(wk, op_jmp_if_disabler);
-				true_jmp_tgt = wk->vm.code.len;
-				push_constant(wk, 0);
-
-				push_code(wk, op_pop);
-				push_code(wk, op_constant);
-				push_constant(wk, obj_bool_false);
-				push_code(wk, op_jmp);
-				false_jmp_tgt = wk->vm.code.len;
-				push_constant(wk, 0);
-
-				push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, true_jmp_tgt));
-
-				push_code(wk, op_constant);
-				push_constant(wk, obj_bool_true);
-
-				push_constant_at(wk->vm.code.len, arr_get(&wk->vm.code, false_jmp_tgt));
-				break;
+					vm_comp_assert_inline_func_args(wk, n, n->l, 1, 1, 0);
+					push_code(wk, op_constant);
+					push_constant(wk, make_str(wk, ""));
+					push_code(wk, op_try_load_g);
+					break;
+				} else if (str_eql(name, &STR("set"))) {
+					if (n->l->data.len.args == 2) {
+						push_code(wk, op_swap);
+						push_code(wk, op_store_g);
+						break;
+					}
+				}
 			}
+		}
 
-			known = func_lookup(wk, 0, name->s, &idx, 0);
-			if (!known) {
-				n->r->type = node_type_id;
-				push_location(wk, n->r);
-				vm_comp_node(wk, n->r);
-			}
+		if (!known && n->r->type == node_type_id_lit) {
+			n->r->type = node_type_id;
+			push_location(wk, n->r);
+			vm_comp_node(wk, n->r);
 		}
 
 		push_location(wk, n);

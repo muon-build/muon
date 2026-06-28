@@ -70,8 +70,8 @@ endfunc
 
 stub('cmake_minimum_required')
 
-M.option = func(name str, desc str, default str)
-    set_variable(name, default, parent_scope: true)
+M.option = func(_name str, _desc str, _default str)
+    #set_variable(name, default, parent_scope: true)
 endfunc
 
 M.message = func(s str)

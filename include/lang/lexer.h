@@ -81,10 +81,13 @@ enum token_type {
 	token_type_returntype,
 	token_type_doc_comment,
 	token_type_null,
+
+	/* cmake */
+	token_type_cm_comp_subtype,
 };
 
 // Keep in sync with above
-#define token_type_count (token_type_null + 1)
+#define token_type_count (token_type_cm_comp_subtype + 1)
 
 enum cm_token_subtype {
 	cm_token_subtype_none,
@@ -92,6 +95,7 @@ enum cm_token_subtype {
 	cm_token_subtype_comp_ver,
 	cm_token_subtype_comp_path,
 	cm_token_subtype_comp_regex,
+	cm_token_subtype_comp_exists,
 };
 
 union literal_data {
