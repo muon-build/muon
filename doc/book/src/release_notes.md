@@ -16,7 +16,7 @@
     - ccache and sccache
 - documentation
     - `muon help`
-    - source links in [refernce manual](https://docs.muon.build/reference)
+    - source links in [reference manual](https://docs.muon.build/reference)
 - tooling
     - DAP debugger protocol support & dcmake integration
       [github issue](https://github.com/muon-build/muon/issues/249)
