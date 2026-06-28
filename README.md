@@ -31,10 +31,10 @@ See the [Muon Reference] for more detailed information.
 Things missing include:
 
 - some niche options such as -Dunity and -Dlayout have no effect
-- dependencies with custom logic hardcoded in meson don't yet have the same
+- some dependencies with custom logic hardcoded in meson don't yet have the same
   treatment in muon
 - some less common meson modules
-- language support for non c-like languages
+- most language support for non c-like languages
 
 Other differences from meson are described in the [Muon Docs].
 
