@@ -178,6 +178,9 @@ Copyright 2010-2013 Pieter Noordhuis <pcnoordhuis@gmail.com>\"");
 #ifndef BESTLINE_MAX_HISTORY
 #define BESTLINE_MAX_HISTORY 1024
 #endif
+#ifndef BESTLINE_MAX_LINE
+#define BESTLINE_MAX_LINE 65536
+#endif
 
 #define BESTLINE_HISTORY_FIRST +BESTLINE_MAX_HISTORY
 #define BESTLINE_HISTORY_PREV  +1
@@ -2053,6 +2056,7 @@ static void bestlineEditHistoryGoto(struct bestlineState *l, unsigned i) {
     history[historylen - 1 - l->hindex] = strdup(l->buf);
     l->hindex = i;
     n = strlen(history[historylen - 1 - l->hindex]);
+    n = Min(n, (size_t)BESTLINE_MAX_LINE);
     bestlineGrow(l, n + 1);
     n = Min(n, l->buflen - 1);
     memcpy(l->buf, history[historylen - 1 - l->hindex], n);
@@ -2175,8 +2179,10 @@ static void bestlineRingPush(const char *p, size_t n) {
     if (!(q = (char *)malloc(n + 1))) return;
     ring.i = (ring.i + 1) % BESTLINE_MAX_RING;
     free(ring.p[ring.i]);
-    ring.p[ring.i] = (char *)memcpy(q, p, n);
-    ring.p[ring.i][n] = 0;
+    ring.p[ring.i] = 0;
+    memcpy(q, p, n);
+    q[n] = 0;
+    ring.p[ring.i] = q;
 }
 
 static void bestlineRingRotate(void) {
