@@ -1502,7 +1502,7 @@ bool vm_compile_ast(struct workspace *wk, struct node *n, const struct vm_compil
 
 bool vm_compile(struct workspace *wk, const struct source *src, const struct vm_compile_opts *opts, uint32_t *entry)
 {
-	struct node *n;
+	struct node *n = 0;
 
 	vm_compile_state_reset(wk);
 
