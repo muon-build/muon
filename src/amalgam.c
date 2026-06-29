@@ -17,8 +17,8 @@
 #include "backend/ninja.c"
 #include "backend/ninja/alias_target.c"
 #include "backend/ninja/build_target.c"
-#include "backend/ninja/coverage.c"
 #include "backend/ninja/clang_format.c"
+#include "backend/ninja/coverage.c"
 #include "backend/ninja/custom_target.c"
 #include "backend/ninja/rules.c"
 #include "backend/output.c"
@@ -122,6 +122,8 @@
 #include "platform/filesystem.c"
 #include "platform/mem.c"
 #include "platform/null/backtrace.c"
+#include "platform/null/socket.c"
+#include "platform/null/timer.c"
 #include "platform/os.c"
 #include "platform/path.c"
 #include "platform/run_cmd.c"
@@ -143,7 +145,6 @@
 #include "platform/windows/rpath_fixer.c"
 #include "platform/windows/run_cmd.c"
 #include "platform/windows/term.c"
-#include "platform/windows/timer.c"
 #include "platform/windows/uname.c"
 #include "platform/windows/win32_error.c"
 #else
@@ -155,10 +156,8 @@
 #include "platform/posix/path.c"
 #include "platform/posix/run_cmd.c"
 #include "platform/posix/term.c"
-#include "platform/posix/timer.c"
 #include "platform/posix/uname.c"
 #endif
-#include "platform/null/socket.c"
 
 #include "external/pkgconfig.c"
 #include "external/pkgconfig_exec.c"

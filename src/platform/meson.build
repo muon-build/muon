@@ -73,4 +73,9 @@ if platform == 'posix'
         deps += cc.find_library('socket')
         deps += cc.find_library('nsl')
     endif
+
+    librt = cc.find_library('rt', required: false)
+    if librt.found()
+        deps += librt
+    endif
 endif
