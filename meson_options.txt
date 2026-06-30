@@ -85,6 +85,13 @@ option(
 )
 
 option(
+    'docs',
+    type: 'feature',
+    value: 'auto',
+    description: 'control all documentation building',
+)
+
+option(
     'meson-docs',
     type: 'feature',
     value: 'auto',
@@ -109,6 +116,6 @@ option(
 option(
     'website',
     type: 'feature',
-    value: 'auto',
+    value: 'disabled',
     description: 'build website',
 )

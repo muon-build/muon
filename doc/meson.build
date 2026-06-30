@@ -1,13 +1,23 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-if not meson.can_run_host_binaries()
+docs_opt = get_option('docs').require(
+    meson.can_run_host_binaries(),
+    error_message: 'host binaries must be executable to build docs',
+).enable_auto_if(not meson.can_run_host_binaries())
+
+man_pages_opt = get_option('man-pages').require(docs_opt.enabled())
+website_opt = get_option('website').require(docs_opt.enabled())
+
+summary('docs', docs_opt.allowed())
+
+if not docs_opt.allowed()
     subdir_done()
 endif
 
 man_page_targets = {}
 
-if not get_option('man-pages').disabled()
+if man_pages_opt.allowed()
     foreach page : [
         ['muon', 1, ['-c']],
         ['meson-reference', 3, []],
@@ -45,7 +55,7 @@ if not get_option('man-pages').disabled()
     endif
 endif
 
-if get_option('website').enabled()
+if website_opt.allowed()
     subdir('website')
     subdir('book')
 
@@ -56,5 +66,3 @@ if get_option('website').enabled()
         build_by_default: true,
     )
 endif
-
-summary('docs', true)
