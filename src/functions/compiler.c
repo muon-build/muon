@@ -1708,7 +1708,23 @@ compiler_has_argument(struct workspace *wk,
 	obj_array_extend(wk, args, toolchain_compiler_werror(wk, comp_id));
 
 	if (get_obj_type(wk, arg) == obj_string) {
+		// Convert "-Wno-" prefixes to the positive "-W" form in
+		// order to get GCC to report the error.
+		obj orig_arg = arg;
+		struct str arg_str = *get_str(wk, arg);
+		if (str_try_remove_prefix(&arg_str, &STR("-Wno-"))) {
+			if (str_startswith(&arg_str, &STR("attributes"))) {
+				// Exclude the special case "-Wno-attributes=...".
+				// See: meson-tests/common/104 has arg/meson.build
+			} else {
+				arg = make_strf(wk, "-W%.*s", arg_str.len, arg_str.s);
+			}
+		}
+
 		obj_array_push(wk, args, arg);
+
+		// Use the original arg form for user facing log messages
+		arg = orig_arg;
 	} else {
 		obj_array_extend(wk, args, arg);
 
