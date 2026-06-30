@@ -228,6 +228,13 @@ substitute_config_variables(struct workspace *wk, struct configure_file_context 
 				tstr_pushs(wk, out, "@@");
 				continue;
 			} else if (!obj_dict_index_strn(wk, ctx->dict, &in->buf[id_start], i - id_start, &elem)) {
+				if (ctx->syntax & configure_file_syntax_cmakedefine)
+				{
+					// non-existant keys are valid in cmake headers
+					tstr_pushs(wk, out, "");
+					continue;
+				}
+
 				configure_file_log(wk,
 					ctx,
 					id_location,
