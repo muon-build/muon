@@ -308,7 +308,9 @@ substitute_config_defines(struct workspace *wk, struct configure_file_context *c
 						tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
 					}
 				} else {
-					if (!cmake_bool && !coerce_truthiness(wk, elem)) {
+					if (cmake_bool) {
+						tstr_pushf(wk, out, "#define %s %i\n", get_str(wk, varname)->s, (int)coerce_truthiness(wk, elem));
+					} else if (!coerce_truthiness(wk, elem)) {
 						tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
 					} else {
 						tstr_pushf(wk, out, "#define %s", get_str(wk, varname)->s);
