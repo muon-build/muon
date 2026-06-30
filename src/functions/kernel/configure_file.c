@@ -228,6 +228,12 @@ substitute_config_variables(struct workspace *wk, struct configure_file_context 
 				tstr_pushs(wk, out, "@@");
 				continue;
 			} else if (!obj_dict_index_strn(wk, ctx->dict, &in->buf[id_start], i - id_start, &elem)) {
+				if (ctx->syntax & configure_file_syntax_cmakedefine) {
+					// non-existant keys are valid in cmake headers
+					tstr_pushs(wk, out, "");
+					continue;
+				}
+
 				configure_file_log(wk,
 					ctx,
 					id_location,
@@ -277,6 +283,7 @@ substitute_config_defines(struct workspace *wk, struct configure_file_context *c
 		location.off = s - ctx->in->buf;
 
 		struct str line = { s, e - s };
+		str_strip_in_place(&line, NULL, 0);
 
 		if (str_startswith(&line, &define)) {
 			obj arr = str_split(wk, &line, 0);
@@ -301,7 +308,10 @@ substitute_config_defines(struct workspace *wk, struct configure_file_context *c
 						tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
 					}
 				} else {
-					if (!cmake_bool && !coerce_truthiness(wk, elem)) {
+					const bool truthiness = coerce_truthiness(wk, elem);
+					if (cmake_bool) {
+						tstr_pushf(wk, out, "#define %s %d\n", get_str(wk, varname)->s, truthiness);
+					} else if (!truthiness) {
 						tstr_pushf(wk, out, "/* #undef %s */\n", get_str(wk, varname)->s);
 					} else {
 						tstr_pushf(wk, out, "#define %s", get_str(wk, varname)->s);

@@ -12,6 +12,7 @@ tests = [
     ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
     ['muon/vala', {'vala': true}],
     ['muon/disabler', {}],
+    ['muon/configure_file_cmake', {}],
 
     # project tests imported from meson unit tests
     # TODO: move this to meson-tests
