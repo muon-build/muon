@@ -806,7 +806,7 @@ FUNC_IMPL(meson,
 	func_impl_flag_impure,
 	.desc = "set properties to be accessed by meson.get_cross_property() and meson.get_external_property()")
 {
-	struct args_norm an[] = { { COMPLEX_TYPE_PRESET(tc_cx_dict_of_str) }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { tc_dict }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_native,
 	};
