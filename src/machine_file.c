@@ -23,6 +23,7 @@ enum machine_file_section {
 	machine_file_section_project_options_prefixed,
 	machine_file_section_build_machine,
 	machine_file_section_host_machine,
+	machine_file_section_target_machine,
 	machine_file_section_count,
 };
 
@@ -34,6 +35,7 @@ static const char *machine_file_section_names[machine_file_section_count] = {
 	[machine_file_section_project_options] = "project options",
 	[machine_file_section_build_machine] = "build_machine",
 	[machine_file_section_host_machine] = "host_machine",
+	[machine_file_section_target_machine] = "target_machine",
 };
 
 static bool
@@ -116,6 +118,9 @@ machine_file_translate_cb(void *_ctx,
 		break;
 	case machine_file_section_build_machine:
 		tstr_pushf(wk, ctx->dest, "build_machine.set_properties({'%s': %s})\n", k, v);
+		break;
+	case machine_file_section_target_machine:
+		tstr_pushf(wk, ctx->dest, "target_machine.set_properties({'%s': %s})\n", k, v);
 		break;
 	case machine_file_section_builtin_options:
 	case machine_file_section_project_options:
