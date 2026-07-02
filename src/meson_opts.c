@@ -444,7 +444,7 @@ translate_meson_opts_setup(struct workspace *wk, char *argv[], uint32_t argc, st
 		{ "errorlogs", .ignore = true },
 		{ "fatal-meson-warnings", .ignore = true },
 		{ "force-fallback-for", true, "force_fallback_for" },
-		{ "install-umask", true, "insall_umask" },
+		{ "install-umask", true, "install_umask" },
 		{ "layout", true, "layout" },
 		{ "native-file", true, .handle_as = opt_setup_native_file },
 		{ "optimization", true, "optimization" },
