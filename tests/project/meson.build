@@ -70,10 +70,13 @@ foreach t : tests
     kwargs = props.get('kwargs', {})
     suites = ['project', name.split('/')[0]]
 
-    if props.get('python', false) and not python3.found()
-        continue
-    else
-        suites += 'requires_python'
+    requires_python = props.get('python', false)
+    if requires_python
+        if not python3.found()
+            continue
+        else
+            suites += 'requires_python'
+        endif
     endif
 
     skip_exit_code = '77'
