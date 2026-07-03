@@ -7,3 +7,36 @@ func f(kwargs glob[any]:, b any:)
 endfunc
 
 f(a: 1, b: 1)
+
+# Verify that the muon parser and fmt command are working correctly with
+# null composite types with the grammatically valid but otherwise nonsensical
+# examples below.
+
+func test_null_types(first bool, s str|null, n int, _nil null) -> int|str|null
+    return first ? s : n
+endfunc
+
+assert(test_null_types(true, 'foo', 42, null) == 'foo')
+assert(test_null_types(true, null, 42, null) == null)
+assert(test_null_types(false, 'foo', 42, null) == 42)
+
+func test_glob_types_with_null(
+    _a glob[int],
+    _b glob[int|null],
+    _c glob[int|str],
+    d glob[int|str|null],
+    _e glob[null],
+) -> glob[int|str|null]
+    return d
+endfunc
+
+func test_list_types_with_null(
+    a list[int],
+    _b list[int|null],
+    _c list[int|str],
+    _d list[int|str|null],
+    _e list[null],
+    _f list[int|str|null]|null,
+) -> list[int|str|null]|null
+    return a.length() ? [42, 'foo'] : null
+endfunc

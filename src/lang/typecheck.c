@@ -140,6 +140,7 @@ obj
 typechecking_type_to_str(struct workspace *wk, type_tag t)
 {
 	obj typestr;
+	type_tag allow_null = t & TYPE_TAG_ALLOW_NULL;
 
 	t &= ~TYPE_TAG_ALLOW_NULL;
 
@@ -152,7 +153,17 @@ typechecking_type_to_str(struct workspace *wk, type_tag t)
 		modifier = "listify";
 	}
 
-	obj_array_join(wk, false, typechecking_type_to_arr(wk, t), make_str(wk, "|"), &typestr);
+	obj type_arr = typechecking_type_to_arr(wk, t);
+
+	if (allow_null) {
+		obj null_str = make_str(wk, "null");
+		if (!obj_array_in(wk, type_arr, null_str)) {
+			obj_array_push(wk, type_arr, null_str);
+		}
+	}
+
+	obj_array_join(wk, false, type_arr, make_str(wk, "|"), &typestr);
+
 	if (modifier) {
 		typestr = make_strf(wk, "%s[%s]", modifier, get_cstr(wk, typestr));
 	}
