@@ -1357,6 +1357,43 @@ cont:
 }
 
 static bool
+cmd_init(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
+{
+	struct {
+		const char *project_name;
+	} opts = { 0 };
+	opt_for(-1, .usage_post = " [project name]") {
+	}
+	opt_end();
+
+	if (argi + 1 == argc) {
+		opts.project_name = argv[argi];
+	} else if (argi < argc) {
+		return opt_check_operands(argc, argi, 1);
+	}
+
+	struct source src = { 0 };
+	embedded_get(wk, "commands/init.meson", &src);
+
+	obj res;
+	if (!eval(wk, &src, &(struct eval_opts){ build_language_meson, language_internal }, &res)) {
+		return false;
+	}
+	obj main = obj_dict_index_as_obj(wk, res, "main");
+
+	struct args_kw akw[] = {
+		{ "name", .val = opts.project_name ? make_str(wk, opts.project_name) : 0 },
+		0,
+	};
+
+	if (!vm_eval_closure(wk, main, 0, akw, &res)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool
 cmd_help(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
@@ -1592,6 +1629,7 @@ cmd_main(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		{ "devenv", cmd_devenv, "run commands in developer environment" },
 		{ "fmt", cmd_format, "format a meson source file" },
 		{ "help", cmd_help, "get help" },
+		{ "init", cmd_init, "create a new project" },
 		{ "install", cmd_install, "install files" },
 		{ "internal", cmd_internal, "internal subcommands" },
 		{ "meson", cmd_meson, "meson cli compatibility layer" },

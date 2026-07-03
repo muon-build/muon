@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+M = {}
+
+fs = import('fs')
+
+M.main = func(name str:)
+    if is_null(name)
+        name = fs.name(fs.cwd())
+        base_path = fs.cwd()
+    else
+        base_path = fs.cwd() / name
+        fs.mkdir(base_path, make_parents: true)
+    endif
+
+    message(f'initializing project @name@')
+
+    files = {
+        'meson.build': f'''project('@name@')
+
+add_languages('c', native: false)
+
+executable('main', sources: ['main.c'])
+''',
+        'main.c': '''#include <stdio.h>
+
+int
+main(int argc, char *argv[])
+{
+	printf("hello world\n");
+}
+''',
+    }
+
+    foreach path, _ : files
+        if fs.exists(base_path / path)
+            error(f'refusing to overwrite existsing file: @path@')
+        endif
+    endforeach
+
+    foreach path, contents : files
+        fs.write(base_path / path, contents)
+    endforeach
+endfunc
+
+return M

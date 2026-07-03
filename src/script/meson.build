@@ -13,6 +13,7 @@ foreach s : [
     'commands/i18n/gettext.meson',
     'commands/i18n/itstool.meson',
     'commands/i18n/msgfmthelper.meson',
+    'commands/init.meson',
     'commands/vcs_tagger.meson',
     'html/docs.html',
     'html/test_out.html',
