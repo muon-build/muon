@@ -832,7 +832,15 @@ FUNC_IMPL(meson, set_option, 0, func_impl_flag_impure, .desc = "set the value of
 {
 	struct args_norm an[]
 		= { { obj_string }, { tc_feature_opt | tc_string | tc_bool | tc_number | tc_array }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, 0)) {
+	enum kwargs {
+		kw_native,
+	};
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
+
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
@@ -841,12 +849,15 @@ FUNC_IMPL(meson, set_option, 0, func_impl_flag_impure, .desc = "set the value of
 		return false;
 	}
 
+	enum machine_kind m = coerce_machine_kind(wk, &akw[kw_native]);
+
 	struct parse_and_set_option_params params = {
 		.node = wk->vm.ip - 1,
 		.opt = an[0].val,
 		.value = an[1].val,
 		.flags = parse_and_set_option_flag_have_value,
 		.source = option_value_source_commandline,
+		.machine = m,
 	};
 
 	return parse_and_set_option(wk, &params);

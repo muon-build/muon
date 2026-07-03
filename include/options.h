@@ -52,6 +52,8 @@ struct parse_and_set_option_params {
 	obj opts;
 	enum parse_and_set_option_flag flags;
 	enum option_value_source source;
+	enum machine_kind machine;
+	bool for_machine;
 };
 bool parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_params *params);
 
