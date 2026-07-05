@@ -587,9 +587,18 @@ FUNC_IMPL(meson, can_run_host_binaries, tc_bool, func_impl_flag_impure)
 		return false;
 	}
 
-	// TODO: This could actually still be true even when cross compiling if an
-	// exe wrapper is defined.  But muon doesn't support that yet.
-	*res = make_obj_bool(wk, !is_cross_build());
+	if (is_cross_build()) {
+		obj exe_wrapper;
+		get_option_value(wk, current_project(wk), "b_host_exe_wrapper", &exe_wrapper);
+		if (get_obj_array(wk, exe_wrapper)->len) {
+			*res = obj_bool_true;
+		} else {
+			*res = obj_bool_false;
+		}
+	} else {
+		*res = obj_bool_true;
+	}
+
 	return true;
 }
 

@@ -93,6 +93,11 @@ machine_file_translate_cb(void *_ctx,
 	switch (sect) {
 	case machine_file_section_constants: tstr_pushf(wk, ctx->dest, "%s = %s\n", k, v); break;
 	case machine_file_section_binaries: {
+		if (str_eql(&STRL(k), &STR("exe_wrapper"))) {
+			tstr_pushf(wk, ctx->dest, "meson.set_option('b_host_exe_wrapper', [%s].flatten())\n", v);
+			break;
+		}
+
 		TSTR(key);
 		TSTR(option_override);
 

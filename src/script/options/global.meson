@@ -390,6 +390,13 @@ option(
     description: 'Control if paths in generated files are relative or absolute',
 )
 
+option(
+    'b_host_exe_wrapper',
+    type: 'array',
+    value: [],
+    description: 'Specify an exe wrapper to run executables compiled for the host machine',
+)
+
 # Compiler options
 
 option(

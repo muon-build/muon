@@ -15,6 +15,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -307,10 +308,25 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 		struct obj_build_target *o = get_obj_build_target(wk, val);
 		TSTR(dest);
 		TSTR(rel);
+
 		path_join(wk, &dest, get_cstr(wk, o->build_dir), get_cstr(wk, o->build_name));
 		relativize_build_file_path(wk, &rel, dest.buf);
 		path_executable(wk, &dest, rel.buf);
 		str = tstr_into_str(wk, &dest);
+
+		*original_argv0 = str;
+
+		if (o->machine == machine_kind_host) {
+			obj exe_wrapper;
+			get_option_value(wk, current_project(wk), "b_host_exe_wrapper", &exe_wrapper);
+			uint32_t exe_wrapper_len = get_obj_array(wk, exe_wrapper)->len;
+			if (exe_wrapper_len) {
+				*args = obj_array_slice(wk, exe_wrapper, 1, exe_wrapper_len);
+				obj_array_push(wk, *args, str);
+				str = obj_array_get_head(wk, exe_wrapper);
+			}
+		}
+
 		break;
 	}
 	case obj_python_installation:
