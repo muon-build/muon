@@ -98,6 +98,7 @@ struct workspace;
 obj machine_parsed_triple_to_obj(struct workspace *wk, const struct target_triple* t);
 
 void machine_init(void);
+void machine_refresh_computed_props(struct machine_definition *m);
 
 bool machine_matches(enum machine_kind a, enum machine_kind b);
 bool machine_definitions_eql(struct machine_definition *a, struct machine_definition *b);

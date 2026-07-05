@@ -157,6 +157,8 @@ FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
 		m->endianness = props.endian;
 	}
 
+	machine_refresh_computed_props(m);
+
 	return true;
 }
 

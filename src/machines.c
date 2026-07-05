@@ -599,6 +599,12 @@ machine_parsed_triple_to_obj(struct workspace *wk, const struct target_triple* t
 }
 
 void
+machine_refresh_computed_props(struct machine_definition *m)
+{
+	m->is_windows = m->sys == machine_system_windows || m->sys == machine_system_cygwin;
+}
+
+void
 machine_init(void)
 {
 	static bool init = false;
@@ -621,8 +627,8 @@ machine_init(void)
 	}
 	build_machine.endianness = uname_endian();
 	build_machine.address_bits = machine_cpu_address_bits(&build_machine);
-	build_machine.is_windows = build_machine.sys == machine_system_windows
-				   || build_machine.sys == machine_system_cygwin;
+
+	machine_refresh_computed_props(&build_machine);
 
 	host_machine = build_machine;
 	host_machine.kind = machine_kind_host;
