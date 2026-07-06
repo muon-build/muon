@@ -264,7 +264,8 @@ if [ "${JOB_ID:-}" ]; then
 	cfg_website=1
 	cfg_reuse=1
 	cfg_git_mirror=1
-	cfg_trigger_solaris_ci=1
+	# solaris ci host is down?
+	# cfg_trigger_solaris_ci=1
 	cfg_deploy=1
 elif [ "${MUON_RUNNER_CONTAINER:-}" ]; then
 	runner="container"
