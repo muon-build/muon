@@ -1169,7 +1169,7 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 		}
 	}
 
-	enum machine_kind machine = params->for_machine ? params->machine : machine_kind_host;
+	enum machine_kind machine = params->have_machine ? params->machine : machine_kind_host;
 
 	obj opt;
 	if (!get_option_for_machine_overridable(

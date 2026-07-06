@@ -867,6 +867,7 @@ FUNC_IMPL(meson, set_option, 0, func_impl_flag_impure, .desc = "set the value of
 		.flags = parse_and_set_option_flag_have_value,
 		.source = option_value_source_commandline,
 		.machine = m,
+		.have_machine = true,
 	};
 
 	return parse_and_set_option(wk, &params);
