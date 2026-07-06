@@ -316,7 +316,7 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 				}
 			}
 			bool is_darwin = machine->sys == machine_system_darwin;
-			enable = !is_msvc && !is_darwin && machine->address_bits == 32;
+			enable = !is_msvc && !is_darwin;
 		}
 
 		if (enable) {
