@@ -4,7 +4,7 @@
 docs_opt = get_option('docs').require(
     meson.can_run_host_binaries(),
     error_message: 'host binaries must be executable to build docs',
-).enable_auto_if(not meson.can_run_host_binaries())
+).enable_auto_if(meson.can_run_host_binaries())
 
 man_pages_opt = get_option('man-pages').require(docs_opt.enabled())
 website_opt = get_option('website').require(docs_opt.enabled())
