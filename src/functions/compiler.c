@@ -288,7 +288,28 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 			}
 		}
 
-		if (!run_cmd_argv(wk, &opts->cmd_ctx, (char *const[]){ (char *)output_path, NULL }, NULL, 0)) {
+		bool ran_cmd = false;
+		bool run_cmd_ok = false;
+		if (compiler->machine == machine_kind_host) {
+			obj exe_wrapper;
+			get_option_value(wk, current_project(wk), "b_host_exe_wrapper", &exe_wrapper);
+			if (get_obj_array(wk, exe_wrapper)->len) {
+				obj args;
+				obj_array_dup(wk, exe_wrapper, &args);
+				obj_array_push(wk, args, make_str(wk, output_path));
+				const char *argstr;
+				uint32_t argc;
+				join_args_argstr(wk, &argstr, &argc, args);
+				run_cmd_ok = run_cmd(wk, &opts->cmd_ctx, argstr, argc, 0, 0);
+				ran_cmd = true;
+			}
+		}
+
+		if (!ran_cmd) {
+			run_cmd_ok = run_cmd_argv(wk, &opts->cmd_ctx, (char *const[]){ (char *)output_path, NULL }, NULL, 0);
+		}
+
+		if (!run_cmd_ok) {
 			LOG_W("compiled binary failed to run: %s", opts->cmd_ctx.err_msg);
 			run_cmd_ctx_destroy(&opts->cmd_ctx);
 			goto ret;
