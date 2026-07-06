@@ -283,7 +283,6 @@ substitute_config_defines(struct workspace *wk, struct configure_file_context *c
 		location.off = s - ctx->in->buf;
 
 		struct str line = { s, e - s };
-		str_strip_in_place(&line, NULL, 0);
 
 		if (str_startswith(&line, &define)) {
 			obj arr = str_split(wk, &line, 0);
