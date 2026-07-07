@@ -1174,7 +1174,12 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 	obj opt;
 	if (!get_option_for_machine_overridable(
 		    wk, current_project(wk), 0, get_str(wk, oo.name), machine, &opt)) {
-		vm_error_at(wk, params->node, "invalid option %o", oo.name);
+		if (params->flags & parse_and_set_option_flag_push_option_override_if_not_found) {
+			push_option_override(wk, &oo);
+			return true;
+		} else {
+			vm_error_at(wk, params->node, "invalid option %o", oo.name);
+		}
 		return false;
 	}
 

@@ -43,6 +43,7 @@ enum parse_and_set_option_flag {
 	parse_and_set_option_flag_override = 1 << 0,
 	parse_and_set_option_flag_for_subproject = 1 << 1,
 	parse_and_set_option_flag_have_value = 1 << 2,
+	parse_and_set_option_flag_push_option_override_if_not_found = 1 << 3,
 };
 struct parse_and_set_option_params {
 	uint32_t node;

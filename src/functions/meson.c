@@ -864,7 +864,8 @@ FUNC_IMPL(meson, set_option, 0, func_impl_flag_impure, .desc = "set the value of
 		.node = wk->vm.ip - 1,
 		.opt = an[0].val,
 		.value = an[1].val,
-		.flags = parse_and_set_option_flag_have_value,
+		.flags = parse_and_set_option_flag_have_value
+			 | parse_and_set_option_flag_push_option_override_if_not_found,
 		.source = option_value_source_commandline,
 		.machine = m,
 		.have_machine = true,
