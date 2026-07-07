@@ -617,7 +617,10 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 {
 	struct {
 		enum dump_function_docs_output output;
+		obj extra_modules;
+		obj module_dir;
 		bool cli;
+		bool no_builtin;
 	} opts = {
 		.output = dump_function_docs_output_html,
 	};
@@ -633,6 +636,15 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 			opts.output = opt_ctx.optarg_enum_value;
 		} else if (opt_match('c', "dump cli docs")) {
 			opts.cli = true;
+		} else if (opt_match('m', "specify extra script module to document (may be passed multiple times)", "module")) {
+			if (!opts.extra_modules) {
+				opts.extra_modules = make_obj(wk, obj_array);
+			}
+			obj_array_push(wk, opts.extra_modules, make_str(wk, opt_ctx.optarg));
+		} else if (opt_match('M', "specify module_dir for extra modules", "path")) {
+			opts.module_dir = make_str(wk, opt_ctx.optarg);
+		} else if (opt_match('B', "dump extra script module documentation only")) {
+			opts.no_builtin = true;
 		}
 	}
 	opt_end();
@@ -642,6 +654,9 @@ cmd_dump_docs(struct workspace *wk, uint32_t argc, uint32_t argi, char *const ar
 	struct dump_function_docs_opts dump_opts = {
 		.type = opts.output,
 		.out = stdout,
+		.extra_modules = opts.extra_modules,
+		.module_dir = opts.module_dir ? opts.module_dir : make_str(wk, "."),
+		.no_builtin = opts.no_builtin,
 	};
 
 	if (opts.cli) {
@@ -1398,12 +1413,24 @@ cmd_help(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 {
 	struct {
 		const char *query;
+		obj extra_modules;
+		obj module_dir;
 		bool cli;
+		bool no_builtin;
 	} opts = { .cli = true };
 
 	opt_for(-1, .usage_post = " [query]") {
 		if (opt_match('r', "reference. get help for meson functions")) {
 			opts.cli = false;
+		} else if (opt_match('m', "specify extra script module to document (may be passed multiple times)", "module")) {
+			if (!opts.extra_modules) {
+				opts.extra_modules = make_obj(wk, obj_array);
+			}
+			obj_array_push(wk, opts.extra_modules, make_str(wk, opt_ctx.optarg));
+		} else if (opt_match('M', "specify module_dir for extra modules", "path")) {
+			opts.module_dir = make_str(wk, opt_ctx.optarg);
+		} else if (opt_match('B', "dump extra script module documentation only")) {
+			opts.no_builtin = true;
 		}
 	}
 	opt_end();
@@ -1428,6 +1455,9 @@ cmd_help(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 		.type = dump_function_docs_output_man,
 		.out = tmp,
 		.query = opts.query,
+		.extra_modules = opts.extra_modules,
+		.module_dir = opts.module_dir ? opts.module_dir : make_str(wk, "."),
+		.no_builtin = opts.no_builtin,
 	};
 
 	if (opts.cli) {

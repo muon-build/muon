@@ -21,6 +21,9 @@ struct dump_function_docs_opts {
 	enum dump_function_docs_output type;
 	FILE* out;
 	const char *query;
+	obj extra_modules;
+	obj module_dir;
+	bool no_builtin;
 };
 
 void dump_function_docs(struct workspace *wk, const struct dump_function_docs_opts* opts);

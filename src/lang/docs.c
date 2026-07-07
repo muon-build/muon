@@ -421,29 +421,71 @@ dump_function_docs_push(struct workspace *wk, obj doc, obj fn, struct hash *map)
 }
 
 static void
-dump_function_docs_for_mode(struct workspace *wk, obj doc, struct hash *map)
+dump_function_script_module_docs(struct workspace *wk, obj doc, struct hash *map, const char *mod_name)
 {
+	struct obj_module *m;
+	{
+		obj mod;
+		if (!module_import(wk, mod_name, true, &mod)) {
+			UNREACHABLE;
+		}
+
+		m = get_obj_module(wk, mod);
+		assert(m->found);
+	}
+
+	TSTR(mod_path);
+	tstr_pushf(wk, &mod_path, "public/%s", mod_name);
+
+	obj k, v;
+	obj_dict_for(wk, m->exports, k, v) {
+		workspace_scratch_begin(wk);
+		obj fn = dump_module_function_closure(wk, mod_path.buf, k, v);
+		workspace_scratch_end(wk);
+		dump_function_docs_push(wk, doc, fn, map);
+	}
+}
+
+static void
+dump_function_docs_for_mode(struct workspace *wk, obj doc, struct hash *map, const struct dump_function_docs_opts *opts)
+{
+	if (wk->vm.lang_mode == language_external && opts->extra_modules) {
+		if (!wk->projects.len) {
+			make_dummy_project(wk, false);
+		}
+		stack_push(&wk->stack, current_project(wk)->module_dir, opts->module_dir);
+
+		obj path;
+		obj_array_for(wk, opts->extra_modules, path) {
+			dump_function_script_module_docs(wk, doc, map, get_cstr(wk, path));
+		}
+
+		stack_pop(&wk->stack, current_project(wk)->module_dir);
+	}
+
+	if (opts->no_builtin) {
+		return;
+	}
+
 	struct func_impl_group *g;
 
-	uint32_t i;
-	{
-		enum obj_type t;
-		for (t = 0; t < obj_type_count; ++t) {
-			g = &func_impl_groups[t][wk->vm.lang_mode];
-			if (!g->impls) {
-				continue;
-			}
+	// object methods
+	for (enum obj_type t = 0; t < obj_type_count; ++t) {
+		g = &func_impl_groups[t][wk->vm.lang_mode];
+		if (!g->impls) {
+			continue;
+		}
 
-			for (i = 0; i < g->len; ++i) {
-				workspace_scratch_begin(wk);
-				obj fn = dump_function_native(wk, t, &g->impls[i]);
-				workspace_scratch_end(wk);
-				dump_function_docs_push(wk, doc, fn, map);
-			}
+		for (uint32_t i = 0; i < g->len; ++i) {
+			workspace_scratch_begin(wk);
+			obj fn = dump_function_native(wk, t, &g->impls[i]);
+			workspace_scratch_end(wk);
+			dump_function_docs_push(wk, doc, fn, map);
 		}
 	}
 
-	for (i = 0; i < module_count; ++i) {
+	// native modules
+	for (uint32_t i = 0; i < module_count; ++i) {
 		g = &module_func_impl_groups[i][wk->vm.lang_mode];
 		if (!g->impls) {
 			continue;
@@ -458,13 +500,12 @@ dump_function_docs_for_mode(struct workspace *wk, obj doc, struct hash *map)
 		}
 	}
 
-	// get docs for script modules.
+	// script modules
 	if (wk->vm.lang_mode == language_external) {
-		uint32_t i, embedded_len;
+		uint32_t embedded_len;
 		const struct embedded_file *files = embedded_file_list(&embedded_len);
 		const struct str *prefix = &STR("modules/"), *str;
-
-		for (i = 0; i < embedded_len; ++i) {
+		for (uint32_t i = 0; i < embedded_len; ++i) {
 			str = &STRL(files[i].name);
 			if (!str_startswith(str, prefix)) {
 				continue;
@@ -474,27 +515,7 @@ dump_function_docs_for_mode(struct workspace *wk, obj doc, struct hash *map)
 			tstr_pushs(wk, &mod_name, files[i].name + prefix->len);
 			*strchr(mod_name.buf, '.') = 0;
 
-			struct obj_module *m;
-			{
-				obj mod;
-				if (!module_import(wk, mod_name.buf, true, &mod)) {
-					UNREACHABLE;
-				}
-
-				m = get_obj_module(wk, mod);
-				assert(m->found);
-			}
-
-			TSTR(mod_path);
-			tstr_pushf(wk, &mod_path, "public/%s", mod_name.buf);
-
-			obj k, v;
-			obj_dict_for(wk, m->exports, k, v) {
-				workspace_scratch_begin(wk);
-				obj fn = dump_module_function_closure(wk, mod_path.buf, k, v);
-				workspace_scratch_end(wk);
-				dump_function_docs_push(wk, doc, fn, map);
-			}
+			dump_function_script_module_docs(wk, doc, map, mod_name.buf);
 		}
 	}
 }
@@ -540,7 +561,7 @@ dump_function_docs_sort_func(struct workspace *wk, void *_ctx, obj fn_a, obj fn_
 }
 
 static obj
-dump_function_docs_obj(struct workspace *wk)
+dump_function_docs_obj(struct workspace *wk, const struct dump_function_docs_opts *opts)
 {
 	stack_push(&wk->stack, wk->vm.dumping_docs, true);
 
@@ -552,15 +573,15 @@ dump_function_docs_obj(struct workspace *wk)
 	obj docs = make_obj(wk, obj_array);
 
 	workspace_push_lang_mode(wk, language_opts);
-	dump_function_docs_for_mode(wk, docs, &map);
+	dump_function_docs_for_mode(wk, docs, &map, opts);
 	workspace_pop_lang_mode(wk);
 
 	workspace_push_lang_mode(wk, language_external);
-	dump_function_docs_for_mode(wk, docs, &map);
+	dump_function_docs_for_mode(wk, docs, &map, opts);
 	workspace_pop_lang_mode(wk);
 
 	workspace_push_lang_mode(wk, language_internal);
-	dump_function_docs_for_mode(wk, docs, &map);
+	dump_function_docs_for_mode(wk, docs, &map, opts);
 	workspace_pop_lang_mode(wk);
 
 	obj sorted;
@@ -578,11 +599,11 @@ dump_function_docs_obj(struct workspace *wk)
  ******************************************************************************/
 
 static void
-dump_function_docs_json(struct workspace *wk, struct tstr *buf)
+dump_function_docs_json(struct workspace *wk, const struct dump_function_docs_opts *opts, struct tstr *buf)
 {
 	obj root = make_obj(wk, obj_dict);
 
-	obj_dict_set(wk, root, make_str(wk, "functions"), dump_function_docs_obj(wk));
+	obj_dict_set(wk, root, make_str(wk, "functions"), dump_function_docs_obj(wk, opts));
 
 	obj version = make_obj(wk, obj_dict);
 	obj_dict_set(wk, version, make_str(wk, "version"), make_str(wk, muon_version.version));
@@ -596,10 +617,10 @@ dump_function_docs_json(struct workspace *wk, struct tstr *buf)
 }
 
 static void
-dump_function_docs_html(struct workspace *wk, struct tstr *buf)
+dump_function_docs_html(struct workspace *wk, const struct dump_function_docs_opts *opts, struct tstr *buf)
 {
 	TSTR(docs_json);
-	dump_function_docs_json(wk, &docs_json);
+	dump_function_docs_json(wk, opts, &docs_json);
 
 	struct source src;
 	embedded_get(wk, "html/docs.html", &src);
@@ -1065,20 +1086,20 @@ mw_function(struct workspace *wk, struct man_writer *mw, obj fn)
 }
 
 static void
-dump_function_docs_man(struct workspace *wk, struct man_writer *mw, const char *query)
+dump_function_docs_man(struct workspace *wk, struct man_writer *mw, const struct dump_function_docs_opts *opts)
 {
-	obj fn, functions = dump_function_docs_obj(wk);
+	obj fn, functions = dump_function_docs_obj(wk, opts);
 
 	mw_title(mw, "meson-reference", 3);
 
 	mw_section(mw, "NAME");
-	if (query) {
-		mw_paragraph_text(mw, "results for '%s'", query);
+	if (opts->query) {
+		mw_paragraph_text(mw, "results for '%s'", opts->query);
 	} else {
 		mw_paragraph_text(mw, "meson-reference %s - a reference for meson functions and objects", muon_version.meson_compat);
 	}
 
-	if (!query) {
+	if (!opts->query) {
 		mw_section(mw, "DESCRIPTION");
 		mw_description(mw,
 			"This manual is divided into three sections, *KERNEL FUNCTIONS*, *OBJECT METHODS*, and *MODULE FUNCTIONS*. "
@@ -1088,10 +1109,10 @@ dump_function_docs_man(struct workspace *wk, struct man_writer *mw, const char *
 
 	obj prev_rcvr = 1, prev_module = 0, rcvr, module;
 	obj_array_for(wk, functions, fn) {
-		if (query) {
+		if (opts->query) {
 			TSTR(key);
 			dump_function_docs_fn_key(wk, &key, fn);
-			if (!strstr(key.buf, query)) {
+			if (!strstr(key.buf, opts->query)) {
 				continue;
 			}
 		}
@@ -1127,7 +1148,7 @@ dump_function_docs_man(struct workspace *wk, struct man_writer *mw, const char *
 
 	// mw_section(mw, "SEE ALSO");
 
-	if (!query) {
+	if (!opts->query) {
 		mw_section(mw, "COPYRIGHT");
 		mw_paragraph_text(mw,
 			"Documentation comes from muon (https://muon.build/) and the meson project (https://mesonbuild.com) "
@@ -1147,11 +1168,11 @@ dump_function_docs(struct workspace *wk, const struct dump_function_docs_opts* o
 	TSTR(buf);
 
 	switch (opts->type) {
-	case dump_function_docs_output_html: dump_function_docs_html(wk, &buf); break;
-	case dump_function_docs_output_json: dump_function_docs_json(wk, &buf); break;
+	case dump_function_docs_output_html: dump_function_docs_html(wk, opts, &buf); break;
+	case dump_function_docs_output_json: dump_function_docs_json(wk, opts, &buf); break;
 	case dump_function_docs_output_man: {
 		struct man_writer mw = { .wk = wk, .buf = &buf };
-		dump_function_docs_man(wk, &mw, opts->query);
+		dump_function_docs_man(wk, &mw, opts);
 	} break;
 	}
 
