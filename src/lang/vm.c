@@ -1381,7 +1381,7 @@ vm_push_dummy(struct workspace *wk)
 	object_stack_push(wk, make_typeinfo(wk, tc_any));
 }
 
-static void
+static bool
 vm_begin_execute_closure(struct workspace *wk, obj a)
 {
 	uint32_t i;
@@ -1400,7 +1400,10 @@ vm_begin_execute_closure(struct workspace *wk, obj a)
 		} else {
 			object_stack_push(wk, make_typeinfo(wk, flatten_type(wk, closure->func->return_type)));
 		}
-		return;
+
+		// We get here if there was an error popping args, but also if we are
+		// just calling pop args to gather documentation.
+		return false;
 	}
 
 	vm_push_call_stack_frame(wk,
@@ -1431,6 +1434,8 @@ vm_begin_execute_closure(struct workspace *wk, obj a)
 	if (wk->vm.dbg_state.break_on_entry) {
 		vm_dbg_prepare_step_scan(wk, wk->vm.ip, 0, wk->vm.call_stack.len - 1);
 	}
+
+	return true;
 }
 
 static void
@@ -3273,6 +3278,7 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure, obj frame_name)
 {
 	TracyCZoneAutoS;
 	uint32_t object_stack_base = wk->vm.stack.ba.len;
+	obj res = 0;
 
 	vm_dbg_resolve_breakpoints(wk);
 
@@ -3287,7 +3293,10 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure, obj frame_name)
 	// vm_push_call_stack_frame(wk, &eval_frame);
 
 	if (closure) {
-		vm_begin_execute_closure(wk, closure);
+		if (!vm_begin_execute_closure(wk, closure)) {
+			goto done;
+		}
+
 		if (wk->vm.error) {
 			object_stack_pop(&wk->vm.stack);
 		}
@@ -3302,7 +3311,6 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure, obj frame_name)
 
 	wk->vm.behavior.execute_loop(wk);
 
-	obj res = 0;
 	if (wk->vm.error) {
 		vm_unwind_call_stack(wk);
 		assert(wk->vm.stack.ba.len >= object_stack_base);
@@ -3310,6 +3318,8 @@ vm_execute_impl(struct workspace *wk, uint32_t ip, obj closure, obj frame_name)
 	} else {
 		res = object_stack_pop(&wk->vm.stack);
 	}
+
+done:
 
 	assert(wk->vm.call_stack_base == wk->vm.call_stack.len);
 	stack_pop(&wk->stack, wk->vm.call_stack_base);
