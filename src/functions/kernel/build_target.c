@@ -1022,7 +1022,15 @@ create_target(struct workspace *wk,
 			return false;
 		}
 
-		install_tgt->build_target = tgt->type == tgt_executable;
+		{
+			obj rpath;
+			obj_array_for(wk, tgt->dep_internal.rpath, rpath) {
+				if (get_str(wk, rpath)->len) {
+					install_tgt->strip_rpaths = true;
+					break;
+				}
+			}
+		}
 
 		if (soname_install) {
 			push_install_target_install_dir(wk, soname_install, install_dir, akw[bt_kw_install_mode].val);

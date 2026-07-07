@@ -299,7 +299,7 @@ install_iter(struct workspace *wk, void *_ctx, obj v_id)
 				}
 			}
 
-			if (in->build_target) {
+			if (in->strip_rpaths) {
 				if (!do_install_action(wk, ctx, install_action_fix_rpaths, wk->build_root, dest, 0)) {
 					return ir_err;
 				}

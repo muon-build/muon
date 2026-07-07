@@ -478,7 +478,7 @@ struct obj_install_target {
 	obj exclude_directories; // obj_array of obj_string
 	obj exclude_files; // obj_array of obj_string
 	enum install_target_type type;
-	bool build_target;
+	bool strip_rpaths;
 };
 
 struct obj_environment {

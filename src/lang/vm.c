@@ -3814,7 +3814,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field(obj_install_target, obj, exclude_directories);
 	vm_reflect_obj_field(obj_install_target, obj, exclude_files);
 	vm_reflect_obj_field(obj_install_target, enum install_target_type, type);
-	vm_reflect_obj_field(obj_install_target, bool, build_target);
+	vm_reflect_obj_field(obj_install_target, bool, strip_rpaths);
 
 	// obj_test
 	vm_reflect_obj_field(obj_test, obj, name);
