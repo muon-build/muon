@@ -418,7 +418,7 @@ fs_fileno(FILE *f, int *ret)
 }
 
 bool
-fs_make_writeable_if_exists(const char *path)
+fs_make_writable_if_exists(const char *path)
 {
 	struct stat sb;
 	if (stat(path, &sb) == 0) {

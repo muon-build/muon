@@ -301,7 +301,7 @@ bool
 fs_copy_file(struct workspace *wk, const char *src, const char *dest, bool force)
 {
 	if (force) {
-		fs_make_writeable_if_exists(dest);
+		fs_make_writable_if_exists(dest);
 	}
 
 	if (!CopyFile(src, dest, FALSE)) {
