@@ -435,6 +435,10 @@ substitute_config(struct workspace *wk,
 		goto cleanup;
 	}
 
+	if (!fs_make_writable_if_exists(output_path)) {
+		goto cleanup;
+	}
+
 	if (!fs_write_entire_file(output_path, (uint8_t *)out2.buf, out2.len)) {
 		ret = false;
 		goto cleanup;
@@ -868,11 +872,16 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		}
 
 		if (!file_exists_with_content(wk, get_cstr(wk, output_str), src.src, src.len)) {
-			if (!fs_write_entire_file(get_cstr(wk, output_str), (uint8_t *)src.src, src.len)) {
+			const char *output_path = get_cstr(wk, output_str);
+			if (!fs_make_writable_if_exists(output_path)) {
 				return false;
 			}
 
-			if (!fs_copy_metadata(get_file_path(wk, input), get_cstr(wk, output_str))) {
+			if (!fs_write_entire_file(output_path, (uint8_t *)src.src, src.len)) {
+				return false;
+			}
+
+			if (!fs_copy_metadata(get_file_path(wk, input), output_path)) {
 				return false;
 			}
 		}
