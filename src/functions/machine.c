@@ -102,7 +102,11 @@ FUNC_IMPL(machine, kernel, tc_string, func_impl_flag_impure)
 
 	struct machine_definition *m = get_machine_for_self(wk, self);
 
-	*res = make_str(wk, machine_system_to_kernel_name(m->sys));
+	if (m->kernel_override) {
+		*res = make_strn(wk, m->kernel_override->s, m->kernel_override->len);
+	} else {
+		*res = make_str(wk, machine_system_to_kernel_name(m->sys));
+	}
 	return true;
 }
 
@@ -112,6 +116,7 @@ struct machine_props {
 	enum endianness endian;
 	const struct str *cpu;
 	const struct str *cpu_family;
+	const struct str *kernel;
 };
 
 FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
@@ -120,6 +125,7 @@ FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
 		vm_struct_member(wk, machine_props, cpu, vm_struct_type_str);
 		vm_struct_member(wk, machine_props, cpu_family, vm_struct_type_str);
 		vm_struct_member(wk, machine_props, endian, vm_struct_type_enum(wk, enum endianness));
+		vm_struct_member(wk, machine_props, kernel, vm_struct_type_str);
 		vm_struct_member(wk, machine_props, system, vm_struct_type_enum(wk, enum machine_system));
 		vm_struct_member(wk, machine_props, subsystem, vm_struct_type_enum(wk, enum machine_subsystem));
 	}
@@ -155,6 +161,10 @@ FUNC_IMPL(machine, set_props, 0, func_impl_flag_impure)
 
 	if (props.endian) {
 		m->endianness = props.endian;
+	}
+
+	if (props.kernel) {
+		m->kernel_override = props.kernel;
 	}
 
 	machine_refresh_computed_props(m);

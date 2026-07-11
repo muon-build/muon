@@ -82,6 +82,7 @@ struct machine_definition {
 	uint32_t address_bits;
 	char cpu[128];
 	char cpu_family[128];
+	const struct str *kernel_override;
 	bool is_windows;
 };
 
