@@ -1080,6 +1080,10 @@ tstr_into_str(struct workspace *wk, struct tstr *sb)
 void
 tstr_trim_trailing_newline(struct tstr *sb)
 {
+	if (!sb->len) {
+		return;
+	}
+
 	if (sb->buf[sb->len - 1] == '\n') {
 		--sb->len;
 		sb->buf[sb->len] = 0;
