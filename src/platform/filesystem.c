@@ -587,42 +587,43 @@ fs_copy_metadata(const char *src, const char *dest)
 	return true;
 }
 
-static bool
-fs_xdg_base_dir(struct workspace *wk, struct tstr *path, const char *xdg_name, const char *fallback, bool mkdir)
+bool
+fs_path_xdg_home(struct workspace *wk, enum fs_path_xdg_type type, enum fs_path_xdg_flag flags, struct tstr *path)
 {
+	struct {
+		const char *env_var;
+		const char *def;
+	} types[] = {
+		[fs_path_xdg_type_config] = { "XDG_CONFIG_HOME", ".config" },
+		[fs_path_xdg_type_data] = { "XDG_DATA_HOME", ".local/share" },
+		[fs_path_xdg_type_state] = { "XDG_STATE_HOME", ".local/state" },
+	};
+
+	assert(type < ARRAY_LEN(types));
+	assert(types[type].env_var);
+
 	tstr_clear(path);
 
 	const char *base;
-	if ((base = os_get_env(xdg_name))) {
+	if ((base = os_get_env(types[type].env_var))) {
 		path_copy(wk, path, base);
 	} else {
 		if (!(base = fs_user_home())) {
 			base = ".";
 		}
 		path_copy(wk, path, base);
-		path_push(wk, path, fallback);
+		path_push(wk, path, types[type].def);
 	}
 
-	path_push(wk, path, "muon");
+	const char *app_name = (flags & fs_path_xdg_flag_app_name_meson) ? "meson" : "muon";
+	path_push(wk, path, app_name);
 
 	if (!fs_dir_exists(path->buf)) {
-		if (mkdir) {
+		if (flags & fs_path_xdg_flag_mkdir) {
 			return fs_mkdir_p(wk, path->buf);
 		} else {
 			return false;
 		}
 	}
 	return true;
-}
-
-bool
-fs_path_config_base(struct workspace *wk, struct tstr *path, bool mkdir)
-{
-	return fs_xdg_base_dir(wk, path, "XDG_CONFIG_HOME", ".config", mkdir);
-}
-
-bool
-fs_path_state_base(struct workspace *wk, struct tstr *path, bool mkdir)
-{
-	return fs_xdg_base_dir(wk, path, "XDG_STATE_HOME", ".local/state", mkdir);
 }

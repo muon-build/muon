@@ -970,7 +970,7 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 
 	{
 		TSTR(config);
-		if (fs_path_config_base(srv_wk, &config, false)) {
+		if (fs_path_xdg_home(srv_wk, fs_path_xdg_type_config, 0, &config)) {
 			path_push(srv_wk, &config, "lsp.ini");
 			if (fs_file_exists(config.buf)) {
 				if (!az_srv_cfg_parse(srv_wk, cmdline_opts, config.buf)) {
@@ -991,7 +991,7 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 	FILE *debug_log = 0;
 	if (cmdline_opts->lsp.debug_log) {
 		TSTR(path);
-		if (fs_path_state_base(srv_wk, &path, true)) {
+		if (fs_path_xdg_home(srv_wk, fs_path_xdg_type_state, fs_path_xdg_flag_mkdir, &path)) {
 			char file[256];
 			snprintf(file, sizeof(file), "lsp.%d.log", os_get_pid());
 			path_push(srv_wk, &path, file);

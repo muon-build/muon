@@ -78,8 +78,18 @@ bool fs_wait_for_input(int fd, uint32_t *bytes_available);
 typedef enum iteration_result((*fs_dir_foreach_cb)(void *_ctx, const char *path));
 bool fs_dir_foreach(struct workspace *wk, const char *path, void *_ctx, fs_dir_foreach_cb cb);
 
-bool fs_path_state_base(struct workspace *wk, struct tstr *path, bool mkdir);
-bool fs_path_config_base(struct workspace *wk, struct tstr *path, bool mkdir);
+enum fs_path_xdg_type {
+	fs_path_xdg_type_config,
+	fs_path_xdg_type_data,
+	fs_path_xdg_type_state,
+};
+
+enum fs_path_xdg_flag {
+	fs_path_xdg_flag_app_name_meson = 1 << 0,
+	fs_path_xdg_flag_mkdir = 1 << 1,
+};
+
+bool fs_path_xdg_home(struct workspace *wk, enum fs_path_xdg_type type, enum fs_path_xdg_flag flags, struct tstr *path);
 
 #ifndef S_ISGID
 #define S_ISGID 0
