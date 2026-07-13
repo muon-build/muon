@@ -140,6 +140,12 @@ uint8_t str_char_to_lower(uint8_t c);
 void str_to_lower(struct str *str);
 bool str_try_remove_prefix(struct str *s, const struct str *prefix);
 
+struct str_cut {
+	struct str before;
+	struct str after;
+};
+bool str_cut(const struct str *s, const struct str *split, struct str_cut *cut);
+
 void cstr_copy_(char *dest, const struct str *src, uint32_t dest_len);
 #define cstr_copy(__dest, __src) cstr_copy_(__dest, __src, ARRAY_LEN(__dest));
 

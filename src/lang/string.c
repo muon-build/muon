@@ -1093,6 +1093,24 @@ tstr_trim_trailing_newline(struct tstr *sb)
 	}
 }
 
+bool str_cut(const struct str *s, const struct str *split, struct str_cut *cut)
+{
+	const char *p = memmem(s->s, s->len, split->s, split->len);
+	if (!p) {
+		*cut = (struct str_cut){
+			.before = *s,
+		};
+		return false;
+	}
+
+	*cut = (struct str_cut){
+		.before = { s->s, p - s->s },
+	};
+	cut->after = (struct str){ p + split->len, s->len - cut->before.len - split->len };
+
+	return true;
+}
+
 void
 cstr_copy_(char *dest, const struct str *src, uint32_t dest_len)
 {
