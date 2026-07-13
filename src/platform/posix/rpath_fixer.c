@@ -10,9 +10,11 @@
 #endif
 
 #include <elf.h>
+#include <errno.h>
 #include <string.h>
 
 #include "buf_size.h"
+#include "lang/string.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
@@ -198,60 +200,75 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 static bool
 remove_paths(struct workspace *wk, FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
 {
-	char rpath[BUF_SIZE_4k];
-	uint32_t rpath_len = 0, cur_off = s_dynstr->off + str->off, copy_to = cur_off;
-	bool modified = false, preserve_separator = false;
-	*cleared = true;
-
-	if (!fs_fseek(f, cur_off)) {
+	const uint32_t rpath_src_off = s_dynstr->off + str->off;
+	if (!fs_fseek(f, rpath_src_off)) {
 		return false;
 	}
 
-	for (;; ++cur_off) {
-		char c;
-		if (!fs_fread(&c, 1, f)) {
+	TSTR(src);
+	tstr_grow(wk, &src, BUF_SIZE_4k);
+	while (true) {
+		size_t b = fread(src.buf + src.len, 1, src.cap - src.len, f);
+		if (!b) {
+			LOG_E("fread failed: %s", strerror(errno));
 			return false;
 		}
-
-		if (!c || c == ':') {
-			assert(rpath_len <= ARRAY_LEN(rpath));
-			rpath[rpath_len] = 0;
-
-			if (path_is_subpath(wk, build_root, rpath) || rpath_len == 0) {
-				modified = true;
-			} else {
-				if (modified) {
-					if (!fs_fseek(f, copy_to + (preserve_separator ? 1 : 0))) {
-						return false;
-					} else if (!fs_fwrite(rpath, rpath_len, f)) {
-						return false;
-					} else if (!fs_fwrite(&c, 1, f)) {
-						return false;
-					} else if (!fs_fseek(f, cur_off + 1)) {
-						return false;
-					}
-				}
-				copy_to += rpath_len;
-				preserve_separator = c == ':';
-				*cleared = false;
+		const char *end = memchr(src.buf + src.len, 0, b);
+		if (end) {
+			src.len = end - src.buf;
+			break;
+		} else {
+			src.len += b;
+			if (src.cap - src.len < 1024) {
+				tstr_grow(wk, &src, src.cap);
 			}
+		}
+	}
 
-			rpath_len = 0;
-			if (!c) {
-				break;
-			} else if (c == ':') {
-				continue;
+	// L("> original: '%.*s'", src.len, src.buf);
+
+	TSTR(path);
+	TSTR(filtered);
+	uint32_t n_kept = 0;
+
+	struct str s = TSTR_STR(&src);
+	while (true) {
+		struct str_cut cut;
+		bool have_after = str_cut(&s, &STR(":"), &cut);
+		if (cut.before.len) {
+			tstr_clear(&path);
+			tstr_pushn(wk, &path, cut.before.s, cut.before.len);
+			if (!path_is_subpath(wk, build_root, path.buf)) {
+				if (n_kept) {
+					tstr_push(wk, &filtered, ':');
+				}
+				tstr_pushn(wk, &filtered, cut.before.s, cut.before.len);
+				++n_kept;
 			}
 		}
 
-		assert(rpath_len < ARRAY_LEN(rpath));
-		rpath[rpath_len] = c;
-		++rpath_len;
+		if (!have_after) {
+			break;
+		}
+
+		s = cut.after;
 	}
 
-	if (!fs_fseek(f, copy_to)) {
+	if (!n_kept) {
+		*cleared = true;
+	}
+
+	// L("> final: '%.*s'", filtered.len, filtered.buf);
+
+	if (!fs_fseek(f, rpath_src_off)) {
 		return false;
-	} else if (!fs_fwrite((char[]){ 0 }, 1, f)) {
+	} else if (!fs_fwrite(filtered.buf, filtered.len, f)) {
+		return false;
+	}
+
+	uint32_t memset_len = src.len - filtered.len;
+	memset(src.buf, 0, memset_len);
+	if (!fs_fwrite(src.buf, memset_len, f)) {
 		return false;
 	}
 
