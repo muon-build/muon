@@ -28,8 +28,10 @@
 #include <unistd.h>
 #endif
 
+#include "arena.h"
 #include "buf_size.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
@@ -626,4 +628,50 @@ fs_path_xdg_home(struct workspace *wk, enum fs_path_xdg_type type, enum fs_path_
 		}
 	}
 	return true;
+}
+
+struct arr *
+fs_path_xdg_dirs(struct workspace *wk, enum fs_path_xdg_type type, enum fs_path_xdg_flag flags)
+{
+	struct {
+		const char *env_var;
+		const char *def;
+	} types[] = {
+		[fs_path_xdg_type_data] = { "XDG_DATA_DIRS", "/usr/local/share:/usr/share" },
+	};
+
+	assert(type < ARRAY_LEN(types));
+	assert(types[type].env_var);
+
+	struct arr *paths = ar_make(wk->a_scratch, struct arr);
+	arr_init(wk->a_scratch, paths, 8, const char *);
+
+	const char *val;
+	if (!(val = os_get_env(types[type].env_var))) {
+		val = types[type].def;
+	}
+
+	const char *app_name = (flags & fs_path_xdg_flag_app_name_meson) ? "meson" : "muon";
+
+	struct str s = STRL(val);
+	while (true) {
+		struct str_cut cut;
+		bool have_after = str_cut(&s, &STR(":"), &cut);
+		if (cut.before.len) {
+			TSTR(buf);
+			tstr_pushn(wk, &buf, cut.before.s, cut.before.len);
+			path_push(wk, &buf, app_name);
+			if (fs_dir_exists(buf.buf)) {
+				arr_push(wk->a_scratch, paths, &buf.buf);
+			}
+		}
+
+		if (!have_after) {
+			break;
+		}
+
+		s = cut.after;
+	}
+
+	return paths;
 }

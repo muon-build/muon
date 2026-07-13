@@ -90,6 +90,7 @@ enum fs_path_xdg_flag {
 };
 
 bool fs_path_xdg_home(struct workspace *wk, enum fs_path_xdg_type type, enum fs_path_xdg_flag flags, struct tstr *path);
+struct arr *fs_path_xdg_dirs(struct workspace *wk, enum fs_path_xdg_type, enum fs_path_xdg_flag flags);
 
 #ifndef S_ISGID
 #define S_ISGID 0
