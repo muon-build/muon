@@ -13,6 +13,7 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
+#include "platform/path.h"
 
 enum machine_file_section {
 	machine_file_section_constants,
@@ -141,19 +142,58 @@ machine_file_translate_cb(void *_ctx,
 }
 
 static bool
+machine_file_path_resolve(struct workspace *wk, const char *name, enum machine_kind m, struct tstr *path)
+{
+	if (fs_file_exists(name)) {
+		path_copy(wk, path, name);
+		return true;
+	}
+
+	const char *machine_subdir = m == machine_kind_build ? "native" : "cross";
+
+	if (fs_path_xdg_home(wk, fs_path_xdg_type_data, fs_path_xdg_flag_app_name_meson, path)) {
+		path_push(wk, path, machine_subdir);
+		path_push(wk, path, name);
+		if (fs_file_exists(path->buf)) {
+			return true;
+		}
+	}
+
+	struct arr *dirs = fs_path_xdg_dirs(wk, fs_path_xdg_type_data, fs_path_xdg_flag_app_name_meson);
+	for (uint32_t i = 0; i < dirs->len; ++i) {
+		const char *dir = ((const char **)dirs->e)[i];
+		tstr_clear(path);
+		path_push(wk, path, dir);
+		path_push(wk, path, machine_subdir);
+		path_push(wk, path, name);
+		if (fs_file_exists(path->buf)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool
 machine_file_translate(struct workspace *wk, struct tstr *dest, const char *path, enum machine_kind machine)
 {
+	TSTR(path_resolved);
+	if (!machine_file_path_resolve(wk, path, machine, &path_resolved)) {
+		LOG_E("failed to resolve machine file path");
+		return false;
+	}
+
 	struct machine_file_translate_ctx ctx = {
 		.wk = wk,
 		.dest = dest,
 		.machine = machine,
 	};
 
-	tstr_pushf(wk, ctx.dest, "# auto generated from: %s\n", path);
+	tstr_pushf(wk, ctx.dest, "# auto generated from: %s\n", path_resolved.buf);
 
 	struct source src;
 	char *buf = 0;
-	if (!ini_parse(wk, path, &src, &buf, machine_file_translate_cb, &ctx)) {
+	if (!ini_parse(wk, path_resolved.buf, &src, &buf, machine_file_translate_cb, &ctx)) {
 		return false;
 	}
 
@@ -163,10 +203,13 @@ machine_file_translate(struct workspace *wk, struct tstr *dest, const char *path
 bool
 machine_file_eval(struct workspace *wk, const char *path, enum machine_kind machine)
 {
+	bool res = false;
+	workspace_scratch_begin(wk);
+
 	TSTR(translated);
 
 	if (!machine_file_translate(wk, &translated, path, machine)) {
-		return false;
+		goto ret;
 	}
 
 	L("translated machine file:\n%s", translated.buf);
@@ -176,10 +219,14 @@ machine_file_eval(struct workspace *wk, const char *path, enum machine_kind mach
 
 	struct source translated_src = { .src = translated.buf, .len = translated.len, .label = translated_label.buf };
 
-	obj res;
-	if (!eval(wk, &translated_src, &(struct eval_opts) { build_language_meson, language_extended }, &res)) {
-		return false;
+	obj res_;
+	if (!eval(wk, &translated_src, &(struct eval_opts) { build_language_meson, language_extended }, &res_)) {
+		goto ret;
 	}
 
-	return true;
+	res = true;
+ret:
+	workspace_scratch_end(wk);
+	return res;
 }
+
