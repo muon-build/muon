@@ -1227,6 +1227,7 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(implib_suffix, linker, .desc = "Linker specific import library suffix for DLLs. Defaults to '-implib.lib' if not provided.");
 	doc(input_output, linker, .desc = "Passed in `input` and `output` and orders them properly, optionally adding additional flags.");
 	doc(lib, linker, .desc = "`-l`");
+	doc(to_native, linker, .desc = "Convert arguments to linker-specific native format.");
 	doc(no_undefined, linker, .desc = "`--no-undefined`");
 	doc(pgo, linker, .desc = "", .enum_arg = "enum compiler_pgo_stage");
 	doc(rpath, linker, .desc = "`-rpath`");

@@ -637,6 +637,12 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 	return true;
 }
 
+void
+ca_link_args_to_native(struct workspace *wk, obj comp, obj *args)
+{
+	*args = toolchain_linker_to_native(wk, comp, *args);
+}
+
 bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	obj comp,
@@ -805,6 +811,15 @@ ca_prepare_target_linker_args(struct workspace *wk,
 			ca_push_linker_args(
 				wk, comp, tgt, toolchain_linker_def(wk, comp, get_cstr(wk, rel)));
 		}
+	}
+
+	switch (tgt->type) {
+	case tgt_shared_module:
+	case tgt_dynamic_library:
+	case tgt_executable:
+		ca_link_args_to_native(wk, comp, &tgt->dep_internal.link_args);
+		break;
+	default: break;
 	}
 
 	return true;
