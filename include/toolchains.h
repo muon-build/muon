@@ -203,6 +203,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(shared_module, linker, TOOLCHAIN_PARAMS_0)           \
 	_(soname, linker, TOOLCHAIN_PARAMS_1s)                 \
 	_(start_group, linker, TOOLCHAIN_PARAMS_0)             \
+	_(to_native, linker, TOOLCHAIN_PARAMS_ns)              \
 	_(version, linker, TOOLCHAIN_PARAMS_0)                 \
 	_(whole_archive, linker, TOOLCHAIN_PARAMS_1s)
 

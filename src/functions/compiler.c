@@ -225,6 +225,10 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		obj_array_extend(wk, compiler_args, opts->args);
 	}
 
+	if (opts->mode == compiler_check_mode_link || opts->mode == compiler_check_mode_run) {
+		ca_link_args_to_native(wk, comp, &compiler_args);
+	}
+
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = { 0 };
 
