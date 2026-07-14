@@ -35,12 +35,25 @@ error_handler(const char *msg, const pkgconf_client_t *client, void *data)
 	return true;
 }
 
+#if LIBPKGCONF_VERSION >= 30000
+static const char *
+env_lookup_handler(const pkgconf_client_t *client, const char *key)
+{
+	(void) client;
+	return getenv(key);
+}
+#endif
+
 static bool
 muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c, enum machine_kind for_machine)
 {
 	TracyCZoneAutoS;
 	c->personality = pkgconf_cross_personality_default();
-	pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
+	#if LIBPKGCONF_VERSION >= 30000
+		pkgconf_client_init(&c->client, error_handler, NULL, c->personality, NULL, env_lookup_handler);
+	#else
+		pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
+	#endif
 
 	struct obj_array *pkg_config_path;
 	{
