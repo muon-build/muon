@@ -26,6 +26,8 @@ void ca_get_option_link_args(struct workspace *wk,
 
 obj ca_build_target_joined_args(struct workspace *wk, obj processed_args);
 
+void ca_link_args_to_native(struct workspace *wk, obj comp, obj *args);
+
 bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	obj comp,
