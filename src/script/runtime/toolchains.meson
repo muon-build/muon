@@ -269,6 +269,99 @@ toolchain.register_linker(
     },
 )
 
+tcc_dll_cache := {}
+tcc_dlltool := null
+tcc_dlla_fallbacks := null
+DLL_INVALID := null
+msys_libpath := null
+
+func try_tcc_dll(dlla_path str, candidate_dll_path str) -> str|null
+    if fs.exists(candidate_dll_path)
+        tcc_dll_cache[dlla_path] = candidate_dll_path
+        return candidate_dll_path
+    endif
+    return DLL_INVALID
+endfunc
+
+func dlltool(dlla str) -> any
+    dllname := ''
+    if tcc_dlltool == null
+        tcc_dlltool = find_program('dlltool', 'llvm-dlltool', required: false)
+    endif
+    if tcc_dlltool.found()
+        dllname = run_command(tcc_dlltool, '-I', dlla, check: false).stdout().strip()
+    else
+        if tcc_dlla_fallbacks == null
+            tcc_dlla_fallbacks = {
+                'libarchive.dll.a': 'libarchive-13.dll',
+                'libcurl.dll.a': 'libcurl-4.dll',
+                'libpkgconf.dll.a': 'libpkgconf-7.dll',
+                'libz.dll.a': 'zlib1.dll',
+            }
+        endif
+        basename := fs.name(dlla)
+        if tcc_dlla_fallbacks.has_key(basename)
+            dllname = tcc_dlla_fallbacks[basename]
+            warning(f'dlltool not found. Using "@dllname@" fallback for "@dlla@"')
+        else
+            warning(f'dlltool not found. No fallback for "@dlla@"')
+        endif
+    endif
+    return dllname
+endfunc
+
+func try_convert_dlla_to_dll(dlla str) -> str
+    assert(dlla.endswith('.dll.a'))
+    if tcc_dll_cache.has_key(dlla)
+        return tcc_dll_cache[dlla]
+    endif
+
+    dllpath := DLL_INVALID
+    dlla_arr := dlla.split('/')
+
+    # Get the .dll file base name which may differ from the .dll.a name
+    dllname := dlltool(dlla)
+    if dllname == '' or dllname.to_lower().startswith('(null)')
+        # No dll name found - try dropping the .a suffix from .dll.a
+        dllname = dlla_arr[-1].substring(0, -2)
+    endif
+
+    # Try .dll in same directory
+    dllpath = try_tcc_dll(dlla, '/'.join(dlla_arr.slice(0, -1) + [dllname]))
+
+    # Try bin sibling of the lib dir if present
+    if dllpath == DLL_INVALID and dlla_arr.length() >= 2 and dlla_arr[-2] == 'lib'
+        dllpath = try_tcc_dll(dlla, '/'.join(dlla_arr.slice(0, -2) + ['bin', dllname]))
+    endif
+
+    # Try $MSYSTEM_PREFIX/bin
+    msys_subdir := 0
+    if dllpath == DLL_INVALID
+        i := 0
+        foreach sub : dlla_arr
+            i += 1
+            if sub in ['msys64', 'msys2']
+                if msys_subdir == 0
+                    msys_subdir = i
+                endif
+            elif sub in ['mingw64', 'clang64', 'ucrt64', 'mingw32']
+                dllpath = try_tcc_dll(dlla, '/'.join(dlla_arr.slice(0, i) + ['bin', dllname]))
+                break
+            endif
+        endforeach
+    endif
+
+    # Try msys2 root usr/bin
+    if dllpath == DLL_INVALID and msys_subdir > 0
+        dllpath = try_tcc_dll(
+            dlla,
+            '/'.join(dlla_arr.slice(0, msys_subdir) + ['usr', 'bin', dllname]),
+        )
+    endif
+
+    return dllpath == DLL_INVALID ? dlla : dllpath
+endfunc
+
 toolchain.register_linker(
     'ld-tcc',
     inherit: 'ld-posix',
@@ -299,6 +392,56 @@ toolchain.register_linker(
         'shared_module': ['-shared'],
         'soname': func(_c compiler, s1 str) -> list[str]
             return ['-soname', s1]
+        endfunc,
+        'to_native': func(c compiler, args list[str]) -> list[str]
+            if c.machine().system() != 'windows'
+                return args
+            endif
+            # tcc cannot handle msys2 .dll.a files, so convert .dll.a paths
+            # to .dll paths with dlltool and msys2 directory heuristics.
+            ret := []
+            expecting_l_arg := false
+            foreach arg : args
+                # Convert -lxxx flags to absolute msys2 libxxx.dll.a path
+                if expecting_l_arg
+                    arg = '-l' + arg
+                    expecting_l_arg = false
+                endif
+                l_arg := ''
+                if arg.startswith('-l')
+                    l_arg = arg.substring(2)
+                    if l_arg == ''
+                        expecting_l_arg = true
+                        continue
+                    endif
+                    if msys_libpath == null
+                        MSYSTEM_PREFIX := 'MSYSTEM_PREFIX'
+                        libpath := run_command('cmd', '/c', 'set', MSYSTEM_PREFIX, check: false).stdout().strip()
+                        if libpath.startswith(MSYSTEM_PREFIX + '=')
+                            msys_libpath = libpath.substring(MSYSTEM_PREFIX.length() + 1)
+                        endif
+                    endif
+                    if msys_libpath != null and msys_libpath.length() > 0
+                        arg = msys_libpath / 'lib' / 'lib' + l_arg + '.dll.a'
+                        # fallthrough to .dll conversion
+                    endif
+                endif
+                # Convert .dll.a path to its absolute .dll path
+                if arg.endswith('.dll.a') and not arg.contains('-Wl,')
+                    if not fs.is_absolute(arg)
+                        # cwd is meson.current_source_dir during setup
+                        # so convert build dir relative paths to absolute.
+                        arg = fs.canonicalize(fs.make_absolute(meson.current_build_dir() / arg))
+                    endif
+                    arg = try_convert_dlla_to_dll(arg)
+                endif
+                if arg.endswith('.dll.a') and l_arg != ''
+                    # .dll not found - reconstitute original -l argument
+                    arg = '-l' + l_arg
+                endif
+                ret += arg
+            endforeach
+            return ret
         endfunc,
         'version': ['-v'],
         'whole_archive': func(_c compiler, s1 str) -> list[str]
