@@ -18,6 +18,7 @@
 #include "log.h"
 #include "options.h"
 #include "platform/filesystem.h"
+#include "platform/os.h"
 #include "platform/path.h"
 #include "tracy.h"
 
@@ -35,12 +36,25 @@ error_handler(const char *msg, const pkgconf_client_t *client, void *data)
 	return true;
 }
 
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 30000
+static const char *
+env_lookup_handler(const pkgconf_client_t *client, const char *key)
+{
+	(void) client;
+	return os_get_env(key);
+}
+#endif
+
 static bool
 muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c, enum machine_kind for_machine)
 {
 	TracyCZoneAutoS;
 	c->personality = pkgconf_cross_personality_default();
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 30000
+	pkgconf_client_init(&c->client, error_handler, NULL, c->personality, NULL, env_lookup_handler);
+#else
 	pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
+#endif
 
 	struct obj_array *pkg_config_path;
 	{
