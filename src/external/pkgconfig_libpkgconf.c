@@ -50,11 +50,11 @@ muon_pkgconf_init(struct workspace *wk, struct pkgconf_client *c, enum machine_k
 {
 	TracyCZoneAutoS;
 	c->personality = pkgconf_cross_personality_default();
-#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 30000
-	pkgconf_client_init(&c->client, error_handler, NULL, c->personality, NULL, env_lookup_handler);
-#else
-	pkgconf_client_init(&c->client, error_handler, NULL, c->personality);
+	pkgconf_client_init(&c->client, error_handler, NULL, c->personality
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 20991
+		, NULL, env_lookup_handler
 #endif
+	);
 
 	struct obj_array *pkg_config_path;
 	{
@@ -272,16 +272,24 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 {
 	struct pkgconf_get_variable_ctx *ctx = _ctx;
 	bool found = false;
-	const char *var;
 	pkgconf_dependency_t *dep = world->required.head->data;
 	pkgconf_pkg_t *pkg = dep->match;
 
 	if (pkg != NULL) {
-		var = pkgconf_tuple_find(client, &pkg->vars, ctx->var);
+#if defined(LIBPKGCONF_VERSION) && LIBPKGCONF_VERSION >= 20995
+		char *var = pkgconf_variable_eval_name(client, &pkg->vars, ctx->var);
+		if (var != NULL) {
+			*ctx->res = make_str(ctx->wk, var);
+			free(var);
+			found = true;
+		}
+#else
+		const char *var = pkgconf_tuple_find(client, &pkg->vars, ctx->var);
 		if (var != NULL) {
 			*ctx->res = make_str(ctx->wk, var);
 			found = true;
 		}
+#endif
 	}
 
 	return found;
