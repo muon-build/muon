@@ -42,7 +42,6 @@ if not get_option('libpkgconf').disabled()
         'libpkgconf',
         required: get_option('libpkgconf'),
         default_options: {
-            'tests': 'disabled',
             'warning_level': '1',
         },
         kwargs: dependency_kwargs,

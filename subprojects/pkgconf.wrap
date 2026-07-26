@@ -3,8 +3,8 @@
 
 [wrap-git]
 url = https://github.com/pkgconf/pkgconf
-; 2.4.3
-revision = 1d37e711cefe83e6b5393b424af4c94da4e7e9d3
+; 3.0.4
+revision = 3f138a4e366eb0a917c228970aa151e92c57fa8e
 patch_directory = pkgconf
 depth = 1
 
