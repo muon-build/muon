@@ -24,6 +24,7 @@
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
+#include "platform/mem.h" // IWYU pragma: keep
 #include "platform/path.h"
 #include "platform/term.h"
 #include "tracy.h"
