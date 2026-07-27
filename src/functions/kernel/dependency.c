@@ -943,11 +943,18 @@ handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 		dep->flags |= dep_flag_found;
 		dep->type = dependency_type_threads;
 
-		dep->dep.compile_args = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.compile_args, make_str(wk, "-pthread"));
+		obj args = make_obj(wk, obj_array);
+		obj_array_push(wk, args, make_str(wk, "-pthread"));
 
-		dep->dep.link_args = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.link_args, make_str(wk, "-pthread"));
+		struct build_dep_raw raw = {
+			.link_args = args,
+			.compile_args = args,
+		};
+
+		if (!dependency_create(wk, &raw, &dep->dep, 0)) {
+			return false;
+		}
+
 		ctx->found = true;
 	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
 		// TODO: this is stupid
