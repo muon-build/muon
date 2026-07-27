@@ -280,8 +280,15 @@ apply_variable(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int m
 		char *var = pkgconf_variable_eval_name(client, &pkg->vars, ctx->var);
 		if (var != NULL) {
 			*ctx->res = make_str(ctx->wk, var);
-			free(var);
 			found = true;
+
+			// Guarantee we call the correct free function corresponding
+			// to the malloc used by the msys2 libpkgconf DLL.
+			// This is portable across all platforms and compilers.
+			// A more efficient alternative using the private API would be:
+			//  pkgconf_buffer_finalize(&(pkgconf_buffer_t){.base = var, .end = 0});
+			pkgconf_buffer_t var_buf = *PKGCONF_BUFFER_FROM_STR_NONNULL(var);
+			pkgconf_buffer_finalize(&var_buf);
 		}
 #else
 		const char *var = pkgconf_tuple_find(client, &pkg->vars, ctx->var);
