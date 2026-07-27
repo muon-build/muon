@@ -675,6 +675,7 @@ uint32_t obj_vsnprintf(struct workspace *wk, char *buf, uint32_t len, const char
 uint32_t obj_snprintf(struct workspace *wk, char *buf, uint32_t len, const char *fmt, ...)
 	MUON_ATTR_FORMAT(printf, 4, 5);
 void obj_inspect(struct workspace *wk, obj val);
+void obj_inspect_dep(struct workspace *wk, const char *pre, const struct build_dep *dep);
 
 typedef enum iteration_result (*obj_array_iterator)(struct workspace *wk, void *ctx, obj val);
 void obj_array_push(struct workspace *wk, obj arr, obj child);

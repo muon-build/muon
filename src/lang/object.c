@@ -2400,8 +2400,8 @@ obj_lprintf(struct workspace *wk, enum log_level lvl, const char *fmt, ...)
  * inspect - obj_to_s + more detail for some objects
  */
 
-static void
-obj_inspect_dep(struct workspace *wk, const char *pre, struct build_dep *dep)
+void
+obj_inspect_dep(struct workspace *wk, const char *pre, const struct build_dep *dep)
 {
 	obj_lprintf(wk, log_info, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
 	obj_lprintf(wk, log_info, "%slink_whole: %o\n", pre, dep->link_whole);
