@@ -276,15 +276,6 @@ check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_t
 	}
 
 	switch (op) {
-	case check_str_enum_op_eq:
-		if (r_t == obj_string) {
-			if (!obj_array_in(wk, values, r)) {
-				vm_warning(wk, "%o is not one of %o", r, values);
-				return false;
-			}
-			return true;
-		}
-		break;
 	case check_str_enum_op_in:
 		if (r_t == obj_array) {
 			obj v;
@@ -303,6 +294,15 @@ check_str_enum(struct workspace *wk, obj l, enum obj_type l_t, obj r, enum obj_t
 					vm_warning(wk, "%o is not one of %o", k, values);
 					return false;
 				}
+			}
+			return true;
+		}
+		// fallthrough
+	case check_str_enum_op_eq:
+		if (r_t == obj_string) {
+			if (!obj_array_in(wk, values, r)) {
+				vm_warning(wk, "%o is not one of %o", r, values);
+				return false;
 			}
 			return true;
 		}

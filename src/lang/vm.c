@@ -2021,7 +2021,16 @@ vm_op_in(struct workspace *wk)
 			[obj_string] = { tc_string, tc_bool },
 		};
 		if (!typecheck_typeinfo_operands(wk, b, a, &res, map)) {
-			goto type_err;
+			if (a_t == obj_string) {
+				if (check_str_enum(wk, b, b_t, a, a_t, check_str_enum_op_in)) {
+					res = obj_bool_true;
+				} else {
+					// A warning was issued by check_str_enum.
+					res = make_typeinfo(wk, tc_bool);
+				}
+			} else {
+				goto type_err;
+			}
 		}
 		break;
 	}
