@@ -1113,8 +1113,8 @@ func_log_common(struct workspace *wk, enum log_level lvl)
 	}
 
 	obj val;
-	obj_array_for(wk, an[0].val, val) {
-		obj_lprintf(wk, lvl, "%#o ", val);
+	obj_array_for_(wk, an[0].val, val, iter) {
+		obj_lprintf(wk, lvl, "%#o%s", val, iter.i + 1 < iter.len ? " " : "");
 	}
 	log_plain(lvl, "\n");
 
