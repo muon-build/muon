@@ -48,7 +48,7 @@ endif
 version_info = configuration_data()
 version_info.set('version', meson.project_version())
 version_info.set('vcs_tag', git_sha)
-version_info.set('meson_compat', '1.7')
+version_info.set('meson_compat', '1.11')
 version_info.set('platform', platform)
 version_info.set('compiler', cc.get_id())
 summary('compiler', cc.get_id())
