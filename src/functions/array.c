@@ -166,12 +166,12 @@ FUNC_REGISTER(array)
 	FUNC_IMPL_REGISTER(array, length);
 	FUNC_IMPL_REGISTER(array, get);
 	FUNC_IMPL_REGISTER(array, contains);
+	FUNC_IMPL_REGISTER(array, flatten);
 
 	if (lang_mode == language_internal) {
 		FUNC_IMPL_REGISTER(array, delete);
 		FUNC_IMPL_REGISTER(array, slice);
 		FUNC_IMPL_REGISTER(array, clear);
 		FUNC_IMPL_REGISTER(array, dedup);
-		FUNC_IMPL_REGISTER(array, flatten);
 	}
 }
