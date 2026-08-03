@@ -6,17 +6,8 @@
 #include "compat.h"
 
 #include "functions/dict.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
-
-static enum iteration_result
-dict_keys_iter(struct workspace *wk, void *_ctx, obj k, obj v)
-{
-	obj *arr = _ctx;
-
-	obj_array_push(wk, *arr, k);
-
-	return ir_cont;
-}
 
 FUNC_IMPL(dict, keys, tc_array)
 {
@@ -25,7 +16,27 @@ FUNC_IMPL(dict, keys, tc_array)
 	}
 
 	*res = make_obj(wk, obj_array);
-	obj_dict_foreach(wk, self, res, dict_keys_iter);
+	obj k, v;
+	obj_dict_for(wk, self, k, v) {
+		(void)v;
+		obj_array_push(wk, *res, k);
+	}
+
+	return true;
+}
+
+FUNC_IMPL(dict, values, tc_array)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = make_obj(wk, obj_array);
+	obj k, v;
+	obj_dict_for(wk, self, k, v) {
+		(void)k;
+		obj_array_push(wk, *res, v);
+	}
 
 	return true;
 }
@@ -88,6 +99,7 @@ FUNC_IMPL(dict, set, 0, func_impl_flag_impure)
 FUNC_REGISTER(dict)
 {
 	FUNC_IMPL_REGISTER(dict, keys);
+	FUNC_IMPL_REGISTER(dict, values);
 	FUNC_IMPL_REGISTER(dict, has_key);
 	FUNC_IMPL_REGISTER(dict, get);
 
