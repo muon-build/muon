@@ -100,30 +100,109 @@ FUNC_IMPL(array, delete, 0, func_impl_flag_impure)
 	return true;
 }
 
+static int64_t
+python_slice_clamp(int64_t v, int64_t lower, int64_t upper, int64_t len)
+{
+	if (v < 0) {
+		v += len;
+		if (v < lower) {
+			v = lower;
+		}
+	} else {
+		if (v > upper) {
+			v = upper;
+		}
+	}
+	return v;
+}
+
 FUNC_IMPL(array, slice, tc_array)
 {
-	struct args_norm an[] = { { obj_number, .optional = true }, { obj_number, .optional = true }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	struct args_norm an[] = {
+		{ obj_number, .optional = true },
+		{ obj_number, .optional = true },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_step,
+	};
+	struct args_kw akw[] = {
+		[kw_step] = { "step", tc_number },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
 
 	const struct obj_array *a = get_obj_array(wk, self);
-	int64_t start = 0, end = a->len;
+	int64_t step = akw[kw_step].set ? get_obj_number(wk, akw[kw_step].val) : 1;
 
-	if (an[0].set) {
-		start = get_obj_number(wk, an[0].val);
+	if (step == 0) {
+		vm_error_at(wk, akw[kw_step].node, "step cannot be 0");
+		return false;
 	}
 
-	if (an[1].set) {
-		end = get_obj_number(wk, an[1].val);
+	if (step == 1) {
+		// If step == 1 then we can use obj_array_slice which can reuse memory
+		// from the original array
+		int64_t start = 0, end = a->len;
+
+		if (an[0].set) {
+			start = get_obj_number(wk, an[0].val);
+		}
+
+		if (an[1].set) {
+			end = get_obj_number(wk, an[1].val);
+		}
+
+		bounds_adjust(a->len, &start);
+		bounds_adjust(a->len, &end);
+
+		start = CLAMP(start, 0, a->len);
+		end = CLAMP(end, 0, a->len);
+		*res = obj_array_slice(wk, self, start, end);
+	} else {
+		// If step != 1 then we have to do the tortured python slice/range
+		// clipping and create a new array.
+		*res = make_obj(wk, obj_array);
+		int64_t lower, upper, start, end;
+
+		if (step < 0) {
+			lower = -1;
+			upper = a->len - 1;
+		} else {
+			lower = 0;
+			upper = a->len;
+		}
+
+		if (!an[0].set) {
+			start = step < 0 ? upper : lower;
+		} else {
+			start = python_slice_clamp(get_obj_number(wk, an[0].val), lower, upper, a->len);
+		}
+
+		if (!an[1].set) {
+			end = step < 0 ? lower : upper;
+		} else {
+			end = python_slice_clamp(get_obj_number(wk, an[1].val), lower, upper, a->len);
+		}
+
+		if (step > 0 && start >= end) {
+			// empty slice
+			return true;
+		} else if (step < 0 && start <= end) {
+			// empty slice
+			return true;
+		}
+
+		for (int64_t i = start; step > 0 ? i < end : i > end; i += step) {
+			if (i < 0) {
+				i += a->len;
+			}
+			obj v = obj_array_index(wk, self, i);
+			obj_array_push(wk, *res, v);
+		}
 	}
-
-	bounds_adjust(a->len, &start);
-	bounds_adjust(a->len, &end);
-
-	end = MIN(end, a->len);
-
-	*res = obj_array_slice(wk, self, start, end);
 	return true;
 }
 
@@ -167,10 +246,10 @@ FUNC_REGISTER(array)
 	FUNC_IMPL_REGISTER(array, get);
 	FUNC_IMPL_REGISTER(array, contains);
 	FUNC_IMPL_REGISTER(array, flatten);
+	FUNC_IMPL_REGISTER(array, slice);
 
 	if (lang_mode == language_internal) {
 		FUNC_IMPL_REGISTER(array, delete);
-		FUNC_IMPL_REGISTER(array, slice);
 		FUNC_IMPL_REGISTER(array, clear);
 		FUNC_IMPL_REGISTER(array, dedup);
 	}

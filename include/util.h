@@ -14,8 +14,13 @@
 #undef MAX
 #endif
 
+#ifdef CLAMP
+#undef CLAMP
+#endif
+
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define CLAMP(a_, min_, max_) (a_ > max_ ? max_ : (a_ < min_ ? min_ : a_))
 
 #define IS_POWER_OF_TWO(__i) ((__i & (__i - 1)) == 0)
 
