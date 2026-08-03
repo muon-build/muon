@@ -9,7 +9,7 @@
 
 #include "arena.h"
 #include "datastructures/stack.h"
-#include "log.h"
+#include "error.h"
 #include "platform/assert.h"
 
 /******************************************************************************
@@ -24,6 +24,8 @@ struct stack_tag {
 	const char *name;
 	uint32_t size;
 };
+#else
+#include "log.h"
 #endif
 
 void
@@ -35,12 +37,15 @@ stack_init(struct arena *a, struct stack *stack, uint32_t cap)
 	};
 }
 
-static void
-stack_push_raw(struct stack *stack, const void *mem, uint32_t size)
+static bool
+stack_try_push_raw(struct stack *stack, const void *mem, uint32_t size)
 {
-	assert(stack->len + size < stack->cap);
-	memcpy(stack->mem + stack->len, mem, size);
-	stack->len += size;
+	if (stack->len + size < stack->cap) {
+		memcpy(stack->mem + stack->len, mem, size);
+		stack->len += size;
+		return true;
+	}
+	return false;
 }
 
 static void
@@ -83,17 +88,30 @@ stack_print(struct stack *_stack)
 #endif
 }
 
-void
-stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name)
+bool
+stack_try_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name)
 {
-	stack_push_raw(stack, mem, size);
+	if (!stack_try_push_raw(stack, mem, size)) {
+		return false;
+	}
 #if MUON_STACK_SANITIZE
-	stack_push_raw(stack, &(struct stack_tag){ name, size }, sizeof(struct stack_tag));
+	if (!stack_try_push_raw(stack, &(struct stack_tag){ name, size }, sizeof(struct stack_tag))) {
+		return false;
+	}
 
 #if MUON_STACK_DEBUG
 	L("\033[33mstack\033[0m %05d pushed %s (%d)", stack->len, name, size);
 #endif
 #endif
+	return true;
+}
+
+void
+stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name)
+{
+	if (!stack_try_push_sized(stack, mem, size, name)) {
+		error_unrecoverable("stack overflow");
+	}
 }
 
 void

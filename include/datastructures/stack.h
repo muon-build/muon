@@ -21,9 +21,13 @@ struct stack {
 void stack_init(struct arena *a, struct stack *stack, uint32_t cap);
 
 void stack_print(struct stack *_stack);
+bool stack_try_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name);
 void stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name);
 void stack_pop_sized(struct stack *stack, void *mem, uint32_t size);
 void stack_peek_sized(struct stack *stack, void *mem, uint32_t size);
+
+#define stack_try_push(__stack, __it, __nv)                                                           \
+	(stack_try_push_sized((__stack), &(__it), (sizeof(__it)), __FILE__ ":" LINE_STRING " " #__it) ? (__it = __nv, true) : false)
 
 #define stack_push(__stack, __it, __nv)                                                           \
 	stack_push_sized((__stack), &(__it), (sizeof(__it)), __FILE__ ":" LINE_STRING " " #__it); \

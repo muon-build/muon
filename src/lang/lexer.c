@@ -725,7 +725,11 @@ lexer_push_pop_enclosed_state(struct lexer *lexer, enum token_type type)
 			stack_pop(&lexer->stack, lexer->enclosed_state);
 		}
 	} else {
-		stack_push(&lexer->stack, lexer->enclosed_state, enclosed_state);
+		if (!stack_try_push(&lexer->stack, lexer->enclosed_state, enclosed_state)) {
+			struct source_location loc = { .off = lexer->i, .len = 1 };
+			error_message(lexer->wk, lexer->source, loc, log_error, 0, "lexer stack overflow trying to push enclosed state");
+			error_unrecoverable("cannot continue");
+		}
 	}
 }
 
