@@ -172,34 +172,37 @@ substitute_config_variables(struct workspace *wk, struct configure_file_context 
 			 * - The number of backslashes preceding varstart in the output is
 			 *   equal to the number of backslashes in the input divided by
 			 *   two, rounding down.
-			 * - If mode is cmake and the number of backslashes is even, don't
-			 *   escape the variable, otherwise always escape the variable.
+			 *
+			 * NOTE: This got even more complicated in meson
+			 * c8432df30edea96557db871d67c731537654afbf, now cmake syntax has
+			 * its own escaping rules for meson variables.
 			 */
 
-			uint32_t j, output_backslashes;
+			uint32_t j, output_backslashes = 0;
 			bool output_format_char = false;
 
 			for (j = 1; in->buf[i + j] == '\\'; ++j) {
 			}
 
 			if (configure_file_var_patterns_match(&var_patterns, in, i + j, &match_idx)) {
-				output_backslashes = j / 2;
-
 				if (var_patterns.pats[match_idx].type == configure_file_syntax_mesonvar) {
-					output_format_char = true;
-					i += j;
-				} else {
-					if ((j & 1) != 0) {
-						output_format_char = true;
-						i += j;
-					} else {
+					if (ctx->syntax & configure_file_syntax_cmakedefine) {
+						output_backslashes = j;
 						i += j - 1;
+					} else {
+						output_format_char = true;
+						output_backslashes = j / 2;
+						i += j;
 					}
+				} else if (var_patterns.pats[match_idx].type == configure_file_syntax_cmakevar) {
+					output_backslashes = j;
+					i += j - 1;
+				} else {
+					UNREACHABLE;
 				}
 			} else {
-				i += j - 1;
-
 				output_backslashes = j;
+				i += j - 1;
 			}
 
 			for (j = 0; j < output_backslashes; ++j) {
