@@ -311,13 +311,13 @@ version_compare_list(struct workspace *wk, const struct str *ver, obj cmp_arr)
 
 FUNC_IMPL(string, version_compare, tc_bool)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { TYPE_TAG_GLOB | tc_string }, ARG_TYPE_NULL };
 
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
 
-	bool matches = version_compare(get_str(wk, self), get_str(wk, an[0].val));
+	bool matches = version_compare_list(wk, get_str(wk, self), an[0].val);
 
 	*res = make_obj_bool(wk, matches);
 	return true;
