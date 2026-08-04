@@ -72,6 +72,7 @@ copy_pipe(struct workspace *wk,
 	struct run_cmd_ctx *ctx,
 	struct win_pipe_inst *pipe,
 	struct tstr *tstr,
+	FILE *tee_out,
 	uint32_t *count_read)
 {
 	if (pipe->is_eof) {
@@ -96,6 +97,9 @@ copy_pipe(struct workspace *wk,
 		TracyCPlot("Pipe read bytes", bytes_read);
 		*count_read += bytes_read;
 		tstr_pushn(wk, tstr, pipe->overlapped_buf, bytes_read);
+		if (tee_out) {
+			fwrite(pipe->overlapped_buf, bytes_read, 1, tee_out);
+		}
 	}
 	memset(&pipe->overlapped, 0, sizeof(pipe->overlapped));
 	pipe->is_reading = true;
@@ -149,6 +153,10 @@ copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 		pipe = (struct win_pipe_inst *)pipe_ptr;
 
 		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
+		FILE* tee_out = 0;
+		if (ctx->flags & run_cmd_ctx_flag_tee) {
+			tee_out = pipe == &ctx->pipe_out : stdout : stderr;
+		}
 		if (!copy_pipe(wk, ctx, pipe, tstr, &count_read)) {
 			return false;
 		}
