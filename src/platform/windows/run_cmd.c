@@ -155,9 +155,9 @@ copy_pipes(struct workspace *wk, struct run_cmd_ctx *ctx, bool all)
 		struct tstr *tstr = pipe == &ctx->pipe_out ? &ctx->out : &ctx->err;
 		FILE* tee_out = 0;
 		if (ctx->flags & run_cmd_ctx_flag_tee) {
-			tee_out = pipe == &ctx->pipe_out : stdout : stderr;
+			tee_out = pipe == &ctx->pipe_out ? stdout : stderr;
 		}
-		if (!copy_pipe(wk, ctx, pipe, tstr, &count_read)) {
+		if (!copy_pipe(wk, ctx, pipe, tstr, tee_out, &count_read)) {
 			return false;
 		}
 
