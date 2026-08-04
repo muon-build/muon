@@ -36,6 +36,16 @@ find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argu
 	run_cmd_ctx_destroy(&cmd_ctx);
 }
 
+FUNC_IMPL(external_program, cmd_array, tc_array, func_impl_flag_impure)
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	*res = get_obj_external_program(wk, self)->cmd_array;
+	return true;
+}
+
 FUNC_IMPL(external_program, found, tc_bool, func_impl_flag_impure)
 {
 	if (!pop_args(wk, NULL, NULL)) {
@@ -88,8 +98,9 @@ FUNC_IMPL(external_program, version, tc_string, func_impl_flag_impure)
 
 FUNC_REGISTER(external_program)
 {
+	FUNC_IMPL_REGISTER(external_program, cmd_array);
 	FUNC_IMPL_REGISTER(external_program, found);
 	FUNC_IMPL_REGISTER(external_program, full_path);
-	FUNC_IMPL_REGISTER_ALIAS(external_program, full_path, path);
 	FUNC_IMPL_REGISTER(external_program, version);
+	FUNC_IMPL_REGISTER_ALIAS(external_program, full_path, path);
 }
