@@ -1166,12 +1166,14 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		kw_check,
 		kw_env,
 		kw_capture,
+		kw_console,
 		kw_feed,
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_capture] = { "capture", obj_bool },
+		[kw_console] = { "console", obj_bool },
 		[kw_feed] = { "feed",
 			tc_coercible_files,
 			.desc = "Specify a file to be used for stdin",
@@ -1254,7 +1256,15 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		.stdin_path = feed ? get_file_path(wk, feed) : 0,
 	};
 
-	if (!capture) {
+	if (capture) {
+		// We only have to worry about console if capture is true, since when
+		// capture is false, console is implicitly false
+		//
+		// NOTE: this won't support capture: false, console: false (e.g. >/dev/null 2>&1)
+		if (get_obj_bool_with_default(wk, akw[kw_console].val, false)) {
+			cmd_ctx.flags |= run_cmd_ctx_flag_tee;
+		}
+	} else {
 		cmd_ctx.flags |= run_cmd_ctx_flag_dont_capture;
 		// Ensure any pending logs are printed prior to this command's execution.
 		log_flush();
@@ -1272,7 +1282,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		goto ret;
 	}
 
-	if (akw[kw_check].set && get_obj_bool(wk, akw[kw_check].val) && cmd_ctx.status != 0) {
+	if (get_obj_bool_with_default(wk, akw[kw_check].val, false) && cmd_ctx.status != 0) {
 		vm_error(wk, "command failed");
 		if (cmd_ctx.out.len) {
 			log_plain(log_info, "stdout:\n%s", cmd_ctx.out.buf);
