@@ -760,6 +760,7 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		kw_encoding, // TODO: ignored
 		kw_depfile, // TODO: ignored
 		kw_macro_name,
+		kw_build_subdir,
 	};
 	struct args_kw akw[] = {
 		[kw_configuration] = { "configuration", tc_configuration_data | tc_dict },
@@ -777,6 +778,7 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 		[kw_encoding] = { "encoding", obj_string },
 		[kw_depfile] = { "depfile", obj_string },
 		[kw_macro_name] = { "macro_name", obj_string },
+		[kw_build_subdir] = { "build_subdir", obj_string },
 		0,
 	};
 
@@ -807,36 +809,34 @@ FUNC_IMPL(kernel, configure_file, tc_file, func_impl_flag_impure)
 	}
 
 	{ /* setup out file */
-		obj subd;
-		if (!perform_output_string_substitutions(
-			    wk, akw[kw_output].node, akw[kw_output].val, input_arr, &subd)) {
-			return false;
-		}
-
-		const char *out = get_cstr(wk, subd);
 		TSTR(out_path);
-
-		if (!path_is_basename(out)) {
-			if (wk->vm.lang_mode == language_external) {
-				vm_error_at(wk,
-					akw[kw_output].node,
-					"config file output '%s' contains path separator",
-					out);
-				return false;
-			}
-
-			TSTR(dir);
-			path_dirname(wk, &dir, out);
-			if (!fs_mkdir_p(wk, dir.buf)) {
-				return false;
-			}
+		path_push(wk, &out_path, workspace_build_dir(wk));
+		if (akw[kw_build_subdir].set) {
+			path_push(wk, &out_path, get_cstr(wk, akw[kw_build_subdir].val));
 		}
 
-		if (!fs_mkdir_p(wk, workspace_build_dir(wk))) {
+		{
+			obj subd;
+			if (!perform_output_string_substitutions(
+				    wk, akw[kw_output].node, akw[kw_output].val, input_arr, &subd)) {
+				return false;
+			}
+			const char *out;
+			out = get_cstr(wk, subd);
+
+			if (!path_is_basename(out) && wk->vm.lang_mode == language_external) {
+				vm_error_at(wk, akw[kw_output].node, "config file output '%s' contains path separator", out);
+				return false;
+			}
+
+			path_push(wk, &out_path, out);
+		}
+
+		TSTR(dir);
+		path_dirname(wk, &dir, out_path.buf);
+		if (!fs_mkdir_p(wk, dir.buf)) {
 			return false;
 		}
-
-		path_join(wk, &out_path, workspace_build_dir(wk), out);
 
 		LOG_I("configuring '%s'", out_path.buf);
 		output_str = tstr_into_str(wk, &out_path);
