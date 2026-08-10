@@ -32,9 +32,9 @@ struct pkgconf_file {
 	obj name, description, url, version;
 
 	// arrays of string
-	obj cflags, conflicts;
+	obj conflicts;
 	obj builtin_dir_variables, variables;
-	obj reqs[2], libs[2];
+	obj reqs[2], libs[2], cflags[2];
 	obj exclude;
 	bool libs_contains_internal[2];
 
@@ -326,7 +326,7 @@ module_pkgconf_process_libs_iter(struct workspace *wk, void *_ctx, obj val)
 			// dependency semantics if this is a sub dependency of
 			// a partial dep with compile_args: false
 			if (dep->dep.compile_args) {
-				obj_array_extend(wk, ctx->pc->cflags, dep->dep.compile_args);
+				obj_array_extend(wk, ctx->pc->cflags[ctx->vis], dep->dep.compile_args);
 			}
 
 			if (dep->dep.raw.link_with) {
@@ -713,8 +713,13 @@ module_pkgconf_write(struct workspace *wk, const char *path, struct pkgconf_file
 		fprintf(f, "Libs.private: %s\n", get_cstr(wk, str));
 	}
 
-	if (!pc->dataonly && get_obj_array(wk, pc->cflags)->len) {
-		fprintf(f, "Cflags: %s\n", get_cstr(wk, join_args_pkgconf(wk, pc->cflags)));
+	if (!pc->dataonly) {
+		if (get_obj_array(wk, pc->cflags[pkgconf_visibility_pub])->len) {
+			fprintf(f, "Cflags: %s\n", get_cstr(wk, join_args_pkgconf(wk, pc->cflags[pkgconf_visibility_pub])));
+		}
+		if (get_obj_array(wk, pc->cflags[pkgconf_visibility_priv])->len) {
+			fprintf(f, "Cflags.private: %s\n", get_cstr(wk, join_args_pkgconf(wk, pc->cflags[pkgconf_visibility_priv])));
+		}
 	}
 
 	if (!fs_fclose(f)) {
@@ -744,6 +749,7 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		kw_unescaped_variables,
 		kw_uninstalled_variables, // TODO
 		kw_unescaped_uninstalled_variables, // TODO
+		kw_cflags_private,
 		kw_version,
 		kw_dataonly,
 		kw_conflicts,
@@ -769,6 +775,7 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		[kw_uninstalled_variables] = { "uninstalled_variables", tc_string | tc_array | tc_dict },
 		[kw_unescaped_uninstalled_variables]
 		= { "unescaped_uninstalled_variables", tc_string | tc_array | tc_dict },
+		[kw_cflags_private] = { "cflags_private", TYPE_TAG_LISTIFY | tc_string },
 		[kw_version] = { "version", obj_string },
 		[kw_dataonly] = { "dataonly", obj_bool },
 		[kw_conflicts] = { "conflicts", TYPE_TAG_LISTIFY | obj_string },
@@ -792,7 +799,8 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		pc.libs[i] = make_obj(wk, obj_array);
 		pc.reqs[i] = make_obj(wk, obj_array);
 	}
-	pc.cflags = make_obj(wk, obj_array);
+	pc.cflags[pkgconf_visibility_pub] = make_obj(wk, obj_array);
+	pc.cflags[pkgconf_visibility_priv] = make_obj(wk, obj_array);
 	pc.variables = make_obj(wk, obj_array);
 	pc.builtin_dir_variables = make_obj(wk, obj_array);
 	pc.exclude = make_obj(wk, obj_array);
@@ -834,7 +842,7 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 			return false;
 		}
 	} else {
-		obj_array_push(wk, pc.cflags, make_str(wk, "-I${includedir}"));
+		obj_array_push(wk, pc.cflags[pkgconf_visibility_pub], make_str(wk, "-I${includedir}"));
 	}
 
 	if (mainlib) {
@@ -891,7 +899,11 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 	}
 
 	if (akw[kw_extra_cflags].set) {
-		obj_array_extend(wk, pc.cflags, akw[kw_extra_cflags].val);
+		obj_array_extend(wk, pc.cflags[pkgconf_visibility_pub], akw[kw_extra_cflags].val);
+	}
+
+	if (akw[kw_cflags_private].set) {
+		obj_array_extend(wk, pc.cflags[pkgconf_visibility_priv], akw[kw_cflags_private].val);
 	}
 
 	{ // variables
