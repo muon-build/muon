@@ -6,6 +6,7 @@
 #include <inttypes.h>
 
 #include "error.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -37,11 +38,25 @@ make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type
  * ----------------------------------------------------------------------------
  */
 
+static const char *
+typechecking_type_modifier_to_str(type_tag t)
+{
+	if (t & TYPE_TAG_GLOB) {
+		return "glob";
+	} else if ((t & TYPE_TAG_LISTIFY)) {
+		return "listify";
+	}
+	return 0;
+}
+
+
 static obj
 simple_type_to_arr(struct workspace *wk, type_tag t)
 {
 	obj expected_types;
 	expected_types = make_obj(wk, obj_array);
+
+	const char *modifier = typechecking_type_modifier_to_str(t);
 
 	if (!(t & obj_typechecking_type_tag)) {
 		t = obj_type_to_tc_type(t);
@@ -72,10 +87,20 @@ simple_type_to_arr(struct workspace *wk, type_tag t)
 	obj sorted;
 	obj_array_sort(wk, NULL, expected_types, obj_array_sort_by_str, &sorted);
 
-	return sorted;
+	obj res;
+	if (modifier) {
+		obj typestr;
+		obj_array_join(wk, false, sorted, make_str(wk, "|"), &typestr);
+		res = make_obj(wk, obj_array);
+		obj_array_push(wk, res, make_strf(wk, "%s[%s]", modifier, get_str(wk, typestr)->s));
+	} else {
+		res = sorted;
+	}
+
+	return res;
 }
 
-obj
+static obj
 typechecking_type_to_arr(struct workspace *wk, type_tag t)
 {
 	if (!(t & TYPE_TAG_COMPLEX)) {
@@ -144,14 +169,8 @@ typechecking_type_to_str(struct workspace *wk, type_tag t)
 
 	t &= ~TYPE_TAG_ALLOW_NULL;
 
-	const char *modifier = 0;
-	if (t & TYPE_TAG_GLOB) {
-		t &= ~TYPE_TAG_GLOB;
-		modifier = "glob";
-	} else if ((t & TYPE_TAG_LISTIFY)) {
-		t &= ~TYPE_TAG_LISTIFY;
-		modifier = "listify";
-	}
+	const char *modifier = typechecking_type_modifier_to_str(t);
+	t &= ~(TYPE_TAG_GLOB | TYPE_TAG_LISTIFY);
 
 	obj type_arr = typechecking_type_to_arr(wk, t);
 
@@ -331,10 +350,25 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 		type |= tc_disabler; // always allow disabler type
 		type &= ~(obj_typechecking_type_tag | TYPE_TAG_ALLOW_NULL);
 
+		bool listify = type & TYPE_TAG_LISTIFY;
+		type &= ~TYPE_TAG_LISTIFY;
+
 		assert(!(got_type & TYPE_TAG_MASK));
 		assert(!(type & TYPE_TAG_MASK));
 
-		return (!got_type && !type) || (got_type & type);
+		if (listify && (got_type & tc_array)) {
+			obj v;
+			obj_array_flat_for_(wk, got_obj, v, iter) {
+				if (!typecheck_complex_type(
+					    wk, v, get_obj_typechecking_type(wk, v), obj_typechecking_type_tag | type)) {
+					obj_array_flat_iter_end(wk, &iter);
+					return false;
+				}
+			}
+			return true;
+		} else {
+			return (!got_type && !type) || (got_type & type);
+		}
 	}
 
 	uint32_t idx = COMPLEX_TYPE_INDEX(type);

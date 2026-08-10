@@ -123,7 +123,6 @@ bool typecheck_custom(struct workspace *wk, uint32_t ip, obj obj_id, type_tag ty
 bool typecheck_simple_err(struct workspace *wk, obj o, type_tag type);
 obj typechecking_type_to_str(struct workspace *wk, type_tag t);
 const char *typechecking_type_to_s(struct workspace *wk, type_tag t);
-obj typechecking_type_to_arr(struct workspace *wk, type_tag t);
 type_tag make_complex_type(struct workspace *wk, enum complex_type t, type_tag type, type_tag subtype);
 bool typecheck_typeinfo(struct workspace *wk, obj v, type_tag t);
 

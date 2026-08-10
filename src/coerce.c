@@ -35,13 +35,8 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 				if (!typecheck(wk,
 					    kw->node,
 					    dict,
-					    make_complex_type(wk,
-						    complex_type_nested,
-						    tc_dict,
-						    make_complex_type(wk,
-							    complex_type_or,
-							    tc_string,
-							    complex_type_preset_get(wk, tc_cx_list_of_str))))) {
+					    make_complex_type(
+						    wk, complex_type_nested, tc_dict, TYPE_TAG_LISTIFY | tc_string))) {
 					return false;
 				}
 			} else {
