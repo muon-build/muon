@@ -30,8 +30,24 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 			*res = kw->val;
 		} else {
 			obj dict;
-			if (!coerce_key_value_dict(wk, kw->node, kw->val, &dict)) {
-				return false;
+			if (get_obj_type(wk, kw->val) == obj_dict) {
+				dict = kw->val;
+				if (!typecheck(wk,
+					    kw->node,
+					    dict,
+					    make_complex_type(wk,
+						    complex_type_nested,
+						    tc_dict,
+						    make_complex_type(wk,
+							    complex_type_or,
+							    tc_string,
+							    complex_type_preset_get(wk, tc_cx_list_of_str))))) {
+					return false;
+				}
+			} else {
+				if (!coerce_key_value_dict(wk, kw->node, kw->val, &dict)) {
+					return false;
+				}
 			}
 
 			*res = make_obj_environment(wk, flags);
@@ -50,62 +66,30 @@ coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set
 	return true;
 }
 
-struct coerce_environment_ctx {
-	uint32_t err_node;
-	obj res;
-};
-
-static enum iteration_result
-coerce_environment_iter(struct workspace *wk, void *_ctx, obj val)
+static bool
+coerce_split_and_push_key_value_string(struct workspace *wk, obj dest, uint32_t err_node, obj val)
 {
-	struct coerce_environment_ctx *ctx = _ctx;
-
-	if (!typecheck(wk, ctx->err_node, val, obj_string)) {
+	if (!typecheck(wk, err_node, val, obj_string)) {
 		return false;
 	}
 
 	const struct str *ss = get_str(wk, val);
 	if (str_has_null(ss)) {
-		vm_error_at(wk, ctx->err_node, "environment string %o must not contain NUL", val);
-		return ir_err;
+		vm_error_at(wk, err_node, "key value string %o must not contain NUL", val);
+		return false;
 	}
 
-	const char *eql;
-	if (!(eql = strchr(ss->s, '='))) {
-		vm_error_at(
-			wk, ctx->err_node, "invalid env element %o; env elements must be of the format key=value", val);
-		return ir_err;
+	struct str_cut cut;
+	if (!str_cut(ss, &STR("="), &cut)) {
+		vm_error_at(wk, err_node, "invalid key value string %o; strings must be of the format key=value", val);
+		return false;
 	}
 
-	uint32_t key_len = eql - ss->s;
-	obj key = make_strn(wk, ss->s, key_len);
-	val = make_strn(wk, ss->s + key_len + 1, ss->len - (key_len + 1));
+	obj key = make_strn(wk, cut.before.s, cut.before.len);
+	val = make_strn(wk, cut.after.s, cut.after.len);
 
-	obj_dict_set(wk, ctx->res, key, val);
-	return ir_cont;
-}
-
-static enum iteration_result
-typecheck_environment_dict_iter(struct workspace *wk, void *_ctx, obj key, obj val)
-{
-	uint32_t err_node = *(uint32_t *)_ctx;
-	const struct str *k = get_str(wk, key), *v = get_str(wk, val);
-
-	if (!k->len) {
-		vm_error_at(wk, err_node, "environment key may not be an empty string (value is '%s')", v->s);
-		return ir_err;
-	} else if (str_has_null(k)) {
-		vm_error_at(wk, err_node, "environment key may not contain NUL");
-		return ir_err;
-	} else if (str_has_null(v)) {
-		vm_error_at(wk, err_node, "environment value may not contain NUL");
-		return ir_err;
-	} else if (strchr(k->s, '=')) {
-		vm_error_at(wk, err_node, "environment key '%s' contains '='", k->s);
-		return ir_err;
-	}
-
-	return ir_cont;
+	obj_dict_set(wk, dest, key, val);
+	return true;
 }
 
 bool
@@ -113,15 +97,19 @@ coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res
 {
 	*res = make_obj(wk, obj_dict);
 
-	struct coerce_environment_ctx ctx = {
-		.err_node = err_node,
-		.res = *res,
-	};
-
 	enum obj_type t = get_obj_type(wk, val);
 	switch (t) {
-	case obj_string: return coerce_environment_iter(wk, &ctx, val) != ir_err;
-	case obj_array: return obj_array_foreach_flat(wk, val, &ctx, coerce_environment_iter);
+	case obj_string: return coerce_split_and_push_key_value_string(wk, *res, err_node, val);
+	case obj_array: {
+		obj v;
+		obj_array_flat_for_(wk, val, v, iter) {
+			if (!coerce_split_and_push_key_value_string(wk, *res, err_node, v)) {
+				obj_array_flat_iter_end(wk, &iter);
+				return false;
+			}
+		}
+		break;
+	}
 	case obj_dict:
 		if (!typecheck(wk, err_node, val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
 			return false;
@@ -134,8 +122,24 @@ coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res
 		return false;
 	}
 
-	if (!obj_dict_foreach(wk, *res, &err_node, typecheck_environment_dict_iter)) {
-		return false;
+	{
+		obj key, val;
+		obj_dict_for(wk, *res, key, val) {
+			const struct str *k = get_str(wk, key), *v = get_str(wk, val);
+			if (!k->len) {
+				vm_error_at(wk, err_node, "key may not be an empty string (value is '%s')", v->s);
+				return false;
+			} else if (str_has_null(k)) {
+				vm_error_at(wk, err_node, "key may not contain NUL");
+				return false;
+			} else if (str_has_null(v)) {
+				vm_error_at(wk, err_node, "value may not contain NUL");
+				return false;
+			} else if (strchr(k->s, '=')) {
+				vm_error_at(wk, err_node, "key '%s' contains '='", k->s);
+				return false;
+			}
+		}
 	}
 
 	return true;
