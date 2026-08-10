@@ -3846,6 +3846,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field(obj_test, obj, depends);
 	vm_reflect_obj_field(obj_test, obj, timeout);
 	vm_reflect_obj_field(obj_test, obj, priority);
+	vm_reflect_obj_field(obj_test, obj, expected_exitcode);
 	vm_reflect_obj_field(obj_test, bool, should_fail);
 	vm_reflect_obj_field(obj_test, bool, is_parallel);
 	vm_reflect_obj_field(obj_test, bool, verbose);

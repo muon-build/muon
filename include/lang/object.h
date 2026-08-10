@@ -445,6 +445,7 @@ struct obj_test {
 	obj depends; // obj_array of obj_string
 	obj timeout; // obj_number
 	obj priority; // obj_number
+	obj expected_exitcode; // obj_number
 	bool should_fail, is_parallel, verbose;
 	enum test_category category;
 	enum test_protocol protocol;

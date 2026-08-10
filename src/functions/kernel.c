@@ -1570,6 +1570,8 @@ add_test_common(struct workspace *wk, enum test_category cat)
 		kw_workdir,
 		kw_depends,
 		kw_should_fail,
+		kw_expected_fail,
+		kw_expected_exitcode,
 		kw_env,
 		kw_suite,
 		kw_priority,
@@ -1583,6 +1585,8 @@ add_test_common(struct workspace *wk, enum test_category cat)
 		[kw_workdir] = { "workdir", obj_string, },
 		[kw_depends] = { "depends", tc_depends_kw, },
 		[kw_should_fail] = { "should_fail", obj_bool, },
+		[kw_expected_fail] = { "expected_fail", obj_bool, },
+		[kw_expected_exitcode] = { "expected_exitcode", obj_number, },
 		[kw_env] = { "env", tc_coercible_env, },
 		[kw_suite] = { "suite", TYPE_TAG_LISTIFY | obj_string },
 		[kw_priority] = { "priority", obj_number, },
@@ -1664,7 +1668,6 @@ add_test_common(struct workspace *wk, enum test_category cat)
 	t->name = an[0].val;
 	t->exe = exe;
 	t->args = args;
-	t->should_fail = akw[kw_should_fail].set && get_obj_bool(wk, akw[kw_should_fail].val);
 	t->suites = akw[kw_suite].val;
 	t->workdir = akw[kw_workdir].val;
 	t->timeout = akw[kw_timeout].val;
@@ -1672,6 +1675,16 @@ add_test_common(struct workspace *wk, enum test_category cat)
 	t->category = cat;
 	t->protocol = protocol;
 	t->verbose = akw[kw_verbose].set && get_obj_bool(wk, akw[kw_verbose].val);
+	t->expected_exitcode = akw[kw_expected_exitcode].val;
+
+	if (akw[kw_should_fail].set && akw[kw_expected_fail].set) {
+		vm_error_at(wk, akw[kw_should_fail].node, "should_fail cannot be used if expected_fail is set");
+		return false;
+	} else if (akw[kw_should_fail].set) {
+		t->should_fail = get_obj_bool(wk, akw[kw_should_fail].val);
+	} else if (akw[kw_expected_fail].set) {
+		t->should_fail = get_obj_bool(wk, akw[kw_expected_fail].val);
+	}
 
 	if (akw[kw_is_parallel].key) {
 		t->is_parallel = akw[kw_is_parallel].set ? get_obj_bool(wk, akw[kw_is_parallel].val) : true;

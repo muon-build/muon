@@ -203,7 +203,7 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 	log_raw("%s", name);
 
 	if (status == status_should_have_failed) {
-		log_raw(" - passing test marked as should_fail");
+		log_raw(" - passing test marked as expected_fail");
 	}
 }
 
@@ -612,7 +612,8 @@ ret:
 static enum test_result_status
 check_test_result_exitcode(struct workspace *wk, const struct run_test_ctx *ctx, const struct test_result *res)
 {
-	if (res->cmd_ctx.status == 0) {
+	if (res->cmd_ctx.status
+		== (res->test->expected_exitcode ? get_obj_number(wk, res->test->expected_exitcode) : 0)) {
 		return test_result_status_ok;
 	} else if (res->cmd_ctx.status == 77) {
 		return test_result_status_skipped;
