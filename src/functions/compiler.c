@@ -678,6 +678,11 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 		{ "const", "int foo(void) __attribute__((const));\n" },
 		{ "constructor", "int foo(void) __attribute__((constructor));\n" },
 		{ "constructor_priority", "int foo( void ) __attribute__((__constructor__(65535/2)));\n" },
+		{ "counted_by",
+			"struct foo {\n"
+			"    unsigned int count;\n"
+			"    char bar[] __attribute__((counted_by(count)));\n"
+			"};\n" },
 		{ "deprecated", "int foo(void) __attribute__((deprecated(\"\")));\n" },
 		{ "destructor", "int foo(void) __attribute__((destructor));\n" },
 		{ "dllexport", "__declspec(dllexport) int foo(void) { return 0; }\n" },
