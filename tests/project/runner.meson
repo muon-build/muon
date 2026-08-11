@@ -62,6 +62,14 @@ steps.analyze = func()
 endfunc
 
 steps.setup = func()
+    preload_opts = []
+    foreach type : ['cross', 'native']
+        path = source / f'@type@file.ini'
+        if fs.exists(path)
+            preload_opts += f'-p@type@:@path@'
+        endif
+    endforeach
+
     setup_result = run_command(
         muon,
         '-vC', source,
@@ -69,6 +77,7 @@ steps.setup = func()
         '-Dprefix=/usr',
         '-Denv.NINJA=' + util.repr(ninja),
         extra_setup_opts,
+        preload_opts,
         build,
     )
 
