@@ -562,6 +562,26 @@ FUNC_IMPL(meson, get_cross_property, tc_any, func_impl_flag_impure)
 	return meson_get_property(wk, wk->machine_properties[machine_kind_host], an[0].val, an[1].val, res);
 }
 
+FUNC_IMPL(meson, has_external_property, tc_any, func_impl_flag_impure)
+{
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_native,
+	};
+	struct args_kw akw[] = {
+		[kw_native] = { "native", obj_bool },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	obj dict = wk->machine_properties[coerce_machine_kind(wk, &akw[kw_native])];
+	obj _;
+	*res = make_obj_bool(wk, obj_dict_index(wk, dict, an[0].val, &_));
+	return true;
+}
+
 FUNC_IMPL(meson, get_external_property, tc_any, func_impl_flag_impure)
 {
 	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
@@ -894,6 +914,7 @@ FUNC_REGISTER(meson)
 	FUNC_IMPL_REGISTER_ALIAS(meson, global_build_root, build_root);
 	FUNC_IMPL_REGISTER(meson, global_source_root);
 	FUNC_IMPL_REGISTER_ALIAS(meson, global_source_root, source_root);
+	FUNC_IMPL_REGISTER(meson, has_external_property);
 	FUNC_IMPL_REGISTER(meson, is_cross_build);
 	FUNC_IMPL_REGISTER(meson, is_subproject);
 	FUNC_IMPL_REGISTER(meson, is_unity);
