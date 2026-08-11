@@ -670,6 +670,7 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		kw_env,
 		kw_feed,
 		kw_console,
+		kw_build_subdir,
 	};
 	struct args_kw akw[] = {
 		[kw_input] = { "input", TYPE_TAG_LISTIFY | tc_coercible_files | tc_generated_list, },
@@ -689,6 +690,7 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		[kw_env] = { "env", tc_coercible_env },
 		[kw_feed] = { "feed", obj_bool },
 		[kw_console] = { "console", obj_bool },
+		[kw_build_subdir] = { "build_subdir", obj_string },
 		0,
 	};
 
@@ -710,6 +712,12 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		name = v;
 	}
 
+	TSTR(output_dir);
+	path_push(wk, &output_dir, get_cstr(wk, current_project(wk)->build_dir));
+	if (akw[kw_build_subdir].set) {
+		path_push(wk, &output_dir, get_cstr(wk, akw[kw_build_subdir].val));
+	}
+
 	struct make_custom_target_opts opts = {
 		.name = name,
 		.input_node = akw[kw_input].node,
@@ -717,7 +725,7 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		.command_node = akw[kw_command].node,
 		.input_orig = akw[kw_input].val,
 		.output_orig = akw[kw_output].val,
-		.output_dir = get_cstr(wk, current_project(wk)->build_dir),
+		.output_dir = output_dir.buf,
 		.command_orig = akw[kw_command].val,
 		.depfile_orig = akw[kw_depfile].val,
 		.capture = akw[kw_capture].set && get_obj_bool(wk, akw[kw_capture].val),
