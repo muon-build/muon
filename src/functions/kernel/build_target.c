@@ -63,6 +63,7 @@ enum build_target_kwargs {
 	bt_kw_win_subsystem, // TODO
 	bt_kw_override_options,
 	bt_kw_link_args,
+	bt_kw_build_subdir,
 
 #define E(lang, s) bt_kw_##lang##s
 #define TOOLCHAIN_ENUM(lang) E(lang, _args), E(lang, _static_args), E(lang, _shared_args), E(lang, _pch),
@@ -579,7 +580,16 @@ create_target(struct workspace *wk,
 	tgt->type = type;
 	tgt->name = name;
 	tgt->cwd = current_project(wk)->cwd;
-	tgt->build_dir = current_project(wk)->build_dir;
+	{
+		if (akw[bt_kw_build_subdir].set) {
+			TSTR(build_dir);
+			path_push(wk, &build_dir, get_cstr(wk, current_project(wk)->build_dir));
+			path_push(wk, &build_dir, get_cstr(wk, akw[bt_kw_build_subdir].val));
+			tgt->build_dir = tstr_into_str(wk, &build_dir);
+		} else {
+			tgt->build_dir = current_project(wk)->build_dir;
+		}
+	}
 	tgt->machine = coerce_machine_kind(wk, &akw[bt_kw_native]);
 	tgt->callstack = vm_callstack(wk);
 	tgt->args = make_obj(wk, obj_dict);
@@ -1155,6 +1165,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
 		[bt_kw_override_options] = { "override_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		[bt_kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
+		[bt_kw_build_subdir] = { "build_subdir", obj_string },
 #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
 #define TOOLCHAIN_ENUM(lang)                                                                                 \
 	E(lang, _args, TYPE_TAG_LISTIFY | obj_string), E(lang, _static_args, TYPE_TAG_LISTIFY | obj_string), \
