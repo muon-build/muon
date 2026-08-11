@@ -285,6 +285,30 @@ FUNC_IMPL(module_fs, stem, tc_string, .desc = "Get the basename of a path with i
 	return true;
 }
 
+FUNC_IMPL(module_fs, suffix, tc_string, .desc = "The last dot-separated portion of the final component, if any" )
+{
+	struct args_norm an[] = { { tc_coercible_files }, ARG_TYPE_NULL };
+	if (!pop_args(wk, an, NULL)) {
+		return false;
+	}
+
+	TSTR(path);
+	if (!fix_file_path(wk, an[0].node, an[0].val, fix_file_path_noexpanduser, &path)) {
+		return false;
+	}
+
+	TSTR(basename);
+	path_basename(wk, &basename, path.buf);
+
+	const char *sep = strrchr(basename.buf, '.');
+	if (sep) {
+		*res = make_str(wk, sep);
+	} else {
+		*res = make_str(wk, "");
+	}
+	return true;
+}
+
 FUNC_IMPL(module_fs, as_posix, tc_string, .desc = "Convert backslashes to `/`" )
 {
 	struct args_norm an[] = { { tc_string }, ARG_TYPE_NULL };
@@ -957,6 +981,7 @@ FUNC_REGISTER(module_fs)
 	FUNC_IMPL_REGISTER(module_fs, replace_suffix);
 	FUNC_IMPL_REGISTER(module_fs, size);
 	FUNC_IMPL_REGISTER(module_fs, stem);
+	FUNC_IMPL_REGISTER(module_fs, suffix);
 
 	// non-standard muon extensions
 	if (lang_mode == language_internal) {
