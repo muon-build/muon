@@ -93,6 +93,12 @@ machine_file_translate_cb(void *_ctx,
 		return false;
 	}
 
+	TSTR(v_buf);
+	if (strchr(v, '#')) {
+		tstr_pushf(wk, &v_buf, "(\n\t%s\n)", v);
+		v = v_buf.buf;
+	}
+
 	switch (sect) {
 	case machine_file_section_constants: tstr_pushf(wk, ctx->dest, "%s = %s\n", k, v); break;
 	case machine_file_section_binaries: {
