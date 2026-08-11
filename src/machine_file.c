@@ -19,6 +19,7 @@ enum machine_file_section {
 	machine_file_section_constants,
 	machine_file_section_binaries,
 	machine_file_section_properties,
+	machine_file_section_paths,
 	machine_file_section_builtin_options,
 	machine_file_section_project_options,
 	machine_file_section_project_options_prefixed,
@@ -32,6 +33,7 @@ static const char *machine_file_section_names[machine_file_section_count] = {
 	[machine_file_section_constants] = "constants",
 	[machine_file_section_binaries] = "binaries",
 	[machine_file_section_properties] = "properties",
+	[machine_file_section_paths] = "paths",
 	[machine_file_section_builtin_options] = "built-in options",
 	[machine_file_section_project_options] = "project options",
 	[machine_file_section_build_machine] = "build_machine",
@@ -128,6 +130,7 @@ machine_file_translate_cb(void *_ctx,
 	case machine_file_section_target_machine:
 		tstr_pushf(wk, ctx->dest, "target_machine.set_properties({'%s': %s})\n", k, v);
 		break;
+	case machine_file_section_paths:
 	case machine_file_section_builtin_options:
 	case machine_file_section_project_options:
 		tstr_pushf(wk, ctx->dest, "meson.set_option('%s', %s, native: %s)\n", k, v, native);
