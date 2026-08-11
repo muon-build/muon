@@ -29,7 +29,8 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 
 	enum build_option_type type;
 	for (type = 0; type < build_option_type_count; ++type) {
-		if (type == op_shell_array && !initializing_builtin_options) {
+		if (type == op_shell_array
+			&& initializing_builtin_options_state == initializing_builtin_options_state_none) {
 			continue;
 		}
 
@@ -90,7 +91,7 @@ FUNC_IMPL(kernel, option, 0, true)
 		[kw_per_machine] = { 0 },
 		0 };
 
-	if (initializing_builtin_options) {
+	if (initializing_builtin_options_state != initializing_builtin_options_state_none) {
 		akw[kw_kind] = (struct args_kw){ "kind", tc_string };
 		akw[kw_per_machine] = (struct args_kw){ "per_machine", tc_bool };
 	}

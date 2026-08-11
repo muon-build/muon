@@ -23,7 +23,7 @@ decay_both_libs(struct workspace *wk, obj both_libs)
 	enum default_both_libraries def_both_libs = b->default_both_libraries;
 
 	if (def_both_libs == default_both_libraries_auto) {
-		 def_both_libs = get_option_default_both_libraries(wk, 0, 0);
+		 def_both_libs = get_option_default_both_libraries(wk, current_project(wk), 0);
 	}
 
 	switch(def_both_libs) {

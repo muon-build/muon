@@ -497,12 +497,12 @@ toolchain_component_detect(struct workspace *wk,
 		TSTR(opt_name);
 		if (toolchain_component_option_name(wk, compiler->lang, component, compiler->machine, &opt_name)) {
 			obj cmd_arr_opt = 0;
-			if (!get_option(wk, NULL, &TSTR_STR(&opt_name), &cmd_arr_opt)) {
+			if (!get_option(wk, current_project(wk), &TSTR_STR(&opt_name), &cmd_arr_opt)) {
 				UNREACHABLE;
 			}
 			struct obj_option *cmd_arr = get_obj_option(wk, cmd_arr_opt);
 
-			if (cmd_arr->source > option_value_source_default) {
+			if (cmd_arr->source > option_value_source_default && get_obj_array(wk, cmd_arr->val)->len) {
 				candidates = ar_maken(wk->a_scratch, obj, 1);
 				candidates_len = 1;
 				candidates[0] = cmd_arr->val;

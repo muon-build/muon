@@ -7,7 +7,12 @@
 #define MUON_OPTIONS_H
 #include "lang/workspace.h"
 
-extern bool initializing_builtin_options;
+enum initializing_builtin_options_state {
+	initializing_builtin_options_state_none,
+	initializing_builtin_options_state_global,
+	initializing_builtin_options_state_project,
+};
+extern enum initializing_builtin_options_state initializing_builtin_options_state;
 extern const char *build_option_type_to_s[build_option_type_count];
 bool toolchain_component_option_name(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct tstr *dest);
 

@@ -61,7 +61,9 @@ ca_get_buildtype(struct workspace *wk,
 		{ NULL } };
 
 	obj buildtype_opt_id, buildtype_val;
-	get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &STR("buildtype"), &buildtype_opt_id);
+	if (!get_option_overridable(wk, proj, tgt ? tgt->override_options : 0, &STR("buildtype"), &buildtype_opt_id)) {
+		UNREACHABLE;
+	}
 	struct obj_option *buildtype_opt = get_obj_option(wk, buildtype_opt_id);
 	buildtype_val = buildtype_opt->val;
 

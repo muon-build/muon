@@ -599,7 +599,7 @@ create_target(struct workspace *wk,
 
 	{ // dep internal setup
 		enum build_dep_flag flags = 0;
-		if (get_option_default_both_libraries(wk, 0, 0) == default_both_libraries_auto) {
+		if (get_option_default_both_libraries(wk, current_project(wk), 0) == default_both_libraries_auto) {
 			if (tgt->type & tgt_static_library) {
 				flags |= build_dep_flag_both_libs_static;
 				flags |= build_dep_flag_recursive;

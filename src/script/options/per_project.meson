@@ -40,3 +40,126 @@ option(
     value: 'none',
     per_machine: true,
 )
+
+option(
+    'buildtype',
+    yield: true,
+    type: 'combo',
+    value: 'debug',
+    choices: [
+        'plain',
+        'debug',
+        'debugoptimized',
+        'release',
+        'minsize',
+        'custom',
+    ],
+    description: 'Build type to use',
+)
+option(
+    'optimization',
+    yield: true,
+    type: 'combo',
+    value: '0',
+    choices: ['plain', '0', 'g', '1', '2', '3', 's'],
+    description: 'Optimization level',
+)
+option(
+    'debug',
+    yield: true,
+    type: 'boolean',
+    value: true,
+    description: 'Enable debug symbols and other information',
+)
+option(
+    'default_both_libraries',
+    yield: true,
+    type: 'combo',
+    choices: ['auto', 'static', 'shared'],
+    value: 'auto',
+    description: 'Default library type for both_libraries',
+)
+option(
+    'namingscheme',
+    yield: true,
+    type: 'combo',
+    choices: ['platform', 'classic'],
+    value: 'classic',
+    description: 'Library naming scheme to use',
+) # TODO
+option(
+    'strip',
+    yield: true,
+    type: 'boolean',
+    value: false,
+    description: 'Strip targets on install',
+) # TODO
+option(
+    'unity',
+    yield: true,
+    type: 'combo',
+    value: 'off',
+    choices: ['off'],
+    description: 'Unity build',
+)
+option(
+    'unity_size',
+    yield: true,
+    type: 'integer',
+    value: 4,
+    min: 2,
+    description: 'Unity block size',
+) # TODO
+
+option(
+    'c_winlibs',
+    yield: true,
+    type: 'array',
+    value: [],
+    per_machine: true,
+)
+option(
+    'c_thread_count',
+    yield: true,
+    type: 'integer',
+    value: 4,
+    min: 0,
+    per_machine: true,
+) # TODO
+option(
+    'cpp_debugstl',
+    yield: true,
+    type: 'boolean',
+    value: false,
+    per_machine: true,
+) # TODO
+option(
+    'cpp_eh',
+    yield: true,
+    type: 'combo',
+    value: 'default',
+    choices: ['none', 'default', 'a', 's', 'sc'],
+    per_machine: true,
+) # TODO
+option(
+    'cpp_rtti',
+    yield: true,
+    type: 'boolean',
+    value: true,
+    per_machine: true,
+) # TODO
+option(
+    'cpp_thread_count',
+    yield: true,
+    type: 'integer',
+    value: 4,
+    min: 0,
+    per_machine: true,
+) # TODO
+option(
+    'cpp_winlibs',
+    yield: true,
+    type: 'array',
+    value: [],
+    per_machine: true,
+) # TODO
