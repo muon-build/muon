@@ -6,8 +6,6 @@
 
 #include "compat.h"
 
-#include <string.h>
-
 #include "args.h"
 #include "buf_size.h"
 #include "error.h"
@@ -16,6 +14,7 @@
 #include "functions/custom_target.h"
 #include "functions/file.h"
 #include "install.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -162,8 +161,37 @@ module_pkgconf_process_reqs_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_cont;
 		}
 
+		if (dep->type == dependency_type_declared && dep->dep.raw.link_with) {
+			obj v;
+			bool all_valid = true;
+			obj_array_for(wk, dep->dep.raw.link_with, v) {
+				switch (get_obj_type(wk, v)) {
+				case obj_both_libs: v = decay_both_libs(wk, v);
+				/* fallthrough */
+				case obj_build_target: {
+					struct obj_build_target *tgt = get_obj_build_target(wk, v);
+					if (tgt->generated_pc) {
+						obj_array_push(wk, ctx->dest, tgt->generated_pc);
+					} else {
+						all_valid = false;
+					}
+					break;
+				}
+				default: all_valid = false; break;
+				}
+
+				if (!all_valid) {
+					break;
+				}
+			}
+
+			if (all_valid) {
+				return ir_cont;
+			}
+		}
+
 		if (dep->type != dependency_type_pkgconf) {
-			vm_error_at(wk, ctx->err_node, "dependency not from pkgconf");
+			vm_error_at(wk, ctx->err_node, "dependency not from pkgconfig");
 			return ir_err;
 		}
 
