@@ -324,6 +324,12 @@ FUNC_IMPL(meson, override_find_program, 0, func_impl_flag_impure)
 		struct obj_external_program *ep = get_obj_external_program(wk, override);
 		ep->cmd_array = an[1].val;
 		ep->found = true;
+
+		struct project *proj = current_project(wk);
+		if (proj && !proj->cfg.no_version) {
+			ep->guessed_ver = true;
+			ep->ver = proj->cfg.version;
+		}
 		break;
 	case obj_build_target:
 	case obj_custom_target:

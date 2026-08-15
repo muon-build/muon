@@ -611,6 +611,8 @@ find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, 
 		struct obj_external_program *ep = get_obj_external_program(wk, newres);
 		ep->found = true;
 		ep->cmd_array = make_obj(wk, obj_array);
+		ep->guessed_ver = true;
+		ep->ver = override_version;
 		obj_array_push(wk, ep->cmd_array, *get_obj_file(wk, op));
 		op = newres;
 	}
