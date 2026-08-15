@@ -1707,6 +1707,10 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 		dep->link_args = make_obj(wk, obj_array);
 	}
 
+	if (!dep->link_early_args) {
+		dep->link_early_args = make_obj(wk, obj_array);
+	}
+
 	if (!dep->compile_args) {
 		dep->compile_args = make_obj(wk, obj_array);
 	}
@@ -1758,6 +1762,10 @@ build_dep_merge(struct workspace *wk,
 
 	if (src->link_args) {
 		obj_array_extend(wk, dest->link_args, src->link_args);
+	}
+
+	if (src->link_early_args) {
+		obj_array_extend(wk, dest->link_early_args, src->link_early_args);
 	}
 
 	if (src->frameworks) {
@@ -1832,6 +1840,37 @@ is_any_str(const struct str *s, const struct str *strs, uint32_t len)
 	return false;
 }
 
+static obj
+dedup_link_args(struct workspace *wk, obj link_args)
+{
+	obj arg, new_args = make_obj(wk, obj_array);
+	obj prev = 0;
+	const struct str *prev_s = 0;
+
+	obj_array_for(wk, link_args, arg) {
+		bool add = true;
+		const struct str *s = get_str(wk, arg);
+		if (str_eql(s, &STR("-pthread"))) {
+			if (obj_array_in(wk, new_args, arg)) {
+				add = false;
+			}
+		} else if (prev_s && str_eql(prev_s, &STR("-framework"))) {
+			if (obj_array_pair_in(wk, new_args, prev, arg)) {
+				obj_array_pop(wk, new_args);
+				add = false;
+			}
+		}
+
+		if (add) {
+			obj_array_push(wk, new_args, arg);
+		}
+
+		prev = arg;
+		prev_s = s;
+	}
+	return new_args;
+}
+
 static void
 dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 {
@@ -1850,34 +1889,8 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->sources);
 	obj_array_dedup_in_place(wk, &dep->objects);
 
-	{
-		obj arg, new_args = make_obj(wk, obj_array);
-		obj prev = 0;
-		const struct str *prev_s = 0;
-
-		obj_array_for(wk, dep->link_args, arg) {
-			bool add = true;
-			const struct str *s = get_str(wk, arg);
-			if (str_eql(s, &STR("-pthread"))) {
-				if (obj_array_in(wk, new_args, arg)) {
-					add = false;
-				}
-			} else if (prev_s && str_eql(prev_s, &STR("-framework"))) {
-				if (obj_array_pair_in(wk, new_args, prev, arg)) {
-					obj_array_pop(wk, new_args);
-					add = false;
-				}
-			}
-
-			if (add) {
-				obj_array_push(wk, new_args, arg);
-			}
-
-			prev = arg;
-			prev_s = s;
-		}
-		dep->link_args = new_args;
-	}
+	dep->link_args = dedup_link_args(wk, dep->link_args);
+	dep->link_early_args = dedup_link_args(wk, dep->link_early_args);
 
 	{
 		obj arg, new_args = make_obj(wk, obj_array);
@@ -2173,6 +2186,10 @@ dependency_create(struct workspace *wk,
 
 	if (raw->link_args && IS_INCLUDED(link_args)) {
 		obj_array_extend_nodup(wk, dep->link_args, raw->link_args);
+	}
+
+	if (raw->link_early_args && IS_INCLUDED(link_args)) {
+		obj_array_extend_nodup(wk, dep->link_early_args, raw->link_early_args);
 	}
 
 	if (raw->compile_args && IS_INCLUDED(compile_args)) {

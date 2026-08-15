@@ -150,7 +150,10 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			}
 
 			obj_dict_set(wk, linker_src, make_str(wk, "linker"), comp->cmd_arr[component]);
-			obj_dict_set(wk, linker_src, make_str(wk, "parameters"), t->dep_internal.link_args);
+			obj link_args;
+			obj_array_dup(wk, t->dep_internal.link_early_args, &link_args);
+			obj_array_extend(wk, link_args, t->dep_internal.link_args);
+			obj_dict_set(wk, linker_src, make_str(wk, "parameters"), link_args);
 			obj_array_push(wk, src, linker_src);
 		}
 

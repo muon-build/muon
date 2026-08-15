@@ -380,20 +380,23 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	TSTR(link_rule);
 	tstr_pushf(wk, &link_rule, "%s_%s_", get_cstr(wk, ctx.proj->rule_prefix), machine_kind_to_s(tgt->machine));
 
-	const char *link_args;
+	const char *link_args = 0, *link_early_args = 0;
 	switch (tgt->type) {
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
 		tstr_pushf(wk, &link_rule, "%s_linker", compiler_language_to_s(tgt->dep_internal.link_language));
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
+
+		if (tgt->dep_internal.link_early_args) {
+			link_early_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_early_args));
+		}
 		break;
 	case tgt_static_library:
 		if (!get_obj_array(wk, ctx.object_names)->len) {
 			goto done;
 		}
 		tstr_pushs(wk, &link_rule, "archiver");
-		link_args = 0;
 		break;
 	default: UNREACHABLE_RETURN;
 	}
@@ -418,6 +421,9 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	if (ctx.have_order_deps) {
 		fputs(" || ", wctx->out);
 		fputs(get_cstr(wk, ctx.order_deps), wctx->out);
+	}
+	if (link_early_args) {
+		fprintf(wctx->out, "\n LINK_EARLY_ARGS = %s", link_early_args);
 	}
 	if (link_args) {
 		fprintf(wctx->out, "\n LINK_ARGS = %s", link_args);

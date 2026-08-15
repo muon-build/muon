@@ -2408,6 +2408,7 @@ obj_inspect_dep(struct workspace *wk, const char *pre, const struct build_dep *d
 	obj_lprintf(wk, log_info, "%slink_with: %o\n", pre, dep->link_with);
 	obj_lprintf(wk, log_info, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
 	obj_lprintf(wk, log_info, "%slink_args: %o\n", pre, dep->link_args);
+	obj_lprintf(wk, log_info, "%slink_early_args: %o\n", pre, dep->link_early_args);
 	obj_lprintf(wk, log_info, "%scompile_args: %o\n", pre, dep->compile_args);
 	obj_lprintf(wk, log_info, "%sinclude_directories: %o\n", pre, dep->include_directories);
 	obj_lprintf(wk, log_info, "%ssources: %o\n", pre, dep->sources);

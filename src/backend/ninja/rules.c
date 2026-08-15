@@ -67,7 +67,7 @@ write_linker_rule(struct workspace *wk,
 
 	if (toolchain_compiler_do_linker_passthrough(wk, comp_id)) {
 		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_compiler]);
-		obj_array_push(wk, args, make_str(wk, "$ARGS"));
+		obj_array_push(wk, args, make_str(wk, "$LINK_EARLY_ARGS"));
 
 		obj_array_extend(wk, args, toolchain_compiler_output(wk, comp_id, "$out"));
 		obj_array_push(wk, args, make_str(wk, "$in"));
@@ -78,7 +78,7 @@ write_linker_rule(struct workspace *wk,
 		}
 
 		obj_array_extend(wk, args, comp->cmd_arr[toolchain_component_linker]);
-		obj_array_push(wk, args, make_str(wk, "$ARGS"));
+		obj_array_push(wk, args, make_str(wk, "$LINK_EARLY_ARGS"));
 		obj_array_extend(wk, args, toolchain_linker_input_output(wk, comp_id, "$in", "$out"));
 		obj_array_push(wk, args, make_str(wk, "$LINK_ARGS"));
 	}

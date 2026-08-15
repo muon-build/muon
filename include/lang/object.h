@@ -246,6 +246,7 @@ struct build_dep {
 	obj compile_args;
 	obj include_directories;
 	obj link_args;
+	obj link_early_args;
 	obj link_whole;
 	obj link_with;
 	obj link_with_not_found;
@@ -260,6 +261,7 @@ struct build_dep {
 		obj compile_args;
 		obj include_directories;
 		obj link_args;
+		obj link_early_args;
 		obj link_whole;
 		obj link_with;
 		obj link_with_not_found;

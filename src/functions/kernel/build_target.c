@@ -63,6 +63,7 @@ enum build_target_kwargs {
 	bt_kw_win_subsystem, // TODO
 	bt_kw_override_options,
 	bt_kw_link_args,
+	bt_kw_link_early_args,
 	bt_kw_build_subdir,
 
 #define E(lang, s) bt_kw_##lang##s
@@ -1085,6 +1086,10 @@ create_target(struct workspace *wk,
 		obj_array_extend(wk, tgt->dep_internal.link_args, akw[bt_kw_link_args].val);
 	}
 
+	if (akw[bt_kw_link_early_args].set) {
+		obj_array_extend(wk, tgt->dep_internal.link_early_args, akw[bt_kw_link_early_args].val);
+	}
+
 	if (tgt->flags & build_tgt_generated_include) {
 		const char *private_path = get_cstr(wk, tgt->private_path);
 
@@ -1165,6 +1170,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_win_subsystem] = { "win_subsystem", obj_string },
 		[bt_kw_override_options] = { "override_options", COMPLEX_TYPE_PRESET(tc_cx_options_dict_or_list) },
 		[bt_kw_link_args] = { "link_args", TYPE_TAG_LISTIFY | obj_string },
+		[bt_kw_link_early_args] = { "link_early_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_build_subdir] = { "build_subdir", obj_string },
 #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
 #define TOOLCHAIN_ENUM(lang)                                                                                 \
