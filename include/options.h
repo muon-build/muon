@@ -20,7 +20,7 @@ struct option_override {
 	// strings
 	obj proj, name, val;
 	enum option_value_source source;
-	bool obj_value;
+	bool obj_value, master_project_only;
 };
 
 enum create_option_flag {

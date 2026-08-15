@@ -90,11 +90,6 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 		key = cur;
 	}
 
-	if (have_subproject && !subproject.len) {
-		LOG_E("missing subproject in option '%s'", ss->s);
-		return false;
-	}
-
 	if (!key.len) {
 		LOG_E("missing key in option '%s'", ss->s);
 		return false;
@@ -108,7 +103,11 @@ parse_config_string(struct workspace *wk, const struct str *ss, struct option_ov
 		oo->val = make_strn(wk, val.s, val.len);
 	}
 	if (have_subproject) {
-		oo->proj = make_strn(wk, subproject.s, subproject.len);
+		if (subproject.len) {
+			oo->proj = make_strn(wk, subproject.s, subproject.len);
+		} else {
+			oo->master_project_only = true;
+		}
 	}
 
 	return true;
