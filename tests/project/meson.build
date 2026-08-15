@@ -117,6 +117,8 @@ foreach t : tests
         endforeach
 
         setup_options = result
+    elif 'options' in props
+        setup_options = [props['options']]
     endif
 
     foreach opts : setup_options
