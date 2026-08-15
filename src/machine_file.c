@@ -42,7 +42,7 @@ static const char *machine_file_section_names[machine_file_section_count] = {
 };
 
 static bool
-machine_file_section_lookup(const char *val, const char *table[], uint32_t len, uint32_t *ret)
+machine_file_section_lookup(const char *val, const char *table[], uint32_t len, uint32_t *ret, struct str *project_options_prefix)
 {
 	uint32_t i;
 	for (i = 0; i < len; ++i) {
@@ -54,6 +54,11 @@ machine_file_section_lookup(const char *val, const char *table[], uint32_t len, 
 
 	if (str_endswith(&STRL(val), &STR(":project options"))) {
 		*ret = machine_file_section_project_options_prefixed;
+		struct str_cut cut;
+		if (!str_cut(&STRL(val), &STR(":"), &cut)) {
+			UNREACHABLE;
+		}
+		*project_options_prefix = cut.before;
 		return true;
 	}
 
@@ -84,11 +89,16 @@ machine_file_translate_cb(void *_ctx,
 		return true;
 	}
 
+	struct str project_options_prefix = { 0 };
+
 	if (!sect_str) {
 		error_messagef(wk, src, location, log_error, "key not under any section");
 		return false;
-	} else if (!machine_file_section_lookup(
-			   sect_str, machine_file_section_names, machine_file_section_count, (uint32_t *)&sect)) {
+	} else if (!machine_file_section_lookup(sect_str,
+			   machine_file_section_names,
+			   machine_file_section_count,
+			   (uint32_t *)&sect,
+			   &project_options_prefix)) {
 		error_messagef(wk, src, location, log_error, "invalid section '%s'", sect_str);
 		return false;
 	}
@@ -142,7 +152,14 @@ machine_file_translate_cb(void *_ctx,
 		tstr_pushf(wk, ctx->dest, "meson.set_option('%s', %s, native: %s)\n", k, v, native);
 		break;
 	case machine_file_section_project_options_prefixed:
-		tstr_pushf(wk, ctx->dest, "# TODO: option needs prefix: meson.set_option('%s', %s)\n", k, v);
+		tstr_pushf(wk,
+			ctx->dest,
+			"meson.set_option('%.*s:%s', %s, native: %s)\n",
+			project_options_prefix.len,
+			project_options_prefix.s,
+			k,
+			v,
+			native);
 		break;
 	case machine_file_section_count: UNREACHABLE;
 	}
