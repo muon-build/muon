@@ -83,7 +83,7 @@ FUNC_IMPL(source_set, add, 0, func_impl_flag_impure)
 	struct args_kw akw[] = {
 		[kw_when] = { "when", TYPE_TAG_LISTIFY | tc_string | tc_dependency },
 		[kw_if_true] = { "if_true", TYPE_TAG_LISTIFY | tc_ss_sources | tc_dependency },
-		[kw_if_false] = { "if_false", TYPE_TAG_LISTIFY | tc_ss_sources },
+		[kw_if_false] = { "if_false", TYPE_TAG_LISTIFY | tc_ss_sources | tc_dependency },
 		0,
 	};
 
