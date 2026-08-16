@@ -103,7 +103,7 @@ base_environment(struct workspace *wk)
 
 		obj_array_dedup_in_place(wk, &paths);
 
-		if (!environment_set(wk, res, environment_set_mode_append, make_str(wk, "PATH"), paths, 0)) {
+		if (!environment_set(wk, res, environment_set_mode_prepend, make_str(wk, "PATH"), paths, 0)) {
 			UNREACHABLE_RETURN;
 		}
 	}
