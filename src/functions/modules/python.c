@@ -269,9 +269,9 @@ FUNC_IMPL(python_installation, get_path, tc_string, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(python_installation, get_variable, tc_string, func_impl_flag_impure)
+FUNC_IMPL(python_installation, get_variable, tc_any, func_impl_flag_impure)
 {
-	struct args_norm an[] = { { obj_string }, { obj_string, .optional = true }, ARG_TYPE_NULL };
+	struct args_norm an[] = { { obj_string }, { tc_any, .optional = true }, ARG_TYPE_NULL };
 	if (!pop_args(wk, an, NULL)) {
 		return false;
 	}
