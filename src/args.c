@@ -12,6 +12,7 @@
 #include "error.h"
 #include "functions/both_libs.h"
 #include "functions/environment.h"
+#include "functions/external_program.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
@@ -331,10 +332,10 @@ obj_to_args(struct workspace *wk, obj src, enum arr_to_args_flags flags, obj des
 		}
 
 		struct obj_external_program *ep = get_obj_external_program(wk, src);
-		if (is_argv0 && ep->original_argv0) {
-			obj_array_push(wk, dest, ep->original_argv0);
+		if (is_argv0 && ep->impl.original_argv0) {
+			obj_array_push(wk, dest, ep->impl.original_argv0);
 		} else {
-			obj_array_extend(wk, dest, ep->cmd_array);
+			obj_array_extend(wk, dest, obj_external_program_cmd_array(wk, ep, 0));
 		}
 		return true;
 	case obj_compiler:

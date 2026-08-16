@@ -17,6 +17,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "formats/ansi.h"
+#include "functions/external_program.h"
 #include "functions/kernel.h"
 #include "functions/string.h"
 #include "guess.h"
@@ -661,7 +662,7 @@ toolchain_component_detect(struct workspace *wk,
 
 		// normalize the candidate into a command array with a full path to
 		// argv0, or skip if not found
-		obj cmd_arr;
+		obj cmd_arr = 0;
 		if (do_linker_passthrough) {
 			// This cmd_arr was already resolved since it is the compiler
 			// cmd_arr
@@ -682,7 +683,8 @@ toolchain_component_detect(struct workspace *wk,
 			}
 
 			struct obj_external_program *ep = get_obj_external_program(wk, found_prog);
-			obj_array_dup(wk, ep->cmd_array, &cmd_arr);
+			obj ep_cmd_arr = obj_external_program_cmd_array(wk, ep, 0);
+			obj_array_dup(wk, ep_cmd_arr, &cmd_arr);
 			obj_array_extend(wk, cmd_arr, obj_array_slice(wk, c, 1, get_obj_array(wk, c)->len));
 		}
 
@@ -901,7 +903,7 @@ toolchain_component_compiler_apply_wrapper(struct workspace *wk, struct obj_comp
 			obj cmd_arr = compiler->cmd_arr[toolchain_component_compiler];
 			obj new_cmd_arr = make_obj(wk, obj_array);
 
-			obj_array_extend(wk, new_cmd_arr, wrap_ep->cmd_array);
+			obj_array_extend(wk, new_cmd_arr, obj_external_program_cmd_array(wk, wrap_ep, 0));
 			obj_array_extend(wk, new_cmd_arr, cmd_arr);
 			compiler->cmd_arr[toolchain_component_compiler] = new_cmd_arr;
 			found = true;

@@ -19,6 +19,7 @@
 #include "backend/output.h"
 #include "error.h"
 #include "external/samurai.h"
+#include "functions/external_program.h"
 #include "functions/kernel.h"
 #include "log.h"
 #include "platform/assert.h"
@@ -247,12 +248,13 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 		}
 
 		struct obj_external_program *ep = get_obj_external_program(wk, found_ninja);
+		obj cmd_array = obj_external_program_cmd_array(wk, ep, 0);
 
-		if (str_eql(get_str(wk, obj_array_index(wk, ep->cmd_array, 0)), &STRL(wk->argv0))) {
+		if (str_eql(get_str(wk, obj_array_index(wk, cmd_array, 0)), &STRL(wk->argv0))) {
 			use_internal_samurai = true;
 		} else {
 			obj cmd_array_dup;
-			obj_array_dup(wk, ep->cmd_array, &cmd_array_dup);
+			obj_array_dup(wk, cmd_array, &cmd_array_dup);
 			obj_array_extend_nodup(wk, cmd_array_dup, args);
 			args = cmd_array_dup;
 		}

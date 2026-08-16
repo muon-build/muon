@@ -119,8 +119,8 @@ build_python_installation(struct workspace *wk, obj self, obj *res, struct tstr 
 	python->prog = make_obj(wk, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, python->prog);
 	ep->found = found;
-	ep->cmd_array = make_obj(wk, obj_array);
-	obj_array_push(wk, ep->cmd_array, tstr_into_str(wk, &cmd_path));
+	ep->impl.cmd_array = make_obj(wk, obj_array);
+	obj_array_push(wk, ep->impl.cmd_array, tstr_into_str(wk, &cmd_path));
 
 	if (found && !introspect_python_interpreter(wk, cmd_path.buf, python)) {
 		vm_error(wk, "failed to introspect python");
@@ -241,8 +241,8 @@ FUNC_IMPL(module_python3, find_python, tc_external_program, func_impl_flag_impur
 	*res = make_obj(wk, obj_external_program);
 	struct obj_external_program *ep = get_obj_external_program(wk, *res);
 	ep->found = true;
-	ep->cmd_array = make_obj(wk, obj_array);
-	obj_array_push(wk, ep->cmd_array, tstr_into_str(wk, &cmd_path));
+	ep->impl.cmd_array = make_obj(wk, obj_array);
+	obj_array_push(wk, ep->impl.cmd_array, tstr_into_str(wk, &cmd_path));
 
 	return true;
 }
@@ -520,14 +520,15 @@ FUNC_IMPL(python_installation, path, tc_string, func_impl_flag_impure)
 
 	struct obj_python_installation *py = get_obj_python_installation(wk, self);
 	struct obj_external_program *ep = get_obj_external_program(wk, py->prog);
-	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
+	obj cmd_arr = ep->impl.cmd_array;
+	if (get_obj_array(wk, cmd_arr)->len > 1) {
 		vm_error(wk,
 			"cannot return the full_path() of an external program with multiple elements (have: %o)\n",
-			ep->cmd_array);
+			ep->impl.cmd_array);
 		return false;
 	}
 
-	*res = obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0);
+	*res = obj_array_index(wk, cmd_arr, 0);
 	return true;
 }
 

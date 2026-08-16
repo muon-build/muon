@@ -13,6 +13,7 @@
 #include "buf_size.h"
 #include "coerce.h"
 #include "error.h"
+#include "functions/external_program.h"
 #include "functions/kernel.h"
 #include "functions/kernel/dependency.h"
 #include "functions/meson.h"
@@ -317,35 +318,27 @@ FUNC_IMPL(meson, override_find_program, 0, func_impl_flag_impure)
 	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
 
 	obj override;
-
-	switch (get_obj_type(wk, an[1].val)) {
-	case obj_array:
+	enum obj_type t = get_obj_type(wk, an[1].val);
+	if (t == obj_external_program || t == obj_python_installation) {
+		override = an[1].val;
+	} else {
 		override = make_obj(wk, obj_external_program);
 		struct obj_external_program *ep = get_obj_external_program(wk, override);
-		ep->cmd_array = an[1].val;
 		ep->found = true;
 
 		struct project *proj = current_project(wk);
-		if (proj && !proj->cfg.no_version) {
-			ep->guessed_ver = true;
-			ep->ver = proj->cfg.version;
-		}
-		break;
-	case obj_build_target:
-	case obj_custom_target:
-	case obj_file:
-		override = make_obj(wk, obj_array);
-		obj_array_push(wk, override, an[1].val);
+		ep->ver = (proj && !proj->cfg.no_version) ? proj->cfg.version : make_str(wk, "unknown");
 
-		obj ver = 0;
-		if (!current_project(wk)->cfg.no_version) {
-			ver = current_project(wk)->cfg.version;
+		switch (t) {
+		case obj_array: ep->impl.cmd_array = an[1].val; break;
+		case obj_build_target:
+		case obj_custom_target: ep->impl.build_target = an[1].val; break;
+		case obj_file:
+			ep->impl.cmd_array = make_obj(wk, obj_array);
+			obj_array_push(wk, ep->impl.cmd_array, *get_obj_file(wk, an[1].val));
+			break;
+		default: UNREACHABLE;
 		}
-		obj_array_push(wk, override, ver);
-		break;
-	case obj_external_program:
-	case obj_python_installation: override = an[1].val; break;
-	default: UNREACHABLE;
 	}
 
 	obj_dict_set(wk, wk->find_program_overrides[machine], an[0].val, override);
@@ -384,7 +377,8 @@ process_script_commandline(struct workspace *wk, struct process_script_commandli
 				return false;
 			}
 
-			obj_array_extend(wk, ctx->arr, get_obj_external_program(wk, found_prog)->cmd_array);
+			obj cmd_array = obj_external_program_cmd_array(wk, get_obj_external_program(wk, found_prog), 0);
+			obj_array_extend(wk, ctx->arr, cmd_array);
 		}
 		break;
 	}

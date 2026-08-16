@@ -8,6 +8,7 @@
 #include "backend/common_args.h"
 #include "backend/ninja/clang_format.h"
 #include "backend/output.h"
+#include "functions/external_program.h"
 #include "functions/kernel.h"
 #include "lang/object_iterators.h"
 #include "lang/serial.h"
@@ -280,7 +281,7 @@ ninja_clang_format_write_targets(struct workspace *wk, FILE *out)
 		obj command;
 		obj_array_dup(wk, command_base, &command);
 		obj_array_push(wk, command, make_str(wk, "--"));
-		obj_array_extend(wk, command, ep->cmd_array);
+		obj_array_extend(wk, command, obj_external_program_cmd_array(wk, ep, 0));
 		obj joined = join_args_shell_ninja(wk, command);
 
 		ninja_create_phony_clang_format_target(
@@ -292,7 +293,7 @@ ninja_clang_format_write_targets(struct workspace *wk, FILE *out)
 		obj_array_dup(wk, command_base, &command);
 		obj_array_push(wk, command, make_str(wk, "-n"));
 		obj_array_push(wk, command, make_str(wk, "--"));
-		obj_array_extend(wk, command, ep->cmd_array);
+		obj_array_extend(wk, command, obj_external_program_cmd_array(wk, ep, 0));
 		obj joined = join_args_shell_ninja(wk, command);
 
 		ninja_create_phony_clang_format_target(wk,

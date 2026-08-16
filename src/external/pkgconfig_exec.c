@@ -11,6 +11,7 @@
 #include "buf_size.h"
 #include "external/pkgconfig.h"
 #include "functions/environment.h"
+#include "functions/external_program.h"
 #include "functions/kernel.h"
 #include "lang/object_iterators.h"
 #include "log.h"
@@ -37,7 +38,7 @@ pkgconfig_cmd(struct workspace *wk, struct run_cmd_ctx *rctx, obj extra_args, en
 		}
 
 		if (ctx.found) {
-			pkgconfig_cmd_arr = get_obj_external_program(wk, prog)->cmd_array;
+			pkgconfig_cmd_arr = obj_external_program_cmd_array(wk, get_obj_external_program(wk, prog), 0);
 		}
 	}
 

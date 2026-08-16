@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include "lang/object.h"
 #include <string.h>
 
 #include "args.h"
@@ -575,49 +576,19 @@ find_program_check_override(struct workspace *wk, struct find_program_ctx *ctx, 
 	if (!obj_dict_index(wk, wk->find_program_overrides[ctx->machine], prog, &override)) {
 		return true;
 	}
-
-	obj override_version = 0, op;
-	switch (get_obj_type(wk, override)) {
-	case obj_array:
-		op = obj_array_index(wk, override, 0);
-		override_version = obj_array_index(wk, override, 1);
-		break;
-	case obj_python_installation:
-	case obj_external_program:
-		op = override;
-		struct obj_external_program *ep = get_obj_external_program(wk, op);
-
-		if (!ep->found) {
-			return true;
-		}
-
-		if (ctx->version) {
-			find_program_guess_version(wk, ep->cmd_array, ctx->version_argument, &override_version);
-		}
-		break;
-	default: UNREACHABLE;
+	struct obj_external_program *ep = get_obj_external_program(wk, override);
+	if (!ep->found) {
+		return true;
 	}
 
-	if (ctx->version && override_version) {
-		if (!version_compare_list(wk, get_str(wk, override_version), ctx->version)) {
+	if (ctx->version && ep->ver) {
+		if (!version_compare_list(wk, get_str(wk, ep->ver), ctx->version)) {
 			return true;
 		}
-	}
-
-	if (get_obj_type(wk, op) == obj_file) {
-		obj newres;
-		newres = make_obj(wk, obj_external_program);
-		struct obj_external_program *ep = get_obj_external_program(wk, newres);
-		ep->found = true;
-		ep->cmd_array = make_obj(wk, obj_array);
-		ep->guessed_ver = true;
-		ep->ver = override_version;
-		obj_array_push(wk, ep->cmd_array, *get_obj_file(wk, op));
-		op = newres;
 	}
 
 	ctx->found = true;
-	*ctx->res = op;
+	*ctx->res = override;
 	return true;
 }
 
@@ -676,7 +647,6 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 {
 	const char *str;
 	obj ver = 0;
-	bool guessed_ver = false;
 	obj cmd_array = 0;
 
 	type_tag tc_allowed = tc_file | tc_string | tc_external_program | tc_python_installation;
@@ -739,9 +709,8 @@ find_program(struct workspace *wk, struct find_program_ctx *ctx, obj prog)
 			*ctx->res = make_obj(wk, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
-			ep->cmd_array = cmd_array;
+			ep->impl.cmd_array = cmd_array;
 			ep->ver = ver;
-			ep->guessed_ver = true;
 			ctx->found = true;
 			return true;
 		}
@@ -854,10 +823,9 @@ find_program_step_8:
 			*ctx->res = make_obj(wk, obj_external_program);
 			struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
 			ep->found = true;
-			ep->cmd_array = make_obj(wk, obj_array);
-			obj_array_push(wk, ep->cmd_array, make_str(wk, wk->argv0));
-			obj_array_push(wk, ep->cmd_array, make_str(wk, "samu"));
-			ep->guessed_ver = true;
+			ep->impl.cmd_array = make_obj(wk, obj_array);
+			obj_array_push(wk, ep->impl.cmd_array, make_str(wk, wk->argv0));
+			obj_array_push(wk, ep->impl.cmd_array, make_str(wk, "samu"));
 			ep->ver = ver;
 			ctx->found = true;
 			return true;
@@ -893,23 +861,22 @@ found: {
 		}
 	}
 
-	if (ctx->version) {
-		find_program_guess_version(wk, cmd_array, ctx->version_argument, &ver);
-		guessed_ver = true;
+	obj prog = make_obj(wk, obj_external_program);
+	struct obj_external_program *ep = get_obj_external_program(wk, prog);
+	ep->found = true;
+	ep->impl.cmd_array = cmd_array;
+	ep->ver = ver;
+	ep->impl.original_argv0 = original_argv0;
 
-		if (!find_program_check_version(wk, ctx, ver)) {
+	if (ctx->version) {
+		find_program_guess_version(wk, ep, ctx->version_argument);
+
+		if (!find_program_check_version(wk, ctx, ep->ver)) {
 			return true;
 		}
 	}
 
-	*ctx->res = make_obj(wk, obj_external_program);
-	struct obj_external_program *ep = get_obj_external_program(wk, *ctx->res);
-	ep->found = true;
-	ep->cmd_array = cmd_array;
-	ep->guessed_ver = guessed_ver;
-	ep->ver = ver;
-	ep->original_argv0 = original_argv0;
-
+	*ctx->res = prog;
 	ctx->found = true;
 	return true;
 }
@@ -1219,6 +1186,9 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 				return false;
 			} else if (!find_program_ctx.found) {
 				vm_error(wk, "unable to find program %o", arg0);
+				return false;
+			} else if (get_obj_external_program(wk, cmd_file)->impl.build_target) {
+				vm_error(wk, "unable to use build target %o as argv0 during setup", cmd_file);
 				return false;
 			}
 			obj_array_set(wk, an[0].val, 0, cmd_file);

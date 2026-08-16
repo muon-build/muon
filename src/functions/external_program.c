@@ -6,34 +6,78 @@
 #include "compat.h"
 
 #include "args.h"
+#include "error.h"
 #include "functions/external_program.h"
 #include "guess.h"
 #include "lang/func_lookup.h"
+#include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "platform/path.h"
 #include "platform/run_cmd.h"
 
-void
-find_program_guess_version(struct workspace *wk, obj cmd_array, obj version_argument, obj *ver)
+obj
+obj_external_program_cmd_array(struct workspace *wk,
+	struct obj_external_program *ep,
+	enum obj_external_program_cmd_array_flag flags)
 {
-	*ver = 0;
+	if (ep->impl.build_target) {
+		switch (get_obj_type(wk, ep->impl.build_target)) {
+		case obj_build_target: {
+			struct obj_build_target *tgt = get_obj_build_target(wk, ep->impl.build_target);
+			ep->impl.cmd_array = make_obj(wk, obj_array);
+			TSTR(abs);
+			path_join(wk, &abs, get_cstr(wk, tgt->build_dir), get_cstr(wk, tgt->build_name));
+			obj_array_push(wk, ep->impl.cmd_array, tstr_into_str(wk, &abs));
+			break;
+		}
+		case obj_custom_target: {
+			struct obj_custom_target *tgt = get_obj_custom_target(wk, ep->impl.build_target);
+			ep->impl.cmd_array = make_obj(wk, obj_array);
+			obj v;
+			obj_array_for(wk, tgt->output, v) {
+				obj_array_push(wk, ep->impl.cmd_array, *get_obj_file(wk, v));
+			}
+			break;
+		}
+		default: UNREACHABLE;
+		}
+	}
 
-	struct run_cmd_ctx cmd_ctx = { 0 };
+	if (ep->impl.cmd_array) {
+		return ep->impl.cmd_array;
+	} else {
+		UNREACHABLE_RETURN;
+	}
+}
+
+void
+find_program_guess_version(struct workspace *wk, struct obj_external_program *ep, obj version_argument)
+{
+	if (ep->ver) {
+		return;
+	}
+
 	obj args;
-	obj_array_dup(wk, cmd_array, &args);
+	obj_array_dup(wk, obj_external_program_cmd_array(wk, ep, 0), &args);
 	obj_array_push(wk, args, version_argument ? version_argument : make_str(wk, "--version"));
 
 	const char *argstr;
 	uint32_t argc;
 	join_args_argstr(wk, &argstr, &argc, args);
 
+	bool got_version = false;
+	struct run_cmd_ctx cmd_ctx = { 0 };
 	if (run_cmd(wk, &cmd_ctx, argstr, argc, NULL, 0) && cmd_ctx.status == 0) {
-		if (!guess_version(wk, cmd_ctx.out.buf, ver)) {
-			*ver = make_str(wk, "unknown");
+		if (guess_version(wk, cmd_ctx.out.buf, &ep->ver)) {
+			got_version = true;
 		}
 	}
-
 	run_cmd_ctx_destroy(&cmd_ctx);
+
+	if (!got_version) {
+		ep->ver = make_str(wk, "unknown");
+	}
 }
 
 FUNC_IMPL(external_program, cmd_array, tc_array, func_impl_flag_impure)
@@ -42,7 +86,7 @@ FUNC_IMPL(external_program, cmd_array, tc_array, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = get_obj_external_program(wk, self)->cmd_array;
+	*res = obj_external_program_cmd_array(wk, get_obj_external_program(wk, self), 0);
 	return true;
 }
 
@@ -64,19 +108,20 @@ FUNC_IMPL(external_program, full_path, tc_string, func_impl_flag_impure)
 
 	struct obj_external_program *ep = get_obj_external_program(wk, self);
 
-	if (ep->original_argv0) {
-		*res = ep->original_argv0;
+	if (ep->impl.original_argv0) {
+		*res = ep->impl.original_argv0;
 		return true;
 	}
 
-	if (get_obj_array(wk, ep->cmd_array)->len > 1) {
+	obj cmd_array = obj_external_program_cmd_array(wk, get_obj_external_program(wk, self), 0);
+	if (get_obj_array(wk, cmd_array)->len > 1) {
 		vm_error(wk,
 			"cannot return the full_path() of an external program with multiple elements (have: %o)\n",
-			ep->cmd_array);
+			cmd_array);
 		return false;
 	}
 
-	*res = obj_array_index(wk, get_obj_external_program(wk, self)->cmd_array, 0);
+	*res = obj_array_get_head(wk, cmd_array);
 	return true;
 }
 
@@ -86,13 +131,9 @@ FUNC_IMPL(external_program, version, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	struct obj_external_program *prog = get_obj_external_program(wk, self);
-	if (!prog->guessed_ver) {
-		find_program_guess_version(wk, prog->cmd_array, 0, &prog->ver);
-		prog->guessed_ver = true;
-	}
-
-	*res = prog->ver;
+	struct obj_external_program *ep = get_obj_external_program(wk, self);
+	find_program_guess_version(wk, ep, 0);
+	*res = ep->ver;
 	return true;
 }
 

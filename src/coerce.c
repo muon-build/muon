@@ -12,6 +12,7 @@
 #include "coerce.h"
 #include "functions/both_libs.h"
 #include "functions/environment.h"
+#include "functions/external_program.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
@@ -338,13 +339,14 @@ coerce_executable(struct workspace *wk, uint32_t node, obj val, obj *res, obj *a
 			return ir_err;
 		}
 
-		str = obj_array_index(wk, o->cmd_array, 0);
-		uint32_t cmd_array_len = get_obj_array(wk, o->cmd_array)->len;
+		obj cmd_array = obj_external_program_cmd_array(wk, o, 0);
+		str = obj_array_index(wk, cmd_array, 0);
+		uint32_t cmd_array_len = get_obj_array(wk, cmd_array)->len;
 		if (cmd_array_len > 1) {
-			*args = obj_array_slice(wk, o->cmd_array, 1, cmd_array_len);
+			*args = obj_array_slice(wk, cmd_array, 1, cmd_array_len);
 		}
 
-		*original_argv0 = o->original_argv0;
+		*original_argv0 = o->impl.original_argv0;
 		break;
 	}
 	case obj_custom_target: {

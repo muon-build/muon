@@ -7,12 +7,12 @@
 
 #include "compat.h"
 
-#include "lang/vm.h"
 #include <inttypes.h>
 #include <stdlib.h>
 
 #include "buf_size.h"
 #include "error.h"
+#include "functions/external_program.h"
 #include "lang/func_lookup.h"
 #include "lang/object.h"
 #include "lang/object_iterators.h"
@@ -2057,10 +2057,9 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		struct obj_external_program *prog = get_obj_external_program(wk, o);
 		tstr_pushf(wk, sb, "<%s found: %s", obj_type_to_s(t), prog->found ? "true" : "false");
 
-		if (prog->found) {
-			tstr_pushs(wk, sb, ", cmd_array: ");
-			obj_to_s_opts(wk, prog->cmd_array, sb, opts);
-		}
+		obj cmd_arr = obj_external_program_cmd_array(wk, prog, 0);
+		tstr_pushs(wk, sb, ", cmd_array: ");
+		obj_to_s_opts(wk, cmd_arr, sb, opts);
 
 		tstr_pushs(wk, sb, ">");
 		break;
