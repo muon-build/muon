@@ -258,16 +258,9 @@ relativize_build_file_path(struct workspace *wk, struct tstr *buf, const char *p
 	}
 }
 
-struct arr_to_args_ctx {
-	enum arr_to_args_flags mode;
-	obj res;
-	uint32_t i;
-};
-
-static enum iteration_result
-arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
+static bool
+obj_to_args(struct workspace *wk, obj src, enum arr_to_args_flags flags, obj dest, bool is_argv0)
 {
-	struct arr_to_args_ctx *ctx = _ctx;
 	obj str;
 
 	enum obj_type t = get_obj_type(wk, src);
@@ -275,7 +268,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 	switch (t) {
 	case obj_string: str = src; break;
 	case obj_file:
-		if (ctx->mode & arr_to_args_relativize_paths) {
+		if (flags & arr_to_args_relativize_paths) {
 			TSTR(rel);
 			relativize_build_file_path(wk, &rel, get_file_path(wk, src));
 			str = tstr_into_str(wk, &rel);
@@ -284,7 +277,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		str = *get_obj_file(wk, src);
 		break;
 	case obj_alias_target:
-		if (!(ctx->mode & arr_to_args_alias_target)) {
+		if (!(flags & arr_to_args_alias_target)) {
 			goto type_err;
 		}
 		str = get_obj_alias_target(wk, src)->name;
@@ -292,14 +285,14 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 	case obj_both_libs: src = decay_both_libs(wk, src);
 	/* fallthrough */
 	case obj_build_target: {
-		if (!(ctx->mode & arr_to_args_build_target)) {
+		if (!(flags & arr_to_args_build_target)) {
 			goto type_err;
 		}
 
 		struct obj_build_target *tgt = get_obj_build_target(wk, src);
 
 		TSTR(rel);
-		if (ctx->mode & arr_to_args_relativize_paths) {
+		if (flags & arr_to_args_relativize_paths) {
 			relativize_build_file_path(wk, &rel, get_cstr(wk, tgt->build_path));
 			str = tstr_into_str(wk, &rel);
 		} else {
@@ -309,7 +302,7 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		break;
 	}
 	case obj_custom_target: {
-		if (!(ctx->mode & arr_to_args_custom_target)) {
+		if (!(flags & arr_to_args_custom_target)) {
 			goto type_err;
 		}
 
@@ -319,51 +312,58 @@ arr_to_args_iter(struct workspace *wk, void *_ctx, obj src)
 		// run_target is a custom_target without an output, so we yield
 		// the target's name and continue.
 		if (!get_obj_type(wk, output_arr)) {
-			obj_array_push(wk, ctx->res, custom_tgt->name);
-			goto cont;
+			obj_array_push(wk, dest, custom_tgt->name);
+			return true;
 		}
 
-		if (!obj_array_foreach(wk, output_arr, ctx, arr_to_args_iter)) {
-			return ir_err;
+		obj v;
+		obj_array_for(wk, output_arr, v) {
+			if (!obj_to_args(wk, v, flags, dest, false)) {
+				return false;
+			}
 		}
-		goto cont;
+		return true;
 	}
 	case obj_external_program:
 	case obj_python_installation:
-		if (!(ctx->mode & arr_to_args_external_program)) {
+		if (!(flags & arr_to_args_external_program)) {
 			goto type_err;
 		}
 
 		struct obj_external_program *ep = get_obj_external_program(wk, src);
-		if (ctx->i > 0 && ep->original_argv0) {
-			obj_array_push(wk, ctx->res, ep->original_argv0);
+		if (is_argv0 && ep->original_argv0) {
+			obj_array_push(wk, dest, ep->original_argv0);
 		} else {
-			obj_array_extend(wk, ctx->res, ep->cmd_array);
+			obj_array_extend(wk, dest, ep->cmd_array);
 		}
-		goto cont;
+		return true;
 	case obj_compiler:
-		obj_array_extend(wk, ctx->res, get_obj_compiler(wk, src)->cmd_arr[toolchain_component_compiler]);
-		goto cont;
+		obj_array_extend(wk, dest, get_obj_compiler(wk, src)->cmd_arr[toolchain_component_compiler]);
+		return true;
 	default:
 type_err:
 		LOG_E("cannot convert '%s' to argument", obj_type_to_s(t));
-		return ir_err;
+		return false;
 	}
 
-	obj_array_push(wk, ctx->res, str);
-cont:
-	++ctx->i;
-	return ir_cont;
+	obj_array_push(wk, dest, str);
+	return true;
 }
 
 bool
-arr_to_args(struct workspace *wk, enum arr_to_args_flags mode, obj arr, obj *res)
+arr_to_args(struct workspace *wk, enum arr_to_args_flags flags, obj arr, obj *res)
 {
 	*res = make_obj(wk, obj_array);
 
-	struct arr_to_args_ctx ctx = { .mode = mode, .res = *res };
-
-	return obj_array_foreach_flat(wk, arr, &ctx, arr_to_args_iter);
+	obj v;
+	uint32_t i = 0;
+	obj_array_flat_for_(wk, arr, v, iter) {
+		if (!obj_to_args(wk, v, flags, *res, i == 0)) {
+			obj_array_flat_iter_end(wk, &iter);
+			return false;
+		}
+	}
+	return true;
 }
 
 struct join_args_argstr_ctx {
