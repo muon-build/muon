@@ -436,6 +436,8 @@ func gdbus_codegen(
     object_manager bool: false,
     annotations list[list[str]]: [],
     docbook str:,
+    markdown str:,
+    rst str:,
     build_by_default bool: true,
     install_dir str: get_option('includedir'),
     install_header bool: false,
@@ -491,29 +493,40 @@ func gdbus_codegen(
     )
     targets = [body, header]
 
-    if not is_null(docbook)
+    doc_formats = [
+        {'name': 'docbook', 'val': docbook},
+        {'name': 'rst', 'val': rst},
+        {'name': 'md', 'val': markdown},
+    ]
+
+    foreach fmt : doc_formats
+        if is_null(fmt.val)
+            continue
+        endif
+
         outputs = []
 
         foreach xml : xml_files
-            outputs += '@0@.@1@'.format(docbook, fs.name(xml))
+            outputs += '@0@.@1@'.format(fmt.val, fs.name(xml))
         endforeach
 
         doc = custom_target(
-            name + '-docbook',
+            name + '-' + fmt.name,
             depends: body,
             build_by_default: build_by_default,
             input: xml_files,
             output: outputs,
+            # build_subdir: 'generated-gdbus-docs-' + fmt.name,
             command: [
                 cmd,
                 '--output-directory', '@OUTDIR@',
-                '--generate-docbook', docbook,
+                '--generate-' + fmt.name, fmt.val,
                 '@INPUT@',
             ],
         )
 
         targets += doc
-    endif
+    endforeach
 
     return targets
 endfunc
