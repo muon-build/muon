@@ -6,7 +6,6 @@
 
 #include "compat.h"
 
-#include "lang/workspace.h"
 #include <string.h>
 
 #include "args.h"
@@ -1511,6 +1510,35 @@ FUNC_IMPL(kernel, add_test_setup, 0, func_impl_flag_impure)
 	return true;
 }
 
+static bool
+add_test_dep_lib_path_to_env(struct workspace *wk, struct obj_test *t, struct obj_build_target *tgt)
+{
+	if (!(tgt->type == tgt_dynamic_library || tgt->type == tgt_shared_module)) {
+		return true;
+	}
+
+	const char *env_var = 0;
+	switch (machine_definitions[tgt->machine]->sys) {
+	case machine_system_darwin: env_var = "DYLD_LIBRARY_PATH"; break;
+	case machine_system_windows: break;
+	default: env_var = "LD_LIBRARY_PATH"; break;
+	}
+
+	if (!env_var) {
+		return true;
+	}
+
+	TSTR(rel);
+	relativize_build_file_path(wk, &rel, get_cstr(wk, tgt->build_dir));
+
+	if (!environment_set(
+		    wk, t->env, environment_set_mode_prepend, make_str(wk, env_var), tstr_into_str(wk, &rel), 0)) {
+		return false;
+	}
+
+	return true;
+}
+
 struct add_test_depends_ctx {
 	struct obj_test *t;
 	bool from_custom_tgt;
@@ -1546,6 +1574,10 @@ add_test_depends_iter(struct workspace *wk, void *_ctx, obj val)
 
 		relativize_build_file_path(wk, &rel, get_cstr(wk, tgt->build_path));
 		obj_array_push(wk, ctx->t->depends, tstr_into_str(wk, &rel));
+
+		if (!add_test_dep_lib_path_to_env(wk, ctx->t, tgt)) {
+			return ir_err;
+		}
 		break;
 	}
 	case obj_custom_target:
