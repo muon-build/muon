@@ -1725,6 +1725,25 @@ FUNC_IMPL(compiler, run, tc_run_result, func_impl_flag_impure)
 }
 
 static bool
+compiler_warning_arg_needs_value_suffix(const struct str *arg_str)
+{
+	const struct str known[] = {
+		STR("alloc-size-larger-than"),
+		STR("alloca-larger-than"),
+		STR("frame-larger-than"),
+		STR("stack-usage"),
+		STR("vla-larger-than"),
+	};
+
+	for (uint32_t i = 0; i < ARRAY_LEN(known); ++i) {
+		if (str_eql(arg_str, &known[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool
 compiler_has_argument(struct workspace *wk,
 	obj comp_id,
 	uint32_t err_node,
@@ -1746,6 +1765,8 @@ compiler_has_argument(struct workspace *wk,
 			if (str_startswith(&arg_str, &STR("attributes"))) {
 				// Exclude the special case "-Wno-attributes=...".
 				// See: meson-tests/common/104 has arg/meson.build
+			} else if (compiler_warning_arg_needs_value_suffix(&arg_str)) {
+				arg = make_strf(wk, "-W%.*s=1000", arg_str.len, arg_str.s);
 			} else {
 				arg = make_strf(wk, "-W%.*s", arg_str.len, arg_str.s);
 			}
