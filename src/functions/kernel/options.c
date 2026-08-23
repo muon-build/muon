@@ -223,6 +223,23 @@ FUNC_IMPL(kernel, option, 0, true)
 	return true;
 }
 
+static bool
+rewrite_option_value(struct workspace *wk, const struct obj_option *o, const struct str *name, obj *res)
+{
+	if (str_eql(name, &STR("b_sanitize"))) {
+		if (!get_obj_array(wk, o->val)->len) {
+			*res = make_str(wk, "none");
+		} else {
+			obj sorted;
+			obj_array_sort(wk, 0, o->val, obj_array_sort_by_str, &sorted);
+			obj_array_join(wk, false, sorted, make_str(wk, ","), res);
+		}
+		return true;
+	}
+
+	return false;
+}
+
 FUNC_IMPL(kernel, get_option, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -231,13 +248,18 @@ FUNC_IMPL(kernel, get_option, tc_string | tc_number | tc_bool | tc_feature_opt |
 		return false;
 	}
 
+	const struct str *opt_name = get_str(wk, an[0].val);
 	obj opt;
-	if (!get_option(wk, current_project(wk), get_str(wk, an[0].val), &opt)) {
+	if (!get_option(wk, current_project(wk), opt_name, &opt)) {
 		vm_error_at(wk, an[0].node, "undefined option");
 		return false;
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
+
+	if (rewrite_option_value(wk, o, opt_name, res)) {
+		return true;
+	}
 
 	if (wk->vm.in_analyzer) {
 		type_tag t = 0;

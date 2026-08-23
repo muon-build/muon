@@ -273,17 +273,8 @@ option(
 )
 option(
     'b_sanitize',
-    type: 'combo',
-    choices: [
-        'none',
-        'address',
-        'thread',
-        'undefined',
-        'memory',
-        'leak',
-        'address,undefined',
-    ],
-    value: 'none',
+    type: 'array',
+    value: [],
     description: 'Code sanitizer to use',
 )
 option(

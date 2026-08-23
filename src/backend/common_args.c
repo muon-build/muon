@@ -268,9 +268,7 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
-	if (!str_eql(get_str(wk, opt), &STR("none"))) {
-		obj_array_extend(wk, args, toolchain_compiler_sanitize(wk, comp, get_cstr(wk, opt)));
-	}
+	obj_array_extend(wk, args, toolchain_compiler_sanitize(wk, comp, opt));
 
 	obj buildtype_val;
 	ca_get_option_value_for_tgt(wk, proj, tgt, "buildtype", &buildtype_val);
@@ -622,9 +620,7 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
-	if (strcmp(get_cstr(wk, opt), "none") != 0) {
-		obj_array_extend(wk, args, toolchain_linker_sanitize(wk, comp, get_cstr(wk, opt)));
-	}
+	obj_array_extend(wk, args, toolchain_linker_sanitize(wk, comp, opt));
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
@@ -700,8 +696,7 @@ ca_prepare_target_linker_args(struct workspace *wk,
 			{
 				obj sanitize_opt;
 				ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &sanitize_opt);
-				if (!str_eql(get_str(wk, sanitize_opt), &STR("none"))
-					&& (tgt->type & tgt_dynamic_library)
+				if (!get_obj_array(wk, sanitize_opt)->len && (tgt->type & tgt_dynamic_library)
 					&& toolchain_compiler_asan_lundef_warning(wk, comp)) {
 					LOG_W("target '%s': the current compiler does not support using b_sanitize and b_lundef together",
 						get_str(wk, tgt->name)->s);

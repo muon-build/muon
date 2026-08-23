@@ -167,7 +167,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(pie, compiler, TOOLCHAIN_PARAMS_0)                       \
 	_(preprocess_only, compiler, TOOLCHAIN_PARAMS_0)           \
 	_(print_search_dirs, compiler, TOOLCHAIN_PARAMS_0)         \
-	_(sanitize, compiler, TOOLCHAIN_PARAMS_1s)                 \
+	_(sanitize, compiler, TOOLCHAIN_PARAMS_ns)                 \
 	_(set_std, compiler, TOOLCHAIN_PARAMS_1s)                  \
 	_(std_unsupported, compiler, TOOLCHAIN_PARAMS_1srb)        \
 	_(version, compiler, TOOLCHAIN_PARAMS_0)                   \
@@ -198,7 +198,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(no_undefined, linker, TOOLCHAIN_PARAMS_0)            \
 	_(pgo, linker, TOOLCHAIN_PARAMS_1i)                    \
 	_(rpath, linker, TOOLCHAIN_PARAMS_1s)                  \
-	_(sanitize, linker, TOOLCHAIN_PARAMS_1s)               \
+	_(sanitize, linker, TOOLCHAIN_PARAMS_ns)               \
 	_(shared, linker, TOOLCHAIN_PARAMS_0)                  \
 	_(shared_module, linker, TOOLCHAIN_PARAMS_0)           \
 	_(soname, linker, TOOLCHAIN_PARAMS_1s)                 \

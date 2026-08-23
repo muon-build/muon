@@ -148,8 +148,12 @@ toolchain.register_linker(
                 return ['-rpath,' + s1]
             endif
         endfunc,
-        'sanitize': func(_c compiler, s1 str) -> list[str]
-            return ['-fsanitize=' + s1]
+        'sanitize': func(_c compiler, sanitizers list[str]) -> list[str]
+            res = []
+            foreach sanitizer : sanitizers
+                res += [f'-fsanitize=@sanitizer@']
+            endforeach
+            return res
         endfunc,
         'shared_module': ['-shared'],
         'soname': func(_c compiler, s1 str) -> list[str]
@@ -203,9 +207,7 @@ toolchain.register_linker(
         'rpath': func(_c compiler, s1 str) -> list[str]
             return ['-rpath,' + s1]
         endfunc,
-        'sanitize': func(_c compiler, s1 str) -> list[str]
-            return ['-fsanitize=' + s1]
-        endfunc,
+        'sanitize': toolchain.handler('linker', 'ld', 'sanitize'),
         'shared_module': ['-bundle'],
         'version': ['-v'],
         'whole_archive': func(_c compiler, s1 str) -> list[str]
@@ -596,9 +598,7 @@ toolchain.register_compiler(
         endfunc,
         'pie': ['-fPIE'],
         'preprocess_only': ['-E', '-P'],
-        'sanitize': func(_c compiler, s1 str) -> list[str]
-            return ['-fsanitize=' + s1]
-        endfunc,
+        'sanitize': toolchain.handler('linker', 'ld', 'sanitize'),
         'set_std': func(_c compiler, s1 str) -> list[str]
             return ['-std=' + s1]
         endfunc,
@@ -905,8 +905,12 @@ toolchain.register_compiler(
             endif
         endfunc,
         'preprocess_only': ['/EP'],
-        'sanitize': func(_c compiler, s1 str) -> list[str]
-            return ['/fsanitize=' + s1]
+        'sanitize': func(_c compiler, sanitizers list[str]) -> list[str]
+            res = []
+            foreach sanitizer : sanitizers
+                res += [f'/fsanitize=@sanitizer@']
+            endforeach
+            return res
         endfunc,
         'set_std': func(_c compiler, s1 str) -> list[str]
             return [f'/std:@s1@']
