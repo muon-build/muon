@@ -434,7 +434,7 @@ M.xgettext = func(
     name str,
     ## Source files or targets. May be a list of string, File, build_tgt, or
     ## custom_tgt returned from other calls to this function.
-    sources glob[str|file|build_tgt|custom_tgt],
+    sources glob[build_tgt|custom_tgt|file|str],
     ## if true, will merge the resulting pot file with extracted pot files
     ## related to dependencies of the given source targets. For instance, if you
     ## build an executable, then you may want to merge the executable
@@ -447,6 +447,7 @@ M.xgettext = func(
     ## directory where to install the resulting pot file.
     install_dir str:,
 ) -> custom_tgt
+    _ = [name, sources, recursive, install, install_tag, install_dir]
     error('unimplemented')
 endfunc
 
