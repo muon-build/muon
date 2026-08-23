@@ -186,6 +186,12 @@ option(
     value: false,
     description: 'Activate Visual Studio environment',
 )
+option(
+    'os2_emxomf',
+    type: 'boolean',
+    value: false,
+    description: 'Use OMF format on OS/2',
+) # TODO
 
 # Base options
 option(

@@ -66,6 +66,7 @@ enum build_target_kwargs {
 	bt_kw_link_early_args,
 	bt_kw_build_subdir,
 	bt_kw_android_exe_type, // TODO
+	bt_kw_shortname, // TODO (https://en.wikipedia.org/wiki/8.3_filename)
 
 #define E(lang, s) bt_kw_##lang##s
 #define TOOLCHAIN_ENUM(lang) E(lang, _args), E(lang, _static_args), E(lang, _shared_args), E(lang, _pch),
@@ -1174,6 +1175,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_link_early_args] = { "link_early_args", TYPE_TAG_LISTIFY | obj_string },
 		[bt_kw_build_subdir] = { "build_subdir", obj_string },
 		[bt_kw_android_exe_type] = { "android_exe_type", obj_string },
+		[bt_kw_shortname] = { "shortname", obj_string },
 #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
 #define TOOLCHAIN_ENUM(lang)                                                                                 \
 	E(lang, _args, TYPE_TAG_LISTIFY | obj_string), E(lang, _static_args, TYPE_TAG_LISTIFY | obj_string), \
