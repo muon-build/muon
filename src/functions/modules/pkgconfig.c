@@ -28,7 +28,7 @@ enum pkgconf_visibility {
 
 struct pkgconf_file {
 	// strings
-	obj name, description, url, version;
+	obj name, description, url, version, license;
 
 	// arrays of string
 	obj conflicts;
@@ -715,6 +715,10 @@ module_pkgconf_write(struct workspace *wk, const char *path, struct pkgconf_file
 		fprintf(f, "URL: %s\n", get_cstr(wk, pc->url));
 	}
 
+	if (pc->license) {
+		fprintf(f, "License: %s\n", get_cstr(wk, pc->license));
+	}
+
 	fprintf(f, "Version: %s\n", get_cstr(wk, pc->version));
 
 	if (get_obj_array(wk, pc->reqs[pkgconf_visibility_pub])->len) {
@@ -781,6 +785,7 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		kw_version,
 		kw_dataonly,
 		kw_conflicts,
+		kw_license
 	};
 	const type_tag tc_library = tc_string | tc_file | tc_build_target | tc_dependency | tc_custom_target
 				    | tc_both_libs,
@@ -807,6 +812,7 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		[kw_version] = { "version", obj_string },
 		[kw_dataonly] = { "dataonly", obj_bool },
 		[kw_conflicts] = { "conflicts", TYPE_TAG_LISTIFY | obj_string },
+		[kw_license] = { "license", obj_string },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -863,6 +869,8 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 	} else {
 		pc.version = current_project(wk)->cfg.version;
 	}
+
+	pc.license = akw[kw_license].val;
 
 	/* cflags include dirs */
 	if (akw[kw_subdirs].set) {
