@@ -783,6 +783,26 @@ toolchain.register_compiler(
     },
 )
 
+func crt_opt_normalize(s str, debug bool) -> str
+    if s == 'from_buildtype'
+        return debug ? 'dll_dbg' : 'dll'
+    elif s == 'static_from_buildtype'
+        return debug ? 'static_dbg' : 'static'
+    elif s == 'none'
+        return 'none'
+    elif s == 'md'
+        return 'dll'
+    elif s == 'mdd'
+        return 'dll_dbg'
+    elif s == 'mt'
+        return 'static'
+    elif s == 'mtd'
+        return 'static_dbg'
+    endif
+
+    error(f'invalid crt opt: @s@')
+endfunc
+
 toolchain.register_compiler(
     'clang',
     inherit: 'gcc',
@@ -814,6 +834,19 @@ toolchain.register_compiler(
         'can_compile_llvm_ir': true,
         'color_output': func(_c compiler, s str) -> list[str]
             return ['-fdiagnostics-color=' + s]
+        endfunc,
+        'crt': func(c compiler, s str, debug bool) -> list[str]
+            if c.get_internal_linker_id() not in ['link', 'lld-link']
+                return []
+            endif
+
+            s = crt_opt_normalize(s, debug)
+
+            if s == 'none'
+                error('"none" not currently handled')
+            endif
+
+            return ['-fms-runtime-lib=@s@']
         endfunc,
         'emit_pch': ['-Xclang', '-emit-pch'],
         'include_pch': func(_c compiler, s1 str) -> list[str]
@@ -857,14 +890,20 @@ toolchain.register_compiler(
         endfunc,
         'compile_only': ['/c'],
         'crt': func(_c compiler, s str, debug bool) -> list[str]
-            if s == 'from_buildtype'
-                return debug ? ['/MDd'] : ['/MD']
-            elif s == 'static_from_buildtype'
-                return debug ? ['/MTd'] : ['/MT']
-            else
-                return [s]
+            s = crt_opt_normalize(s, debug)
+            if s == 'none'
+                return []
             endif
+            return [
+                {
+                    'static': '/MT',
+                    'static_dbg': '/MTd',
+                    'dll': '/MD',
+                    'dll_dbg': '/MDd',
+                }[s],
+            ]
         endfunc,
+
         'debug': ['/Zi'],
         'debugfile': func(_c compiler, s str) -> list[str]
             return [f'/Fd@s@.pdb']
