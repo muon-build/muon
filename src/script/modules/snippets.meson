@@ -90,7 +90,6 @@ M.symbol_visibility_header = func(
         f'#endif',
         f'',
     ]
-    p(content)
 
     header_path = files(meson.current_build_dir() / header_name)[0]
 
