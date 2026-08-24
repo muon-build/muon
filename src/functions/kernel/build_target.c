@@ -462,7 +462,7 @@ determine_target_build_name(struct workspace *wk,
 	char plain_name[BUF_SIZE_2k])
 {
 	char ver_dll[BUF_SIZE_1k];
-	const char *pref, *suff, *ver_suff = NULL;
+	const char *pref, *suff = 0, *ver_suff = 0;
 
 	*ver_dll = '\0';
 
@@ -472,7 +472,7 @@ determine_target_build_name(struct workspace *wk,
 		if (machine_definitions[tgt->machine]->is_windows) {
 			suff = "exe";
 		} else {
-			suff = NULL;
+			suff = 0;
 		}
 		break;
 	case tgt_static_library:
