@@ -147,11 +147,13 @@ FUNC_IMPL(kernel, install_man, 0, func_impl_flag_impure)
 		kw_install_dir,
 		kw_install_mode,
 		kw_locale,
+		kw_install_tag,
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
 		[kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[kw_locale] = { "locale", obj_string },
+		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -378,6 +380,7 @@ FUNC_IMPL(kernel, install_headers, 0, func_impl_flag_impure)
 		kw_subdir,
 		kw_preserve_path,
 		kw_follow_symlinks,
+		kw_install_tag,
 	};
 	struct args_kw akw[] = {
 		[kw_install_dir] = { "install_dir", obj_string },
@@ -385,6 +388,7 @@ FUNC_IMPL(kernel, install_headers, 0, func_impl_flag_impure)
 		[kw_subdir] = { "subdir", obj_string },
 		[kw_preserve_path] = { "preserve_path", obj_bool },
 		[kw_follow_symlinks] = { "follow_symlinks", obj_bool },
+		[kw_install_tag] = { "install_tag", tc_string }, // TODO
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
