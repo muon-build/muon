@@ -20,6 +20,7 @@ foreach s : [
     'lib/cmake_prelude.meson',
     'modules/gnome.meson',
     'modules/i18n.meson',
+    'modules/snippets.meson',
     'modules/wayland.meson',
     'modules/windows.meson',
     'options/global.meson',

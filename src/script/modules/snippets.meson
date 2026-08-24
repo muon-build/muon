@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+M = {}
+
+## Generate a header file that defines macros to be used to mark all public
+## APIs of a library. Depending on the platform, this will typically use
+## __declspec(dllexport), __declspec(dllimport) or
+## __attribute__((visibility("default"))). It is compatible with C, C++, ObjC and
+## ObjC++ languages. The content of the header is static regardless of the
+## compiler used.
+M.symbol_visibility_header = func(
+    header_name str,
+    ## Prefix for generated macros, defaults to the current project name. It
+    ## will be converted to upper case with all non-alphanumeric characters
+    ## replaced by an underscore _. It is only used for api, compilation and
+    ## static_compilation default values.
+    namespace str:,
+    ## Name of the macro used to mark public APIs. Defaults to <NAMESPACE>_API.
+    api str:,
+    ## Name of a macro defined only when compiling the library. Defaults to
+    ## <NAMESPACE>_COMPILATION.
+    compilation str:,
+    ## Name of a macro defined only when compiling or using static library.
+    ## Defaults to <NAMESPACE>_STATIC_COMPILATION.
+    static_compilation str:,
+    ## If set to true, <NAMESPACE>_STATIC_COMPILATION is defined inside the
+    ## generated header. In that case the header can only be used for building a
+    ## static library. By default it is true when default_library=static, and
+    ## false otherwise.
+    static_only bool:,
+) -> file
+    if is_null(namespace)
+        namespace = meson.project_name()
+    endif
+    namespace = namespace.underscorify()
+    if namespace[0] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        namespace = f'_@namespace@'
+    endif
+
+    if is_null(api)
+        api = f'@namespace@_API'
+    endif
+
+    if is_null(compilation)
+        compilation = f'@namespace@_COMPILATION'
+    endif
+
+    if is_null(static_compilation)
+        static_compilation = f'@namespace@_STATIC_COMPILATION'
+    endif
+
+    if is_null(static_only)
+        default_library = get_option('default_library')
+        static_only = default_library == 'static'
+    endif
+
+    content = [
+        '// SPDX-license-identifier: 0BSD OR CC0-1.0 OR WTFPL OR Apache-2.0 OR LGPL-2.0-or-later',
+        '#pragma once',
+    ]
+    if static_only
+        content += [
+            f'#ifndef @static_compilation@',
+            f'#  define @static_compilation@',
+            f'#endif /* @static_compilation@ */',
+        ]
+    endif
+    content += [
+        f'#if (defined(_WIN32) || defined(__CYGWIN__)) && !defined(@static_compilation@)',
+        f'#  define @api@_EXPORT __declspec(dllexport)',
+        f'#  define @api@_IMPORT __declspec(dllimport)',
+        f'#elif defined(__OS2__) && !defined(@static_compilation@)',
+        f'#  define @api@_EXPORT __declspec(dllexport)',
+        f'#  define @api@_IMPORT',
+        f'#elif __GNUC__ >= 4',
+        f'#  define @api@_EXPORT __attribute__((visibility("default")))',
+        f'#  define @api@_IMPORT',
+        f'#else',
+        f'#  define @api@_EXPORT',
+        f'#  define @api@_IMPORT',
+        f'#endif',
+        f'',
+        f'#ifdef @compilation@',
+        f'#  define @api@ @api@_EXPORT extern',
+        f'#else',
+        f'#  define @api@ @api@_IMPORT extern',
+        f'#endif',
+        f'',
+    ]
+    p(content)
+
+    header_path = files(meson.current_build_dir() / header_name)[0]
+
+    fs.write(header_path, '\n'.join(content))
+    return header_path
+endfunc
+
+return M
