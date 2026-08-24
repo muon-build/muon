@@ -37,6 +37,9 @@ enum build_target_kwargs {
 	bt_kw_install_dir,
 	bt_kw_install_mode,
 	bt_kw_install_tag,
+	bt_kw_install_vala_gir,
+	bt_kw_install_vala_header,
+	bt_kw_install_vala_vapi,
 	bt_kw_link_with,
 	bt_kw_link_whole,
 	bt_kw_version,
@@ -1159,6 +1162,9 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_install_dir] = { "install_dir", obj_string },
 		[bt_kw_install_mode] = { "install_mode", tc_install_mode_kw },
 		[bt_kw_install_tag] = { "install_tag", tc_string }, // TODO
+		[bt_kw_install_vala_gir] = { "install_vala_gir", tc_string | tc_bool }, // TODO
+		[bt_kw_install_vala_header] = { "install_vala_header", tc_string | tc_bool }, // TODO
+		[bt_kw_install_vala_vapi] = { "install_vala_vapi", tc_string | tc_bool }, // TODO
 		[bt_kw_link_with] = { "link_with", tc_link_with_kw },
 		[bt_kw_link_whole] = { "link_whole", tc_link_with_kw },
 		[bt_kw_version] = { "version", obj_string },
