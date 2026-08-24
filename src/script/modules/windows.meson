@@ -15,7 +15,14 @@ comp_types = {
     },
     'windres': {
         'suffix': 'o',
-        'args': ['@INPUT@', '@OUTPUT@'],
+        'args': [
+            '@INPUT@',
+            '@OUTPUT@',
+            '--preprocessor-arg=-MD',
+            '--preprocessor-arg=-MQ@OUTPUT@',
+            '--preprocessor-arg=-MF@DEPFILE@',
+        ],
+        'depfile': '@OUTPUT@.d',
         'inc': func(path str) -> str
             return f'-I@path@'
         endfunc,
@@ -49,6 +56,9 @@ M.compile_resources = func(
     ## referenced resource files, and added to the preprocessor include search
     ## path
     include_directories list[inc|str]: [],
+    ## automatically add current build and source directories to
+    ## include_directories
+    implicit_include_directories bool: false,
 ) -> list[custom_tgt]
     comp = find_compiler()
 
@@ -56,7 +66,12 @@ M.compile_resources = func(
         include_directories += '@BUILD_ROOT@' / fs.parent(d.full_path())
     endforeach
 
-    foreach inc : include_directories
+    includes = include_directories
+    if implicit_include_directories
+        includes += [meson.current_source_dir(), meson.current_build_dir()]
+    endif
+
+    foreach inc : includes
         args += comp.inc(inc.full_path())
     endforeach
 
@@ -71,6 +86,12 @@ M.compile_resources = func(
         endif
     endforeach
 
+    kwargs = {}
+
+    if 'depfile' in comp
+        kwargs.depfile = comp.depfile
+    endif
+
     res = []
     foreach rc : rcs_flat.flatten()
         name = rc.full_path().underscorify()
@@ -80,6 +101,7 @@ M.compile_resources = func(
             command: [comp.prog, args],
             depend_files: depend_files,
             depends: depends,
+            kwargs: kwargs,
         )
     endforeach
 
