@@ -251,6 +251,11 @@ FUNC_IMPL(kernel, get_option, tc_string | tc_number | tc_bool | tc_feature_opt |
 	const struct str *opt_name = get_str(wk, an[0].val);
 	obj opt;
 	if (!get_option(wk, current_project(wk), opt_name, &opt)) {
+		if (wk->vm.in_analyzer && !current_project(wk)) {
+			*res = make_typeinfo(wk, tc_string | tc_number | tc_bool | tc_feature_opt | tc_array);
+			return true;
+		}
+
 		vm_error_at(wk, an[0].node, "undefined option");
 		return false;
 	}
