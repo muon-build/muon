@@ -1394,6 +1394,21 @@ get_option_backend(struct workspace *wk)
 	}
 }
 
+enum opt_namingscheme
+get_option_namingscheme(struct workspace *wk, const struct project *proj, obj overrides)
+{
+	obj opt;
+	get_option_value_overridable(wk, proj, overrides, "namingscheme", &opt);
+	const struct str *str = get_str(wk, opt);
+	if (str_eql(str, &STR("classic"))) {
+		return opt_namingscheme_classic;
+	} else if (str_eql(str, &STR("platform"))) {
+		return opt_namingscheme_platform;
+	} else {
+		UNREACHABLE_RETURN;
+	}
+}
+
 /* options loading */
 
 bool

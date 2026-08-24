@@ -371,7 +371,10 @@ setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const 
 			suffix = toolchain_compiler_flatten_one_optional(wk, toolchain_linker_implib_suffix(wk, comp));
 		}
 		if (!suffix) {
-			suffix = "-implib.lib";
+			switch (get_option_namingscheme(wk, current_project(wk), tgt->override_options)) {
+			case opt_namingscheme_classic: suffix = "-implib.lib"; break;
+			case opt_namingscheme_platform: suffix = ".dll.lib"; break;
+			}
 		}
 		TSTR(implib);
 		tstr_pushf(wk, &implib, "%s%s", plain_name, suffix);
@@ -478,7 +481,18 @@ determine_target_build_name(struct workspace *wk,
 		} else {
 			pref = "lib";
 		}
-		suff = "a";
+
+		switch (get_option_namingscheme(wk, current_project(wk), tgt->override_options)) {
+		case opt_namingscheme_classic: suff = "a"; break;
+		case opt_namingscheme_platform: {
+			if (machine_definitions[tgt->machine]->is_windows) {
+				suff = "lib";
+			} else {
+				suff = "a";
+			}
+			break;
+		}
+		}
 		break;
 	case tgt_shared_module:
 	case tgt_dynamic_library:

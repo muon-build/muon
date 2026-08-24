@@ -91,6 +91,12 @@ enum backend {
 };
 enum backend get_option_backend(struct workspace *wk);
 
+enum opt_namingscheme {
+	opt_namingscheme_classic,
+	opt_namingscheme_platform,
+};
+enum opt_namingscheme get_option_namingscheme(struct workspace *wk, const struct project *proj, obj overrides);
+
 bool options_load_from_option_info(struct workspace *wk);
 
 struct list_options_opts {
