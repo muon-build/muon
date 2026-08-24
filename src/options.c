@@ -540,7 +540,7 @@ set_option(struct workspace *wk, obj opt, obj new_val, enum option_value_source 
 	switch (o->type) {
 	case op_combo: {
 		if (!obj_array_in(wk, o->choices, new_val)) {
-			vm_error_at(wk, o->ip, "'%o' is not one of %o", new_val, o->choices);
+			vm_error_at(wk, o->ip, "%o is not one of %o", new_val, o->choices);
 			return false;
 		}
 
