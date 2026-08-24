@@ -721,6 +721,11 @@ parse_fstring(struct parser *p, bool assignment_allowed)
 {
 	uint32_t i, j;
 	const struct str *fstr = get_str(p->wk, p->previous.data.str);
+
+	if (!fstr->len) {
+		return make_node_t(p, node_type_string);
+	}
+
 	struct str str = { fstr->s }, identifier;
 
 	struct node *n, *res, *lhs = 0, *rhs = 0, *prev_rhs;
