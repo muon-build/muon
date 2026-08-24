@@ -119,6 +119,8 @@ eval(struct workspace *wk, const struct source *src, const struct eval_opts *opt
 			  vm_compile_mode_language_extended :
 			  0;
 
+	compile_mode |= opts->compile_flags;
+
 	if (opts->mode & eval_mode_repl) {
 		compile_mode |= vm_compile_mode_expr;
 	}

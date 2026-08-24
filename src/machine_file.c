@@ -9,6 +9,7 @@
 
 #include "error.h"
 #include "formats/ini.h"
+#include "lang/typecheck.h"
 #include "machine_file.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -245,8 +246,21 @@ machine_file_eval(struct workspace *wk, const char *path, enum machine_kind mach
 
 	struct source translated_src = { .src = translated.buf, .len = translated.len, .label = translated_label.buf };
 
+	struct args_norm eval_an[] = {
+		{ .name = "~", .val = make_str(wk, fs_user_home()) },
+		ARG_TYPE_NULL,
+	};
+
 	obj res_;
-	if (!eval(wk, &translated_src, &(struct eval_opts) { build_language_meson, language_extended }, &res_)) {
+	if (!eval(wk,
+		    &translated_src,
+		    &(struct eval_opts){
+			    build_language_meson,
+			    language_extended,
+			    .compile_flags = vm_compile_mode_tilde_identifier,
+				.an = eval_an,
+		    },
+		    &res_)) {
 		goto ret;
 	}
 

@@ -145,6 +145,7 @@ struct lexer {
 	struct workspace *wk;
 	const struct source *source;
 	const char *src;
+	const char *extra_identifier_chars;
 	struct stack stack;
 	struct lexer_fmt fmt;
 	uint32_t i, ws_start, ws_end;
@@ -153,8 +154,8 @@ struct lexer {
 	uint8_t enclosed_state;
 };
 
-bool is_valid_inside_of_identifier(const char c);
-bool is_valid_start_of_identifier(const char c);
+bool is_valid_inside_of_identifier(const char c, const char* extra);
+bool is_valid_start_of_identifier(const char c, const char* extra);
 bool is_digit(const char c);
 bool is_hex_digit(const char c);
 

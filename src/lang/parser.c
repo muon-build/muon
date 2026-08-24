@@ -733,8 +733,11 @@ parse_fstring(struct parser *p, bool assignment_allowed)
 	res = n = 0;
 
 	for (i = 0; i < fstr->len;) {
-		if (fstr->s[i] == '@' && is_valid_start_of_identifier(fstr->s[i + 1])) {
-			for (j = i + 1; j < fstr->len && is_valid_inside_of_identifier(fstr->s[j]); ++j) {
+		if (fstr->s[i] == '@'
+			&& is_valid_start_of_identifier(fstr->s[i + 1], p->lexer.extra_identifier_chars)) {
+			for (j = i + 1; j < fstr->len
+					&& is_valid_inside_of_identifier(fstr->s[j], p->lexer.extra_identifier_chars);
+				++j) {
 			}
 
 			if (fstr->s[j] == '@' && (identifier.len = j - i - 1) > 0) {
@@ -1343,6 +1346,10 @@ parser_init(struct workspace *wk,
 		lexer_mode |= lexer_mode_fmt;
 	}
 	lexer_init(&p->lexer, p->wk, p->src, lexer_mode);
+
+	if (p->mode & vm_compile_mode_tilde_identifier) {
+		p->lexer.extra_identifier_chars = "~";
+	}
 }
 
 static struct node *

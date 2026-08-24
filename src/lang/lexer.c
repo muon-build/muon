@@ -108,9 +108,17 @@ token_to_s(struct workspace *wk, struct token *token)
 ******************************************************************************/
 
 bool
-is_valid_start_of_identifier(const char c)
+is_valid_start_of_identifier(const char c, const char *extra)
 {
-	return c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
+	if (c == '_' || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
+		return true;
+	}
+
+	if (extra && strchr(extra, c)) {
+		return true;
+	}
+
+	return false;
 }
 
 bool
@@ -126,9 +134,9 @@ is_hex_digit(const char c)
 }
 
 bool
-is_valid_inside_of_identifier(const char c)
+is_valid_inside_of_identifier(const char c, const char *extra)
 {
-	return is_valid_start_of_identifier(c) || is_digit(c);
+	return is_valid_start_of_identifier(c, extra) || is_digit(c);
 }
 
 static bool
@@ -882,11 +890,11 @@ restart:
 			lex_copy_str(lexer, token, start, lexer->i);
 		}
 		return;
-	} else if (is_valid_start_of_identifier(lexer->src[lexer->i])) {
+	} else if (is_valid_start_of_identifier(lexer->src[lexer->i], lexer->extra_identifier_chars)) {
 		start = lexer->i;
 		struct str str = { &lexer->src[lexer->i] };
 
-		while (is_valid_inside_of_identifier(lexer->src[lexer->i])) {
+		while (is_valid_inside_of_identifier(lexer->src[lexer->i], lexer->extra_identifier_chars)) {
 			lex_advance(lexer);
 			++str.len;
 		}
@@ -1105,10 +1113,11 @@ restart:
 
 		token->type = token_type_string;
 
-		if (is_valid_start_of_identifier(lexer->src[start])) {
+		if (is_valid_start_of_identifier(lexer->src[start], lexer->extra_identifier_chars)) {
 			uint32_t i;
 			for (i = 1; i < str.len; ++i) {
-				if (!is_valid_inside_of_identifier(lexer->src[start + i])) {
+				if (!is_valid_inside_of_identifier(
+					    lexer->src[start + i], lexer->extra_identifier_chars)) {
 					break;
 				}
 			}

@@ -39,6 +39,7 @@ enum vm_compile_mode {
 	vm_compile_mode_return_after_project = 1 << 5,
 	vm_compile_mode_relaxed_parse = 1 << 6,
 	vm_compile_mode_locals = 1 << 7,
+	vm_compile_mode_tilde_identifier = 1 << 8,
 };
 
 void vm_compile_state_reset(struct workspace *wk);

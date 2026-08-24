@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 #include "lang/types.h"
+#include "lang/compiler.h"
 
 struct workspace;
 struct source;
@@ -30,6 +31,7 @@ struct eval_opts {
 	enum build_language lang;
 	enum language_mode lang_mode;
 	enum eval_mode mode;
+	enum vm_compile_mode compile_flags;
 	const struct args_norm *an;
 };
 

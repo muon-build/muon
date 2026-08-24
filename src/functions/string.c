@@ -115,12 +115,12 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 				}
 
 				reading_id = false;
-			} else if (!is_valid_inside_of_identifier(ss_in->s[i])) {
+			} else if (!is_valid_inside_of_identifier(ss_in->s[i], 0)) {
 				str_appn(wk, res, key.s - 1, key.len + 1);
 				text.s = &ss_in->s[i];
 				reading_id = false;
 			}
-		} else if (ss_in->s[i] == '@' && is_valid_inside_of_identifier(ss_in->s[i + 1])) {
+		} else if (ss_in->s[i] == '@' && is_valid_inside_of_identifier(ss_in->s[i + 1], 0)) {
 			text.len = &ss_in->s[i] - text.s;
 			str_appn(wk, res, text.s, text.len);
 			text.s = &ss_in->s[i];
