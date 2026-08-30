@@ -16,6 +16,9 @@ muon_readline(const char *prompt)
 {
 	static char buf[2048];
 	char *line = bestlineWithHistory(prompt, 0);
+	if (!line) {
+		return NULL;
+	}
 	uint32_t line_len = strlen(line);
 	line_len = line_len > sizeof(buf) - 1 ? sizeof(buf) - 1 : line_len;
 	memcpy(buf, line, line_len);

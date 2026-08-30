@@ -15,21 +15,17 @@ char *
 muon_readline(const char *prompt)
 {
 	static char buf[2048];
-	if (feof(stdin)) {
+
+	log_raw("%s\n", prompt);
+	if (!fgets(buf, 2048, stdin)) {
 		return NULL;
 	}
 
-	log_raw("%s\n", prompt);
-	fgets(buf, 2048, stdin);
-
-	uint32_t len = strlen(buf);
-	int32_t i;
-	for (i = len - 1; i >= 0; --i) {
-		if (!strchr(" \n", buf[i])) {
-			break;
-		}
+	size_t len = strlen(buf);
+	while (len && strchr(" \n", buf[len - 1])) {
+		--len;
 	}
-	buf[i + 1] = 0;
+	buf[len] = 0;
 
 	return buf;
 }
