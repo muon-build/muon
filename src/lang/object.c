@@ -2309,7 +2309,6 @@ obj_vasprintf(struct workspace *wk, struct tstr *sb, const char *fmt, va_list ap
 		}
 	}
 
-	va_end(ap);
 	return true;
 }
 

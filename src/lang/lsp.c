@@ -140,6 +140,7 @@ az_srv_log(struct az_srv *srv, struct workspace *wk, const char *fmt, ...)
 	va_start(ap, fmt);
 	TSTR(tstr);
 	obj_vasprintf(wk, &tstr, fmt, ap);
+	va_end(ap);
 
 	obj params = make_obj(wk, obj_dict);
 	obj_dict_set(wk, params, make_str(wk, "message"), make_strf(wk, "muon: %s\n", tstr.buf));
