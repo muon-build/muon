@@ -121,12 +121,21 @@ run_cmd_determine_interpreter_from_file(struct workspace *wk,
 		return false;
 	}
 
-	fread(buf, 1, buf_size - 1, f);
+	size_t bytes_read = fread(buf, 1, buf_size - 1, f);
+	bool read_failed = ferror(f);
+	bool close_failed = !fs_fclose(f);
 
-	if (!fs_fclose(f)) {
+	if (read_failed) {
+		*err_msg = "error determining command interpreter: failed to read file";
+		return false;
+	}
+
+	if (close_failed) {
 		*err_msg = "error determining command interpreter: failed to close file";
 		return false;
 	}
+
+	buf[bytes_read] = 0;
 
 	if (strncmp(buf, "#!", 2) != 0) {
 		*err_msg = "error determining command interpreter: missing #!";
