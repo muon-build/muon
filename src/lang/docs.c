@@ -32,7 +32,7 @@ static struct {
 static const bool dump_docs_warn_missing = false;
 
 struct meson_doc_entry_common {
-	const char *name, *description, *type;
+	const char *name, *description;
 };
 
 struct meson_doc_entry_func {
@@ -43,7 +43,6 @@ struct meson_doc_entry_func {
 
 struct meson_doc_entry_arg {
 	struct meson_doc_entry_common common;
-	bool optional, glob;
 };
 
 #ifdef HAVE_MESON_DOCS_H
