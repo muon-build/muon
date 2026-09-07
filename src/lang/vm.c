@@ -612,7 +612,9 @@ vm_pop_args(struct workspace *wk, struct args_norm an[], struct args_kw akw[])
 				entry = object_stack_peek_entry(&wk->vm.stack, wk->vm.nargs - argi);
 				wk->vm.saw_disabler |= entry->o == obj_disabler;
 				obj_array_push(wk, an[i].val, entry->o);
-				an[i].node = entry->ip;
+				if (j == i) {
+					an[i].node = entry->ip;
+				}
 				++argi;
 
 				if (!typecheck_function_arg(wk, entry->ip, entry->o, type)) {
