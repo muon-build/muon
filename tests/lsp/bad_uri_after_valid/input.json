@@ -1,0 +1,18 @@
+[
+  {
+    "method": "muon/textDocument/didOpen",
+    "params": {
+      "relUri": "meson.build"
+    }
+  },
+  {
+    "method": "textDocument/didOpen",
+    "params": {
+      "textDocument": {
+        "uri": "untitled:Untitled-1",
+        "languageId": "meson",
+        "text": "x = 1\n"
+      }
+    }
+  }
+]

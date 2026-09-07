@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
 lsp_tests = [
+    ['bad_uri'],
+    ['bad_uri_after_valid'],
     ['basic'],
     ['diagnostics'],
     ['diagnostics_with_edit'],
