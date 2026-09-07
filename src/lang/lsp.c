@@ -211,6 +211,8 @@ az_srv_set_request_path(struct az_srv *srv, struct workspace *wk, const struct s
 {
 	if ((srv->req.path_str = az_srv_uri_to_str(wk, _uri_s))) {
 		srv->req.path = get_str(wk, srv->req.path_str)->s;
+	} else {
+		srv->req.path = 0;
 	}
 }
 
@@ -321,6 +323,10 @@ static void
 az_srv_set_src_override(struct az_srv *srv, struct workspace *wk, const struct str *uri_s, const struct str *content)
 {
 	az_srv_set_request_path(srv, wk, uri_s);
+	if (!srv->req.path) {
+		LOG_E("ignoring document with unsupported uri %s", uri_s->s);
+		return;
+	}
 
 	srv->should_analyze = true;
 	analyze_opts_push_override(srv->srv.wk, &srv->opts, srv->req.path, 0, content);
