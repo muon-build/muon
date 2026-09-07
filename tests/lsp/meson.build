@@ -8,6 +8,7 @@ lsp_tests = [
     ['diagnostics'],
     ['diagnostics_with_edit'],
     ['many edits'],
+    ['no_project_root'],
 ]
 
 foreach t : lsp_tests
