@@ -375,6 +375,9 @@ process_script_commandline(struct workspace *wk, struct process_script_commandli
 
 			if (!find_program(wk, &find_program_ctx, val)) {
 				return false;
+			} else if (!find_program_ctx.found) {
+				vm_error_at(wk, ctx->node, "%o not found", val);
+				return false;
 			}
 
 			obj cmd_array = obj_external_program_cmd_array(wk, get_obj_external_program(wk, found_prog), 0);
