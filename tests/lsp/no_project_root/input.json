@@ -1,0 +1,12 @@
+[
+  {
+    "method": "textDocument/didOpen",
+    "params": {
+      "textDocument": {
+        "uri": "file:///muon-lsp-test-no-project-root/meson.build",
+        "languageId": "meson",
+        "text": "x = 1\n"
+      }
+    }
+  }
+]

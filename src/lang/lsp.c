@@ -1066,6 +1066,8 @@ analyze_server(struct workspace *srv_wk, struct az_opts *cmdline_opts)
 							goto analyze_done;
 						}
 						did_chdir = true;
+					} else {
+						srv->req.root_path = srv->req.path;
 					}
 				}
 			}
