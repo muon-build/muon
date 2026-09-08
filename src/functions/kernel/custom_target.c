@@ -392,11 +392,12 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 {
 	struct custom_target_cmd_fmt_ctx *ctx = _ctx;
 
-	enum cmd_output_fmt_key { key_plainname, key_basename, cmd_output_fmt_key_count };
+	enum cmd_output_fmt_key { key_plainname, key_basename, key_output, cmd_output_fmt_key_count };
 
 	const char *key_names[cmd_output_fmt_key_count] = {
 		[key_plainname] = "PLAINNAME",
 		[key_basename] = "BASENAME",
+		[key_output] = "OUTPUT",
 	};
 
 	enum cmd_output_fmt_key key;
@@ -431,6 +432,18 @@ format_cmd_output_cb(struct workspace *wk, uint32_t node, void *_ctx, const stru
 		path_basename(wk, &basename, ss->s);
 		path_without_ext(wk, &buf, basename.buf);
 		break;
+	}
+	case key_output: {
+		obj arr = ctx->opts->output;
+
+		int64_t index = 0;
+		if (!boundscheck(wk, ctx->opts->err_node, get_obj_array(wk, arr)->len, &index)) {
+			return format_cb_error;
+		}
+		obj e = obj_array_index(wk, arr, 0);
+
+		str_relative_to_build_root(wk, ctx, get_file_path(wk, e), elem);
+		return format_cb_found;
 	}
 	default: assert(false && "unreachable"); return format_cb_error;
 	}
@@ -569,6 +582,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 		struct custom_target_cmd_fmt_ctx ctx = {
 			.opts = &(struct process_custom_target_commandline_opts) {
 				.input = input,
+				.output = output,
 			},
 		};
 
