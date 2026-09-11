@@ -245,6 +245,9 @@ toolchain.register_linker(
             return [f'/OUT:@output@', input]
         endfunc,
         'lib': func(_c compiler, s str) -> list[str]
+            if not s.endswith('.lib')
+                s += '.lib'
+            endif
             return [s]
         endfunc,
         'shared': ['/DLL'],
@@ -528,6 +531,7 @@ toolchain.register_compiler(
             return ['-x', s]
         endfunc,
         'werror': ['-Werror'],
+        'default_search_dirs': ['/usr/lib', '/usr/local/lib', '/lib'],
     },
 )
 
@@ -981,6 +985,7 @@ toolchain.register_compiler(
             endif
         endfunc,
         'werror': ['/WX'],
+        'default_search_dirs': [],
     },
 )
 

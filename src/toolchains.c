@@ -1196,6 +1196,7 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(pie, compiler, .desc = "`-fPIE`");
 	doc(preprocess_only, compiler, .desc = "`-E`");
 	doc(print_search_dirs, compiler, .desc = "Instruct the compilerArgument to output the compiler's internal search directories.");
+	doc(default_search_dirs, compiler, .desc = "List of default search directories, if print_search_dirs is not available or fails");
 	doc(sanitize, compiler, .desc = "`-fsanitize`");
 	doc(set_std, compiler, .desc = "`-std`");
 	doc(std_unsupported, compiler, .desc = "Return true if the passed in std is unsupported by the current compiler.");
