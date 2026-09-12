@@ -290,47 +290,32 @@ compiler_language_extension(struct workspace *wk, enum compiler_language l)
 	return 0;
 }
 
-// The link language a source language contributes.  Several source languages
-// compile with their own program but link through the C driver (objc, nasm,
-// masm, vala), and already-built objects link as C too.
+// The link language a source language contributes.  An already-built object
+// links as C; other pseudo-roles and unregistered languages contribute nothing.
 static enum compiler_language
-link_language_normalize(enum compiler_language lang)
+link_language_normalize(struct workspace *wk, enum compiler_language lang)
 {
-	switch (lang) {
-	case compiler_language_c:
-	case compiler_language_c_obj:
-	case compiler_language_objc:
-	case compiler_language_nasm:
-	case compiler_language_masm:
-	case compiler_language_vala: return compiler_language_c;
-	case compiler_language_cpp:
-	case compiler_language_objcpp: return compiler_language_cpp;
-	case compiler_language_assembly: return compiler_language_assembly;
-	case compiler_language_rust: return compiler_language_rust;
-	default: return compiler_language_null;
+	if (lang == compiler_language_c_obj) {
+		return compiler_language_c;
 	}
+	struct language_descriptor *d = &wk->toolchain_registry.descriptors[lang];
+	return d->registered ? d->link_as : compiler_language_null;
 }
 
 static uint32_t
-link_language_preference(enum compiler_language link_language)
+link_language_preference(struct workspace *wk, enum compiler_language link_language)
 {
-	switch (link_language) {
-	case compiler_language_rust: return 40;
-	case compiler_language_cpp: return 30;
-	case compiler_language_c: return 20;
-	case compiler_language_assembly: return 10;
-	default: return 0;
-	}
+	return wk->toolchain_registry.descriptors[link_language].link_preference;
 }
 
 enum compiler_language
-coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang)
+coalesce_link_languages(struct workspace *wk, enum compiler_language cur, enum compiler_language new_lang)
 {
 	// Order-independent: a target links as the highest-preference contributor
 	// among its sources.  Both operands are normalized because a merged
 	// dependency can arrive here as a raw (un-normalized) compiler language.
-	enum compiler_language a = link_language_normalize(cur), b = link_language_normalize(new_lang);
-	return link_language_preference(b) > link_language_preference(a) ? b : a;
+	enum compiler_language a = link_language_normalize(wk, cur), b = link_language_normalize(wk, new_lang);
+	return link_language_preference(wk, b) > link_language_preference(wk, a) ? b : a;
 }
 
 struct language_descriptor *

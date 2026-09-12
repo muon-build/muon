@@ -287,7 +287,7 @@ bool filename_to_compiler_language(struct workspace *wk, const char *str, enum c
 const char *compiler_language_extension(struct workspace *wk, enum compiler_language l);
 bool compiler_language_is_header(enum compiler_language l);
 bool compiler_language_is_linkable(enum compiler_language l);
-enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang);
+enum compiler_language coalesce_link_languages(struct workspace *wk, enum compiler_language cur, enum compiler_language new_lang);
 
 struct language_descriptor *language_descriptor_get(struct workspace *wk, enum compiler_language l);
 

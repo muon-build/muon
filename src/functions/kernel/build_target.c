@@ -91,7 +91,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	tgt->dep_internal.link_language = coalesce_link_languages(tgt->dep_internal.link_language, fl);
+	tgt->dep_internal.link_language = coalesce_link_languages(wk, tgt->dep_internal.link_language, fl);
 
 	return ir_cont;
 }
@@ -128,7 +128,7 @@ determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	tgt->dep_internal.link_language = coalesce_link_languages(tgt->dep_internal.link_language, fl);
+	tgt->dep_internal.link_language = coalesce_link_languages(wk, tgt->dep_internal.link_language, fl);
 
 	return ir_cont;
 }
