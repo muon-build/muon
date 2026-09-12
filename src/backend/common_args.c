@@ -178,13 +178,11 @@ ca_get_std_args(struct workspace *wk,
 {
 	obj std;
 
-	switch (get_obj_compiler(wk, comp)->lang) {
-	case compiler_language_objc:
-	case compiler_language_c: ca_get_option_value_for_tgt(wk, proj, tgt, "c_std", &std); break;
-	case compiler_language_objcpp:
-	case compiler_language_cpp: ca_get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std); break;
-	default: return;
+	struct language_descriptor *d = language_descriptor_get(wk, get_obj_compiler(wk, comp)->lang);
+	if (!d->std_option) {
+		return;
 	}
+	ca_get_option_value_for_tgt(wk, proj, tgt, get_cstr(wk, d->std_option), &std);
 
 	const char *s, *next = get_cstr(wk, std);
 	char buf[256];
