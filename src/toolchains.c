@@ -326,6 +326,13 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new_l
 	return link_language_preference(b) > link_language_preference(a) ? b : a;
 }
 
+struct language_descriptor *
+language_descriptor_get(struct workspace *wk, enum compiler_language l)
+{
+	assert(l < compiler_language_count);
+	return &wk->toolchain_registry.descriptors[l];
+}
+
 static bool
 run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, const char *arg)
 {
@@ -1653,6 +1660,8 @@ compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
 void
 compilers_init(struct workspace *wk)
 {
+	memset(wk->toolchain_registry.descriptors, 0, sizeof(wk->toolchain_registry.descriptors));
+
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 		arr_init(wk->a, &wk->toolchain_registry.components[i], 16, struct toolchain_registry_component);
 		toolchain_register_component(wk, i, &(struct toolchain_registry_component){ .id = { .id = "empty" } } );

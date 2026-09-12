@@ -245,9 +245,21 @@ struct toolchain_registry_component {
 	} sub_components[toolchain_component_count];
 };
 
+struct language_descriptor {
+	bool registered;
+	obj sources;              // dict: extension -> role ('compile' | 'header' | 'object')
+	obj std_option;           // option name (str), or 0
+	obj requires;             // array of OR-groups (array of array of language-name str)
+	obj env;                  // dict: knob name -> env var base name
+	enum compiler_language link_as;
+	uint32_t link_preference;
+	uint32_t archiver_preference;
+};
+
 struct toolchain_registry {
 	obj ids[toolchain_component_count];
 	struct arr components[toolchain_component_count];
+	struct language_descriptor descriptors[compiler_language_count];
 };
 
 extern const struct language languages[];
@@ -281,6 +293,8 @@ bool s_to_compiler_language(const char *s, enum compiler_language *l);
 bool filename_to_compiler_language(const char *str, enum compiler_language *l);
 const char *compiler_language_extension(enum compiler_language l);
 enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang);
+
+struct language_descriptor *language_descriptor_get(struct workspace *wk, enum compiler_language l);
 
 bool
 toolchain_register_component(struct workspace *wk,
