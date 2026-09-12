@@ -214,11 +214,6 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(needs_wipe, archiver, TOOLCHAIN_PARAMS_0rb)  \
 	_(version, archiver, TOOLCHAIN_PARAMS_0)
 
-struct language {
-	bool is_header;
-	bool is_linkable;
-};
-
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 
@@ -262,8 +257,6 @@ struct toolchain_registry {
 	struct language_descriptor descriptors[compiler_language_count];
 };
 
-extern const struct language languages[];
-
 struct compiler_check_cache_key {
 	struct obj_compiler *comp;
 	const char *argstr;
@@ -290,8 +283,10 @@ const char *compiler_language_to_s(enum compiler_language l);
 const char *compiler_language_to_gcc_name(enum compiler_language l);
 bool s_to_compiler_language(const char *s, enum compiler_language *l);
 
-bool filename_to_compiler_language(const char *str, enum compiler_language *l);
-const char *compiler_language_extension(enum compiler_language l);
+bool filename_to_compiler_language(struct workspace *wk, const char *str, enum compiler_language *l);
+const char *compiler_language_extension(struct workspace *wk, enum compiler_language l);
+bool compiler_language_is_header(enum compiler_language l);
+bool compiler_language_is_linkable(enum compiler_language l);
 enum compiler_language coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang);
 
 struct language_descriptor *language_descriptor_get(struct workspace *wk, enum compiler_language l);

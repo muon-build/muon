@@ -240,24 +240,21 @@ compiler_language_to_hdr(enum compiler_language lang)
 	}
 }
 
-static const char *compiler_language_exts[compiler_language_count][10] = {
-	[compiler_language_c] = { "c" },
-	[compiler_language_c_hdr] = { "h" },
-	[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
-	[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
-	[compiler_language_c_obj] = { "o", "obj" },
-	[compiler_language_objc] = { "m", "M" },
-	[compiler_language_objcpp] = { "mm" },
-	[compiler_language_assembly] = { "S", "s" },
-	[compiler_language_llvm_ir] = { "ll" },
-	[compiler_language_nasm] = { "asm" },
-	[compiler_language_vala] = { "vala", "vapi" },
-};
+static enum compiler_language
+language_role_to_enum(struct workspace *wk, enum compiler_language lang, obj role)
+{
+	const char *r = get_cstr(wk, role);
+	if (strcmp(r, "header") == 0) {
+		return compiler_language_to_hdr(lang);
+	} else if (strcmp(r, "object") == 0) {
+		return compiler_language_c_obj;
+	}
+	return lang;
+}
 
 bool
-filename_to_compiler_language(const char *str, enum compiler_language *l)
+filename_to_compiler_language(struct workspace *wk, const char *str, enum compiler_language *l)
 {
-	uint32_t i, j;
 	const char *ext;
 
 	if (!(ext = strrchr(str, '.'))) {
@@ -265,12 +262,12 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	}
 	++ext;
 
-	for (i = 0; i < compiler_language_count; ++i) {
-		for (j = 0; compiler_language_exts[i][j]; ++j) {
-			if (strcmp(ext, compiler_language_exts[i][j]) == 0) {
-				*l = i;
-				return true;
-			}
+	for (enum compiler_language lang = 0; lang < compiler_language_count; ++lang) {
+		obj sources = wk->toolchain_registry.descriptors[lang].sources;
+		obj role;
+		if (sources && obj_dict_index_str(wk, sources, ext, &role)) {
+			*l = language_role_to_enum(wk, lang, role);
+			return true;
 		}
 	}
 
@@ -278,9 +275,19 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 }
 
 const char *
-compiler_language_extension(enum compiler_language l)
+compiler_language_extension(struct workspace *wk, enum compiler_language l)
 {
-	return compiler_language_exts[l][0];
+	obj sources = wk->toolchain_registry.descriptors[l].sources;
+	if (sources) {
+		obj ext, role;
+		obj_dict_for(wk, sources, ext, role) {
+			if (strcmp(get_cstr(wk, role), "compile") == 0) {
+				return get_cstr(wk, ext);
+			}
+		}
+	}
+
+	return 0;
 }
 
 // The link language a source language contributes.  Several source languages
@@ -1051,16 +1058,21 @@ TOOLCHAIN_PROTO_1srb(toolchain_arg_empty_1srb)
 	return false;
 }
 
-const struct language languages[compiler_language_count] = {
-	[compiler_language_null] = { 0 },
-	[compiler_language_c] = { .is_header = false },
-	[compiler_language_c_hdr] = { .is_header = true },
-	[compiler_language_cpp] = { .is_header = false },
-	[compiler_language_cpp_hdr] = { .is_header = true },
-	[compiler_language_c_obj] = { .is_linkable = true },
-	[compiler_language_assembly] = { 0 },
-	[compiler_language_llvm_ir] = { 0 },
-};
+bool
+compiler_language_is_header(enum compiler_language l)
+{
+	switch (l) {
+	case compiler_language_c_hdr:
+	case compiler_language_cpp_hdr: return true;
+	default: return false;
+	}
+}
+
+bool
+compiler_language_is_linkable(enum compiler_language l)
+{
+	return l == compiler_language_c_obj;
+}
 
 bool
 toolchain_register_component(struct workspace *wk,

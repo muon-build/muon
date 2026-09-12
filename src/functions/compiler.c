@@ -163,7 +163,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	} else {
 		TSTR(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
-		tstr_pushs(wk, &test_source_path, compiler_language_extension(compiler->lang));
+		tstr_pushs(wk, &test_source_path, compiler_language_extension(wk, compiler->lang));
 		source_path = tstr_into_str(wk, &test_source_path);
 	}
 
@@ -188,7 +188,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 			output_path = test_output_path.buf;
 		} else {
 			path_join(wk, &test_output_path, wk->muon_private, "test.");
-			tstr_pushs(wk, &test_output_path, compiler_language_extension(compiler->lang));
+			tstr_pushs(wk, &test_output_path, compiler_language_extension(wk, compiler->lang));
 			const char *ext
 				= toolchain_compiler_flatten_one(wk, comp, toolchain_compiler_object_ext(wk, comp));
 			if (!ext) {

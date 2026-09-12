@@ -253,7 +253,7 @@ xc_file(struct xc_ctx *ctx, const char *name, const char *path)
 
 	obj file_type;
 	enum compiler_language lang;
-	if (filename_to_compiler_language(path, &lang)) {
+	if (filename_to_compiler_language(ctx->wk, path, &lang)) {
 		file_type = make_strf(
 			ctx->wk, "sourcecode.%s.%s", compiler_language_to_s(lang), compiler_language_to_s(lang));
 	} else {

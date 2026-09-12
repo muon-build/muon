@@ -145,7 +145,7 @@ clang_format_collect_source_files_from_list(struct workspace *wk, struct clang_f
 		const struct str *path = get_str(wk, *get_obj_file(wk, file));
 
 		enum compiler_language l;
-		if (!(filename_to_compiler_language(path->s, &l))) {
+		if (!(filename_to_compiler_language(wk, path->s, &l))) {
 			continue;
 		}
 
