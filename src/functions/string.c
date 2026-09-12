@@ -73,6 +73,45 @@ FUNC_IMPL(string, to_lower, tc_string)
 	return true;
 }
 
+static void
+string_format_emit_unclosed_warning(struct workspace *wk,
+	uint32_t err_node,
+	uint32_t open_idx,
+	uint32_t cur_idx,
+	obj str,
+	bool *emitted_unclosed_warning)
+{
+	if (*emitted_unclosed_warning) {
+		return;
+	}
+	*emitted_unclosed_warning = true;
+
+	struct source_location loc = {
+		.off = open_idx,
+		.len = cur_idx - open_idx,
+	};
+
+	const struct str *s = get_str(wk, str);
+	struct source src = {
+		.label = "string",
+		.src = s->s,
+		.len = s->len,
+		.type = source_type_unknown,
+	};
+
+	struct detailed_source_location dloc;
+	get_detailed_source_location(&src, loc, &dloc, 0);
+
+	TSTR(buf);
+	uint32_t line_pre_len = source_line_prefixed(wk, &buf, &src, dloc.line, "%3d | ", dloc.line);
+	tstr_push(wk, &buf, '\n');
+	source_line_underline(wk, &buf, &src, &dloc, &(struct source_line_underline_opts){ line_pre_len });
+
+	LOG_W("unclosed @ in format string:\n%s", buf.buf);
+
+	vm_warning_at(wk, err_node, "encountered here:");
+}
+
 bool
 string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *ctx, string_format_cb cb)
 {
@@ -80,8 +119,8 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 	struct str key, text = { .s = ss_in->s };
 	obj elem;
 
-	uint32_t i;
-	bool reading_id = false;
+	uint32_t i, open_idx = 0;
+	bool reading_id = false, emitted_unclosed_warning = false;
 
 	*res = make_str(wk, "");
 
@@ -92,7 +131,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 			if (ss_in->s[i] == '@') {
 				switch (cb(wk, err_node, ctx, &key, &elem)) {
 				case format_cb_not_found: {
-					vm_error(wk, "key '%.*s' not found", key.len, key.s);
+					vm_error_at(wk, err_node, "key '%.*s' not found", key.len, key.s);
 					return false;
 				}
 				case format_cb_error: return false;
@@ -119,8 +158,11 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 				str_appn(wk, res, key.s - 1, key.len + 1);
 				text.s = &ss_in->s[i];
 				reading_id = false;
+
+				string_format_emit_unclosed_warning(wk, err_node, open_idx, i, str, &emitted_unclosed_warning);
 			}
 		} else if (ss_in->s[i] == '@' && is_valid_inside_of_identifier(ss_in->s[i + 1], 0)) {
+			open_idx = i;
 			text.len = &ss_in->s[i] - text.s;
 			str_appn(wk, res, text.s, text.len);
 			text.s = &ss_in->s[i];
@@ -139,7 +181,7 @@ string_format(struct workspace *wk, uint32_t err_node, obj str, obj *res, void *
 	str_appn(wk, res, text.s, text.len);
 
 	if (reading_id) {
-		vm_warning(wk, "unclosed @");
+		string_format_emit_unclosed_warning(wk, err_node, open_idx, i, str, &emitted_unclosed_warning);
 	}
 
 	return true;
@@ -181,7 +223,7 @@ FUNC_IMPL(string, format, tc_string)
 	};
 
 	obj str;
-	if (!string_format(wk, an[0].node, self, &str, &ctx, func_format_cb)) {
+	if (!string_format(wk, 0, self, &str, &ctx, func_format_cb)) {
 		return false;
 	}
 

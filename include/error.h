@@ -39,6 +39,10 @@ struct error_diagnostic_store  {
 	enum error_diagnostic_store_replay_opts opts;
 };
 
+struct detailed_source_location {
+	struct source_location loc;
+	uint32_t line, col, start_of_line, end_line, end_col;
+};
 
 MUON_NORETURN void error_unrecoverable(const char *fmt, ...) MUON_ATTR_FORMAT(printf, 1, 2);
 void error_message(struct workspace *wk, const struct source *src, struct source_location location, enum log_level lvl, enum error_message_flag flags, const char *msg);
@@ -52,14 +56,27 @@ void error_diagnostic_store_init(struct workspace *wk);
 bool error_diagnostic_store_replay(struct workspace *wk, enum error_diagnostic_store_replay_opts opts);
 void
 error_diagnostic_store_push(struct workspace *wk, uint32_t src_idx, struct source_location location, enum log_level lvl, const char *msg);
-void list_line_range(struct arena *a, const struct source *src, struct source_location location, uint32_t context);
+void list_line_range(struct workspace *wk, const struct source *src, struct source_location location, uint32_t context);
+
+MUON_ATTR_FORMAT(printf, 5, 6)
+uint32_t
+source_line_prefixed(struct workspace *wk,
+	struct tstr *buf,
+	const struct source *src,
+	uint32_t tgt_line,
+	const char *prefix_fmt,
+	...);
+struct source_line_underline_opts {
+	uint32_t line_pre_len;
+	bool multiline_end;
+};
+void source_line_underline(struct workspace *wk,
+	struct tstr *tstr,
+	const struct source *src,
+	struct detailed_source_location *dloc,
+	const struct source_line_underline_opts *opts);
 
 void reopen_source(struct arena *a, const struct source *src, struct source *src_reopened);
-
-struct detailed_source_location {
-	struct source_location loc;
-	uint32_t line, col, start_of_line, end_line, end_col;
-};
 
 enum get_detailed_source_location_flag {
 	get_detailed_source_location_flag_multiline = 1 << 0,

@@ -573,7 +573,7 @@ make_custom_target(struct workspace *wk, struct make_custom_target_opts *opts, o
 		};
 
 		obj depfile_formatted;
-		if (!string_format(wk, 0, *get_obj_file(wk, depfile), &depfile_formatted, &ctx, format_cmd_output_cb)) {
+		if (!string_format(wk, opts->depfile_node, *get_obj_file(wk, depfile), &depfile_formatted, &ctx, format_cmd_output_cb)) {
 			return ir_err;
 		}
 
@@ -723,6 +723,7 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		.input_node = akw[kw_input].node,
 		.output_node = akw[kw_output].node,
 		.command_node = akw[kw_command].node,
+		.depfile_node = akw[kw_depfile].node,
 		.input_orig = akw[kw_input].val,
 		.output_orig = akw[kw_output].val,
 		.output_dir = output_dir.buf,

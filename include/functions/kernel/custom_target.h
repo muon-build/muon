@@ -12,6 +12,7 @@ struct make_custom_target_opts {
 	uint32_t input_node;
 	uint32_t output_node;
 	uint32_t command_node;
+	uint32_t depfile_node;
 	obj input_orig;
 	obj output_orig;
 	const char *output_dir, *build_dir;

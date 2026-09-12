@@ -179,44 +179,6 @@ error_unrecoverable(const char *fmt, ...)
 	abort();
 }
 
-MUON_ATTR_FORMAT(printf, 4, 5)
-static uint32_t
-print_source_line(enum log_level lvl, const struct source *src, uint32_t tgt_line, const char *prefix_fmt, ...)
-{
-	uint64_t i, line = 1, start_of_line = 0;
-	for (i = 0; i < src->len; ++i) {
-		if (src->src[i] == '\n') {
-			++line;
-			start_of_line = i + 1;
-		}
-
-		if (line == tgt_line) {
-			break;
-		}
-	}
-
-	if (i >= src->len) {
-		return 0;
-	}
-
-	char prefix_buf[32] = { 0 };
-	va_list ap;
-	va_start(ap, prefix_fmt);
-	uint32_t ret = vsnprintf(prefix_buf, sizeof(prefix_buf), prefix_fmt, ap);
-	va_end(ap);
-
-	log_plain(lvl, "%s", prefix_buf);
-	for (i = start_of_line; src->src[i] && src->src[i] != '\n'; ++i) {
-		if (src->src[i] == '\t') {
-			log_plain(lvl, "        ");
-		} else {
-			log_plain(lvl, "%c", src->src[i]);
-		}
-	}
-	log_plain(lvl, "\n");
-	return ret;
-}
-
 void
 get_detailed_source_location(const struct source *src,
 	struct source_location loc,
@@ -267,26 +229,101 @@ get_detailed_source_location(const struct source *src,
 	}
 }
 
-static void
-list_line_underline(enum log_level lvl, const struct source *src, struct detailed_source_location *dloc, uint32_t line_pre_len, bool end)
+static uint32_t
+source_line_prefixedv(struct workspace *wk, struct tstr *tstr, const struct source *src, uint32_t tgt_line, const char *prefix_fmt, va_list ap)
 {
-	uint32_t i;
+	uint64_t i, line = 1, start_of_line = 0;
+	for (i = 0; i < src->len; ++i) {
+		if (src->src[i] == '\n') {
+			++line;
+			start_of_line = i + 1;
+		}
 
-	if (end) {
+		if (line == tgt_line) {
+			break;
+		}
+	}
+
+	if (i >= src->len) {
+		return 0;
+	}
+
+	uint32_t ret = 0;
+	if (prefix_fmt) {
+		char prefix_buf[32] = { 0 };
+		ret = vsnprintf(prefix_buf, sizeof(prefix_buf), prefix_fmt, ap);
+
+		tstr_pushs(wk, tstr, prefix_buf);
+	}
+
+	for (i = start_of_line; src->src[i] && src->src[i] != '\n'; ++i) {
+		if (src->src[i] == '\t') {
+			tstr_pushs(wk, tstr, "        ");
+		} else {
+			tstr_push(wk, tstr, src->src[i]);
+		}
+	}
+	return ret;
+}
+
+uint32_t
+source_line_prefixed(struct workspace *wk,
+	struct tstr *buf,
+	const struct source *src,
+	uint32_t tgt_line,
+	const char *prefix_fmt,
+	...)
+{
+	va_list ap;
+	va_start(ap, prefix_fmt);
+	uint32_t len = source_line_prefixedv(wk, buf, src, tgt_line, prefix_fmt, ap);
+	va_end(ap);
+	return len;
+}
+
+MUON_ATTR_FORMAT(printf, 5, 6)
+static uint32_t
+print_source_line_prefixed(struct workspace *wk,
+	enum log_level lvl,
+	const struct source *src,
+	uint32_t tgt_line,
+	const char *prefix_fmt,
+	...)
+{
+	TSTR(buf);
+	va_list ap;
+	va_start(ap, prefix_fmt);
+	uint32_t len = source_line_prefixedv(wk, &buf, src, tgt_line, prefix_fmt, ap);
+	va_end(ap);
+	log_plain(lvl, "%s\n", buf.buf);
+	return len;
+}
+
+void
+source_line_underline(struct workspace *wk,
+	struct tstr *tstr,
+	const struct source *src,
+	struct detailed_source_location *dloc,
+	const struct source_line_underline_opts *opts
+	)
+{
+	uint32_t i, line_pre_len = opts->line_pre_len;
+
+	if (opts->multiline_end) {
 		line_pre_len -= 2;
 	}
 
 	for (i = 0; i < line_pre_len; ++i) {
-		log_plain(lvl, " ");
+		tstr_pushs(wk, tstr, " ");
 	}
 
-	if (end) {
-		log_plain(lvl, "|_");
+	if (opts->multiline_end) {
+		tstr_pushs(wk, tstr, "|_");
 	}
 
 	uint32_t col;
 	const char *tab, *space;
-	if (end) {
+	if (opts->multiline_end) {
 		col = dloc->end_col;
 		tab = "________";
 		space = "_";
@@ -298,18 +335,53 @@ list_line_underline(enum log_level lvl, const struct source *src, struct detaile
 
 	for (i = 0; i < col; ++i) {
 		if (dloc->start_of_line + i < src->len && src->src[dloc->start_of_line + i] == '\t') {
-			log_plain(lvl, "%s", tab);
+			tstr_pushs(wk, tstr, tab);
 		} else {
-			log_plain(lvl, "%s", i == col - 1 ? "^" : space);
+			tstr_pushs(wk, tstr, i == col - 1 ? "^" : space);
 		}
 	}
 
-	if (!end) {
+	if (!opts->multiline_end) {
 		for (i = 1; i < dloc->loc.len; ++i) {
-			log_plain(lvl, "_");
+			tstr_pushs(wk, tstr, "_");
 		}
 	}
-	log_plain(lvl, "\n");
+}
+
+static void
+print_source_line_underline(struct workspace *wk,
+	enum log_level lvl,
+	const struct source *src,
+	struct detailed_source_location *dloc,
+	const struct source_line_underline_opts *opts)
+{
+	TSTR(buf);
+	source_line_underline(wk, &buf, src, dloc, opts);
+	log_plain(lvl, "%s\n", buf.buf);
+}
+
+obj
+source_line_underline_segment(struct workspace *wk, obj str, uint32_t start, uint32_t end)
+{
+	const struct str *s = get_str(wk, str);
+	struct source src = {
+		.label = "string",
+		.src = s->s,
+		.len = s->len,
+		.type = source_type_unknown,
+	};
+
+	struct source_location loc = {
+		.off = start,
+		.len = end - start,
+	};
+
+	struct detailed_source_location dloc;
+	get_detailed_source_location(&src, loc, &dloc, 0);
+
+	TSTR(buf);
+	source_line_underline(wk, &buf, &src, &dloc, &(struct source_line_underline_opts){ 0 });
+	return tstr_into_str(wk, &buf);
 }
 
 void
@@ -330,14 +402,14 @@ reopen_source(struct arena *a, const struct source *src, struct source *src_reop
 }
 
 void
-list_line_range(struct arena *a, const struct source *src, struct source_location location, uint32_t context)
+list_line_range(struct workspace *wk, const struct source *src, struct source_location location, uint32_t context)
 {
 	enum log_level lvl = log_info;
 
 	log_plain(lvl, "-> " CLR(c_green) "%s" CLR(0) "\n", src->label);
 
 	struct source src_reopened;
-	reopen_source(a, src, &src_reopened);
+	reopen_source(wk->a_scratch, src, &src_reopened);
 
 	struct detailed_source_location dloc;
 	get_detailed_source_location(&src_reopened, location, &dloc, 0);
@@ -346,12 +418,12 @@ list_line_range(struct arena *a, const struct source *src, struct source_locatio
 	for (i = -(int32_t)context; i <= (int32_t)context; ++i) {
 		uint32_t line_pre_len;
 
-		line_pre_len = print_source_line(
-			lvl,
-			&src_reopened, dloc.line + i, "%s%3d | ", i == 0 ? ">" : " ", dloc.line + i);
+		line_pre_len = print_source_line_prefixed(
+			wk, lvl, &src_reopened, dloc.line + i, "%s%3d | ", i == 0 ? ">" : " ", dloc.line + i);
 
 		if (i == 0) {
-			list_line_underline(lvl, &src_reopened, &dloc, line_pre_len, false);
+			print_source_line_underline(
+				wk, lvl, &src_reopened, &dloc, &(struct source_line_underline_opts){ line_pre_len });
 		}
 	}
 }
@@ -480,15 +552,17 @@ error_message(struct workspace *wk,
 	uint32_t line_pre_len = 0;
 	if (dloc.end_line) {
 		for (uint32_t i = dloc.line; i <= dloc.end_line; ++i) {
-			line_pre_len = print_source_line(lvl, &src_reopened, i, "%3d | %s ", i, i == dloc.line ? "/" : "|");
+			line_pre_len = print_source_line_prefixed(wk, lvl, &src_reopened, i, "%3d | %s ", i, i == dloc.line ? "/" : "|");
 		}
-		list_line_underline(lvl, &src_reopened, &dloc, line_pre_len, true);
+		print_source_line_underline(
+			wk, lvl, &src_reopened, &dloc, &(struct source_line_underline_opts){ line_pre_len, true });
 	} else {
-		if (!(line_pre_len = print_source_line(lvl, &src_reopened, dloc.line, "%3d | ", dloc.line))) {
+		if (!(line_pre_len = print_source_line_prefixed(wk, lvl, &src_reopened, dloc.line, "%3d | ", dloc.line))) {
 			return;
 		}
 
-		list_line_underline(lvl, &src_reopened, &dloc, line_pre_len, false);
+		print_source_line_underline(
+			wk, lvl, &src_reopened, &dloc, &(struct source_line_underline_opts){ line_pre_len, false });
 	}
 }
 

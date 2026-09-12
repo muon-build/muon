@@ -301,7 +301,7 @@ repl(struct workspace *wk, bool dbg)
 		struct source_location loc;
 		uint32_t src_idx;
 		vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.dbg_state.cur_bp->ip, &loc, &src_idx);
-		list_line_range(wk->a_scratch, arr_get(&wk->vm.src, src_idx), loc, 1);
+		list_line_range(wk, arr_get(&wk->vm.src, src_idx), loc, 1);
 	}
 
 	const char *prompt = "> ";
@@ -380,7 +380,7 @@ cmd_found:
 			struct source_location loc;
 			uint32_t src_idx;
 			vm_lookup_inst_location_src_idx(&wk->vm, wk->vm.ip, &loc, &src_idx);
-			list_line_range(wk->a_scratch, arr_get(&wk->vm.src, src_idx), loc, 11);
+			list_line_range(wk, arr_get(&wk->vm.src, src_idx), loc, 11);
 			break;
 		}
 		case repl_cmd_step: {
