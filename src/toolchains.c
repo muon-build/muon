@@ -283,43 +283,47 @@ compiler_language_extension(enum compiler_language l)
 	return compiler_language_exts[l][0];
 }
 
-enum compiler_language
-coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
+// The link language a source language contributes.  Several source languages
+// compile with their own program but link through the C driver (objc, nasm,
+// masm, vala), and already-built objects link as C too.
+static enum compiler_language
+link_language_normalize(enum compiler_language lang)
 {
-	switch (new) {
-	case compiler_language_null:
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_objc_hdr:
-	case compiler_language_objcpp_hdr:
-	case compiler_language_llvm_ir: break;
-	case compiler_language_assembly:
-		if (!cur) {
-			return compiler_language_assembly;
-		}
-		break;
-	case compiler_language_nasm:
-	case compiler_language_masm:
+	switch (lang) {
 	case compiler_language_c:
 	case compiler_language_c_obj:
 	case compiler_language_objc:
-	case compiler_language_vala:
-		if (!cur) {
-			return compiler_language_c;
-		}
-		break;
+	case compiler_language_nasm:
+	case compiler_language_masm:
+	case compiler_language_vala: return compiler_language_c;
 	case compiler_language_cpp:
-	case compiler_language_objcpp:
-		if (!cur || cur == compiler_language_c || cur == compiler_language_assembly) {
-			return compiler_language_cpp;
-		}
-		break;
-	case compiler_language_rust:
-		return compiler_language_rust;
-	case compiler_language_count: UNREACHABLE;
+	case compiler_language_objcpp: return compiler_language_cpp;
+	case compiler_language_assembly: return compiler_language_assembly;
+	case compiler_language_rust: return compiler_language_rust;
+	default: return compiler_language_null;
 	}
+}
 
-	return cur;
+static uint32_t
+link_language_preference(enum compiler_language link_language)
+{
+	switch (link_language) {
+	case compiler_language_rust: return 40;
+	case compiler_language_cpp: return 30;
+	case compiler_language_c: return 20;
+	case compiler_language_assembly: return 10;
+	default: return 0;
+	}
+}
+
+enum compiler_language
+coalesce_link_languages(enum compiler_language cur, enum compiler_language new_lang)
+{
+	// Order-independent: a target links as the highest-preference contributor
+	// among its sources.  Both operands are normalized because a merged
+	// dependency can arrive here as a raw (un-normalized) compiler language.
+	enum compiler_language a = link_language_normalize(cur), b = link_language_normalize(new_lang);
+	return link_language_preference(b) > link_language_preference(a) ? b : a;
 }
 
 static bool
