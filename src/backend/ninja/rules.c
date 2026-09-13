@@ -105,19 +105,14 @@ write_linker_rule(struct workspace *wk,
 static void
 write_archiver_rule(struct workspace *wk, FILE *out, struct project *proj, enum machine_kind machine)
 {
-	enum compiler_language archiver_precedence[] = {
-		compiler_language_c,
-		compiler_language_cpp,
-		compiler_language_objc,
-		compiler_language_objcpp,
-		compiler_language_nasm,
-	};
-
 	obj comp_id = 0;
-	uint32_t j;
-	for (j = 0; j < ARRAY_LEN(archiver_precedence); ++j) {
-		if (obj_dict_geti(wk, proj->toolchains[machine], archiver_precedence[j], &comp_id)) {
-			break;
+	uint32_t best_preference = 0;
+	for (enum compiler_language lang = 0; lang < compiler_language_count; ++lang) {
+		uint32_t preference = language_descriptor_get(wk, lang)->archiver_preference;
+		obj c;
+		if (preference > best_preference && obj_dict_geti(wk, proj->toolchains[machine], lang, &c)) {
+			best_preference = preference;
+			comp_id = c;
 		}
 	}
 

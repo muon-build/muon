@@ -240,24 +240,21 @@ compiler_language_to_hdr(enum compiler_language lang)
 	}
 }
 
-static const char *compiler_language_exts[compiler_language_count][10] = {
-	[compiler_language_c] = { "c" },
-	[compiler_language_c_hdr] = { "h" },
-	[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
-	[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
-	[compiler_language_c_obj] = { "o", "obj" },
-	[compiler_language_objc] = { "m", "M" },
-	[compiler_language_objcpp] = { "mm" },
-	[compiler_language_assembly] = { "S", "s" },
-	[compiler_language_llvm_ir] = { "ll" },
-	[compiler_language_nasm] = { "asm" },
-	[compiler_language_vala] = { "vala", "vapi" },
-};
+static enum compiler_language
+language_role_to_enum(struct workspace *wk, enum compiler_language lang, obj role)
+{
+	const char *r = get_cstr(wk, role);
+	if (strcmp(r, "header") == 0) {
+		return compiler_language_to_hdr(lang);
+	} else if (strcmp(r, "object") == 0) {
+		return compiler_language_c_obj;
+	}
+	return lang;
+}
 
 bool
-filename_to_compiler_language(const char *str, enum compiler_language *l)
+filename_to_compiler_language(struct workspace *wk, const char *str, enum compiler_language *l)
 {
-	uint32_t i, j;
 	const char *ext;
 
 	if (!(ext = strrchr(str, '.'))) {
@@ -265,12 +262,12 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	}
 	++ext;
 
-	for (i = 0; i < compiler_language_count; ++i) {
-		for (j = 0; compiler_language_exts[i][j]; ++j) {
-			if (strcmp(ext, compiler_language_exts[i][j]) == 0) {
-				*l = i;
-				return true;
-			}
+	for (enum compiler_language lang = 0; lang < compiler_language_count; ++lang) {
+		obj sources = wk->toolchain_registry.descriptors[lang].sources;
+		obj role;
+		if (sources && obj_dict_index_str(wk, sources, ext, &role)) {
+			*l = language_role_to_enum(wk, lang, role);
+			return true;
 		}
 	}
 
@@ -278,48 +275,54 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 }
 
 const char *
-compiler_language_extension(enum compiler_language l)
+compiler_language_extension(struct workspace *wk, enum compiler_language l)
 {
-	return compiler_language_exts[l][0];
+	obj sources = wk->toolchain_registry.descriptors[l].sources;
+	if (sources) {
+		obj ext, role;
+		obj_dict_for(wk, sources, ext, role) {
+			if (strcmp(get_cstr(wk, role), "compile") == 0) {
+				return get_cstr(wk, ext);
+			}
+		}
+	}
+
+	return 0;
+}
+
+// The link language a source language contributes.  An already-built object
+// links as C; other pseudo-roles and unregistered languages contribute nothing.
+static enum compiler_language
+link_language_normalize(struct workspace *wk, enum compiler_language lang)
+{
+	if (lang == compiler_language_c_obj) {
+		return compiler_language_c;
+	}
+	struct language_descriptor *d = &wk->toolchain_registry.descriptors[lang];
+	return d->registered ? d->link_as : compiler_language_null;
+}
+
+static uint32_t
+link_language_preference(struct workspace *wk, enum compiler_language link_language)
+{
+	return wk->toolchain_registry.descriptors[link_language].link_preference;
 }
 
 enum compiler_language
-coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
+coalesce_link_languages(struct workspace *wk, enum compiler_language cur, enum compiler_language new_lang)
 {
-	switch (new) {
-	case compiler_language_null:
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_objc_hdr:
-	case compiler_language_objcpp_hdr:
-	case compiler_language_llvm_ir: break;
-	case compiler_language_assembly:
-		if (!cur) {
-			return compiler_language_assembly;
-		}
-		break;
-	case compiler_language_nasm:
-	case compiler_language_masm:
-	case compiler_language_c:
-	case compiler_language_c_obj:
-	case compiler_language_objc:
-	case compiler_language_vala:
-		if (!cur) {
-			return compiler_language_c;
-		}
-		break;
-	case compiler_language_cpp:
-	case compiler_language_objcpp:
-		if (!cur || cur == compiler_language_c || cur == compiler_language_assembly) {
-			return compiler_language_cpp;
-		}
-		break;
-	case compiler_language_rust:
-		return compiler_language_rust;
-	case compiler_language_count: UNREACHABLE;
-	}
+	// Order-independent: a target links as the highest-preference contributor
+	// among its sources.  Both operands are normalized because a merged
+	// dependency can arrive here as a raw (un-normalized) compiler language.
+	enum compiler_language a = link_language_normalize(wk, cur), b = link_language_normalize(wk, new_lang);
+	return link_language_preference(wk, b) > link_language_preference(wk, a) ? b : a;
+}
 
-	return cur;
+struct language_descriptor *
+language_descriptor_get(struct workspace *wk, enum compiler_language l)
+{
+	assert(l < compiler_language_count);
+	return &wk->toolchain_registry.descriptors[l];
 }
 
 static bool
@@ -1040,16 +1043,21 @@ TOOLCHAIN_PROTO_1srb(toolchain_arg_empty_1srb)
 	return false;
 }
 
-const struct language languages[compiler_language_count] = {
-	[compiler_language_null] = { 0 },
-	[compiler_language_c] = { .is_header = false },
-	[compiler_language_c_hdr] = { .is_header = true },
-	[compiler_language_cpp] = { .is_header = false },
-	[compiler_language_cpp_hdr] = { .is_header = true },
-	[compiler_language_c_obj] = { .is_linkable = true },
-	[compiler_language_assembly] = { 0 },
-	[compiler_language_llvm_ir] = { 0 },
-};
+bool
+compiler_language_is_header(enum compiler_language l)
+{
+	switch (l) {
+	case compiler_language_c_hdr:
+	case compiler_language_cpp_hdr: return true;
+	default: return false;
+	}
+}
+
+bool
+compiler_language_is_linkable(enum compiler_language l)
+{
+	return l == compiler_language_c_obj;
+}
 
 bool
 toolchain_register_component(struct workspace *wk,
@@ -1649,6 +1657,8 @@ compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
 void
 compilers_init(struct workspace *wk)
 {
+	memset(wk->toolchain_registry.descriptors, 0, sizeof(wk->toolchain_registry.descriptors));
+
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 		arr_init(wk->a, &wk->toolchain_registry.components[i], 16, struct toolchain_registry_component);
 		toolchain_register_component(wk, i, &(struct toolchain_registry_component){ .id = { .id = "empty" } } );

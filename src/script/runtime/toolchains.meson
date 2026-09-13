@@ -1119,3 +1119,130 @@ toolchain.register_compiler(
         'linker_passthrough': toolchain.handler('compiler', 'posix', 'linker_passthrough'),
     },
 )
+
+################################################################################
+# languages
+################################################################################
+#
+# Per-language metadata — everything about a language that isn't a compiler flag:
+# source extensions and their role, link-language selection, prerequisites, and
+# the names of its env override knobs.
+
+toolchain.register_language(
+    'c',
+    sources: {'c': 'compile', 'h': 'header', 'o': 'object', 'obj': 'object'},
+    std_option: 'c_std',
+    link_as: 'c',
+    link_preference: 20,
+    archiver_preference: 50,
+    env: {
+        'compiler': 'CC',
+        'linker': 'CC_LD',
+        'compile_flags': 'CFLAGS',
+        'link_flags': 'LDFLAGS',
+        'preprocess_flags': 'CPPFLAGS',
+    },
+)
+
+toolchain.register_language(
+    'cpp',
+    sources: {
+        'cc': 'compile',
+        'cpp': 'compile',
+        'cxx': 'compile',
+        'C': 'compile',
+        'hh': 'header',
+        'hpp': 'header',
+        'hxx': 'header',
+    },
+    std_option: 'cpp_std',
+    link_as: 'cpp',
+    link_preference: 30,
+    archiver_preference: 40,
+    env: {
+        'compiler': 'CXX',
+        'linker': 'CXX_LD',
+        'compile_flags': 'CXXFLAGS',
+        'link_flags': 'LDFLAGS',
+        'preprocess_flags': 'CPPFLAGS',
+    },
+)
+
+toolchain.register_language(
+    'objc',
+    sources: {'m': 'compile', 'M': 'compile'},
+    std_option: 'c_std',
+    link_as: 'c',
+    link_preference: 20,
+    archiver_preference: 30,
+    requires: [['c', 'cpp']],
+    env: {
+        'compiler': 'OBJC',
+        'linker': 'OBJC_LD',
+        'compile_flags': 'OBJCFLAGS',
+        'link_flags': 'LDFLAGS',
+        'preprocess_flags': 'CPPFLAGS',
+    },
+)
+
+toolchain.register_language(
+    'objcpp',
+    sources: {'mm': 'compile'},
+    std_option: 'cpp_std',
+    link_as: 'cpp',
+    link_preference: 30,
+    archiver_preference: 20,
+    requires: [['cpp']],
+    env: {
+        'compiler': 'OBJCXX',
+        'linker': 'OBJCXX_LD',
+        'compile_flags': 'OBJCXXFLAGS',
+        'link_flags': 'LDFLAGS',
+        'preprocess_flags': 'CPPFLAGS',
+    },
+)
+
+toolchain.register_language(
+    'assembly',
+    sources: {'S': 'compile', 's': 'compile'},
+    link_as: 'assembly',
+    link_preference: 10,
+    requires: [['c', 'cpp']],
+)
+
+toolchain.register_language(
+    'nasm',
+    sources: {'asm': 'compile'},
+    link_as: 'c',
+    link_preference: 20,
+    archiver_preference: 10,
+    requires: [['c', 'cpp']],
+    env: {'compiler': 'NASM', 'linker': 'NASM_LD'},
+)
+
+toolchain.register_language(
+    'masm',
+    link_as: 'c',
+    link_preference: 20,
+)
+
+toolchain.register_language(
+    'llvm_ir',
+    sources: {'ll': 'compile'},
+)
+
+toolchain.register_language(
+    'rust',
+    std_option: 'rust_std',
+    link_as: 'rust',
+    link_preference: 40,
+)
+
+toolchain.register_language(
+    'vala',
+    sources: {'vala': 'compile', 'vapi': 'compile'},
+    link_as: 'c',
+    link_preference: 20,
+    requires: [['c', 'cpp']],
+    env: {'compiler': 'VALAC', 'linker': 'VALAC_LD'},
+)

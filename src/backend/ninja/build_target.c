@@ -342,7 +342,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 
 		obj_array_for(wk, tgt->src, v) {
 			enum compiler_language lang;
-			if (!filename_to_compiler_language(get_file_path(wk, v), &lang)) {
+			if (!filename_to_compiler_language(wk, get_file_path(wk, v), &lang)) {
 				UNREACHABLE;
 			}
 

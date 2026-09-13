@@ -86,12 +86,12 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 
 	enum compiler_language fl;
 
-	if (!filename_to_compiler_language(get_file_path(wk, val), &fl)) {
+	if (!filename_to_compiler_language(wk, get_file_path(wk, val), &fl)) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
 		return ir_cont;
 	}
 
-	tgt->dep_internal.link_language = coalesce_link_languages(tgt->dep_internal.link_language, fl);
+	tgt->dep_internal.link_language = coalesce_link_languages(wk, tgt->dep_internal.link_language, fl);
 
 	return ir_cont;
 }
@@ -123,12 +123,12 @@ determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	if (!filename_to_compiler_language(path.buf, &fl)) {
+	if (!filename_to_compiler_language(wk, path.buf, &fl)) {
 		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
 		return ir_cont;
 	}
 
-	tgt->dep_internal.link_language = coalesce_link_languages(tgt->dep_internal.link_language, fl);
+	tgt->dep_internal.link_language = coalesce_link_languages(wk, tgt->dep_internal.link_language, fl);
 
 	return ir_cont;
 }
@@ -241,7 +241,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	enum compiler_language lang;
-	if (!filename_to_compiler_language(get_file_path(wk, val), &lang) || languages[lang].is_header) {
+	if (!filename_to_compiler_language(wk, get_file_path(wk, val), &lang) || compiler_language_is_header(lang)) {
 		obj_array_push(wk, tgt->extra_files, val);
 
 		// process every file that is either a header, or isn't
@@ -250,7 +250,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 			return ir_err;
 		}
 		return ir_cont;
-	} else if (languages[lang].is_linkable) {
+	} else if (compiler_language_is_linkable(lang)) {
 		obj_array_push(wk, tgt->objects, val);
 		return ir_cont;
 	}

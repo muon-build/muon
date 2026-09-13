@@ -120,33 +120,39 @@ project_add_language(struct workspace *wk,
 		}
 	}
 
-	switch (l) {
-	case compiler_language_assembly:
-	case compiler_language_nasm:
-	case compiler_language_objc:
-	case compiler_language_vala: {
-		obj c_compiler;
-		if (!obj_dict_geti(wk, current_project(wk)->toolchains[machine], compiler_language_c, &c_compiler)
-			&& !obj_dict_geti(
-				wk, current_project(wk)->toolchains[machine], compiler_language_cpp, &c_compiler)) {
-			bool c_found;
-			if (!project_add_language(wk, err_node, make_str(wk, "c"), compiler, machine, req, 0, &c_found)) {
-				return false;
+	// `requires` is a list of OR-groups; if a group has no member present, add
+	// its first.
+	struct language_descriptor *language_desc = language_descriptor_get(wk, l);
+	if (language_desc->requires) {
+		obj group;
+		obj_array_for(wk, language_desc->requires, group) {
+			bool satisfied = false;
+			obj member;
+			obj_array_for(wk, group, member) {
+				enum compiler_language required_lang;
+				obj present;
+				if (s_to_compiler_language(get_cstr(wk, member), &required_lang)
+					&& obj_dict_geti(
+						wk, current_project(wk)->toolchains[machine], required_lang, &present)) {
+					satisfied = true;
+					break;
+				}
+			}
+
+			if (!satisfied) {
+				bool req_found;
+				if (!project_add_language(wk,
+					    err_node,
+					    obj_array_index(wk, group, 0),
+					    compiler,
+					    machine,
+					    req,
+					    0,
+					    &req_found)) {
+					return false;
+				}
 			}
 		}
-	} break;
-	case compiler_language_objcpp: {
-		obj cpp_compiler;
-		if (!obj_dict_geti(
-			    wk, current_project(wk)->toolchains[machine], compiler_language_cpp, &cpp_compiler)) {
-			bool cpp_found;
-			if (!project_add_language(
-				    wk, err_node, make_str(wk, "cpp"), compiler, machine, req, 0, &cpp_found)) {
-				return false;
-			}
-		}
-	} break;
-	default: break;
 	}
 
 	*found = true;
