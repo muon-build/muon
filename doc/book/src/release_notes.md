@@ -1,5 +1,50 @@
 # Release Notes
 
+##   0.7.0
+- more cross file support
+- add a way to disable docs
+- set more muon meson defaults to improve drop in behavior
+- bump meson support to 1.11
+    - 1.8.0
+        - New argument android_exe_type for executables *stub*
+        - Changes to the b_sanitize option
+        - i18n module xgettext *stub*
+        - version_compare now accept multiple compare strings
+        - ~Improvements to Objective-C and Objective-C++~
+        - Per project subproject options rewrite*
+            - Note: internals are done, but some questionable edge cases such as
+              supporting -U and -A, or setting project options without yielding
+              them using -D:foo=bar syntax are not implemented.
+    - 1.9.0
+        - Array .flatten() method
+        - ~Support response files for custom targets~ (postponing for now,
+              also unclear why this would be needed since custom_targets already
+              have rsp-like behavior using `muon internal exe -a`)
+        - Added license keyword to pkgconfig.generate
+        - pkgconfig.generate supports internal dependencies in requires
+    - 1.10.0
+        - Support for the counted_by attribute
+        - Added a values() method for dictionaries
+        - Add cmd_array method to ExternalProgram
+        - Added OS/2 support (shortname kwarg / os2_emxomf builtin opt) *stub*
+        - Array .slice() method
+        - -Db_vscrt on clang
+        - Added build_subdir arg to various targets
+        - Methods from compiler object now accept strings for include_directories (already supported)
+        - Using meson.get_compiler() to get a language from another project is marked (already an error)
+        - Add a configure log in meson-logs (already supported)
+        - Added new namingscheme option
+        - New method to handle GNU and Windows symbol visibility for C/C++/ObjC/ObjC++
+    - 1.11.0
+        - BuildTarget(install_dir) length > 1 replaced with keywords
+        - Deprecate should_fail and rename it to expected_fail, also introduce expected_exitcode
+        - install_man and install_headers: add support for install_tag kwarg
+        - Added link_early_args to targets performing linking
+        - Machine files now expand ~ as the user's home directory
+        - windows.compile_resources now detects header changes with rc.exe
+        - Added implicit_include_directories argument to windows.compile_resources
+        - Console kwarg on run_command
+
 ## ✓ 0.6.0
 
 - internals / language features
