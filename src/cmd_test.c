@@ -184,26 +184,26 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 		[status_timedout] = c_red,
 		[status_skipped] = c_yellow,
 	};
-	log_raw("\033[%dm%s\033[0m", clr[status], status_msg[status]);
+	log_plain(log_info, "\033[%dm%s\033[0m", clr[status], status_msg[status]);
 
 	if (res->status == test_result_status_running) {
-		log_raw("          ");
+		log_plain(log_info, "          ");
 	} else {
-		log_raw(" %6.2fs ", res->dur);
+		log_plain(log_info, " %6.2fs ", res->dur);
 	}
 
 	if (res->subtests.have) {
-		log_raw("%3d/%3d subtests, ", res->subtests.pass, res->subtests.total);
+		log_plain(log_info, "%3d/%3d subtests, ", res->subtests.pass, res->subtests.total);
 	}
 
 	if (suite_str) {
-		log_raw("%s:", suite_str);
+		log_plain(log_info, "%s:", suite_str);
 	}
 
-	log_raw("%s", name);
+	log_plain(log_info, "%s", name);
 
 	if (status == status_should_have_failed) {
-		log_raw(" - passing test marked as expected_fail");
+		log_plain(log_info, " - passing test marked as expected_fail");
 	}
 }
 
