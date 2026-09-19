@@ -744,6 +744,7 @@ get_has_function_attribute_test(const struct str *name, const char **res)
 		{ "weakref",
 			"static int foo(void) { return 0; }\n"
 			"static int var(void) __attribute__((weakref(\"foo\")));\n" },
+		{ "retain", "__attribute__((retain)) int x;\n" },
 		{ 0 } };
 
 	uint32_t i;
