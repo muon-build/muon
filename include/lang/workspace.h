@@ -96,6 +96,8 @@ struct workspace {
 	obj dependency_handlers;
 	/* list[str], used for error reporting */
 	obj backend_output_stack;
+	// list[str]
+	obj devenv;
 	/* ----------------- */
 
 	struct vm vm;

@@ -25,6 +25,7 @@
 #include "external/libcurl.h"
 #include "external/pkgconfig.h"
 #include "external/samurai.h"
+#include "functions/environment.h"
 #include "lang/analyze.h"
 #include "lang/docs.h"
 #include "lang/fmt.h"
@@ -1628,6 +1629,30 @@ cmd_devenv(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[
 	}
 
 	setup_platform_env(wk, ".", setup_platform_env_requirement_from_cache);
+
+	{
+		TSTR(path);
+		path_join(wk, &path, output_path.private_dir, output_path.paths[output_path_devenv].path);
+		if (fs_file_exists(path.buf)) {
+			obj devenv;
+			if (!load_obj_from_serial_dump(wk, path.buf, &devenv)) {
+				return false;
+			}
+
+			obj env;
+			obj_array_for(wk, devenv, env) {
+				obj res;
+				if (!environment_to_dict(wk, env, &res)) {
+					return false;
+				}
+
+				obj k, v;
+				obj_dict_for(wk, res, k, v) {
+					os_set_env(wk, get_str(wk, k), get_str(wk, v));
+				}
+			}
+		}
+	}
 
 	const char *const *cmd = (const char *const *)&argv[argi];
 

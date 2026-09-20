@@ -97,7 +97,6 @@ enum complex_type {
 #define tc_exe                (tc_string | tc_file | tc_external_program | tc_python_installation \
 			       | tc_build_target | tc_custom_target | tc_both_libs)
 
-#define tc_coercible_env      (tc_environment | tc_string | tc_array | tc_dict)
 #define tc_coercible_files    (tc_string | tc_custom_target | tc_build_target | tc_file | tc_both_libs)
 #define tc_coercible_inc      (tc_string | tc_include_directory)
 #define tc_command_array      (TYPE_TAG_LISTIFY | tc_exe)
@@ -148,8 +147,11 @@ enum complex_type_preset {
 	tc_cx_options_deprecated_kw,
 	tc_cx_list_of_number,
 	tc_cx_dict_of_str,
+	tc_cx_dict_of_listify_str,
 	tc_cx_override_find_program,
 	tc_cx_toolchain_overrides,
+	tc_cx_coercible_env,
+	tc_cx_coercible_env_base,
 };
 
 type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);

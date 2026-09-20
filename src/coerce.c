@@ -22,39 +22,47 @@
 #include "platform/path.h"
 
 bool
-coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res)
+coerce_environment(struct workspace *wk,
+	uint32_t node,
+	obj val,
+	enum environment_set_mode mode,
+	enum make_obj_environment_flag flags,
+	obj sep,
+	obj *res)
 {
-	enum make_obj_environment_flag flags = set_subdir ? make_obj_environment_flag_set_subdir : 0;
-
-	if (kw->set) {
-		if (get_obj_type(wk, kw->val) == obj_environment) {
-			*res = kw->val;
-		} else {
-			obj dict;
-			if (get_obj_type(wk, kw->val) == obj_dict) {
-				dict = kw->val;
-				if (!typecheck(wk,
-					    kw->node,
-					    dict,
-					    make_complex_type(
-						    wk, complex_type_nested, tc_dict, TYPE_TAG_LISTIFY | tc_string))) {
-					return false;
-				}
-			} else {
-				if (!coerce_key_value_dict(wk, kw->node, kw->val, &dict)) {
-					return false;
-				}
+	if (get_obj_type(wk, val) == obj_environment) {
+		*res = val;
+	} else {
+		obj dict;
+		if (get_obj_type(wk, val) == obj_dict) {
+			dict = val;
+			if (!typecheck(wk, node, dict, complex_type_preset_get(wk, tc_cx_dict_of_listify_str))) {
+				return false;
 			}
-
-			*res = make_obj_environment(wk, flags);
-
-			obj key, val;
-			obj_dict_for(wk, dict, key, val) {
-				if (!environment_set(wk, *res, environment_set_mode_set, key, val, 0)) {
-					return false;
-				}
+		} else {
+			if (!coerce_key_value_dict(wk, node, val, &dict)) {
+				return false;
 			}
 		}
+
+		*res = make_obj_environment(wk, flags);
+
+		obj key, val;
+		obj_dict_for(wk, dict, key, val) {
+			if (!environment_set(wk, *res, mode, key, val, 0)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+bool
+coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, enum make_obj_environment_flag flags, obj *res)
+{
+	if (kw->set) {
+		return coerce_environment(wk, kw->node, kw->val, environment_set_mode_set, flags, 0, res);
 	} else {
 		*res = make_obj_environment(wk, flags);
 	}
@@ -106,13 +114,14 @@ coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res
 		}
 		break;
 	}
-	case obj_dict:
-		if (!typecheck(wk, err_node, val, make_complex_type(wk, complex_type_nested, tc_dict, tc_string))) {
+	case obj_dict: {
+		if (!typecheck(wk, err_node, val, complex_type_preset_get(wk, tc_cx_dict_of_str))) {
 			return false;
 		}
 
 		*res = val;
 		break;
+	}
 	default:
 		vm_error_at(wk, err_node, "unable to coerce type '%s' into key=value dict", obj_type_to_s(t));
 		return false;

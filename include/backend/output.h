@@ -23,6 +23,7 @@ enum output_path_name {
 	output_path_debug_log,
 	output_path_vsenv_cache,
 	output_path_cmdline,
+	output_path_devenv,
 	output_path_name_count,
 };
 

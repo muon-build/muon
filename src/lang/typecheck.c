@@ -377,6 +377,10 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 	if (ct == complex_type_preset) {
 		return typecheck_complex_type(wk, got_obj, got_type, complex_type_preset_get(wk, idx));
 	} else if (ct == complex_type_enum) {
+		if (got_type == tc_string) {
+			obj values = idx;
+			return obj_array_in(wk, values, got_obj);
+		}
 		return typecheck_complex_type(wk, got_obj, got_type, tc_string);
 	}
 
@@ -622,6 +626,10 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 		tag = make_complex_type(wk, complex_type_nested, tc_dict, tc_string);
 		break;
 	}
+	case tc_cx_dict_of_listify_str: {
+		tag = make_complex_type(wk, complex_type_nested, tc_dict, TYPE_TAG_LISTIFY| tc_string);
+		break;
+	}
 	case tc_cx_override_find_program: {
 		tag = make_complex_type(wk,
 			complex_type_or,
@@ -640,6 +648,18 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 					complex_type_or,
 					tc_bool,
 					complex_type_preset_get(wk, tc_cx_list_of_str))));
+		break;
+	}
+	case tc_cx_coercible_env_base: {
+		tag = make_complex_type(wk,
+			complex_type_or,
+			TYPE_TAG_LISTIFY | tc_string,
+			complex_type_preset_get(wk, tc_cx_dict_of_listify_str));
+		break;
+	}
+	case tc_cx_coercible_env: {
+		tag = make_complex_type(
+			wk, complex_type_or, tc_environment, complex_type_preset_get(wk, tc_cx_coercible_env_base));
 		break;
 	}
 	default: UNREACHABLE;

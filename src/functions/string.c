@@ -543,7 +543,7 @@ string_shell_common(struct workspace *wk, enum shell_type *shell)
 	}
 
 	*shell = shell_type_posix;
-	if (akw[kw_shell].set && !vm_obj_to_enum(wk, enum shell_type, akw[kw_shell].val, shell)) {
+	if (akw[kw_shell].set && !vm_obj_to_enum(wk, akw[kw_shell].node, enum shell_type, akw[kw_shell].val, shell)) {
 		return false;
 	}
 

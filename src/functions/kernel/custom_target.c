@@ -701,7 +701,7 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		[kw_depends] = { "depends", tc_depends_kw },
 		[kw_build_always_stale] = { "build_always_stale", obj_bool },
 		[kw_build_always] = { "build_always", obj_bool },
-		[kw_env] = { "env", tc_coercible_env },
+		[kw_env] = { "env", complex_type_preset_get(wk, tc_cx_coercible_env) },
 		[kw_feed] = { "feed", obj_bool },
 		[kw_console] = { "console", obj_bool },
 		[kw_build_subdir] = { "build_subdir", obj_string },
@@ -801,7 +801,7 @@ FUNC_IMPL(kernel, custom_target, tc_custom_target, func_impl_flag_impure)
 		return false;
 	}
 
-	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], false, &tgt->env)) {
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], 0, &tgt->env)) {
 		return false;
 	}
 

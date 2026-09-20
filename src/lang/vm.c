@@ -3613,9 +3613,9 @@ vm_struct_member_(struct workspace *wk, const char *name, const char *member, ui
 }
 
 static bool
-vm_obj_to_enum_def(struct workspace *wk, obj def, obj o, void *s)
+vm_obj_to_enum_def(struct workspace *wk, uint32_t node, obj def, obj o, void *s)
 {
-	if (!typecheck_custom(wk, 0, o, tc_string, 0)) {
+	if (!typecheck_custom(wk, node, o, tc_string, 0)) {
 		vm_error(wk,
 			"expected type %s for enum, got %s",
 			typechecking_type_to_s(wk, tc_string),
@@ -3625,7 +3625,7 @@ vm_obj_to_enum_def(struct workspace *wk, obj def, obj o, void *s)
 
 	obj v;
 	if (!obj_dict_index(wk, def, o, &v)) {
-		vm_error(wk, "unknown enum value %s", get_cstr(wk, o));
+		vm_error_at(wk, node, "unknown enum value %s", get_cstr(wk, o));
 		return false;
 	}
 
@@ -3634,14 +3634,14 @@ vm_obj_to_enum_def(struct workspace *wk, obj def, obj o, void *s)
 }
 
 bool
-vm_obj_to_enum_(struct workspace *wk, const char *name, obj o, void *s)
+vm_obj_to_enum_(struct workspace *wk, uint32_t node, const char *name, obj o, void *s)
 {
 	obj def;
 	if (!obj_dict_index_str(wk, wk->vm.types.enums, name, &def)) {
 		error_unrecoverable("enum %s is not registered", name);
 	}
 
-	return vm_obj_to_enum_def(wk, def, o, s);
+	return vm_obj_to_enum_def(wk, node, def, o, s);
 }
 
 obj
@@ -3688,7 +3688,7 @@ vm_obj_to_struct_def(struct workspace *wk, obj def, obj o, void *s)
 			}
 			break;
 		case vm_struct_type_enum_:
-			if (!vm_obj_to_enum_def(wk, t >> vm_struct_type_shift, v, dest)) {
+			if (!vm_obj_to_enum_def(wk, 0, t >> vm_struct_type_shift, v, dest)) {
 				return false;
 			}
 			break;

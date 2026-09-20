@@ -627,10 +627,39 @@ FUNC_IMPL(meson, can_run_host_binaries, tc_bool, func_impl_flag_impure)
 
 FUNC_IMPL(meson, add_devenv, 0, func_impl_flag_impure)
 {
-	struct args_norm an[] = { { tc_any }, ARG_TYPE_NULL };
-	if (!pop_args(wk, an, NULL)) {
+	struct args_norm an[] = {
+		{ complex_type_preset_get(wk, tc_cx_coercible_env) },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_method,
+		kw_separator,
+	};
+	struct args_kw akw[] = {
+		[kw_method] = { "method", complex_type_enum_get(wk, enum environment_set_mode) },
+		[kw_separator] = { "separator", tc_string },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
 		return false;
 	}
+
+	enum environment_set_mode mode = environment_set_mode_set;
+	if (akw[kw_method].set) {
+		if (!vm_obj_to_enum(wk, akw[kw_method].node, enum environment_set_mode, akw[kw_method].val, &mode)) {
+			return false;
+		}
+	}
+
+	obj env;
+	if (!coerce_environment(wk, an[0].node, an[0].val, mode, 0, akw[kw_separator].val, &env)) {
+		return false;
+	}
+
+	if (!wk->devenv) {
+		wk->devenv = make_obj(wk, obj_array);
+	}
+	obj_array_push(wk, wk->devenv, env);
 
 	return true;
 }

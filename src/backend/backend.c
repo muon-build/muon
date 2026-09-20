@@ -212,6 +212,12 @@ write_cmdline(struct workspace *wk, void *_ctx, FILE *out)
 	return true;
 }
 
+static bool
+write_devenv(struct workspace *wk, void *_ctx, FILE *out)
+{
+	return serial_dump(wk, wk->devenv, out);
+}
+
 bool
 backend_output(struct workspace *wk)
 {
@@ -251,6 +257,10 @@ backend_output(struct workspace *wk)
 		     && with_open(wk->muon_private, output_path.paths[output_path_option_info].path, wk, NULL, write_option_info)
 		     && with_open(wk->muon_private, output_path.paths[output_path_cmdline].path, wk, NULL, write_cmdline)
 		     && introspect_write_all(wk);
+
+		if (ok && wk->devenv) {
+			ok = with_open(wk->muon_private, output_path.paths[output_path_devenv].path, wk, NULL, write_devenv);
+		}
 	}
 
 	if (!ok) {

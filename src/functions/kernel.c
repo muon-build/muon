@@ -1139,7 +1139,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
-		[kw_env] = { "env", tc_coercible_env },
+		[kw_env] = { "env", complex_type_preset_get(wk, tc_cx_coercible_env) },
 		[kw_capture] = { "capture", obj_bool },
 		[kw_console] = { "console", obj_bool },
 		[kw_feed] = { "feed",
@@ -1208,7 +1208,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 
 	{
 		obj env;
-		if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &env)) {
+		if (!coerce_environment_from_kwarg(wk, &akw[kw_env], make_obj_environment_flag_set_subdir, &env)) {
 			return false;
 		}
 		env_to_envstr(wk, &envstr, &envc, env);
@@ -1292,7 +1292,7 @@ FUNC_IMPL(kernel, run_target, tc_custom_target, func_impl_flag_impure)
 	};
 	struct args_kw akw[] = { [kw_command] = { "command", tc_command_array, .required = true },
 		[kw_depends] = { "depends", tc_depends_kw },
-		[kw_env] = { "env", tc_coercible_env },
+		[kw_env] = { "env", complex_type_preset_get(wk, tc_cx_coercible_env) },
 		0 };
 	if (!pop_args(wk, an, akw)) {
 		return false;
@@ -1320,7 +1320,7 @@ FUNC_IMPL(kernel, run_target, tc_custom_target, func_impl_flag_impure)
 		obj_array_extend_nodup(wk, tgt->depends, depends);
 	}
 
-	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &tgt->env)) {
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], make_obj_environment_flag_set_subdir, &tgt->env)) {
 		return false;
 	}
 
@@ -1433,7 +1433,7 @@ FUNC_IMPL(kernel, add_test_setup, 0, func_impl_flag_impure)
 		kw_timeout_multiplier,
 	};
 	struct args_kw akw[] = {
-		[kw_env] = { "env", tc_coercible_env, },
+		[kw_env] = { "env", complex_type_preset_get(wk, tc_cx_coercible_env) },
 		[kw_exclude_suites] = { "exclude_suites", TYPE_TAG_LISTIFY | obj_string },
 		[kw_exe_wrapper] = { "exe_wrapper", tc_command_array },
 		[kw_gdb] = { "gdb", obj_bool },
@@ -1450,7 +1450,7 @@ FUNC_IMPL(kernel, add_test_setup, 0, func_impl_flag_impure)
 	test_setup = make_obj(wk, obj_array);
 
 	obj env = 0;
-	if (akw[kw_env].set && !coerce_environment_from_kwarg(wk, &akw[kw_env], false, &env)) {
+	if (akw[kw_env].set && !coerce_environment_from_kwarg(wk, &akw[kw_env], 0, &env)) {
 		return false;
 	}
 
@@ -1591,7 +1591,7 @@ add_test_common(struct workspace *wk, enum test_category cat)
 		[kw_should_fail] = { "should_fail", obj_bool, },
 		[kw_expected_fail] = { "expected_fail", obj_bool, },
 		[kw_expected_exitcode] = { "expected_exitcode", obj_number, },
-		[kw_env] = { "env", tc_coercible_env, },
+		[kw_env] = { "env", complex_type_preset_get(wk, tc_cx_coercible_env) },
 		[kw_suite] = { "suite", TYPE_TAG_LISTIFY | obj_string },
 		[kw_priority] = { "priority", obj_number, },
 		[kw_timeout] = { "timeout", obj_number, },
@@ -1665,7 +1665,7 @@ add_test_common(struct workspace *wk, enum test_category cat)
 	test = make_obj(wk, obj_test);
 	struct obj_test *t = get_obj_test(wk, test);
 
-	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], false, &t->env)) {
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], 0, &t->env)) {
 		return false;
 	}
 
@@ -1758,21 +1758,14 @@ FUNC_IMPL(kernel, join_paths, tc_string)
 
 FUNC_IMPL(kernel, environment, tc_environment, func_impl_flag_impure)
 {
-	struct args_norm an[] = { { make_complex_type(wk,
-					    complex_type_or,
-					    make_complex_type(wk,
-						    complex_type_or,
-						    tc_string,
-						    make_complex_type(wk, complex_type_nested, tc_array, tc_string)),
-					    make_complex_type(wk, complex_type_nested, tc_dict, tc_string)),
-					  .optional = true },
-		ARG_TYPE_NULL };
+	struct args_norm an[]
+		= { { complex_type_preset_get(wk, tc_cx_coercible_env_base), .optional = true }, ARG_TYPE_NULL };
 	enum kwargs {
 		kw_method,
 		kw_separator,
 	};
 	struct args_kw akw[] = {
-		[kw_method] = { "method", tc_string },
+		[kw_method] = { "method", complex_type_enum_get(wk, enum environment_set_mode) },
 		[kw_separator] = { "separator", tc_string },
 		0,
 	};
@@ -1782,41 +1775,17 @@ FUNC_IMPL(kernel, environment, tc_environment, func_impl_flag_impure)
 
 	enum environment_set_mode mode = environment_set_mode_set;
 	if (akw[kw_method].set) {
-		const struct str modes[] = {
-			[environment_set_mode_set] = STR("set"),
-			[environment_set_mode_append] = STR("append"),
-			[environment_set_mode_prepend] = STR("prepend"),
-		}, *method = get_str(wk, akw[kw_method].val);
-
-		uint32_t i;
-		for (i = 0; i < ARRAY_LEN(modes); ++i) {
-			if (str_eql(method, &modes[i])) {
-				break;
-			}
-		}
-
-		if (i >= ARRAY_LEN(modes)) {
-			vm_error_at(wk, akw[kw_method].node, "invalid method: %o", akw[kw_method].val);
+		if (!vm_obj_to_enum(wk, akw[kw_method].node, enum environment_set_mode, akw[kw_method].val, &mode)) {
 			return false;
 		}
-
-		mode = i;
 	}
 
-	*res = make_obj_environment(wk, 0);
-
 	if (an[0].set) {
-		obj dict;
-		if (!coerce_key_value_dict(wk, an[0].node, an[0].val, &dict)) {
+		if (!coerce_environment(wk, an[0].node, an[0].val, mode, 0, akw[kw_separator].val, res)) {
 			return false;
 		}
-
-		obj key, val;
-		obj_dict_for(wk, dict, key, val) {
-			if (!environment_set(wk, *res, mode, key, val, akw[kw_separator].val)) {
-				return false;
-			}
-		}
+	} else {
+		*res = make_obj_environment(wk, 0);
 	}
 
 	return true;

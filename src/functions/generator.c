@@ -181,7 +181,7 @@ FUNC_IMPL(generator, process, tc_generated_list, func_impl_flag_impure)
 	struct args_kw akw[] = {
 		[kw_extra_args] = { "extra_args", TYPE_TAG_LISTIFY | obj_string },
 		[kw_preserve_path_from] = { "preserve_path_from", obj_string },
-		[kw_env] = { "env", tc_coercible_env },
+		[kw_env] = { "env", complex_type_preset_get(wk, tc_cx_coercible_env) },
 		0,
 	};
 
@@ -195,7 +195,7 @@ FUNC_IMPL(generator, process, tc_generated_list, func_impl_flag_impure)
 	gl->extra_arguments = akw[kw_extra_args].val;
 	gl->preserve_path_from = akw[kw_preserve_path_from].val;
 
-	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], true, &gl->env)) {
+	if (!coerce_environment_from_kwarg(wk, &akw[kw_env], make_obj_environment_flag_set_subdir, &gl->env)) {
 		return false;
 	}
 

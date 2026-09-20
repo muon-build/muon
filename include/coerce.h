@@ -5,9 +5,18 @@
 
 #ifndef MUON_COERCE_H
 #define MUON_COERCE_H
+
+#include "functions/environment.h"
 #include "lang/workspace.h"
 
-bool coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, bool set_subdir, obj *res);
+bool coerce_environment(struct workspace *wk,
+	uint32_t node,
+	obj val,
+	enum environment_set_mode mode,
+	enum make_obj_environment_flag flags,
+	obj sep,
+	obj *res);
+bool coerce_environment_from_kwarg(struct workspace *wk, struct args_kw *kw, enum make_obj_environment_flag flags, obj *res);
 bool coerce_key_value_dict(struct workspace *wk, uint32_t err_node, obj val, obj *res);
 bool coerce_include_type(struct workspace *wk, const struct str *str, uint32_t err_node, enum include_type *res);
 bool coerce_string_to_file(struct workspace *wk, const char *dir, obj string, obj *res);

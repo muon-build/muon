@@ -234,6 +234,12 @@ FUNC_IMPL(environment, unset, 0, func_impl_flag_impure)
 
 FUNC_REGISTER(environment)
 {
+	if (vm_enum(wk, enum environment_set_mode)) {
+		vm_enum_value_prefixed(wk, environment_set_mode, set);
+		vm_enum_value_prefixed(wk, environment_set_mode, append);
+		vm_enum_value_prefixed(wk, environment_set_mode, prepend);
+	};
+
 	FUNC_IMPL_REGISTER(environment, set);
 	FUNC_IMPL_REGISTER(environment, append);
 	FUNC_IMPL_REGISTER(environment, prepend);
