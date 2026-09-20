@@ -2134,10 +2134,10 @@ find_library_result_to_dependency(struct workspace *wk, struct find_library_resu
 		obj_array_push(wk, raw.link_with, find_result.found);
 
 		if (find_result.location == find_library_found_location_extra_dirs) {
-			raw.rpath = make_obj(wk, obj_array);
+			raw.build_rpath = make_obj(wk, obj_array);
 			TSTR(dirname);
 			path_dirname(wk, &dirname, get_cstr(wk, find_result.found));
-			obj_array_push(wk, raw.rpath, tstr_into_str(wk, &dirname));
+			obj_array_push(wk, raw.build_rpath, tstr_into_str(wk, &dirname));
 		}
 	}
 

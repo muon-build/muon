@@ -142,12 +142,51 @@ toolchain.register_linker(
                 return ['-fprofile-correction', '-fprofile-use']
             endif
         endfunc,
-        'rpath': func(c compiler, s1 str) -> list[str]
+        'process_rpath': func(
+            c compiler,
+            build_dir str:,
+            build_rpath list[str]:,
+            install_rpath list[str]:,
+        ) -> list[str]
             if c.machine().system() == 'windows'
                 return []
-            else
-                return ['-rpath,' + s1]
             endif
+
+            processed = []
+            origin = '$ORIGIN'
+
+            foreach dir : build_rpath
+                if fs.is_absolute(dir) and fs.is_subpath(build_dir, dir)
+                    processed += origin / fs.relative_to(dir, build_dir)
+                else
+                    processed += dir
+                endif
+            endforeach
+
+            build_final = ':'.join(processed)
+            install_final = ':'.join(install_rpath)
+            diff = install_final.length() - build_final.length()
+            if diff > 0
+                pad = ''
+                foreach _ : range(diff)
+                    pad += 'X'
+                endforeach
+                processed += pad
+            endif
+
+            return processed
+        endfunc,
+        'rpath': func(c compiler, paths list[str]) -> list[str]
+            if c.machine().system() == 'windows'
+                return []
+            endif
+
+            joined = ':'.join(paths)
+            if joined.length() == 0
+                return []
+            endif
+
+            return ['-rpath,' + joined]
         endfunc,
         'sanitize': func(_c compiler, sanitizers list[str]) -> list[str]
             res = []
@@ -207,9 +246,8 @@ toolchain.register_linker(
     handlers: {
         'allow_shlib_undefined': ['-undefined', 'dynamic_lookup'],
         'enable_lto': ['-flto'],
-        'rpath': func(_c compiler, s1 str) -> list[str]
-            return ['-rpath,' + s1]
-        endfunc,
+        'process_rpath': toolchain.handler('linker', 'ld', 'process_rpath'),
+        'rpath': toolchain.handler('linker', 'ld', 'rpath'),
         'sanitize': toolchain.handler('linker', 'ld', 'sanitize'),
         'shared_module': ['-bundle'],
         'version': ['-v'],
@@ -390,9 +428,8 @@ toolchain.register_linker(
         'lib': func(_c compiler, lib str) -> list[str]
             return ['-l', lib]
         endfunc,
-        'rpath': func(c compiler, s1 str) -> list[str]
-            return c.machine().system() == 'windows' ? [] : ['-rpath,' + s1]
-        endfunc,
+        'process_rpath': toolchain.handler('linker', 'ld', 'process_rpath'),
+        'rpath': toolchain.handler('linker', 'ld', 'rpath'),
         'shared': ['-shared'],
         'shared_module': ['-shared'],
         'soname': func(_c compiler, s1 str) -> list[str]

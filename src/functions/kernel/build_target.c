@@ -629,21 +629,28 @@ create_target(struct workspace *wk,
 			}
 		}
 
-		obj rpath = make_obj(wk, obj_array);
-		if (akw[bt_kw_build_rpath].set) {
-			obj_array_push(wk, rpath, akw[bt_kw_build_rpath].val);
-		}
-
-		if (akw[bt_kw_install_rpath].set) {
-			obj_array_push(wk, rpath, akw[bt_kw_install_rpath].val);
-		}
-
 		struct build_dep_raw raw = {
 			.link_with = akw[bt_kw_link_with].val,
 			.link_whole = akw[bt_kw_link_whole].val,
 			.deps = akw[bt_kw_dependencies].val,
-			.rpath = rpath,
 		};
+
+		{
+			const struct {
+				struct args_kw *kw;
+				obj *dest;
+			} rpath_kwargs[] = {
+				{ &akw[bt_kw_build_rpath], &raw.build_rpath },
+				{ &akw[bt_kw_install_rpath], &raw.install_rpath },
+			};
+
+			for (uint32_t i = 0; i < ARRAY_LEN(rpath_kwargs); ++i) {
+				if (rpath_kwargs[i].kw->set && get_str(wk, rpath_kwargs[i].kw->val)->len) {
+					*rpath_kwargs[i].dest = make_obj(wk, obj_array);
+					obj_array_push(wk, *rpath_kwargs[i].dest, rpath_kwargs[i].kw->val);
+				}
+			}
+		}
 
 		if (!dependency_create(wk, &raw, &tgt->dep_internal, flags)) {
 			return false;
@@ -982,6 +989,22 @@ create_target(struct workspace *wk,
 		}
 	}
 
+	{ // Process rpath
+		// It would be nice to put this in dependency_create, but it requires a compiler
+		obj comp;
+		if (!obj_dict_geti(
+			    wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp)) {
+			UNREACHABLE;
+		}
+		struct args_kw akw[] = {
+			{ "build_rpath", .val = tgt->dep_internal.build_rpath },
+			{ "install_rpath", .val = tgt->dep_internal.install_rpath },
+			{ "build_dir", .val = tgt->build_dir },
+			0,
+		};
+		tgt->dep_internal.build_rpath = toolchain_linker_process_rpath(wk, comp, akw);
+	}
+
 	obj soname_install = 0, plain_name_install = 0;
 
 	// soname handling
@@ -1053,12 +1076,12 @@ create_target(struct workspace *wk,
 		}
 
 		{
-			obj rpath;
-			obj_array_for(wk, tgt->dep_internal.rpath, rpath) {
-				if (get_str(wk, rpath)->len) {
-					install_tgt->strip_rpaths = true;
-					break;
-				}
+			if (get_obj_array(wk, tgt->dep_internal.install_rpath)->len) {
+				install_tgt->add_rpaths = tgt->dep_internal.install_rpath;
+			}
+
+			if (get_obj_array(wk, tgt->dep_internal.build_rpath)->len) {
+				install_tgt->strip_rpaths = tgt->dep_internal.build_rpath;
 			}
 		}
 
@@ -1089,7 +1112,8 @@ create_target(struct workspace *wk,
 		.link_language = tgt->dep_internal.link_language,
 		.include_directories = tgt->dep_internal.include_directories,
 		.order_deps = tgt->dep_internal.order_deps,
-		.rpath = tgt->dep_internal.rpath,
+		.build_rpath = tgt->dep_internal.build_rpath,
+		.install_rpath = tgt->dep_internal.install_rpath,
 		.raw = tgt->dep_internal.raw,
 	};
 

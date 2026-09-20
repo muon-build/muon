@@ -2412,7 +2412,8 @@ obj_inspect_dep(struct workspace *wk, const char *pre, const struct build_dep *d
 	obj_lprintf(wk, log_info, "%ssources: %o\n", pre, dep->sources);
 	obj_lprintf(wk, log_info, "%sobjects: %o\n", pre, dep->objects);
 	obj_lprintf(wk, log_info, "%sorder_deps: %o\n", pre, dep->order_deps);
-	obj_lprintf(wk, log_info, "%srpath: %o\n", pre, dep->rpath);
+	obj_lprintf(wk, log_info, "%sbuild_rpath: %o\n", pre, dep->build_rpath);
+	obj_lprintf(wk, log_info, "%sinstall_rpath: %o\n", pre, dep->install_rpath);
 	obj_lprintf(wk, log_info, "%sframeworks: %o\n", pre, dep->frameworks);
 }
 

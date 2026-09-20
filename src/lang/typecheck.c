@@ -704,6 +704,13 @@ typecheck_closure_type_to_s(struct workspace *wk,
 			obj_array_push(wk, expected, typechecking_type_to_str(wk, sig->an[i].type));
 		}
 	}
+	if (sig->akw) {
+		for (uint32_t i = 0; sig->akw[i].key; ++i) {
+			obj_array_push(wk,
+				expected,
+				make_strf(wk, "%s %s:", sig->akw[i].key, typechecking_type_to_s(wk, sig->akw[i].type)));
+		}
+	}
 
 	obj joined;
 	obj_array_join(wk, false, expected, make_str(wk, ", "), &joined);
@@ -743,8 +750,13 @@ typecheck_closure(struct workspace *wk,
 	}
 
 	if (sig->akw) {
-		vm_error_at(wk, ip, "kwarg typechecking not currently supported");
-		return false;
+		// kwargs accepted
+		if (strcmp(sig->akw[0].key, "kwargs") == 0 && !sig->akw[1].key) {
+			// special case having a single kwarg `kwargs` as an escape hatch for now
+		} else {
+			vm_error_at(wk, ip, "kwarg typechecking not currently supported");
+			return false;
+		}
 	} else if (fn->nkwargs) {
 		// no kwargs accepted
 		goto type_err;

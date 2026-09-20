@@ -4,6 +4,8 @@
 - more cross file support
 - add a way to disable docs
 - set more muon meson defaults to improve drop in behavior
+- fully implement meson.add_devenv
+- improvements to rpath fixer
 - bump meson support to 1.11
     - 1.8.0
         - New argument android_exe_type for executables *stub*

@@ -733,13 +733,15 @@ ca_prepare_target_linker_args(struct workspace *wk,
 		}
 	}
 
-	obj v;
-	obj_array_for(wk, tgt->dep_internal.rpath, v) {
-		if (!get_str(wk, v)->len) {
-			continue;
-		}
-
-		ca_push_linker_args(wk, comp, tgt, toolchain_linker_rpath(wk, comp, get_cstr(wk, v)));
+	{
+		struct args_kw akw[] = {
+			{ "build_rpath", .val = tgt->dep_internal.build_rpath },
+			{ "install_rpath", .val = tgt->dep_internal.install_rpath },
+			{ "build_dir", .val = tgt->build_dir },
+			0,
+		};
+		tgt->dep_internal.build_rpath = toolchain_linker_process_rpath(wk, comp, akw);
+		ca_push_linker_args(wk, comp, tgt, toolchain_linker_rpath(wk, comp, tgt->dep_internal.build_rpath));
 	}
 
 	if (tgt->dep_internal.frameworks) {

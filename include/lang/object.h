@@ -252,7 +252,8 @@ struct build_dep {
 	obj link_with_not_found;
 	obj objects;
 	obj order_deps;
-	obj rpath;
+	obj build_rpath;
+	obj install_rpath;
 	obj sources;
 
 	struct build_dep_raw {
@@ -267,7 +268,8 @@ struct build_dep {
 		obj link_with_not_found;
 		obj objects;
 		obj order_deps;
-		obj rpath;
+		obj build_rpath;
+		obj install_rpath;
 		obj sources;
 
 		obj deps;
@@ -481,10 +483,11 @@ struct obj_install_target {
 	obj dest;
 	bool has_perm;
 	uint32_t perm;
-	obj exclude_directories; // obj_array of obj_string
-	obj exclude_files; // obj_array of obj_string
+	obj exclude_directories; // list[str]
+	obj exclude_files; // list[str]
 	enum install_target_type type;
-	bool strip_rpaths;
+	obj add_rpaths; // list[str]
+	obj strip_rpaths; // list[str]
 };
 
 struct obj_environment {

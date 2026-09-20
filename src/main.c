@@ -686,6 +686,7 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 		.b1 = true,
 		.i1 = 0,
 		.n1 = make_obj(wk, obj_array),
+		.n2 = make_obj(wk, obj_array),
 	};
 
 	obj comp = 0;

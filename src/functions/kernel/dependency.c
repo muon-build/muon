@@ -1719,8 +1719,12 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 		dep->order_deps = make_obj(wk, obj_array);
 	}
 
-	if (!dep->rpath) {
-		dep->rpath = make_obj(wk, obj_array);
+	if (!dep->build_rpath) {
+		dep->build_rpath = make_obj(wk, obj_array);
+	}
+
+	if (!dep->install_rpath) {
+		dep->install_rpath = make_obj(wk, obj_array);
 	}
 
 	if (!dep->sources) {
@@ -1776,8 +1780,12 @@ build_dep_merge(struct workspace *wk,
 		obj_array_extend(wk, dest->compile_args, src->compile_args);
 	}
 
-	if (src->rpath) {
-		obj_array_extend(wk, dest->rpath, src->rpath);
+	if (src->build_rpath) {
+		obj_array_extend(wk, dest->build_rpath, src->build_rpath);
+	}
+
+	if (src->install_rpath) {
+		obj_array_extend(wk, dest->install_rpath, src->install_rpath);
 	}
 
 	if (src->order_deps) {
@@ -1884,7 +1892,8 @@ dedup_build_dep(struct workspace *wk, struct build_dep *dep)
 	obj_array_dedup_in_place(wk, &dep->raw.link_with);
 	obj_array_dedup_in_place(wk, &dep->raw.link_whole);
 	obj_array_dedup_in_place(wk, &dep->include_directories);
-	obj_array_dedup_in_place(wk, &dep->rpath);
+	obj_array_dedup_in_place(wk, &dep->build_rpath);
+	obj_array_dedup_in_place(wk, &dep->install_rpath);
 	obj_array_dedup_in_place(wk, &dep->order_deps);
 	obj_array_dedup_in_place(wk, &dep->sources);
 	obj_array_dedup_in_place(wk, &dep->objects);
@@ -2018,8 +2027,8 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 
 			obj s = make_str(wk, p);
 
-			if (!obj_array_in(wk, ctx->dest->rpath, s)) {
-				obj_array_push(wk, ctx->dest->rpath, s);
+			if (!obj_array_in(wk, ctx->dest->build_rpath, s)) {
+				obj_array_push(wk, ctx->dest->build_rpath, s);
 			}
 		}
 
@@ -2040,7 +2049,7 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 		if (file_is_dynamic_lib(wk, val)) {
 			TSTR(dir);
 			path_dirname(wk, &dir, get_file_path(wk, val));
-			obj_array_push(wk, ctx->dest->rpath, tstr_into_str(wk, &dir));
+			obj_array_push(wk, ctx->dest->build_rpath, tstr_into_str(wk, &dir));
 		}
 		break;
 	}
@@ -2223,9 +2232,14 @@ dependency_create(struct workspace *wk,
 		obj_array_extend_nodup(wk, dep->link_with_not_found, raw->link_with_not_found);
 	}
 
-	if (raw->rpath && IS_INCLUDED(links)) {
-		obj_array_extend_nodup(wk, dep->rpath, raw->rpath);
+	if (raw->build_rpath && IS_INCLUDED(links)) {
+		obj_array_extend_nodup(wk, dep->build_rpath, raw->build_rpath);
 	}
+
+	if (raw->install_rpath && IS_INCLUDED(links)) {
+		obj_array_extend_nodup(wk, dep->install_rpath, raw->install_rpath);
+	}
+
 
 	if (raw->include_directories && IS_INCLUDED(includes)) {
 		enum include_type inc_type = include_type_preserve;

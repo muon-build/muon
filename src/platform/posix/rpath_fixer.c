@@ -14,7 +14,9 @@
 #include <string.h>
 
 #include "buf_size.h"
+#include "lang/object_iterators.h"
 #include "lang/string.h"
+#include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
@@ -197,8 +199,24 @@ parse_elf_dynamic(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 	return true;
 }
 
+static void
+push_rpath(struct workspace *wk, struct tstr *filtered, uint32_t *n, const struct str *path)
+{
+	if (*n) {
+		tstr_push(wk, filtered, ':');
+	}
+	tstr_pushn(wk, filtered, path->s, path->len);
+	++(*n);
+}
+
 static bool
-remove_paths(struct workspace *wk, FILE *f, struct elf_section *s_dynstr, struct elf_dynstr *str, const char *build_root, bool *cleared)
+update_paths(struct workspace *wk,
+	obj add_rpaths,
+	obj strip_rpaths,
+	FILE *f,
+	struct elf_section *s_dynstr,
+	struct elf_dynstr *str,
+	bool *cleared)
 {
 	const uint32_t rpath_src_off = s_dynstr->off + str->off;
 	if (!fs_fseek(f, rpath_src_off)) {
@@ -229,7 +247,7 @@ remove_paths(struct workspace *wk, FILE *f, struct elf_section *s_dynstr, struct
 
 	TSTR(path);
 	TSTR(filtered);
-	uint32_t n_kept = 0;
+	uint32_t n = 0;
 
 	struct str s = TSTR_STR(&src);
 	while (true) {
@@ -238,12 +256,19 @@ remove_paths(struct workspace *wk, FILE *f, struct elf_section *s_dynstr, struct
 		if (cut.before.len) {
 			tstr_clear(&path);
 			tstr_pushn(wk, &path, cut.before.s, cut.before.len);
-			if (!path_is_subpath(wk, build_root, path.buf)) {
-				if (n_kept) {
-					tstr_push(wk, &filtered, ':');
+
+			bool should_strip = false;
+			obj rpath;
+			obj_array_for(wk, strip_rpaths, rpath) {
+				const struct str *to_strip = get_str(wk, rpath);
+				if (str_eql(to_strip, &TSTR_STR(&path))) {
+					should_strip = true;
+					break;
 				}
-				tstr_pushn(wk, &filtered, cut.before.s, cut.before.len);
-				++n_kept;
+			}
+
+			if (!should_strip) {
+				push_rpath(wk, &filtered, &n, &cut.before);
 			}
 		}
 
@@ -254,8 +279,20 @@ remove_paths(struct workspace *wk, FILE *f, struct elf_section *s_dynstr, struct
 		s = cut.after;
 	}
 
-	if (!n_kept) {
+	if (add_rpaths) {
+		obj rpath;
+		obj_array_for(wk, add_rpaths, rpath) {
+			push_rpath(wk, &filtered, &n, get_str(wk, rpath));
+		}
+	}
+
+	if (!n) {
 		*cleared = true;
+	}
+
+	if (filtered.len > src.len) {
+		LOG_E("final rpath '%.*s' too long", filtered.len, filtered.buf);
+		return false;
 	}
 
 	// L("> final: '%.*s'", filtered.len, filtered.buf);
@@ -313,7 +350,7 @@ remove_path_entry(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 }
 
 bool
-fix_rpaths(struct workspace *wk, const char *elf_path, const char *build_root)
+fix_rpaths(struct workspace *wk, const char *elf_path, obj add_rpaths, obj strip_rpaths)
 {
 	bool ret = false;
 	FILE *f = NULL;
@@ -345,7 +382,7 @@ fix_rpaths(struct workspace *wk, const char *elf_path, const char *build_root)
 		}
 
 		bool cleared;
-		if (!remove_paths(wk, f, &s_dynstr, &rpaths[i], build_root, &cleared)) {
+		if (!update_paths(wk, add_rpaths, strip_rpaths, f, &s_dynstr, &rpaths[i], &cleared)) {
 			goto ret;
 		}
 

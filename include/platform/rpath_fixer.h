@@ -6,9 +6,8 @@
 #ifndef MUON_PLATFORM_RPATH_FIXER_H
 #define MUON_PLATFORM_RPATH_FIXER_H
 
-#include <stdbool.h>
-#include <stdio.h>
+#include "lang/types.h"
 
 struct workspace;
-bool fix_rpaths(struct workspace *wk, const char *elf_path, const char *build_root);
+bool fix_rpaths(struct workspace *wk, const char *elf_path, obj add_rpaths, obj strip_rpaths);
 #endif

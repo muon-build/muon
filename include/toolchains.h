@@ -106,6 +106,7 @@ enum compiler_visibility_type {
 #define TOOLCHAIN_SIG_2s TOOLCHAIN_PARAMS_BASE, const char *s1, const char *s2
 #define TOOLCHAIN_SIG_1s1b TOOLCHAIN_PARAMS_BASE, const char *s1, bool b1
 #define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, obj n1
+#define TOOLCHAIN_SIG_kw TOOLCHAIN_PARAMS_BASE, struct args_kw *akw
 #define TOOLCHAIN_SIG_0rb TOOLCHAIN_PARAMS_BASE
 #define TOOLCHAIN_SIG_1srb TOOLCHAIN_PARAMS_BASE, const char *s1
 
@@ -116,6 +117,7 @@ enum compiler_visibility_type {
 #define TOOLCHAIN_PARAMS_2s TOOLCHAIN_ARGS_RETURN, 2s, (TOOLCHAIN_SIG_2s), (TOOLCHAIN_PARAM_NAMES_BASE, s1, s2)
 #define TOOLCHAIN_PARAMS_1s1b TOOLCHAIN_ARGS_RETURN, 1s1b, (TOOLCHAIN_SIG_1s1b), (TOOLCHAIN_PARAM_NAMES_BASE, s1, b1)
 #define TOOLCHAIN_PARAMS_ns TOOLCHAIN_ARGS_RETURN, ns, (TOOLCHAIN_SIG_ns), (TOOLCHAIN_PARAM_NAMES_BASE, n1)
+#define TOOLCHAIN_PARAMS_kw TOOLCHAIN_ARGS_RETURN, kw, (TOOLCHAIN_SIG_kw), (TOOLCHAIN_PARAM_NAMES_BASE, akw)
 #define TOOLCHAIN_PARAMS_0rb bool, 0rb, (TOOLCHAIN_SIG_0rb), (TOOLCHAIN_PARAM_NAMES_BASE)
 #define TOOLCHAIN_PARAMS_1srb bool, 1srb, (TOOLCHAIN_SIG_1srb), (TOOLCHAIN_PARAM_NAMES_BASE, s1)
 
@@ -125,6 +127,7 @@ typedef obj ((*compiler_get_arg_func_1s)(TOOLCHAIN_SIG_1s));
 typedef obj ((*compiler_get_arg_func_2s)(TOOLCHAIN_SIG_2s));
 typedef obj ((*compiler_get_arg_func_1s1b)(TOOLCHAIN_SIG_1s1b));
 typedef obj ((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
+typedef obj ((*compiler_get_arg_func_kw)(TOOLCHAIN_SIG_kw));
 typedef bool ((*compiler_get_arg_func_0rb)(TOOLCHAIN_SIG_0rb));
 typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 
@@ -197,7 +200,8 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(lib, linker, TOOLCHAIN_PARAMS_1s)                    \
 	_(no_undefined, linker, TOOLCHAIN_PARAMS_0)            \
 	_(pgo, linker, TOOLCHAIN_PARAMS_1i)                    \
-	_(rpath, linker, TOOLCHAIN_PARAMS_1s)                  \
+	_(process_rpath, linker, TOOLCHAIN_PARAMS_kw)          \
+	_(rpath, linker, TOOLCHAIN_PARAMS_ns)                  \
 	_(sanitize, linker, TOOLCHAIN_PARAMS_ns)               \
 	_(shared, linker, TOOLCHAIN_PARAMS_0)                  \
 	_(shared_module, linker, TOOLCHAIN_PARAMS_0)           \
@@ -302,6 +306,7 @@ struct toolchain_dump_opts {
 	bool b1;
 	uint32_t i1;
 	obj n1;
+	obj n2;
 };
 void toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts);
 

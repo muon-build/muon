@@ -995,6 +995,7 @@ toolchain_detect(struct workspace *wk,
 #define TOOLCHAIN_PROTO_2s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_2s)
 #define TOOLCHAIN_PROTO_1s1b(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s1b)
 #define TOOLCHAIN_PROTO_ns(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_ns)
+#define TOOLCHAIN_PROTO_kw(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_kw)
 #define TOOLCHAIN_PROTO_0rb(name) static bool name(TOOLCHAIN_SIG_0rb)
 #define TOOLCHAIN_PROTO_1srb(name) static bool name(TOOLCHAIN_SIG_1srb)
 
@@ -1028,6 +1029,11 @@ TOOLCHAIN_PROTO_1s1b(toolchain_arg_empty_1s1b)
 TOOLCHAIN_PROTO_ns(toolchain_arg_empty_ns)
 {
 	return n1;
+}
+
+TOOLCHAIN_PROTO_kw(toolchain_arg_empty_kw)
+{
+	return make_obj(wk, obj_array);
 }
 
 TOOLCHAIN_PROTO_0rb(toolchain_arg_empty_0rb)
@@ -1087,6 +1093,7 @@ enum toolchain_arg_arity {
 	toolchain_arg_arity_2s,
 	toolchain_arg_arity_1s1b,
 	toolchain_arg_arity_ns,
+	toolchain_arg_arity_kw,
 	toolchain_arg_arity_0rb,
 	toolchain_arg_arity_1srb,
 };
@@ -1097,6 +1104,7 @@ struct toolchain_handler_info {
 	const char *desc;
 	const char *enum_arg;
 	struct args_norm an[4];
+	struct args_kw akw[2];
 	struct typecheck_closure_sig sig;
 };
 
@@ -1232,6 +1240,7 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(to_native, linker, .desc = "Convert arguments to linker-specific native format.");
 	doc(no_undefined, linker, .desc = "`--no-undefined`");
 	doc(pgo, linker, .desc = "", .enum_arg = "enum compiler_pgo_stage");
+	doc(process_rpath, linker, .desc = "process rpath directories");
 	doc(rpath, linker, .desc = "`-rpath`");
 	doc(sanitize, linker, .desc = "`-fsanitize`");
 	doc(shared, linker, .desc = "`-shared`");
@@ -1296,6 +1305,13 @@ toolchain_handler_info_init(struct workspace *wk)
 			}
 			case toolchain_arg_arity_ns: {
 				an[1].type = list_of_str;
+				break;
+			}
+			case toolchain_arg_arity_kw: {
+				struct args_kw *akw = handler->akw;
+				akw[0].key = "kwargs";
+				akw[0].type = TYPE_TAG_GLOB | tc_any;
+				handler->sig.akw = akw;
 				break;
 			}
 			case toolchain_arg_arity_0rb: {
@@ -1408,13 +1424,13 @@ enum toolchain_arg_by_component {
 static obj handle_toolchain_arg_override;
 
 static obj
-handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_norm *an)
+handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_norm *an, struct args_kw *akw)
 {
 	obj list = 0;
 	if (get_obj_type(wk, handle_toolchain_arg_override) == obj_array) {
 		list = handle_toolchain_arg_override;
 	} else {
-		if (!vm_eval_closure(wk, handle_toolchain_arg_override, an, 0, &list)) {
+		if (!vm_eval_closure(wk, handle_toolchain_arg_override, an, akw, &list)) {
 			UNREACHABLE;
 		}
 	}
@@ -1441,28 +1457,28 @@ static obj
 handle_toolchain_arg_override_0(TOOLCHAIN_SIG_0)
 {
 	struct args_norm an[] = { { .val = comp }, { ARG_TYPE_NULL } };
-	return handle_toolchain_arg_override_returning_args(wk, an);
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
 }
 
 static obj
 handle_toolchain_arg_override_1i(TOOLCHAIN_SIG_1i)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = i1 }, { ARG_TYPE_NULL } };
-	return handle_toolchain_arg_override_returning_args(wk, an);
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
 }
 
 static obj
 handle_toolchain_arg_override_1s(TOOLCHAIN_SIG_1s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { ARG_TYPE_NULL } };
-	return handle_toolchain_arg_override_returning_args(wk, an);
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
 }
 
 static obj
 handle_toolchain_arg_override_2s(TOOLCHAIN_SIG_2s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { .val = make_str(wk, s2) }, { ARG_TYPE_NULL } };
-	return handle_toolchain_arg_override_returning_args(wk, an);
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
 }
 
 static obj
@@ -1470,14 +1486,21 @@ handle_toolchain_arg_override_1s1b(TOOLCHAIN_SIG_1s1b)
 {
 	struct args_norm an[]
 		= { { .val = comp }, { .val = make_str(wk, s1) }, { .val = b1 ? obj_bool_true : obj_bool_false }, { ARG_TYPE_NULL }, };
-	return handle_toolchain_arg_override_returning_args(wk, an);
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
 }
 
 static obj
 handle_toolchain_arg_override_ns(TOOLCHAIN_SIG_ns)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = n1 }, { ARG_TYPE_NULL } };
-	return handle_toolchain_arg_override_returning_args(wk, an);
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
+}
+
+static obj
+handle_toolchain_arg_override_kw(TOOLCHAIN_SIG_kw)
+{
+	struct args_norm an[] = { { .val = comp }, { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_args(wk, an, akw);
 }
 
 static bool
@@ -1563,6 +1586,12 @@ toolchain_dump_args_ns(struct workspace *wk, obj args)
 }
 
 static void
+toolchain_dump_args_kw(struct workspace *wk, obj args)
+{
+	toolchain_print_dumped_args(wk, args);
+}
+
+static void
 toolchain_dump_args_0rb(struct workspace *wk, bool v)
 {
 	toolchain_print_dumped_bool(v);
@@ -1581,6 +1610,7 @@ toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts)
 	const bool b1 = opts->b1;
 	const uint32_t i1 = opts->i1;
 	obj n1 = opts->n1;
+	struct args_kw akw[] = { 0 };
 
 	printf("%-13s %-25s %-4s %s\n", "component", "name", "sig", "args");
 	printf("%-13s %-25s %-4s %s\n", "---", "---", "---", "---");
