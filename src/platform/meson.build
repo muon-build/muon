@@ -74,6 +74,10 @@ if platform == 'posix'
         deps += cc.find_library('nsl')
     endif
 
+    if host_machine.system() == 'haiku'
+        deps += cc.find_library('network')
+    endif
+
     librt = cc.find_library('rt', required: false)
     if librt.found()
         deps += librt

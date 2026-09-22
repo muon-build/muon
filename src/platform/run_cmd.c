@@ -205,10 +205,12 @@ run_cmd_determine_interpreter(struct workspace *wk,
 		return false;
 	}
 
-	// skip /usr/bin/env on windows
-	if (host_machine.is_windows && *new_argv1 && strcmp(*new_argv0, "/usr/bin/env") == 0) {
-		*new_argv0 = *new_argv1;
-		*new_argv1 = 0;
+	if (*new_argv1 && strcmp(*new_argv0, "/usr/bin/env") == 0) {
+		// skip /usr/bin/env on some platforms
+		if (build_machine.is_windows || build_machine.sys == machine_system_haiku) {
+			*new_argv0 = *new_argv1;
+			*new_argv1 = 0;
+		}
 	}
 
 	return true;
