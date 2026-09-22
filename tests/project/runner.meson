@@ -136,6 +136,14 @@ steps.check_install = func()
         path = build / destdir / f.file
         check = fs.is_file
 
+        if host_machine.system() == 'haiku'
+            # On Haiku, pkgconfig.generate() installs non-dataonly .pc files
+            # under $prefix/develop/lib/pkgconfig instead of $libdir/pkgconfig
+            # to match Haiku's pkg-config search path convention, see
+            # module_pkgconfig_generate() in src/functions/modules/pkgconfig.c
+            path = path.replace('/lib/pkgconfig/', '/develop/lib/pkgconfig/')
+        endif
+
         if 'platform' in f
             if f.platform.startswith('!')
                 if host_machine.system() == p(f.platform.substring(1))

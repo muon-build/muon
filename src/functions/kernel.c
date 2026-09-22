@@ -1490,6 +1490,7 @@ add_test_dep_lib_path_to_env(struct workspace *wk, struct obj_test *t, struct ob
 	const char *env_var = 0;
 	switch (machine_definitions[tgt->machine]->sys) {
 	case machine_system_darwin: env_var = "DYLD_LIBRARY_PATH"; break;
+	case machine_system_haiku: env_var = "LIBRARY_PATH"; break;
 	case machine_system_windows: break;
 	default: env_var = "LD_LIBRARY_PATH"; break;
 	}
@@ -1498,11 +1499,36 @@ add_test_dep_lib_path_to_env(struct workspace *wk, struct obj_test *t, struct ob
 		return true;
 	}
 
+	obj env_str = make_str(wk, env_var);
+
+	if (machine_definitions[tgt->machine]->sys == machine_system_haiku) {
+		// Unlike LD_LIBRARY_PATH on other systems, Haiku's runtime_loader only
+		// falls back to its built-in default library search path when
+		// LIBRARY_PATH is completely unset. Once it is set to anything, those
+		// defaults are dropped entirely. To avoid this problem, let's add the
+		// default value to LIBRARY_PATH + the value we need.
+		//
+		// source: https://github.com/haiku/haiku/blob/a1eac5f00572c8b996e60d4cfd8248a07d5f1fae/src/system/runtime_loader/runtime_loader.cpp#L107-L109
+		const char *default_paths[] = {
+			"/boot/system/non-packaged/lib",
+			"/boot/system/lib",
+		};
+
+		for (uint32_t i = 0; i < ARRAY_LEN(default_paths); ++i) {
+			if (!environment_set(wk,
+				    t->env,
+				    environment_set_mode_prepend,
+				    env_str,
+				    make_str(wk, default_paths[i]),
+				    0)) {
+				return false;
+			}
+		}
+	}
+
 	TSTR(rel);
 	relativize_build_file_path(wk, &rel, get_cstr(wk, tgt->build_dir));
-
-	if (!environment_set(
-		    wk, t->env, environment_set_mode_prepend, make_str(wk, env_var), tstr_into_str(wk, &rel), 0)) {
+	if (!environment_set(wk, t->env, environment_set_mode_prepend, env_str, tstr_into_str(wk, &rel), 0)) {
 		return false;
 	}
 
