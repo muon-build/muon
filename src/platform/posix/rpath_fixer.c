@@ -243,7 +243,7 @@ update_paths(struct workspace *wk,
 		}
 	}
 
-	// L("> original: '%.*s'", src.len, src.buf);
+	L("> original: '%.*s'", src.len, src.buf);
 
 	TSTR(path);
 	TSTR(filtered);
@@ -295,7 +295,7 @@ update_paths(struct workspace *wk,
 		return false;
 	}
 
-	// L("> final: '%.*s'", filtered.len, filtered.buf);
+	L("> final: '%.*s'", filtered.len, filtered.buf);
 
 	if (!fs_fseek(f, rpath_src_off)) {
 		return false;
@@ -352,6 +352,8 @@ remove_path_entry(FILE *f, struct elf *elf, struct elf_section *s_dynamic, struc
 bool
 fix_rpaths(struct workspace *wk, const char *elf_path, obj add_rpaths, obj strip_rpaths)
 {
+	LO("fixing rpaths +%o, -%o\n", add_rpaths, strip_rpaths);
+
 	bool ret = false;
 	FILE *f = NULL;
 	if (!(f = fs_fopen(elf_path, "r+"))) {
