@@ -412,6 +412,7 @@ struct toolchain_exe_detect_candidate {
 	obj output;
 	obj cmd_arr;
 	obj overrides;
+	obj ver;
 	bool found;
 };
 
@@ -459,12 +460,11 @@ static void
 toolchain_component_detect_apply_candidate(struct obj_compiler *compiler,
 	enum toolchain_component component,
 	const struct toolchain_exe_detect_candidate *candidate,
-	obj ver,
 	bool *found)
 {
 	compiler->cmd_arr[component] = candidate->cmd_arr;
 	compiler->type[component] = candidate->idx;
-	compiler->ver[component] = ver;
+	compiler->ver[component] = candidate->ver;
 	compiler->overrides[component] = candidate->overrides;
 	if (component == toolchain_component_compiler) {
 		compiler->ver_raw = candidate->output;
@@ -654,7 +654,9 @@ toolchain_component_detect(struct workspace *wk,
 		}
 	}
 
-	struct toolchain_exe_detect_candidate default_candidate = { .score = INT64_MIN };
+	struct toolchain_exe_detect_candidate default_candidate
+		= { .score = INT64_MIN, .ver = make_str(wk, "unknown") };
+	struct toolchain_exe_detect_candidate candidate = { .score = INT64_MIN };
 
 	// check each candidate
 	for (uint32_t i = 0; i < candidates_len; ++i) {
@@ -704,8 +706,6 @@ toolchain_component_detect(struct workspace *wk,
 		// check the candidate by querying it's output and running each
 		// registered component's detect function
 		{
-			struct toolchain_exe_detect_candidate candidate = { .score = INT64_MIN };
-
 			obj version_arg, list;
 			obj_dict_for(wk, toolchains_grouped_by_version_arg, version_arg, list) {
 				struct run_cmd_ctx cmd_ctx = { 0 };
@@ -745,24 +745,23 @@ toolchain_component_detect(struct workspace *wk,
 				goto check_next_candidate;
 			}
 
-			obj ver;
-			if (!guess_version(wk, get_str(wk, candidate.output)->s, &ver)) {
-				ver = make_str(wk, "unknown");
+			if (!guess_version(wk, get_str(wk, candidate.output)->s, &candidate.ver)) {
+				candidate.ver = make_str(wk, "unknown");
 			}
-
-			toolchain_component_detect_apply_candidate(compiler, component, &candidate, ver, found);
-			return true;
 		}
 
 check_next_candidate:
 		continue;
 	}
 
-	if (default_candidate.found) {
+	if (candidate.found) {
+		toolchain_component_detect_apply_candidate(compiler, component, &candidate, found);
+		return true;
+	} else if (default_candidate.found) {
 		// const struct toolchain_registry_component *base = arr_get(registry, default_candidate.idx);
 		// L("unable to detect %s type, falling back on %s", toolchain_component_to_s(component), base->id.id);
 		toolchain_component_detect_apply_candidate(
-			compiler, component, &default_candidate, make_str(wk, "unknown"), found);
+			compiler, component, &default_candidate, found);
 		return true;
 	}
 
