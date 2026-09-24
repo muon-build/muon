@@ -2,6 +2,6 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
 [wrap-git]
-url = https://github.com/muon-build/meson-tests
-revision = 65f8deac87b10a870c9cde4f15a455468fe8489a
+url = https://github.com/moi15moi/meson-tests
+revision = Fix-non-linux-+-haiku
 depth = 1
