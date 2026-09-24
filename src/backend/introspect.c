@@ -119,7 +119,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			obj_array_for(wk, t->src, file) {
 				const char *path = get_file_path(wk, file);
 				enum compiler_language file_lang;
-				if (!filename_to_compiler_language(path, &file_lang)) {
+				if (!filename_to_compiler_language(wk, path, &file_lang)) {
 					UNREACHABLE;
 				}
 

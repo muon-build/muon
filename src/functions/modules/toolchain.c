@@ -398,6 +398,66 @@ FUNC_IMPL(module_toolchain, register_archiver, tc_dict, .desc = "Register a new 
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_archiver, res);
 }
 
+FUNC_IMPL(module_toolchain, register_language, tc_dict, .desc = "Register metadata for a language")
+{
+	struct args_norm an[] = { { tc_string, .desc = "The language name (must match a known language)" }, ARG_TYPE_NULL };
+	enum kwargs {
+		kw_sources,
+		kw_std_option,
+		kw_link_as,
+		kw_link_preference,
+		kw_archiver_preference,
+		kw_requires,
+		kw_env,
+	};
+	struct args_kw akw[] = {
+		[kw_sources] = { "sources", tc_dict, .desc = "A dict mapping source extension to role ('compile', 'header' or 'object')." },
+		[kw_std_option] = { "std_option", tc_string, .desc = "Name of the per-project option carrying this language's standard/edition." },
+		[kw_link_as] = { "link_as", tc_string, .desc = "The link language this language contributes.  Defaults to itself." },
+		[kw_link_preference] = { "link_preference", tc_number, .desc = "Higher wins when a target mixes link languages." },
+		[kw_archiver_preference] = { "archiver_preference", tc_number, .desc = "Higher wins when selecting a target's archiver." },
+		[kw_requires] = { "requires", tc_array, .desc = "A list of prerequisite groups; each group is satisfied by any of its members." },
+		[kw_env] = { "env", tc_dict, .desc = "A dict of env-var override knobs, e.g. {'compiler': 'CC'}." },
+		0,
+	};
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	if (wk->vm.in_analyzer) {
+		*res = make_typeinfo(wk, tc_dict);
+		return true;
+	}
+
+	enum compiler_language l;
+	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)) {
+		vm_error_at(wk, an[0].node, "unknown language %o", an[0].val);
+		return false;
+	}
+
+	struct language_descriptor *d = language_descriptor_get(wk, l);
+	d->registered = true;
+	d->sources = akw[kw_sources].set ? akw[kw_sources].val : 0;
+	d->std_option = akw[kw_std_option].set ? akw[kw_std_option].val : 0;
+	d->requires = akw[kw_requires].set ? akw[kw_requires].val : 0;
+	d->env = akw[kw_env].set ? akw[kw_env].val : 0;
+	d->link_preference = akw[kw_link_preference].set ? get_obj_number(wk, akw[kw_link_preference].val) : 0;
+	d->archiver_preference = akw[kw_archiver_preference].set ? get_obj_number(wk, akw[kw_archiver_preference].val) : 0;
+
+	d->link_as = l;
+	if (akw[kw_link_as].set) {
+		enum compiler_language link_as;
+		if (!s_to_compiler_language(get_cstr(wk, akw[kw_link_as].val), &link_as)) {
+			vm_error_at(wk, akw[kw_link_as].node, "unknown link_as language %o", akw[kw_link_as].val);
+			return false;
+		}
+		d->link_as = link_as;
+	}
+
+	*res = make_obj(wk, obj_dict);
+	return true;
+}
+
 FUNC_IMPL(module_toolchain, handler, tc_closure | tc_array, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
 {
 	struct args_norm an[] = {
@@ -441,6 +501,7 @@ FUNC_REGISTER(module_toolchain)
 		FUNC_IMPL_REGISTER(module_toolchain, register_compiler);
 		FUNC_IMPL_REGISTER(module_toolchain, register_linker);
 		FUNC_IMPL_REGISTER(module_toolchain, register_archiver);
+		FUNC_IMPL_REGISTER(module_toolchain, register_language);
 		FUNC_IMPL_REGISTER(module_toolchain, handler);
 	}
 }

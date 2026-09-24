@@ -85,8 +85,8 @@ generated_list_process_file(struct workspace *wk,
 				const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
 
 				enum compiler_language l;
-				if (!*generated_include && filename_to_compiler_language(generated_path, &l)
-					&& languages[l].is_header) {
+				if (!*generated_include && filename_to_compiler_language(wk, generated_path, &l)
+					&& compiler_language_is_header(l)) {
 					*generated_include = true;
 				}
 
