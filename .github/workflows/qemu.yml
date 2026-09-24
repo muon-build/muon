@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: qemu
+
+on:
+  push:
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  QEMU-VMs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: cpa.sh {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_image: haiku
+            version: r1beta6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+
+      - name: Start VM on ${{ matrix.os_image }}
+        uses: cross-platform-actions/action@v1.6.0
+        with:
+          operating_system: ${{ matrix.os_image }}
+          version: ${{ matrix.version }}
+
+      - name: Install libcurl, libarchive, nasm and git
+        run: |
+          case "${{ matrix.os_image }}" in
+            haiku)
+              pkgman install -y curl_devel libarchive_devel nasm git
+              ;;
+          esac
+
+      - name: Bootstrap
+        run: |
+          extra_args=
+          case "${{ matrix.os_image }}" in
+            haiku)
+              export CC=gcc
+              ;;
+          esac
+          ./bootstrap.sh build
+          build/muon-bootstrap -v build $extra_args build
+
+      - name: Test
+        run: |
+          cd build
+          extra_args=
+          case "${{ matrix.os_image }}" in
+            haiku)
+              # haiku runs noticeably slower under qemu, so some of the
+              # heavier tests (recursive linking, function attributes)
+              # need more time to avoid timeout.
+              extra_args="-t 3"
+              ;;
+          esac
+          ./muon test -d dots $extra_args
