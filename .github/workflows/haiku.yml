@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-name: haiku
+name: QEMU
 
 on:
   push:
@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  haiku:
+  QEMU:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,6 +27,8 @@ jobs:
         include:
           - os_image: haiku
             version: r1beta6
+          - os_image: openbsd
+            version: "7.9"
     steps:
       - name: checkout
         uses: actions/checkout@master
@@ -43,12 +45,23 @@ jobs:
             haiku)
               pkgman install -y curl_devel libarchive_devel nasm git
               ;;
+            openbsd)
+              sudo pkg_add nasm git
+              ;;
           esac
 
       - name: bootstrap
         run: |
           extra_args=
           case "${{ matrix.os_image }}" in
+            openbsd)
+              export CC=cc
+              # OpenBSD's curl port only ships a static libcurl.a here,
+              # and without -Dstatic=true muon's pkg-config queries omit
+              # Libs.private, leaving openssl/ngtcp2/nghttp3 symbols
+              # undefined at link time.
+              extra_args=-Dlibcurl=disabled
+              ;;
             haiku)
               export CC=gcc
               ;;

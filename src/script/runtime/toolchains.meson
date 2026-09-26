@@ -186,7 +186,14 @@ toolchain.register_linker(
                 return []
             endif
 
-            return ['-rpath,' + joined]
+            args = []
+            if c.machine().system() in ['dragonfly', 'openbsd']
+                # To know why it is needed, see: https://github.com/mesonbuild/meson/blob/d1c7b4dae011e13a695c3303a050460f02655ccc/mesonbuild/linkers/linkers.py#L794-L800
+                args += ['-z,origin']
+            endif
+
+            args += ['-rpath,' + joined]
+            return args
         endfunc,
         'sanitize': func(_c compiler, sanitizers list[str]) -> list[str]
             res = []

@@ -690,6 +690,14 @@ ca_prepare_target_linker_args(struct workspace *wk,
 		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lundef", &lundef_opt);
 		bool lundef = get_obj_bool_with_default(wk, lundef_opt, true);
 
+		// On OpenBSD, shared libraries are not linked against libc, so
+		// references to libc symbols are left undefined.  This matches
+		// Meson's behavior for compatibility.
+		// Reference: https://github.com/mesonbuild/meson/pull/5041
+		if (machine_definitions[tgt->machine]->sys == machine_system_openbsd) {
+			lundef = false;
+		}
+
 		if (!(tgt->type & tgt_shared_module) && lundef) {
 			ca_push_linker_args(wk, comp, tgt, toolchain_linker_no_undefined(wk, comp));
 
