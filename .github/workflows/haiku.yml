@@ -38,34 +38,15 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: install dependencies
-        run: |
-          case "${{ matrix.os_image }}" in
-            haiku)
-              pkgman install -y curl_devel libarchive_devel nasm git
-              ;;
-          esac
+        run: pkgman install -y curl_devel libarchive_devel nasm git
 
       - name: bootstrap
         run: |
-          extra_args=
-          case "${{ matrix.os_image }}" in
-            haiku)
-              export CC=gcc
-              ;;
-          esac
+          export CC=gcc
           ./bootstrap.sh build
-          build/muon-bootstrap -v build $extra_args build
+          build/muon-bootstrap -v build build
 
       - name: test
         run: |
           cd build
-          extra_args=
-          case "${{ matrix.os_image }}" in
-            haiku)
-              # haiku runs noticeably slower under qemu, so some of the
-              # heavier tests (recursive linking, function attributes)
-              # need more time to avoid timeout.
-              extra_args="-t 3"
-              ;;
-          esac
-          ./muon test -d dots $extra_args
+          ./muon test -d dots -t 3
