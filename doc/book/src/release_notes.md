@@ -6,6 +6,7 @@
 - set more muon meson defaults to improve drop in behavior
 - fully implement meson.add_devenv
 - improvements to rpath fixer
+- improve haiku support
 - bump meson support to 1.11
     - 1.8.0
         - New argument android_exe_type for executables *stub*
