@@ -53,6 +53,9 @@ jobs:
     - uses: actions/checkout@master
       with:
         fetch-depth: 1
+    - name: Install dependencies
+      run: |
+          sudo apt-get install -y libarchive-dev
     - name: 'build tcc'
       run: |
         git clone --depth 1 https://github.com/muon-build/tcc
@@ -75,6 +78,9 @@ jobs:
     - uses: actions/checkout@master
       with:
         fetch-depth: 1
+    - name: Install dependencies
+      run: |
+          sudo apt-get install -y libarchive-dev
     - name: 'build tcc'
       run: |
         git clone --depth 1 https://github.com/muon-build/tcc
