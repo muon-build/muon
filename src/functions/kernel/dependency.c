@@ -108,6 +108,8 @@ struct dep_lookup_ctx {
 	bool from_cache;
 	bool from_override;
 	bool found;
+	bool fallback_allowed;
+	bool fallback_forced;
 };
 
 static obj
@@ -793,12 +795,19 @@ is_dependency_fallback_forced(struct workspace *wk, struct dep_lookup_ctx *ctx)
 	obj force_fallback_for, subproj_name;
 
 	get_option_value(wk, current_project(wk), "force_fallback_for", &force_fallback_for);
+
 	subproj_name = obj_array_index(wk, get_dependency_fallback_name(wk, ctx), 0);
 
 	enum wrap_mode wrap_mode = get_option_wrap_mode(wk);
 
-	return wrap_mode == wrap_mode_forcefallback || obj_array_in(wk, force_fallback_for, ctx->name)
-	       || obj_dict_in(wk, wk->subprojects, subproj_name);
+	// Force a fallback if:
+	return (
+		// all wraps are forced to fallback
+		wrap_mode == wrap_mode_forcefallback
+		// we have already descended into a subproject that provides this dependency
+		|| obj_dict_in(wk, wk->subprojects, subproj_name)
+		// This dependency name has been forced to fallback
+		|| obj_array_in(wk, force_fallback_for, ctx->name));
 }
 
 static bool
@@ -829,6 +838,7 @@ get_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 
 	if (is_dependency_fallback_forced(wk, ctx)) {
 		// This dependency is forced to fall-back, handle it later.
+		ctx->fallback_forced = true;
 		return true;
 	}
 
@@ -1107,32 +1117,6 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		}
 	}
 
-	/* A fallback is allowed if */
-	bool fallback_allowed = false;
-	if (akw[kw_allow_fallback].set) {
-		/* - allow_fallback: true */
-		fallback_allowed = get_obj_bool(wk, akw[kw_allow_fallback].val);
-	} else {
-		/* - allow_fallback is not specified and the requirement is required */
-		fallback_allowed = requirement == requirement_required
-				   /* - allow_fallback is not specified and the fallback keyword is
-		            *   specified with at least one value (i.e. not an empty array) */
-				   || (akw[kw_fallback].set && get_obj_array(wk, akw[kw_fallback].val)->len);
-	}
-
-	uint32_t fallback_err_node = 0;
-	obj fallback = 0;
-	if (fallback_allowed) {
-		if (akw[kw_fallback].set) {
-			fallback_err_node = akw[kw_fallback].node;
-			fallback = akw[kw_fallback].val;
-		} else if (akw[kw_allow_fallback].set) {
-			fallback_err_node = akw[kw_allow_fallback].node;
-		} else {
-			fallback_err_node = an[0].node;
-		}
-	}
-
 	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
 
 	struct args_kw handler_kwargs[] = {
@@ -1152,8 +1136,6 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		.machine = machine,
 		.versions = &akw[kw_version],
 		.err_node = an[0].node,
-		.fallback_node = fallback_err_node,
-		.fallback = fallback,
 		.default_options = &akw[kw_default_options],
 		.not_found_message = akw[kw_not_found_message].val,
 		.lib_mode = lib_mode,
@@ -1161,6 +1143,29 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		.modules = akw[kw_modules].val,
 		.lookup_method = lookup_method,
 	};
+
+	/* A fallback is allowed if */
+	if (akw[kw_allow_fallback].set) {
+		/* - allow_fallback: true */
+		ctx.fallback_allowed = get_obj_bool(wk, akw[kw_allow_fallback].val);
+	} else {
+		/* - allow_fallback is not specified and the requirement is required */
+		ctx.fallback_allowed = requirement == requirement_required
+				   /* - allow_fallback is not specified and the fallback keyword is
+		            *   specified with at least one value (i.e. not an empty array) */
+				   || (akw[kw_fallback].set && get_obj_array(wk, akw[kw_fallback].val)->len);
+	}
+
+	if (ctx.fallback_allowed) {
+		if (akw[kw_fallback].set) {
+			ctx.fallback_node = akw[kw_fallback].node;
+			ctx.fallback = akw[kw_fallback].val;
+		} else if (akw[kw_allow_fallback].set) {
+			ctx.fallback_node = akw[kw_allow_fallback].node;
+		} else {
+			ctx.fallback_node = an[0].node;
+		}
+	}
 
 	obj name;
 	obj_array_for(wk, an[0].val, name) {
@@ -1170,7 +1175,7 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		switch (handle_special_dependency(wk, &sub_ctx)) {
 		case handle_special_dependency_result_error: return false;
 		case handle_special_dependency_result_stop: {
-			fallback_allowed = false;
+			ctx.fallback_allowed = false;
 			break;
 		}
 		case handle_special_dependency_result_continue:
@@ -1192,10 +1197,13 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 			ctx.from_override = sub_ctx.from_override;
 			ctx.found = true;
 			break;
+		} else if (sub_ctx.fallback_forced) {
+			ctx.fallback_allowed = true;
+			break;
 		}
 	}
 
-	if (!ctx.found && fallback_allowed) {
+	if (!ctx.found && ctx.fallback_allowed) {
 		obj_array_for(wk, an[0].val, name) {
 			struct dep_lookup_ctx sub_ctx = ctx;
 			ctx.name = sub_ctx.name = name;
