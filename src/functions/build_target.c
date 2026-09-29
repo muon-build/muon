@@ -211,7 +211,7 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	}
 
 	enum compiler_language l;
-	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
+	if (!filename_to_compiler_language(wk, get_file_path(wk, file), &l)) {
 		return false;
 	}
 

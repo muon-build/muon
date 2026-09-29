@@ -782,19 +782,33 @@ option_env_var_mapping_for_machine(const char *env_var,
 	};
 }
 
+static const char *
+descriptor_env_var(struct workspace *wk, obj env, const char *key)
+{
+	obj name;
+	if (env && obj_dict_index_str(wk, env, key, &name)) {
+		return get_cstr(wk, name);
+	}
+	return 0;
+}
+
 static bool
 toolchain_component_option_info(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct option_env_var_mapping *mapping)
 {
-	const char *option_names[compiler_language_count][toolchain_component_count] = {
-		[compiler_language_c] = { "CC", "CC_LD", "AR" },
-		[compiler_language_cpp] = { "CXX", "CXX_LD", "AR" },
-		[compiler_language_objc] = { "OBJC", "OBJC_LD", "AR" },
-		[compiler_language_objcpp] = { "OBJCXX", "OBJCXX_LD", "AR" },
-		[compiler_language_nasm] = { "NASM", "NASM_LD", "AR" },
-		[compiler_language_vala] = { "VALAC", "VALAC_LD", "AR" },
-	};
+	obj env = wk->toolchain_registry.descriptors[l].env;
 
-	const char *n = option_names[l][c];
+	const char *n = 0;
+	switch (c) {
+	case toolchain_component_compiler: n = descriptor_env_var(wk, env, "compiler"); break;
+	case toolchain_component_linker: n = descriptor_env_var(wk, env, "linker"); break;
+	case toolchain_component_archiver:
+		// The archiver knob (AR) is shared across languages, but only offered
+		// by languages that carry env knobs at all.
+		n = env ? "AR" : 0;
+		break;
+	default: break;
+	}
+
 	if (!n) {
 		return false;
 	}
@@ -883,29 +897,21 @@ init_dynamic_compiler_options(struct workspace *wk, bool is_first)
 #undef TOOLCHAIN_ENUM
 	};
 
-	static const struct compile_opt_env_var {
-		const char *compile_flags;
-		const char *link_flags;
-		const char *preprocess_flags;
-	} compile_opt_env_var[compiler_language_count] = {
-		[compiler_language_c] = { "CFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_cpp] = { "CXXFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_objc] = { "OBJCFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS", "CPPFLAGS" },
-	};
-
 	uint32_t i, machine;
 	for (i = 0; i < ARRAY_LEN(langs); ++i) {
 		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine) {
 			const char *option_prefix = machine == machine_kind_build ? option_group_build : "";
-			const struct compile_opt_env_var *ev = &compile_opt_env_var[langs[i].l];
+			obj env = wk->toolchain_registry.descriptors[langs[i].l].env;
+			const char *compile_flags = descriptor_env_var(wk, env, "compile_flags");
+			const char *link_flags = descriptor_env_var(wk, env, "link_flags");
+			const char *preprocess_flags = descriptor_env_var(wk, env, "preprocess_flags");
 
 			struct {
 				obj option;
 				const char *env_var[2];
 			} custom_env_options[] = {
-				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), { ev->compile_flags, ev->preprocess_flags } },
-				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), { ev->link_flags, ev->preprocess_flags } },
+				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), { compile_flags, preprocess_flags } },
+				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), { link_flags, preprocess_flags } },
 			};
 
 			for (uint32_t o = 0; o < ARRAY_LEN(custom_env_options); ++o) {
