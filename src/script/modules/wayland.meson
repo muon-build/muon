@@ -23,19 +23,15 @@ M.find_protocol = func(
         )
     endif
 
-    if state == 'stable'
-        if not is_null(version)
-            error('For stable protocols, the version keyword is not allowed.')
-        endif
-    else
-        if is_null(version)
-            error(
-                f'For \'@state@\' protocols, the \'version\' keyword is required.',
-            )
-        elif version <= 0
-            error('version must be a positive integer')
-        endif
-    endif
+	if is_null(version)
+		if ['staging', 'unstable'].contains(state)
+			error(
+				f'For \'@state@\' protocols, the \'version\' keyword is required.',
+			)
+		endif
+	elif version <= 0
+		error('version must be a positive integer')
+	endif
 
     # Resolve the wayland-protocols pkgdatadir.
     # Prefer dependency pkgconfig var, fall back to common installation paths if not found.
@@ -57,8 +53,11 @@ M.find_protocol = func(
         if state == 'stable'
             candidate_paths += pkgdatadir / name / f'@name@.xml'
             candidate_paths += pkgdatadir / 'stable' / name / f'@name@.xml'
+            if not is_null(version)
+            	candidate_paths += pkgdatadir / 'stable' / name / f'@name@-v@version@.xml'
+            endif
         elif state == 'staging'
-            candidate_paths += pkgdatadir / 'staging' / name / f'@name@.xml'
+            candidate_paths += pkgdatadir / 'staging' / name / f'@name@-v@version@.xml'
         else
             # unstable
             candidate_paths += pkgdatadir / 'unstable' / name / f'@name@-unstable-v@version@.xml'
