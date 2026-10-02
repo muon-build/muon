@@ -38,3 +38,15 @@ foreach t : tests
 
     test(t[0], muon, args: args, kwargs: kwargs, suite: 'lang')
 endforeach
+
+test(
+    'unexpected_func',
+    muon,
+    args: [
+        'internal',
+        'eval',
+        meson.current_source_dir() / 'unexpected_func.meson',
+        muon,
+    ],
+    suite: 'lang',
+)
