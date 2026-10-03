@@ -28,7 +28,8 @@ struct obj_compiler;
 	_(nasm)                              \
 	_(masm)                              \
 	_(rust)                              \
-	_(vala)
+	_(vala)                              \
+	_(fortran)
 
 #define TOOLCHAIN_ENUM(lang) compiler_language_##lang,
 enum compiler_language {

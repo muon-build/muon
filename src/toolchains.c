@@ -185,6 +185,7 @@ static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_masm] = "masm",
 	[compiler_language_rust] = "rust",
 	[compiler_language_vala] = "vala",
+	[compiler_language_fortran] = "fortran",
 };
 
 static const char *compiler_language_gcc_names[compiler_language_count] = {
@@ -316,6 +317,8 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 		break;
 	case compiler_language_rust:
 		return compiler_language_rust;
+	case compiler_language_fortran:
+		return compiler_language_fortran;
 	case compiler_language_count: UNREACHABLE;
 	}
 
