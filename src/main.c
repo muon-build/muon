@@ -993,6 +993,8 @@ cmd_install(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv
 		return false;
 	}
 
+	workspace_setup_paths(wk, path_cwd(), argv[0], 0);
+
 	return install_run(wk, &opts);
 }
 

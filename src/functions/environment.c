@@ -116,16 +116,14 @@ set_default_environment_vars(struct workspace *wk, obj env, bool set_subdir)
 		return;
 	}
 
-	if (wk->argv0) {
-		// argv0 may not be set, e.g. during `muon install`
-		environment_or_dict_set(wk, env, "MUON_PATH", wk->argv0);
+	assert(wk->argv0);
+	environment_or_dict_set(wk, env, "MUON_PATH", wk->argv0);
 
-		obj introspect = make_obj(wk, obj_array);
-		obj_array_push(wk, introspect, make_str(wk, wk->argv0));
-		obj_array_push(wk, introspect, make_str(wk, "meson"));
-		obj_array_push(wk, introspect, make_str(wk, "introspect"));
-		environment_or_dict_set(wk, env, "MESONINTROSPECT", get_str(wk, join_args_shell(wk, introspect))->s);
-	}
+	obj introspect = make_obj(wk, obj_array);
+	obj_array_push(wk, introspect, make_str(wk, wk->argv0));
+	obj_array_push(wk, introspect, make_str(wk, "meson"));
+	obj_array_push(wk, introspect, make_str(wk, "introspect"));
+	environment_or_dict_set(wk, env, "MESONINTROSPECT", get_str(wk, join_args_shell(wk, introspect))->s);
 	environment_or_dict_set(wk, env, "MESON_BUILD_ROOT", wk->build_root);
 	environment_or_dict_set(wk, env, "MESON_SOURCE_ROOT", wk->source_root);
 
