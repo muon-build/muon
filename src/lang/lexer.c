@@ -798,7 +798,8 @@ restart:
 				if (doc_comment) {
 					if (lexer->src[lexer->i] == '\n') {
 						uint32_t skip = 1;
-						while (strchr(" \t", lexer->src[lexer->i + skip])) {
+						while (lexer->i + skip < lexer->source->len
+							&& strchr(" \t", lexer->src[lexer->i + skip])) {
 							++skip;
 						}
 
