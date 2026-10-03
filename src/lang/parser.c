@@ -1400,7 +1400,7 @@ static const struct parse_rule parse_rules_base[token_type_count] = {
 	['.']                    = { 0,              parse_member,  parse_precedence_call       },
 	['?']                    = { 0,              parse_ternary, parse_precedence_assignment },
 	[token_type_not]         = { parse_unary,    0,             0                           },
-	[token_type_func]        = { parse_func,     0,             parse_precedence_assignment },
+	[token_type_func]        = { parse_func,     0,             0                           },
 };
 
 static const struct parse_behavior parse_behavior_base = {
