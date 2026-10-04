@@ -23,6 +23,7 @@ tests = [
     ['scope.meson'],
     ['scope_err_hoist.meson', {'should_fail': true}],
     ['shlex.meson'],
+    ['slice.meson'],
     ['string_format_escape.meson'],
     ['strings.meson'],
     ['ternary.meson'],
