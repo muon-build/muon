@@ -241,10 +241,15 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			.requirement = requirement_required,
 			.machine = machine_kind_build,
 		};
-		if (!find_program(wk, &fp_ctx, make_str(wk, "ninja"))) {
-			goto ret;
-		} else if (!fp_ctx.found) {
-			goto ret;
+
+		// try and look for samu first
+		if (!find_program(wk, &fp_ctx, make_str(wk, "samu"))) {
+			// now look for ninja
+			if (!find_program(wk, &fp_ctx, make_str(wk, "ninja"))) {
+				goto ret;
+			} else if (!fp_ctx.found) {
+				goto ret;
+			}
 		}
 
 		struct obj_external_program *ep = get_obj_external_program(wk, found_ninja);
