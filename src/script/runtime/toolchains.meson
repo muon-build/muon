@@ -120,7 +120,6 @@ toolchain.register_linker(
         'def': func(_c compiler, s1 str) -> list[str]
             return [s1]
         endfunc,
-        'enable_lto': ['-flto'],
         'end_group': ['--end-group'],
         'export_dynamic': func(c compiler) -> list[str]
             if c.machine().system() == 'windows'
@@ -254,7 +253,6 @@ toolchain.register_linker(
     endfunc,
     handlers: {
         'allow_shlib_undefined': ['-undefined', 'dynamic_lookup'],
-        'enable_lto': ['-flto'],
         'process_rpath': toolchain.handler('linker', 'ld', 'process_rpath'),
         'rpath': toolchain.handler('linker', 'ld', 'rpath'),
         'sanitize': toolchain.handler('linker', 'ld', 'sanitize'),
@@ -574,6 +572,8 @@ toolchain.register_compiler(
         'pic': func(c compiler) -> list[str]
             return c.machine().system() == 'windows' ? [] : ['-fPIC']
         endfunc,
+        'lto_compile': null,
+        'lto_link': null,
         'force_language': func(_c compiler, s str) -> list[str]
             return ['-x', s]
         endfunc,
@@ -618,7 +618,20 @@ toolchain.register_compiler(
             return ['-MD', '-MQ', s1, '-MF', s2]
         endfunc,
         'deps_type': ['gcc'],
-        'enable_lto': ['-flto'],
+        'lto_compile': func(c compiler, threads str) -> list[str]
+            if threads == '0'
+                # GCC 10 added automatic LTO jobs: https://gcc.gnu.org/gcc-10/changes.html
+                return c.version().version_compare('>=10') ? ['-flto=auto'] : ['-flto']
+            endif
+            return ['-flto=' + threads]
+        endfunc,
+        'lto_link': func(c compiler, threads str) -> list[str]
+            if threads == '0'
+                # GCC 10 added automatic LTO jobs: https://gcc.gnu.org/gcc-10/changes.html
+                return c.version().version_compare('>=10') ? ['-flto=auto'] : ['-flto']
+            endif
+            return ['-flto=' + threads]
+        endfunc,
         'include_dirafter': func(_c compiler, s1 str) -> list[str]
             return ['-idirafter', s1]
         endfunc,
@@ -889,6 +902,20 @@ toolchain.register_compiler(
         return 'clang' in out.to_lower() ? 50 : 0
     endfunc,
     handlers: {
+        'lto_compile': func(_c compiler, _threads str) -> list[str]
+            return ['-flto']
+        endfunc,
+        'lto_link': func(c compiler, threads str) -> list[str]
+            args = ['-flto']
+            if threads != '0'
+                # Clang 4 added -flto-jobs: https://reviews.llvm.org/D24826
+                if c.version().version_compare('<4.0')
+                    error('LTO thread selection requires Clang 4.0 or newer')
+                endif
+                args += ['-flto-jobs=' + threads]
+            endif
+            return args
+        endfunc,
         'can_compile_llvm_ir': true,
         'color_output': func(_c compiler, s str) -> list[str]
             return ['-fdiagnostics-color=' + s]

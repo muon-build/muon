@@ -153,7 +153,8 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(do_linker_passthrough, compiler, TOOLCHAIN_PARAMS_0rb)   \
 	_(dumpmachine, compiler, TOOLCHAIN_PARAMS_0)               \
 	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)                  \
-	_(enable_lto, compiler, TOOLCHAIN_PARAMS_0)                \
+	_(lto_compile, compiler, TOOLCHAIN_PARAMS_1s)              \
+	_(lto_link, compiler, TOOLCHAIN_PARAMS_1s)                  \
 	_(force_language, compiler, TOOLCHAIN_PARAMS_1s)           \
 	_(include, compiler, TOOLCHAIN_PARAMS_1s)                  \
 	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)         \
@@ -190,7 +191,6 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(coverage, linker, TOOLCHAIN_PARAMS_0)                \
 	_(debug, linker, TOOLCHAIN_PARAMS_0)                   \
 	_(def, linker, TOOLCHAIN_PARAMS_1s)                    \
-	_(enable_lto, linker, TOOLCHAIN_PARAMS_0)              \
 	_(end_group, linker, TOOLCHAIN_PARAMS_0)               \
 	_(export_dynamic, linker, TOOLCHAIN_PARAMS_0)          \
 	_(fatal_warnings, linker, TOOLCHAIN_PARAMS_0)          \
