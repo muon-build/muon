@@ -241,9 +241,16 @@ ninja_run(struct workspace *wk, obj args, const char *chdir, const char *capture
 			.requirement = requirement_required,
 			.machine = machine_kind_build,
 		};
-		if (!find_program(wk, &fp_ctx, make_str(wk, "ninja"))) {
-			goto ret;
-		} else if (!fp_ctx.found) {
+
+		const char *ninja_impls[] = { "ninja", "samu" };
+
+		for (uint32_t i = 0; i < ARRAY_LEN(ninja_impls); ++i) {
+			if (find_program(wk, &fp_ctx, make_str(wk, ninja_impls[i])) && fp_ctx.found) {
+				break;
+			}
+		}
+
+		if (!fp_ctx.found) {
 			goto ret;
 		}
 
