@@ -50,6 +50,8 @@
 
 ## ✓ 0.6.0
 
+released on 2026.06.21
+
 - internals / language features
     - in script mode: refactor how scope works, all variable resolution happens
       at compile time, globals are disallowed.  Improves performance and
@@ -86,6 +88,8 @@
 
 ## ✓ 0.5.0
 
+released on 2025.07.28
+
 - muon analyze now has an LSP mode
 - pkg-config-exec backend added.  muon now supports shelling out to pkg-config
   (or pkgconf).
@@ -104,6 +108,8 @@
     - m-hugo (1)
 
 ## ✓ 0.4.0
+
+released on 2025.02.12
 
 - More windows improvements
     - only ~30 tests failing with msvc
@@ -141,6 +147,8 @@
 
 ## ✓ 0.3.0
 
+released on 2024.09.24
+
 - Brand-new interpreter: <https://mochiro.moe/posts/10-muon-internals/>
 - Lots of windows improvements
     - bootstrap.bat
@@ -172,3 +180,11 @@
     - rofl0r (1)
     - sewn (1)
     - torque (1)
+
+## ✓ 0.2.0
+
+released on 2023.04.07
+
+## ✓ 0.1.0
+
+released on 2022.10.11
