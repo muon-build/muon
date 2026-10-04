@@ -1,6 +1,9 @@
 # Release Notes
 
-##   0.7.0
+## ✓ 0.7.0
+
+released on 2026.10.04
+
 - more cross file support
 - add a way to disable docs
 - set more muon meson defaults to improve drop in behavior
@@ -47,6 +50,17 @@
         - windows.compile_resources now detects header changes with rc.exe
         - Added implicit_include_directories argument to windows.compile_resources
         - Console kwarg on run_command
+- 10 contributors:
+    - Daksh Mamodiya (3)
+    - Jan200101 (1)
+    - Juri Sacchetta (2)
+    - Ross Burton (1)
+    - Stone Tickle (137)
+    - VaiTon (1)
+    - kzc (11)
+    - moi15moi (7)
+    - tox (1)
+    - uni-dos (1)
 
 ## ✓ 0.6.0
 
