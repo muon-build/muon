@@ -9,6 +9,19 @@ tests = [
     ['muon/python', {'python': true}],
     ['muon/script_module'],
     ['muon/wayland'],
+    ['muon/subproject_promotion'],
+    [
+        'muon/subproject_promotion_wrap',
+        {'skip_analyze': true, 'options': {'wrap_mode': 'nodownload'}},
+    ],
+    [
+        'muon/subproject_promotion_wrap_error',
+        {
+            'should_fail': true,
+            'skip_analyze': true,
+            'options': {'wrap_mode': 'nodownload'},
+        },
+    ],
     ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
     ['muon/vala', {'vala': true}],
     ['muon/disabler', {}],
