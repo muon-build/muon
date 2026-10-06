@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include <inttypes.h>
 #include <string.h>
 
 #include "args.h"
@@ -240,6 +241,23 @@ ca_get_option_compile_args(struct workspace *wk,
 }
 
 static void
+ca_warn_lto_unsupported(struct workspace *wk, obj comp, const struct obj_build_target *tgt, bool linking)
+{
+	const struct obj_compiler *c = get_obj_compiler(wk, comp);
+	const char *compiler = toolchain_component_type_to_id(wk, toolchain_component_compiler,
+		c->type[toolchain_component_compiler])->id;
+	if (linking) {
+		const char *linker = toolchain_component_type_to_id(wk, toolchain_component_linker,
+			c->type[toolchain_component_linker])->id;
+		LOG_W("target '%s': LTO requested, but compiler/linker combination '%s'/'%s' does not provide LTO linking support",
+			get_cstr(wk, tgt->name), compiler, linker);
+	} else {
+		LOG_W("target '%s': LTO requested, but compiler '%s' does not provide LTO compilation support",
+			get_cstr(wk, tgt->name), compiler);
+	}
+}
+
+static void
 ca_setup_optional_b_args_compiler(struct workspace *wk,
 	obj comp,
 	const struct project *proj,
@@ -286,7 +304,15 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
-		obj_array_extend(wk, args, toolchain_compiler_enable_lto(wk, comp));
+		obj threads_id;
+		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto_threads", &threads_id);
+		const char *threads = get_cstr(wk, make_strf(wk, "%" PRId64, get_obj_number(wk, threads_id)));
+		obj lto_args = toolchain_compiler_lto_compile(wk, comp, threads);
+		if (!lto_args) {
+			ca_warn_lto_unsupported(wk, comp, tgt, false);
+		} else {
+			obj_array_extend(wk, args, lto_args);
+		}
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);
@@ -624,7 +650,15 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
-		obj_array_extend(wk, args, toolchain_linker_enable_lto(wk, comp));
+		obj threads_id;
+		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto_threads", &threads_id);
+		const char *threads = get_cstr(wk, make_strf(wk, "%" PRId64, get_obj_number(wk, threads_id)));
+		obj lto_args = toolchain_compiler_lto_link(wk, comp, threads);
+		if (!lto_args) {
+			ca_warn_lto_unsupported(wk, comp, tgt, true);
+		} else {
+			obj_array_extend(wk, args, lto_args);
+		}
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);

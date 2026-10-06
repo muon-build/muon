@@ -1105,6 +1105,7 @@ struct toolchain_handler_info {
 	enum toolchain_arg_arity arity;
 	const char *desc;
 	const char *enum_arg;
+	bool allow_null;
 	struct args_norm an[4];
 	struct args_kw akw[2];
 	struct typecheck_closure_sig sig;
@@ -1152,6 +1153,7 @@ toolchain_handler_info_doc(enum toolchain_component component, const char *name,
 
 	info->desc = src->desc;
 	info->enum_arg = src->enum_arg;
+	info->allow_null = src->allow_null;
 }
 
 static void
@@ -1188,7 +1190,16 @@ toolchain_handler_info_init(struct workspace *wk)
 		= "`true` if the linker should only be invoked through the compiler driver, or `false` if the linker should be invoked directly.");
 	doc(dumpmachine, compiler, .desc = "Argument to output the compiler's target triple.");
 	doc(emit_pch, compiler, .desc = "");
-	doc(enable_lto, compiler, .desc = "`-flto`");
+	doc(lto_compile, compiler,
+		.allow_null = true,
+		.desc = "Link-time optimization compile arguments."
+		" Receives the thread count as a string; `0` means automatic."
+		" Return `null` if unsupported, or a list of arguments (possibly empty) if supported.");
+	doc(lto_link, compiler,
+		.allow_null = true,
+		.desc = "Link-time optimization link arguments."
+		" Receives the thread count as a string; `0` means automatic."
+		" Return `null` if unsupported, or a list of arguments (possibly empty) if supported.");
 	doc(force_language, compiler, .desc = "`-x`");
 	doc(include, compiler, .desc = "`-I`");
 	doc(include_dirafter, compiler, .desc = "`-idirafter`");
@@ -1230,7 +1241,6 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(coverage, linker, .desc = "`--coverage`");
 	doc(debug, linker, .desc = "`/DEBUG`");
 	doc(def, linker, .desc = "`/DEF`");
-	doc(enable_lto, linker, .desc = "`-flto`");
 	doc(end_group, linker, .desc = "`--end-group`");
 	doc(export_dynamic, linker, .desc = "`-export-dynamic`");
 	doc(fatal_warnings, linker, .desc = "`--fatal-warnings`");
@@ -1274,6 +1284,9 @@ toolchain_handler_info_init(struct workspace *wk)
 		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
 			struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
 			handler->sig.return_type = list_of_str;
+			if (handler->allow_null) {
+				handler->sig.return_type = make_complex_type(wk, complex_type_or, list_of_str, TYPE_TAG_ALLOW_NULL);
+			}
 			struct args_norm *an = handler->an;
 			an[0].type = tc_compiler;
 			an[1].type = ARG_TYPE_NULL;
@@ -1371,7 +1384,15 @@ toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, en
 		}
 
 		if (get_obj_type(wk, v) == obj_closure) {
-			if (!typecheck_closure(wk, ip, v, &handler->sig, name->s)) {
+			struct typecheck_closure_sig sig = handler->sig;
+			if (handler->allow_null) {
+				const type_tag return_type = get_obj_closure(wk, v)->func->return_type;
+				if (return_type == TYPE_TAG_ALLOW_NULL
+					|| type_tags_eql(wk, return_type, complex_type_preset_get(wk, tc_cx_list_of_str))) {
+					sig.return_type = return_type;
+				}
+			}
+			if (!typecheck_closure(wk, ip, v, &sig, name->s)) {
 				return false;
 			}
 
@@ -1526,6 +1547,10 @@ handle_toolchain_arg_override_1srb(TOOLCHAIN_SIG_1srb)
 			wk, comp, toolchain_component_##component, toolchain_arg_by_component_##component##_name); \
 		if (handle_toolchain_arg_override) {                                                               \
 			return handle_toolchain_arg_override_##_type names;                                        \
+		}                                                                                                  \
+		if (toolchain_arg_handlers[toolchain_component_##component]                                         \
+			.handlers[toolchain_arg_by_component_##component##_name].allow_null) {                     \
+			return 0;                                                                                 \
 		}                                                                                                  \
 		return toolchain_arg_empty_ ##_type names;                                                                    \
 	}
@@ -1710,4 +1735,3 @@ compilers_init(struct workspace *wk)
 
 	toolchain_handler_info_init(wk);
 }
-

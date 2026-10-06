@@ -398,7 +398,7 @@ FUNC_IMPL(module_toolchain, register_archiver, tc_dict, .desc = "Register a new 
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_archiver, res);
 }
 
-FUNC_IMPL(module_toolchain, handler, tc_closure | tc_array, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
+FUNC_IMPL(module_toolchain, handler, tc_closure | tc_array | TYPE_TAG_ALLOW_NULL, func_impl_flag_impure, .desc = "Retrieve a previously defined handler")
 {
 	struct args_norm an[] = {
 		{ tc_string },

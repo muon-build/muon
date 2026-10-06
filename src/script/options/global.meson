@@ -237,7 +237,7 @@ option(
     value: 0,
     min: 0,
     description: 'Use multiple threads for Link Time Optimization',
-) # TODO
+)
 option(
     'b_lto_mode',
     type: 'combo',

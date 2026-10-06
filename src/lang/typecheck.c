@@ -337,7 +337,7 @@ typecheck_complex_type(struct workspace *wk, obj got_obj, type_tag got_type, typ
 			got_type = flatten_type(wk, got_type);
 		}
 
-		got_type &= ~obj_typechecking_type_tag;
+		got_type &= ~(obj_typechecking_type_tag | TYPE_TAG_ALLOW_NULL);
 
 		if (!got_type && ((type & TYPE_TAG_ALLOW_NULL) || !(type & ~TYPE_TAG_MASK))) {
 			return true;
@@ -646,7 +646,7 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 				tc_closure,
 				make_complex_type(wk,
 					complex_type_or,
-					tc_bool,
+					tc_bool | TYPE_TAG_ALLOW_NULL,
 					complex_type_preset_get(wk, tc_cx_list_of_str))));
 		break;
 	}
