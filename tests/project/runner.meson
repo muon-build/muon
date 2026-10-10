@@ -19,7 +19,7 @@ skip_uninstall = argv[9] == '1'
 extra_setup_opts = argv.slice(10)
 destdir = 'destdir'
 if ninja == 'USE_MUON'
-    ninja = [muon, 'samu']
+    ninja = [fs.make_absolute(muon), 'samu']
 else
     ninja = [ninja]
 endif
