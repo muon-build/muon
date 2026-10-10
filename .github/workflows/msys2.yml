@@ -18,6 +18,8 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
+        sys: [mingw32, mingw64, ucrt64, clang64, clangarm64]
+        buildsystem: [muon, meson]
         include:
           - { sys: mingw32, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
           - { sys: mingw64, cc: gcc, cxx: 'g++', args: '', runs-on: 'windows-latest' }
@@ -25,7 +27,7 @@ jobs:
           - { sys: clang64, cc: clang, cxx: 'clang++', args: '-Db_sanitize=address,undefined', runs-on: 'windows-latest' }
           - { sys: clangarm64, cc: clang, cxx: 'clang++', args: '', runs-on: 'windows-11-arm' }
       fail-fast: false
-    name: ${{ matrix.sys }}
+    name: ${{ matrix.sys }} (${{ matrix.buildsystem }})
     defaults:
       run:
         shell: msys2 {0}
@@ -44,13 +46,26 @@ jobs:
           pkgconf:p
           curl:p
           libarchive:p
-    - name: 'Build'
+          ${{ matrix.buildsystem == 'meson' && 'meson:p ninja:p' || '' }}
+    - name: 'Build (bootstrap)'
+      if: matrix.buildsystem == 'muon'
       run: |
         CC="${{ matrix.cc }} -std=c99"  ./bootstrap.sh build
         CC="${{ matrix.cc }}" ./build/muon-bootstrap.exe setup ${{ matrix.args }} build
         build/muon-bootstrap.exe -C build samu
         build/muon.exe version
-    - name: 'Tests'
+    - name: 'Tests (bootstrap)'
+      if: matrix.buildsystem == 'muon'
       run: |
         CC="${{ matrix.cc }}" CXX="${{ matrix.cxx }}" ./build/muon.exe -C build test -R -v -ddots
         ./build/muon.exe internal eval tools/project_test_timings.meson build
+    - name: 'Build (meson)'
+      if: matrix.buildsystem == 'meson'
+      run: |
+        CC="${{ matrix.cc }}" meson setup ${{ matrix.args }} build
+        meson compile -C build
+        build/muon.exe version
+    - name: 'Tests (meson)'
+      if: matrix.buildsystem == 'meson'
+      run: |
+        CC="${{ matrix.cc }}" CXX="${{ matrix.cxx }}" meson test -C build --print-errorlogs
