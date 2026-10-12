@@ -2,6 +2,6 @@
 ; SPDX-License-Identifier: GPL-3.0-only
 
 [wrap-git]
-url = https://github.com/muon-build/meson-tests
-revision = 38483b8cf5eb4f6e9df7a78d786ec111e0d6eb5d
+url = https://github.com/kzc/meson-tests
+revision = tap-skip-failure
 depth = 1

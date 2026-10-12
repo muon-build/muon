@@ -36,6 +36,8 @@ enum test_result_status {
 	test_result_status_failed,
 	test_result_status_timedout,
 	test_result_status_skipped,
+	test_result_status_expected_fail,
+	test_result_status_unexpected_pass,
 };
 
 struct test_result {
@@ -118,73 +120,33 @@ test_suites_label(struct workspace *wk, const struct test_result *res)
 	return suite_str;
 }
 
-enum test_detailed_status {
-	status_ok,
-	status_failed,
-	status_failed_ok,
-	status_running,
-	status_timedout,
-	status_skipped,
-	status_should_have_failed,
-};
-
-static enum test_detailed_status
-test_detailed_status(const struct test_result *res)
-{
-	enum test_detailed_status status = status_ok;
-
-	switch (res->status) {
-	case test_result_status_running: status = status_running; break;
-	case test_result_status_timedout: status = status_timedout; break;
-	case test_result_status_failed:
-		if (res->test->should_fail) {
-			status = status_should_have_failed;
-		} else {
-			status = status_failed;
-		}
-		break;
-	case test_result_status_ok:
-		if (res->test->should_fail) {
-			status = status_failed_ok;
-		} else {
-			status = status_ok;
-		}
-		break;
-	case test_result_status_skipped: status = status_skipped; break;
-	}
-
-	return status;
-}
-
 static void
 print_test_result(struct workspace *wk, const struct test_result *res)
 {
 	const char *name = get_cstr(wk, res->test->name);
 
 	const char *status_msg[] = {
-		[status_failed] = "fail ",
-		[status_should_have_failed] = "ok*  ",
-		[status_ok] = "ok   ",
-		[status_failed_ok] = "fail*",
-		[status_running] = "start",
-		[status_timedout] = "timeout",
-		[status_skipped] = "skip ",
+		[test_result_status_running] = "start",
+		[test_result_status_ok] = "ok   ",
+		[test_result_status_failed] = "fail ",
+		[test_result_status_timedout] = "timeout",
+		[test_result_status_skipped] = "skip ",
+		[test_result_status_expected_fail] = "fail*",
+		[test_result_status_unexpected_pass] = "ok*  ",
 	};
-
-	enum test_detailed_status status = test_detailed_status(res);
 
 	const char *suite_str = test_suites_label(wk, res);
 
 	uint32_t clr[] = {
-		[status_failed] = c_red,
-		[status_should_have_failed] = c_red,
-		[status_ok] = c_green,
-		[status_failed_ok] = c_yellow,
-		[status_running] = 0,
-		[status_timedout] = c_red,
-		[status_skipped] = c_yellow,
+		[test_result_status_running] = 0,
+		[test_result_status_ok] = c_green,
+		[test_result_status_failed] = c_red,
+		[test_result_status_timedout] = c_red,
+		[test_result_status_skipped] = c_yellow,
+		[test_result_status_expected_fail] = c_yellow,
+		[test_result_status_unexpected_pass] = c_red,
 	};
-	log_plain(log_info, "\033[%dm%s\033[0m", clr[status], status_msg[status]);
+	log_plain(log_info, "\033[%dm%s\033[0m", clr[res->status], status_msg[res->status]);
 
 	if (res->status == test_result_status_running) {
 		log_plain(log_info, "          ");
@@ -202,8 +164,8 @@ print_test_result(struct workspace *wk, const struct test_result *res)
 
 	log_plain(log_info, "%s", name);
 
-	if (status == status_should_have_failed) {
-		log_plain(log_info, " - passing test marked as expected_fail");
+	if (res->status == test_result_status_unexpected_pass) {
+		log_plain(log_info, " - should_fail test unexpectingly passed");
 	}
 }
 
@@ -242,8 +204,10 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		switch (res->status) {
 		case test_result_status_running: UNREACHABLE; break;
 		case test_result_status_ok:
+		case test_result_status_expected_fail:
 		case test_result_status_skipped: break;
 		case test_result_status_failed:
+		case test_result_status_unexpected_pass:
 		case test_result_status_timedout:
 			++ctx->stats.total_error_count;
 			++ctx->stats.error_count;
@@ -255,8 +219,10 @@ print_test_progress(struct workspace *wk, struct run_test_ctx *ctx, const struct
 		if (res && res->status != test_result_status_running) {
 			char c;
 			switch (res->status) {
+			case test_result_status_unexpected_pass: c = 'U'; break;
 			case test_result_status_failed: c = 'E'; break;
 			case test_result_status_timedout: c = 'T'; break;
+			case test_result_status_skipped: c = '-'; break;
 			default: c = '.'; break;
 			}
 
@@ -696,22 +662,22 @@ collect_tests(struct workspace *wk, struct run_test_ctx *ctx)
 			default: status = check_test_result_exitcode(wk, ctx, res); break;
 			}
 
+			if (res->test->should_fail) {
+				if (status == test_result_status_ok) {
+					status = test_result_status_unexpected_pass;
+				} else if (status == test_result_status_failed) {
+					status = test_result_status_expected_fail;
+				}
+			}
+
 			if (status == test_result_status_skipped) {
 				++ctx->stats.total_skipped;
 			}
 
-			if (status == test_result_status_failed && res->test->should_fail) {
-				status = test_result_status_ok;
-			}
+			res->status = status;
 
-			if (status != test_result_status_failed) {
-				if (res->test->should_fail) {
-					++ctx->stats.total_expect_fail_count;
-				}
-
-				res->status = status;
-			} else {
-				res->status = test_result_status_failed;
+			if (status == test_result_status_expected_fail) {
+				++ctx->stats.total_expect_fail_count;
 			}
 
 			print_test_progress(wk, ctx, res, true);
@@ -1035,7 +1001,9 @@ tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
 		struct test_result *res = arr_get(&ctx->test_results, i);
 
 		if (ctx->opts->print_summary
-			|| (res->status == test_result_status_failed || res->status == test_result_status_timedout)) {
+			|| res->status == test_result_status_failed
+			|| res->status == test_result_status_timedout
+			|| res->status == test_result_status_unexpected_pass) {
 			print_test_result(wk, res);
 			if (res->status == test_result_status_failed && res->cmd_ctx.err_msg) {
 				log_raw(": %s", res->cmd_ctx.err_msg);
@@ -1043,20 +1011,21 @@ tests_output_term(struct workspace *wk, struct run_test_ctx *ctx)
 			log_raw("\n");
 		}
 
-		if (res->status == test_result_status_failed) {
-			if (res->test->should_fail) {
-				ret = false;
-			} else {
-				ret = false;
-				if (res->cmd_ctx.out.len) {
-					log_raw("stdout: '%s'\n", res->cmd_ctx.out.buf);
-				}
-				if (res->cmd_ctx.err.len) {
-					log_raw("stderr: '%s'\n", res->cmd_ctx.err.buf);
-				}
-			}
-		} else if (res->status == test_result_status_timedout) {
+		switch (res->status) {
+		case test_result_status_timedout:
 			ret = false;
+			break;
+		case test_result_status_failed:
+		case test_result_status_unexpected_pass:
+			ret = false;
+			if (res->cmd_ctx.out.len) {
+				log_raw("stdout: '%s'\n", res->cmd_ctx.out.buf);
+			}
+			if (res->cmd_ctx.err.len) {
+				log_raw("stderr: '%s'\n", res->cmd_ctx.err.buf);
+			}
+			break;
+		default: break;
 		}
 	}
 
@@ -1067,13 +1036,13 @@ static void
 tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct tstr *data)
 {
 	const char *status_str[] = {
-		[status_failed] = "failed",
-		[status_should_have_failed] = "should_have_failed",
-		[status_ok] = "ok",
-		[status_failed_ok] = "failed_ok",
-		[status_running] = "running",
-		[status_timedout] = "timedout",
-		[status_skipped] = "skipped",
+		[test_result_status_running] = "running",
+		[test_result_status_ok] = "ok",
+		[test_result_status_failed] = "failed",
+		[test_result_status_timedout] = "timedout",
+		[test_result_status_skipped] = "skipped",
+		[test_result_status_unexpected_pass] = "should_have_failed",
+		[test_result_status_expected_fail] = "failed_ok",
 	};
 
 	tstr_push(wk, data, '{');
@@ -1083,7 +1052,6 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct tstr *data)
 	uint32_t i;
 	for (i = 0; i < ctx->test_results.len; ++i) {
 		struct test_result *res = arr_get(&ctx->test_results, i);
-		enum test_detailed_status status = test_detailed_status(res);
 		const char *suite_str = test_suites_label(wk, res);
 
 		tstr_pushf(wk,
@@ -1093,7 +1061,7 @@ tests_as_json(struct workspace *wk, struct run_test_ctx *ctx, struct tstr *data)
 			"\"name\":\"%s\","
 			"\"suite\":\"%s\","
 			"\"duration\":%f,",
-			status_str[status],
+			status_str[res->status],
 			get_cstr(wk, res->test->name),
 			suite_str,
 			res->dur);
@@ -1294,15 +1262,16 @@ tests_run(struct workspace *wk, struct test_options *opts, const char *argv0)
 		uint32_t i;
 		for (i = 0; i < ctx.test_results.len; ++i) {
 			struct test_result *res = arr_get(&ctx.test_results, i);
-			if (res->status == test_result_status_failed) {
-				if (res->test->should_fail) {
-					ret = false;
-				} else {
-					ret = false;
-				}
-			} else if (res->status == test_result_status_timedout) {
+
+			switch (res->status) {
+			case test_result_status_failed:
+			case test_result_status_unexpected_pass:
+			case test_result_status_timedout:
 				ret = false;
+				break;
+			default: break;
 			}
+
 			run_cmd_ctx_destroy(&res->cmd_ctx);
 		}
 	}
