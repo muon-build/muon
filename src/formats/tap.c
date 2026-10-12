@@ -70,7 +70,12 @@ tap_parse_line_cb(void *_ctx, const char *line, size_t len)
 	}
 
 	if (ok) {
-		++ctx->res->pass;
+		if (directive == todo) {
+			// "ok # todo" is an unexpected pass (xpass) and should fail
+			++ctx->res->fail;
+		} else {
+			++ctx->res->pass;
+		}
 	} else {
 		if (directive == todo) {
 			++ctx->res->skip;
