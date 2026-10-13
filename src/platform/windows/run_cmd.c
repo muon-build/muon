@@ -8,7 +8,7 @@
 
 #include <string.h>
 
-#include <windows.h>
+#include "platform/windows/windows_min.h"
 #define STRSAFE_NO_CB_FUNCTIONS
 #include <strsafe.h>
 

@@ -10,10 +10,7 @@
 #include <stdint.h>
 
 #ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
+#include "platform/windows/windows_min.h"
 #else
 #include <time.h>
 #endif

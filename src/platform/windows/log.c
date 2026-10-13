@@ -10,10 +10,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
+#include "platform/windows/windows_min.h"
+#include "platform/windows/windows_console.h"
 
 #include "buf_size.h"
 #include "formats/ansi.h"
