@@ -25,4 +25,4 @@ cp -v     $MINGW/include/zlib.h          $DEST_INC/ && \
 cp -v     $MINGW/include/zconf.h         $DEST_INC/ && \
 ./bootstrap.sh $BUILD && \
 ./$BUILD/muon-bootstrap build -Ddisable-test-languages=cpp,objc $BUILD && \
-./$BUILD/muon -C $BUILD test -v -R -o term
+./$BUILD/muon -C $BUILD test -v -R -o term -d dots
