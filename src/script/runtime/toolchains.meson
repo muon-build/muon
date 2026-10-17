@@ -572,8 +572,6 @@ toolchain.register_compiler(
         'pic': func(c compiler) -> list[str]
             return c.machine().system() == 'windows' ? [] : ['-fPIC']
         endfunc,
-        'lto_compile': null,
-        'lto_link': null,
         'force_language': func(_c compiler, s str) -> list[str]
             return ['-x', s]
         endfunc,
@@ -606,6 +604,7 @@ toolchain.register_compiler(
     endfunc,
     handlers: {
         'argument_syntax': ['gcc'],
+        'lto_supported': true,
         'color_output': func(c compiler, s str) -> list[str]
             if c.version().version_compare('<4.9.0')
                 return []
@@ -902,6 +901,7 @@ toolchain.register_compiler(
         return 'clang' in out.to_lower() ? 50 : 0
     endfunc,
     handlers: {
+        'lto_supported': true,
         'lto_compile': func(_c compiler, _threads str) -> list[str]
             return ['-flto']
         endfunc,

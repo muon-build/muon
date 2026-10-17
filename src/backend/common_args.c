@@ -307,10 +307,10 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 		obj threads_id;
 		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto_threads", &threads_id);
 		const char *threads = get_cstr(wk, make_strf(wk, "%" PRId64, get_obj_number(wk, threads_id)));
-		obj lto_args = toolchain_compiler_lto_compile(wk, comp, threads);
-		if (!lto_args) {
+		if (!toolchain_compiler_lto_supported(wk, comp)) {
 			ca_warn_lto_unsupported(wk, comp, tgt, false);
 		} else {
+			obj lto_args = toolchain_compiler_lto_compile(wk, comp, threads);
 			obj_array_extend(wk, args, lto_args);
 		}
 	}
@@ -653,10 +653,10 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 		obj threads_id;
 		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto_threads", &threads_id);
 		const char *threads = get_cstr(wk, make_strf(wk, "%" PRId64, get_obj_number(wk, threads_id)));
-		obj lto_args = toolchain_compiler_lto_link(wk, comp, threads);
-		if (!lto_args) {
+		if (!toolchain_compiler_lto_supported(wk, comp)) {
 			ca_warn_lto_unsupported(wk, comp, tgt, true);
 		} else {
+			obj lto_args = toolchain_compiler_lto_link(wk, comp, threads);
 			obj_array_extend(wk, args, lto_args);
 		}
 	}

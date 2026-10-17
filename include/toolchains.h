@@ -155,6 +155,7 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 	_(emit_pch, compiler, TOOLCHAIN_PARAMS_0)                  \
 	_(lto_compile, compiler, TOOLCHAIN_PARAMS_1s)              \
 	_(lto_link, compiler, TOOLCHAIN_PARAMS_1s)                  \
+	_(lto_supported, compiler, TOOLCHAIN_PARAMS_0rb)            \
 	_(force_language, compiler, TOOLCHAIN_PARAMS_1s)           \
 	_(include, compiler, TOOLCHAIN_PARAMS_1s)                  \
 	_(include_dirafter, compiler, TOOLCHAIN_PARAMS_1s)         \
