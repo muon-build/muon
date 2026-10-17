@@ -9,7 +9,7 @@ tests = [
     ['muon/python', {'python': true}],
     ['muon/script_module'],
     ['muon/wayland'],
-    ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
+    ['muon/objc and cpp', {'objc': true, 'test_kwargs': {'timeout': 45}}],
     ['muon/vala', {'vala': true}],
     ['muon/disabler', {}],
     ['muon/configure_file_cmake', {}],
@@ -67,7 +67,7 @@ foreach t : tests
     endif
 
     test_source = props.get('source_root', meson.current_source_dir()) / name
-    kwargs = props.get('kwargs', {})
+    kwargs = props.get('test_kwargs', {})
     suites = ['project', name.split('/')[0]]
 
     requires_python = props.get('python', false)
