@@ -928,7 +928,7 @@ cmd_test(struct workspace *wk, uint32_t argc, uint32_t argi, char *const argv[])
 				   'd', "change progress display mode", opt_match_enum_table(progress_display_table))) {
 			test_opts.display = opt_ctx.optarg_enum_value;
 		} else if (opt_match('o', "set output mode", opt_match_enum_table(output_table))) {
-			test_opts.display = opt_ctx.optarg_enum_value;
+			test_opts.output = opt_ctx.optarg_enum_value;
 		} else if (opt_match('f', "fail fast; exit after first failure")) {
 			test_opts.fail_fast = true;
 		} else if (opt_match('S', "print a summary with elapsed time")) {
