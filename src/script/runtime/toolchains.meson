@@ -898,7 +898,8 @@ toolchain.register_compiler(
         endif
     endfunc,
     detect: func(out str) -> int
-        return 'clang' in out.to_lower() ? 50 : 0
+        score = build_machine.system() == 'windows' ? 50 : 100
+        return 'clang' in out.to_lower() ? score : 0
     endfunc,
     handlers: {
         'lto_supported': true,
@@ -1093,7 +1094,8 @@ toolchain.register_compiler(
     linker: 'lld-link',
     archiver: 'llvm-lib',
     detect: func(out str) -> int
-        return 'CL.EXE COMPATIBILITY' in out ? 100 : 0
+        score = build_machine.system() == 'windows' ? 100 : 50
+        return 'CL.EXE COMPATIBILITY' in out ? score : 0
     endfunc,
     handlers: {
         'force_language': func(_c compiler, s str) -> list[str]
