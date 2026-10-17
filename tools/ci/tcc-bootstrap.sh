@@ -5,7 +5,7 @@
 
 set -eu
 
-git clone --depth 1 https://github.com/muon-build/tcc
+git clone --depth 1 https://github.com/kzc/tcc
 cd tcc
 cd win32
 cmd //c build-tcc.bat
