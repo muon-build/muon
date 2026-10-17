@@ -55,7 +55,7 @@ jobs:
         fetch-depth: 1
     - name: 'build tcc'
       run: |
-        git clone --depth 1 https://github.com/muon-build/tcc
+        git clone --depth 1 https://github.com/kzc/tcc
         cd tcc
         ./configure --prefix="$HOME/tcc-install" && make -j4 && make install
     - name: 'muon ci with tcc'
@@ -77,7 +77,7 @@ jobs:
         fetch-depth: 1
     - name: 'build tcc'
       run: |
-        git clone --depth 1 https://github.com/muon-build/tcc
+        git clone --depth 1 https://github.com/kzc/tcc
         cd tcc
         ./configure --prefix="$HOME/tcc-install" && make -j4 && make install
     - name: 'muon ci with tcc'
