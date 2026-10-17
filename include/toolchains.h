@@ -103,10 +103,11 @@ enum compiler_visibility_type {
 
 #define TOOLCHAIN_SIG_0 TOOLCHAIN_PARAMS_BASE
 #define TOOLCHAIN_SIG_1i TOOLCHAIN_PARAMS_BASE, obj i1
+#define TOOLCHAIN_SIG_1n TOOLCHAIN_PARAMS_BASE, obj n1
 #define TOOLCHAIN_SIG_1s TOOLCHAIN_PARAMS_BASE, const char *s1
 #define TOOLCHAIN_SIG_2s TOOLCHAIN_PARAMS_BASE, const char *s1, const char *s2
 #define TOOLCHAIN_SIG_1s1b TOOLCHAIN_PARAMS_BASE, const char *s1, bool b1
-#define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, obj n1
+#define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, obj ns1
 #define TOOLCHAIN_SIG_kw TOOLCHAIN_PARAMS_BASE, struct args_kw *akw
 #define TOOLCHAIN_SIG_0rb TOOLCHAIN_PARAMS_BASE
 #define TOOLCHAIN_SIG_1srb TOOLCHAIN_PARAMS_BASE, const char *s1
@@ -114,16 +115,18 @@ enum compiler_visibility_type {
 #define TOOLCHAIN_ARGS_RETURN obj
 #define TOOLCHAIN_PARAMS_0 TOOLCHAIN_ARGS_RETURN, 0, (TOOLCHAIN_SIG_0), (TOOLCHAIN_PARAM_NAMES_BASE)
 #define TOOLCHAIN_PARAMS_1i TOOLCHAIN_ARGS_RETURN, 1i, (TOOLCHAIN_SIG_1i), (TOOLCHAIN_PARAM_NAMES_BASE, i1)
+#define TOOLCHAIN_PARAMS_1n TOOLCHAIN_ARGS_RETURN, 1n, (TOOLCHAIN_SIG_1n), (TOOLCHAIN_PARAM_NAMES_BASE, n1)
 #define TOOLCHAIN_PARAMS_1s TOOLCHAIN_ARGS_RETURN, 1s, (TOOLCHAIN_SIG_1s), (TOOLCHAIN_PARAM_NAMES_BASE, s1)
 #define TOOLCHAIN_PARAMS_2s TOOLCHAIN_ARGS_RETURN, 2s, (TOOLCHAIN_SIG_2s), (TOOLCHAIN_PARAM_NAMES_BASE, s1, s2)
 #define TOOLCHAIN_PARAMS_1s1b TOOLCHAIN_ARGS_RETURN, 1s1b, (TOOLCHAIN_SIG_1s1b), (TOOLCHAIN_PARAM_NAMES_BASE, s1, b1)
-#define TOOLCHAIN_PARAMS_ns TOOLCHAIN_ARGS_RETURN, ns, (TOOLCHAIN_SIG_ns), (TOOLCHAIN_PARAM_NAMES_BASE, n1)
+#define TOOLCHAIN_PARAMS_ns TOOLCHAIN_ARGS_RETURN, ns, (TOOLCHAIN_SIG_ns), (TOOLCHAIN_PARAM_NAMES_BASE, ns1)
 #define TOOLCHAIN_PARAMS_kw TOOLCHAIN_ARGS_RETURN, kw, (TOOLCHAIN_SIG_kw), (TOOLCHAIN_PARAM_NAMES_BASE, akw)
 #define TOOLCHAIN_PARAMS_0rb bool, 0rb, (TOOLCHAIN_SIG_0rb), (TOOLCHAIN_PARAM_NAMES_BASE)
 #define TOOLCHAIN_PARAMS_1srb bool, 1srb, (TOOLCHAIN_SIG_1srb), (TOOLCHAIN_PARAM_NAMES_BASE, s1)
 
 typedef obj ((*compiler_get_arg_func_0)(TOOLCHAIN_SIG_0));
 typedef obj ((*compiler_get_arg_func_1i)(TOOLCHAIN_SIG_1i));
+typedef obj ((*compiler_get_arg_func_1n)(TOOLCHAIN_SIG_1n));
 typedef obj ((*compiler_get_arg_func_1s)(TOOLCHAIN_SIG_1s));
 typedef obj ((*compiler_get_arg_func_2s)(TOOLCHAIN_SIG_2s));
 typedef obj ((*compiler_get_arg_func_1s1b)(TOOLCHAIN_SIG_1s1b));
@@ -306,8 +309,8 @@ struct toolchain_dump_opts {
 	const char *s1, *s2;
 	bool b1;
 	uint32_t i1;
-	obj n1;
-	obj n2;
+	int64_t n1;
+	obj ns1;
 };
 void toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts);
 

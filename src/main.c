@@ -7,6 +7,7 @@
 
 #include "compat.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -685,8 +686,8 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 		.s2 = "<value2>",
 		.b1 = true,
 		.i1 = 0,
-		.n1 = make_obj(wk, obj_array),
-		.n2 = make_obj(wk, obj_array),
+		.n1 = 1,
+		.ns1 = make_obj(wk, obj_array),
 	};
 
 	obj comp = 0;
@@ -790,6 +791,14 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 
 				opts.i1 = res;
 			} else if (strcmp(opt_ctx.optarg, "n1") == 0) {
+				int64_t res;
+				if (!str_to_i(&STRL(sep), &res, false)) {
+					LOG_E("invalid value for integer: %s", sep);
+					return false;
+				}
+
+				opts.n1 = res;
+			} else if (strcmp(opt_ctx.optarg, "ns1") == 0) {
 				while (*sep) {
 					char* next_sep = strchr(sep, ',');
 					if (next_sep) {
@@ -819,12 +828,13 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 		toolchain_component_type_to_id(wk, toolchain_component_compiler, compiler->type[toolchain_component_compiler])->id,
 		toolchain_component_type_to_id(wk, toolchain_component_linker, compiler->type[toolchain_component_linker])->id,
 		toolchain_component_type_to_id(wk, toolchain_component_archiver, compiler->type[toolchain_component_archiver])->id);
-	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, ",
+	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: %" PRId64,
 		opts.s1,
 		opts.s2,
 		opts.b1 ? "true" : "false",
-		opts.i1);
-	obj_printf(wk, "n1: { %o }\n", opts.n1);
+		opts.i1,
+		opts.n1);
+	obj_printf(wk, "ns1: { %o }\n", opts.ns1);
 
 	toolchain_dump(wk, comp, &opts);
 

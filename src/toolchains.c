@@ -993,6 +993,7 @@ toolchain_detect(struct workspace *wk,
 
 #define TOOLCHAIN_PROTO_0(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_0)
 #define TOOLCHAIN_PROTO_1i(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1i)
+#define TOOLCHAIN_PROTO_1n(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1n)
 #define TOOLCHAIN_PROTO_1s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s)
 #define TOOLCHAIN_PROTO_2s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_2s)
 #define TOOLCHAIN_PROTO_1s1b(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s1b)
@@ -1009,6 +1010,11 @@ TOOLCHAIN_PROTO_0(toolchain_arg_empty_0)
 }
 
 TOOLCHAIN_PROTO_1i(toolchain_arg_empty_1i)
+{
+	return make_obj(wk, obj_array);
+}
+
+TOOLCHAIN_PROTO_1n(toolchain_arg_empty_1n)
 {
 	return make_obj(wk, obj_array);
 }
@@ -1030,7 +1036,7 @@ TOOLCHAIN_PROTO_1s1b(toolchain_arg_empty_1s1b)
 
 TOOLCHAIN_PROTO_ns(toolchain_arg_empty_ns)
 {
-	return n1;
+	return ns1;
 }
 
 TOOLCHAIN_PROTO_kw(toolchain_arg_empty_kw)
@@ -1091,6 +1097,7 @@ toolchain_register_component(struct workspace *wk,
 enum toolchain_arg_arity {
 	toolchain_arg_arity_0,
 	toolchain_arg_arity_1i,
+	toolchain_arg_arity_1n,
 	toolchain_arg_arity_1s,
 	toolchain_arg_arity_2s,
 	toolchain_arg_arity_1s1b,
@@ -1291,6 +1298,10 @@ toolchain_handler_info_init(struct workspace *wk)
 				an[1].type = complex_type_enum_get_(wk, handler->enum_arg);
 				break;
 			}
+			case toolchain_arg_arity_1n: {
+				an[1].type = tc_number;
+				break;
+			}
 			case toolchain_arg_arity_1s: {
 				an[1].type = tc_string;
 				break;
@@ -1470,6 +1481,13 @@ handle_toolchain_arg_override_1i(TOOLCHAIN_SIG_1i)
 }
 
 static obj
+handle_toolchain_arg_override_1n(TOOLCHAIN_SIG_1n)
+{
+	struct args_norm an[] = { { .val = comp }, { .val = n1 }, { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_args(wk, an, 0);
+}
+
+static obj
 handle_toolchain_arg_override_1s(TOOLCHAIN_SIG_1s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { ARG_TYPE_NULL } };
@@ -1494,7 +1512,7 @@ handle_toolchain_arg_override_1s1b(TOOLCHAIN_SIG_1s1b)
 static obj
 handle_toolchain_arg_override_ns(TOOLCHAIN_SIG_ns)
 {
-	struct args_norm an[] = { { .val = comp }, { .val = n1 }, { ARG_TYPE_NULL } };
+	struct args_norm an[] = { { .val = comp }, { .val = ns1 }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an, 0);
 }
 
@@ -1564,6 +1582,12 @@ toolchain_dump_args_1i(struct workspace *wk, obj args)
 }
 
 static void
+toolchain_dump_args_1n(struct workspace *wk, obj args)
+{
+	toolchain_print_dumped_args(wk, args);
+}
+
+static void
 toolchain_dump_args_1s(struct workspace *wk, obj args)
 {
 	toolchain_print_dumped_args(wk, args);
@@ -1611,7 +1635,8 @@ toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts)
 	const char *s1 = opts->s1, *s2 = opts->s2;
 	const bool b1 = opts->b1;
 	const uint32_t i1 = opts->i1;
-	obj n1 = opts->n1;
+	obj n1 = make_number(wk, opts->n1);
+	obj ns1 = opts->ns1;
 	struct args_kw akw[] = { 0 };
 
 	printf("%-13s %-25s %-4s %s\n", "component", "name", "sig", "args");
