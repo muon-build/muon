@@ -90,6 +90,10 @@ install_packages_()
 	# for releases
 	queue_package_ rsync
 
+	if [ "$cfg_meson" ]; then
+		queue_package_ meson
+	fi
+
 	sudo_ apk add $packages
 }
 
@@ -123,9 +127,32 @@ enabled_if_()
 	fi
 }
 
+bootstrap_impl_()
+{
+	builddir="$1"
+	shift
+	if [ "$cfg_meson" ]; then
+		meson setup "$@" "$builddir"
+		samu -C "$builddir"
+	else
+		tools/ci/bootstrap.sh "$builddir" "$@"
+	fi
+}
+
+setup_impl_()
+{
+	builddir="$1"
+	shift
+	if [ "$cfg_meson" ]; then
+		meson setup "$@" "$builddir"
+	else
+		build/muon setup "$@" "$builddir"
+	fi
+}
+
 step_build_gcc_()
 {
-	CC=gcc tools/ci/bootstrap.sh build \
+	CC=gcc bootstrap_impl_ build \
 		-Dbuildtype=release \
 		-Dwerror=true \
 		-Dlibarchive=enabled \
@@ -140,24 +167,34 @@ step_build_gcc_()
 
 step_build_small_()
 {
-	CC=gcc build/muon setup \
+	CC=gcc setup_impl_ build-small \
 		-Dbuildtype=minsize \
 		-Dstatic=true \
 		-Dlibarchive=disabled \
 		-Dlibcurl=disabled \
-		-Dlibpkgconf=disabled \
-		build-small
+		-Dlibpkgconf=disabled
 	build/muon -C build-small samu
+}
+
+test_impl_()
+{
+	builddir="$1"
+	shift
+	if [ "$cfg_meson" ]; then
+		meson test -C "$builddir" -q "muon:"
+	else
+		build/muon -C "$builddir" test -d dots
+	fi
 }
 
 step_test_gcc_()
 {
-	CC=gcc build/muon -C build test -d dots
+	CC=gcc test_impl_ build
 }
 
 step_test_clang_()
 {
-	CC=clang build/muon -C build test -d dots
+	CC=clang test_impl_ build
 }
 
 step_prepare_release_()
@@ -224,6 +261,11 @@ run_steps_()
 
 container_()
 {
+	if [ "${MUON_RUNNER_CONTAINER:-}" ]; then
+		# already in a container
+		return
+	fi
+
 	rm -rf "build-docker"
 
 	exec docker run \
@@ -234,7 +276,8 @@ container_()
 		-v "$PWD/build-docker:/home/output" \
 		-w "/home/muon" \
 		"alpine:$alpine_version" \
-		"/home/muon-src/tools/ci/alpine.sh"
+		"/home/muon-src/tools/ci/alpine.sh" \
+		"$@"
 }
 
 alpine_version="3.21"
@@ -254,6 +297,7 @@ cfg_reuse=""
 cfg_git_mirror=""
 cfg_trigger_solaris_ci=""
 cfg_deploy=""
+cfg_meson=""
 
 if [ "${JOB_ID:-}" ]; then
 	runner="builds.sr.ht"
@@ -278,11 +322,13 @@ elif [ "${MUON_RUNNER_CONTAINER:-}" ]; then
 fi
 
 if [ $# -ge 1 ]; then
-	while getopts "hc" opt; do
+	while getopts "hcm" opt; do
 		case "$opt" in
 			h) usage_
 				;;
-			c) container_
+			c) container_ "$@"
+				;;
+			m) cfg_meson=1
 				;;
 			?) die "invalid option"
 				;;

@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+name: alpine-arm
+
+on:
+  push:
+    branches:
+      - master
+      - '[0-9]+.[0-9]+'
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  alpine-arm:
+    runs-on: ubuntu-latest
+    environment: master
+    steps:
+    - uses: actions/checkout@v3
+    - name: build
+      run: |
+        tools/ci/alpine.sh -cm
