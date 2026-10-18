@@ -7,7 +7,7 @@
 #define MUON_SOCKET_H
 
 #if defined(_WIN32)
-#include <windows.h>
+#include "platform/windows/windows_min.h"
 #endif
 
 #include <stdbool.h>
