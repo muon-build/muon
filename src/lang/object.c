@@ -180,6 +180,12 @@ get_file_path(struct workspace *wk, obj o)
 }
 
 const struct str *
+get_file_path_str(struct workspace *wk, obj o)
+{
+	return get_str(wk, *get_obj_file(wk, o));
+}
+
+const struct str *
 get_str(struct workspace *wk, obj s)
 {
 	return get_obj_internal(wk, s, obj_string);
@@ -2401,7 +2407,7 @@ obj_lprintf(struct workspace *wk, enum log_level lvl, const char *fmt, ...)
 void
 obj_inspect_dep(struct workspace *wk, const char *pre, const struct build_dep *dep)
 {
-	obj_lprintf(wk, log_info, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
+	obj_lprintf(wk, log_info, "%slink_language: %s\n", pre, compiler_language_to_s(wk, dep->link_language));
 	obj_lprintf(wk, log_info, "%slink_whole: %o\n", pre, dep->link_whole);
 	obj_lprintf(wk, log_info, "%slink_with: %o\n", pre, dep->link_with);
 	obj_lprintf(wk, log_info, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
@@ -2464,7 +2470,7 @@ obj_inspect(struct workspace *wk, obj val)
 		struct obj_compiler *compiler = get_obj_compiler(wk, val);
 		log_plain(lvl, "toolchain:\n");
 		obj_lprintf(wk, lvl, "  libdirs: %o\n", compiler->libdirs);
-		obj_lprintf(wk, lvl, "  lang: %s\n", compiler_language_to_s(compiler->lang));
+		obj_lprintf(wk, lvl, "  lang: %s\n", compiler_language_to_s(wk, compiler->lang));
 		obj_lprintf(wk, lvl, "  machine: %s\n", machine_kind_to_s(compiler->machine));
 		for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 			log_plain(lvl, "  %s:\n", toolchain_component_to_s(i));

@@ -1025,6 +1025,20 @@ tstr_pushf(struct workspace *wk, struct tstr *sb, const char *fmt, ...)
 	va_end(args);
 }
 
+const char *
+tstr_f(struct workspace *wk, const char *fmt, ...)
+{
+	TSTR(tmp);
+	va_list args;
+	va_start(args, fmt);
+
+	tstr_vpushf(wk, &tmp, fmt, args);
+
+	va_end(args);
+
+	return tmp.buf;
+}
+
 void
 tstr_push_json_escaped(struct workspace *wk, struct tstr *buf, const char *str, uint32_t len)
 {
@@ -1097,9 +1111,9 @@ tstr_trim_trailing_newline(struct tstr *sb)
 	}
 }
 
-bool str_cut(const struct str *s, const struct str *split, struct str_cut *cut)
+
+static bool str_cut_mem(const struct str *s, const char *p, uint32_t len, struct str_cut *cut)
 {
-	const char *p = memmem(s->s, s->len, split->s, split->len);
 	if (!p) {
 		*cut = (struct str_cut){
 			.before = *s,
@@ -1110,9 +1124,33 @@ bool str_cut(const struct str *s, const struct str *split, struct str_cut *cut)
 	*cut = (struct str_cut){
 		.before = { s->s, p - s->s },
 	};
-	cut->after = (struct str){ p + split->len, s->len - cut->before.len - split->len };
+	cut->after = (struct str){ p + len, s->len - cut->before.len - len };
 
 	return true;
+}
+
+bool str_cut(const struct str *s, const struct str *split, struct str_cut *cut)
+{
+	const char *p = memmem(s->s, s->len, split->s, split->len);
+	return str_cut_mem(s, p, split->len, cut);
+}
+
+static const char* str_rfind(const struct str *s, char c)
+{
+	for (int64_t i = s->len - 1; i >= 0; --i )
+	{
+		if ( s->s[i] == c )
+		{
+			return &s->s[i];
+		}
+	}
+	return 0;
+}
+
+bool str_rcut(const struct str *s, char split, struct str_cut *cut)
+{
+	const char *p = str_rfind(s, split);
+	return str_cut_mem(s, p, 1, cut);
 }
 
 void

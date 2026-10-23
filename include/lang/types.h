@@ -94,4 +94,9 @@ struct str {
 struct target_triple {
 	struct str arch, vendor, system, env;
 };
+
+enum create_option_flag {
+	create_option_flag_per_machine = 1 << 0,
+};
+
 #endif

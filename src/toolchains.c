@@ -168,6 +168,7 @@ toolchain_component_from_s(struct workspace *wk, const char *name, uint32_t *res
 	return false;
 }
 
+#if 0
 static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_null] = "null",
 	[compiler_language_c] = "c",
@@ -198,30 +199,36 @@ static const char *compiler_language_gcc_names[compiler_language_count] = {
 	[compiler_language_objcpp] = "objective-c++",
 	[compiler_language_objcpp_hdr] = "objective-c++-header",
 };
+#endif
 
-const char *
-compiler_language_to_s(enum compiler_language l)
+const struct language *
+toolchain_language_get(struct workspace *wk, struct compiler_language l)
 {
-	assert(l < compiler_language_count);
-	return compiler_language_names[l];
+	return arr_get(&wk->language_registry.languages, l.id);
 }
 
 const char *
-compiler_language_to_gcc_name(enum compiler_language l)
+compiler_language_to_s(struct workspace *wk, struct compiler_language l)
 {
-	const char *n = compiler_language_gcc_names[l];
+	return toolchain_language_get(wk, l)->name.s;
+}
+
+const char *
+compiler_language_to_gcc_header_name(struct workspace *wk, struct compiler_language l)
+{
+	const char *n = toolchain_language_get(wk, l)->gcc_header_name.s;
 	assert(n);
 	return n;
 }
 
 bool
-s_to_compiler_language(const char *_s, enum compiler_language *l)
+s_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l)
 {
-	const struct str s = STRL(_s);
 	uint32_t i;
-	for (i = 0; i < compiler_language_count; ++i) {
-		if (str_eqli(&s, &STRL(compiler_language_names[i]))) {
-			*l = i;
+	for (i = 0; i < wk->language_registry.languages.len; ++i) {
+		const struct language *lang = &((struct language *)wk->language_registry.languages.e)[i];
+		if (str_eqli(s, &lang->name)) {
+			*l = (struct compiler_language){ i };
 			return true;
 		}
 	}
@@ -229,47 +236,26 @@ s_to_compiler_language(const char *_s, enum compiler_language *l)
 	return false;
 }
 
-enum compiler_language
-compiler_language_to_hdr(enum compiler_language lang)
-{
-	switch (lang) {
-	case compiler_language_c: return compiler_language_c_hdr;
-	case compiler_language_cpp: return compiler_language_cpp_hdr;
-	case compiler_language_objc: return compiler_language_objc_hdr;
-	case compiler_language_objcpp: return compiler_language_objcpp_hdr;
-	default: UNREACHABLE_RETURN;
-	}
-}
-
-static const char *compiler_language_exts[compiler_language_count][10] = {
-	[compiler_language_c] = { "c" },
-	[compiler_language_c_hdr] = { "h" },
-	[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
-	[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
-	[compiler_language_c_obj] = { "o", "obj" },
-	[compiler_language_objc] = { "m", "M" },
-	[compiler_language_objcpp] = { "mm" },
-	[compiler_language_assembly] = { "S", "s" },
-	[compiler_language_llvm_ir] = { "ll" },
-	[compiler_language_nasm] = { "asm" },
-	[compiler_language_vala] = { "vala", "vapi" },
-};
-
 bool
-filename_to_compiler_language(const char *str, enum compiler_language *l)
+filename_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l)
 {
-	uint32_t i, j;
-	const char *ext;
+	struct str_cut cut;
 
-	if (!(ext = strrchr(str, '.'))) {
+	if (!str_rcut(s, '.', &cut)) {
 		return false;
 	}
-	++ext;
 
-	for (i = 0; i < compiler_language_count; ++i) {
-		for (j = 0; compiler_language_exts[i][j]; ++j) {
-			if (strcmp(ext, compiler_language_exts[i][j]) == 0) {
-				*l = i;
+	const struct str ext = cut.after;
+	for (uint32_t i = 0; i < wk->language_registry.languages.len; ++i) {
+		const struct language *lang = &((struct language *)wk->language_registry.languages.e)[i];
+		if (!lang->exts) {
+			continue;
+		}
+
+		obj e;
+		obj_array_for(wk, lang->exts, e) {
+			if (str_eql(get_str(wk, e), &ext)) {
+				*l = (struct compiler_language){ i };
 				return true;
 			}
 		}
@@ -279,14 +265,15 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 }
 
 const char *
-compiler_language_extension(enum compiler_language l)
+compiler_language_extension(struct workspace *wk, struct compiler_language l)
 {
-	return compiler_language_exts[l][0];
+	return get_str(wk, obj_array_index(wk, toolchain_language_get(wk, l)->exts, 0))->s;
 }
 
-enum compiler_language
-coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
+struct compiler_language
+coalesce_link_languages(struct workspace *wk, struct compiler_language cur, struct compiler_language new)
 {
+#if 0
 	switch (new) {
 	case compiler_language_null:
 	case compiler_language_c_hdr:
@@ -322,7 +309,8 @@ coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
 	case compiler_language_count: UNREACHABLE;
 	}
 
-	return cur;
+#endif
+	return new;
 }
 
 static bool
@@ -475,6 +463,18 @@ toolchain_component_detect_apply_candidate(struct obj_compiler *compiler,
 	*found = true;
 }
 
+bool
+obj_dict_get_language(struct workspace *wk, obj dict, const struct compiler_language l, obj *res)
+{
+	return obj_dict_geti(wk, dict, l.id, res);
+}
+
+void
+obj_dict_set_language(struct workspace *wk, obj dict, const struct compiler_language l, obj v)
+{
+	obj_dict_seti(wk, dict, l.id, v);
+}
+
 static bool
 toolchain_component_detect(struct workspace *wk,
 	enum toolchain_component component,
@@ -527,7 +527,7 @@ toolchain_component_detect(struct workspace *wk,
 				const struct toolchain_registry_component *base = arr_get(registry, i);
 
 				obj exe;
-				if (!obj_dict_geti(wk, base->exe, compiler->lang, &exe)) {
+				if (!obj_dict_get_language(wk, base->exe, compiler->lang, &exe)) {
 					continue;
 				}
 
@@ -536,7 +536,7 @@ toolchain_component_detect(struct workspace *wk,
 			candidates_len = get_obj_dict(wk, exe_list)->len;
 
 			if (!candidates_len) {
-				LOG_E("no candidate executables defined for language %s", compiler_language_to_s(compiler->lang));
+				LOG_E("no candidate executables defined for language %s", compiler_language_to_s(wk, compiler->lang));
 				return false;
 			}
 
@@ -581,7 +581,7 @@ toolchain_component_detect(struct workspace *wk,
 			} else {
 				L("skipping %s detecting for %s compiler",
 					toolchain_component_to_s(component),
-					compiler_language_to_s(compiler->lang));
+					compiler_language_to_s(wk, compiler->lang));
 				*found = true;
 				return true;
 			}
@@ -614,7 +614,7 @@ toolchain_component_detect(struct workspace *wk,
 				continue;
 			} else if (component == toolchain_component_compiler) {
 				obj _v;
-				if (!obj_dict_geti(wk, base->exe, compiler->lang, &_v)) {
+				if (!obj_dict_get_language(wk, base->exe, compiler->lang, &_v)) {
 					continue;
 				}
 			}
@@ -867,10 +867,10 @@ toolchain_component_compiler_apply_wrapper(struct workspace *wk, struct obj_comp
 		return true;
 	} else if (str_eql(compiler_wrapper, &STR("auto"))) {
 		if (set_from_option
-			|| !(compiler->lang == compiler_language_c
+			/*|| !(compiler->lang == compiler_language_c
 				|| compiler->lang == compiler_language_cpp
 				|| compiler->lang == compiler_language_objc
-				|| compiler->lang == compiler_language_objcpp)) {
+				|| compiler->lang == compiler_language_objcpp) */) {
 			return true;
 		}
 		is_auto = true;
@@ -928,14 +928,14 @@ bool
 toolchain_detect(struct workspace *wk,
 	obj *comp,
 	enum machine_kind machine,
-	enum compiler_language lang,
+	struct compiler_language lang,
 	enum toolchain_detect_flag flags)
 {
-	if (obj_dict_geti(wk, wk->toolchains[machine], lang, comp)) {
+	if (obj_dict_get_language(wk, wk->toolchains[machine], lang, comp)) {
 		return true;
 	}
 
-	L("detecting toolchain for language %s", compiler_language_to_s(lang));
+	L("detecting toolchain for language %s", compiler_language_to_s(wk, lang));
 
 	*comp = make_obj(wk, obj_compiler);
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
@@ -957,13 +957,13 @@ toolchain_detect(struct workspace *wk,
 		}
 	}
 
-	obj_dict_seti(wk, wk->toolchains[machine], lang, *comp);
+	obj_dict_set_language(wk, wk->toolchains[machine], lang, *comp);
 
 	if (flags & toolchain_detect_flag_silent) {
 		return true;
 	}
 
-	LLOG_I("%s: ", compiler_log_prefix(lang, machine));
+	LLOG_I("%s: ", compiler_log_prefix(wk, lang, machine));
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 		if (i) {
 			log_plain(log_info, "\n  ");
@@ -1053,17 +1053,6 @@ TOOLCHAIN_PROTO_1srb(toolchain_arg_empty_1srb)
 {
 	return false;
 }
-
-const struct language languages[compiler_language_count] = {
-	[compiler_language_null] = { 0 },
-	[compiler_language_c] = { .is_header = false },
-	[compiler_language_c_hdr] = { .is_header = true },
-	[compiler_language_cpp] = { .is_header = false },
-	[compiler_language_cpp_hdr] = { .is_header = true },
-	[compiler_language_c_obj] = { .is_linkable = true },
-	[compiler_language_assembly] = { 0 },
-	[compiler_language_llvm_ir] = { 0 },
-};
 
 bool
 toolchain_register_component(struct workspace *wk,
@@ -1691,7 +1680,7 @@ toolchain_compiler_flatten_one_optional(struct workspace *wk, obj args)
 }
 
 const char *
-compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
+compiler_log_prefix(struct workspace *wk, struct compiler_language lang, enum machine_kind machine)
 {
 	static char buf[256];
 
@@ -1699,18 +1688,25 @@ compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
 		snprintf(buf,
 			sizeof(buf),
 			"%s %s machine compiler",
-			compiler_language_to_s(lang),
+			compiler_language_to_s(wk, lang),
 			machine_kind_to_s(machine));
 	} else {
-		snprintf(buf, sizeof(buf), "%s compiler", compiler_language_to_s(lang));
+		snprintf(buf, sizeof(buf), "%s compiler", compiler_language_to_s(wk, lang));
 	}
 
 	return buf;
 }
 
 void
-compilers_init(struct workspace *wk)
+toolchains_init(struct workspace *wk)
 {
+	arr_init(wk->a, &wk->language_registry.languages, 16, struct language);
+
+	{
+		struct language *lang = arr_grow_by(wk->a, &wk->language_registry.languages, 1);
+		lang->name = STR("null");
+	}
+
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 		arr_init(wk->a, &wk->toolchain_registry.components[i], 16, struct toolchain_registry_component);
 		toolchain_register_component(wk, i, &(struct toolchain_registry_component){ .id = { .id = "empty" } } );

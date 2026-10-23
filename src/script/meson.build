@@ -27,6 +27,7 @@ foreach s : [
     'options/per_project.meson',
     'python/python_info.py',
     'runtime/dependencies.meson',
+    'runtime/languages.meson',
     'runtime/toolchains.meson',
 ]
     scripts_input += s
