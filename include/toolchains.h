@@ -211,8 +211,8 @@ struct language {
 	struct str gcc_header_name;
 	bool is_header;
 	bool is_linkable;
-	bool dont_compile;
 	obj exts;
+	obj link_language;
 	enum language_family family;
 	const char *env_option_names[toolchain_component_count];
 };
@@ -279,8 +279,10 @@ bool s_to_compiler_language(struct workspace *wk, const struct str *s, struct co
 
 bool filename_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l);
 const char *compiler_language_extension(struct workspace *wk, struct compiler_language l);
-struct compiler_language
-coalesce_link_languages(struct workspace *wk, struct compiler_language cur, struct compiler_language new_lang);
+bool coalesce_link_languages(struct workspace *wk,
+	struct compiler_language cur,
+	struct compiler_language new,
+	struct compiler_language *res);
 
 bool
 toolchain_register_component(struct workspace *wk,

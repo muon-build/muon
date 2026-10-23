@@ -698,21 +698,29 @@ host_fallback:
 	goto host_fallback;
 }
 
-void
-get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
+bool
+try_get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
 {
 	obj opt;
 	if (!get_option_for_machine_overridable(wk, proj, overrides, &STRL(name), m, &opt)) {
-		LOG_E("attempted to get unknown option '%s'", name);
-		UNREACHABLE;
+		return false;
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
 	if (m == machine_kind_build && o->source <= option_value_source_default) {
-		get_option_value_for_machine_overridable(wk, proj, overrides, name, machine_kind_host, res);
-		return;
+		return try_get_option_value_for_machine_overridable(wk, proj, overrides, name, machine_kind_host, res);
 	}
 	*res = o->val;
+	return true;
+}
+
+void
+get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
+{
+	if (!try_get_option_value_for_machine_overridable(wk, proj, overrides, name, m, res)) {
+		LOG_E("attempted to get unknown option '%s'", name);
+		UNREACHABLE;
+	}
 }
 
 static bool
@@ -858,7 +866,16 @@ make_compiler_env_option(struct workspace *wk, struct compiler_language lang, en
 
 	TSTR(env_opt);
 	toolchain_component_option_name_from_info(wk, &mapping, &env_opt);
-	L("> %s", env_opt.buf);
+	// HACK: we currently share AR for all languages, but they all need to specify it
+	// TODO: we need to allow different languages to have different archivers
+	if (comp == toolchain_component_archiver && strcmp(mapping.env_var, "AR") == 0) {
+		obj opt;
+		if (get_option(wk, current_project(wk), &TSTR_STR(&env_opt), &opt)) {
+			// already defined, skip
+			return;
+		}
+	}
+
 	make_compiler_option(wk, tstr_into_str(wk, &env_opt));
 
 	if (is_first) {
