@@ -399,7 +399,7 @@ static struct {
 	{ .t = obj_feature_opt, .name = "feature" },
 	{ .t = obj_external_program, .name = "external_program" },
 	{ .t = obj_python_installation, .name = "python_installation" },
-	{ .t = obj_run_result, .name = "runresult" },
+	{ .t = obj_run_result, .name = "run_result" },
 	{ .t = obj_configuration_data, .name = "cfg_data" },
 	{ .t = obj_custom_target, .name = "custom_tgt" },
 	{ .t = obj_test, .name = "test" },
