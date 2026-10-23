@@ -23,6 +23,24 @@
 #include "platform/path.h"
 #include "toolchains.h"
 
+static bool
+ca_try_get_lang_option_value_for_tgt(struct workspace *wk,
+	obj compiler,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	const char *name,
+	obj *res)
+{
+	char opt_name[1024];
+	snprintf(opt_name,
+		sizeof(opt_name),
+		"%s_%s",
+		compiler_language_to_s(wk, get_obj_compiler(wk, compiler)->lang),
+		name);
+	return try_get_option_value_for_machine_overridable(
+		wk, proj, tgt ? tgt->override_options : 0, opt_name, tgt ? tgt->machine : machine_kind_host, res);
+}
+
 static void
 ca_get_option_value_for_tgt(struct workspace *wk,
 	const struct project *proj,
@@ -176,17 +194,8 @@ ca_get_std_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
-	obj std = 0;
-
-	// switch (get_obj_compiler(wk, comp)->lang) {
-	// case compiler_language_objc:
-	// case compiler_language_c: ca_get_option_value_for_tgt(wk, proj, tgt, "c_std", &std); break;
-	// case compiler_language_objcpp:
-	// case compiler_language_cpp: ca_get_option_value_for_tgt(wk, proj, tgt, "cpp_std", &std); break;
-	// default: return;
-	// }
-
-	if (!std) {
+	obj std;
+	if (!ca_try_get_lang_option_value_for_tgt(wk, comp, proj, tgt, "std", &std)) {
 		return;
 	}
 
@@ -231,19 +240,10 @@ ca_get_option_compile_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
-	obj args = 0;
-	// switch (get_obj_compiler(wk, comp)->lang) {
-// #define TOOLCHAIN_ENUM(lang) \
-	// case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_args", &args); break;
-	// 	FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
-// #undef TOOLCHAIN_ENUM
-	// default: return;
-	// }
-	if (!args) {
-		return;
+	obj args;
+	if (ca_try_get_lang_option_value_for_tgt(wk, comp, proj, tgt, "args", &args)) {
+		obj_array_extend(wk, args_id, args);
 	}
-
-	obj_array_extend(wk, args_id, args);
 }
 
 static void
@@ -598,19 +598,10 @@ ca_get_option_link_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
-	obj args = 0;
-	// switch (get_obj_compiler(wk, comp)->lang) {
-// #define TOOLCHAIN_ENUM(lang) \
-	// case compiler_language_##lang: ca_get_option_value_for_tgt(wk, proj, tgt, #lang "_link_args", &args); break;
-	// 	FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
-// #undef TOOLCHAIN_ENUM
-	// default: return;
-	// }
-	if (!args) {
-		return;
+	obj args;
+	if (ca_try_get_lang_option_value_for_tgt(wk, comp, proj, tgt, "link_args", &args)) {
+		obj_array_extend(wk, args_id, args);
 	}
-
-	obj_array_extend(wk, args_id, args);
 }
 
 static void

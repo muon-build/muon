@@ -93,7 +93,9 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	tgt->dep_internal.link_language = coalesce_link_languages(wk, tgt->dep_internal.link_language, fl);
+	if (!coalesce_link_languages(wk, tgt->dep_internal.link_language, fl, &tgt->dep_internal.link_language)) {
+		return ir_err;
+	}
 
 	return ir_cont;
 }
@@ -130,7 +132,9 @@ determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
 		return ir_cont;
 	}
 
-	tgt->dep_internal.link_language = coalesce_link_languages(wk, tgt->dep_internal.link_language, fl);
+	if (!coalesce_link_languages(wk, tgt->dep_internal.link_language, fl, &tgt->dep_internal.link_language)) {
+		return ir_err;
+	}
 
 	return ir_cont;
 }
@@ -1201,13 +1205,6 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		[bt_kw_build_subdir] = { "build_subdir", obj_string },
 		[bt_kw_android_exe_type] = { "android_exe_type", obj_string },
 		[bt_kw_shortname] = { "shortname", obj_string },
-// #define E(lang, s, t) [bt_kw_##lang##s] = { #lang #s, t }
-// #define TOOLCHAIN_ENUM(lang)                                                                                 \
-// 	E(lang, _args, TYPE_TAG_LISTIFY | obj_string), E(lang, _static_args, TYPE_TAG_LISTIFY | obj_string), \
-// 		E(lang, _shared_args, TYPE_TAG_LISTIFY | obj_string), E(lang, _pch, tc_string | tc_file | tc_build_target | tc_array),
-// 		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
-// #undef TOOLCHAIN_ENUM
-// #undef E
 	};
 
 	struct arr akw_arr;

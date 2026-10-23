@@ -217,8 +217,11 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	}
 
 	// skip non-compileable sources
-	if (toolchain_language_get(wk, l)->dont_compile) {
-		return true;
+	{
+		const struct language *lang = toolchain_language_get(wk, l);
+		if (lang->is_header || lang->is_linkable) {
+			return true;
+		}
 	}
 
 	if (ctx->verify_exists && !obj_array_in(wk, ctx->tgt->src, file)) {

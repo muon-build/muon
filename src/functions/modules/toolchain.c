@@ -443,7 +443,7 @@ struct module_toolchain_register_language_toolchain_options
 	obj compiler, linker, archiver;
 };
 
-FUNC_IMPL(module_toolchain, register_language, 0, func_impl_flag_impure, .desc = "Register a language")
+FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 {
 	if (vm_enum(wk, enum language_family)) {
 		 vm_enum_value_prefixed(wk, language_family, c);
@@ -465,6 +465,9 @@ FUNC_IMPL(module_toolchain, register_language, 0, func_impl_flag_impure, .desc =
 		kw_file_extensions,
 		kw_toolchain_options,
 		kw_options,
+		kw_link_language,
+		kw_is_header,
+		kw_is_linkable,
 	};
 	struct args_kw akw[] = {
 		[kw_family] = { "family", complex_type_enum_get(wk, enum language_family) },
@@ -475,6 +478,9 @@ FUNC_IMPL(module_toolchain, register_language, 0, func_impl_flag_impure, .desc =
 				module_toolchain_register_language_toolchain_options,
 				"accepted properties:\n```\n%s\n```") },
 		[kw_options] = { "options", tc_dict }, // TODO: better type
+		[kw_link_language] = { "link_language", tc_closure },
+		[kw_is_header] = { "is_header", tc_bool },
+		[kw_is_linkable] = { "is_linkable", tc_bool },
 		0,
 	};
 
@@ -482,19 +488,48 @@ FUNC_IMPL(module_toolchain, register_language, 0, func_impl_flag_impure, .desc =
 		return false;
 	}
 
+	if (akw[kw_link_language].set)
+	{
+		const struct args_norm link_language_an[] = { { tc_string }, { ARG_TYPE_NULL } };
+		const struct typecheck_closure_sig link_language_sig = {
+			.an = link_language_an,
+			.return_type = tc_string,
+		};
+		if (!typecheck_closure(wk, akw[kw_link_language].node, akw[kw_link_language].val, &link_language_sig, "link_language")) {
+			return false;
+		}
+	}
+
+	if (get_obj_type(wk, an[0].val) == obj_typeinfo) {
+		vm_error_at(wk, an[0].node, "registered language names must be static");
+		return false;
+	}
+
 	struct language *lang = arr_grow_by(wk->a, &wk->language_registry.languages, 1);
 	lang->name = *get_str(wk, an[0].val);
-	lang->exts = akw[kw_file_extensions].val;
 
-	if (akw[kw_options].set) {
+	if (akw[kw_options].set && get_obj_type(wk, akw[kw_options].val) != obj_typeinfo) {
 		obj k, v;
 		obj_dict_for(wk, akw[kw_options].val, k, v) {
+			// I'm not actually sure if it is possible for k to be typeinfo
+			if (get_obj_type(wk, k) == obj_typeinfo || get_obj_type(wk, v) == obj_typeinfo) {
+				continue;
+			}
 			struct obj_option *o = get_obj_option(wk, v);
 			o->name = make_strf(wk, "%s_%s", lang->name.s, get_str(wk, k)->s);
 			o->yield = true;
 			obj_array_push(wk, wk->queued_options, v);
 		}
 	}
+
+	if (wk->vm.in_analyzer) {
+		return true;
+	}
+
+	lang->exts = akw[kw_file_extensions].val;
+	lang->link_language = akw[kw_link_language].val;
+	lang->is_header = get_obj_bool_with_default(wk, akw[kw_is_header].val, false);
+	lang->is_linkable = get_obj_bool_with_default(wk, akw[kw_is_linkable].val, false);
 
 	if (akw[kw_toolchain_options].set) {
 		struct module_toolchain_register_language_toolchain_options opts = { 0 };
@@ -516,10 +551,12 @@ FUNC_IMPL(module_toolchain, register_language, 0, func_impl_flag_impure, .desc =
 		}
 	}
 
+	L("registered language %s", lang->name.s);
+
 	return true;
 }
 
-FUNC_IMPL(module_toolchain, option, tc_option, func_impl_flag_impure, .desc = "Create a toolchain option object")
+FUNC_IMPL(module_toolchain, option, tc_option, .desc = "Create a toolchain option object")
 {
 	struct func_option_common_result r;
 	stack_push(&wk->stack, initializing_builtin_options_state, initializing_builtin_options_state_project);

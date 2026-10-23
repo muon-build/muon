@@ -1741,7 +1741,7 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 	}
 }
 
-void
+static bool
 build_dep_merge(struct workspace *wk,
 	struct build_dep *dest,
 	const struct build_dep *src,
@@ -1751,7 +1751,9 @@ build_dep_merge(struct workspace *wk,
 
 	build_dep_init(wk, dest);
 
-	dest->link_language = coalesce_link_languages(wk, src->link_language, dest->link_language);
+	if (!coalesce_link_languages(wk, src->link_language, dest->link_language, &dest->link_language)) {
+		return false;
+	}
 
 	if (src->link_with) {
 		obj_array_extend(wk, dest->link_with, src->link_with);
@@ -1804,6 +1806,8 @@ build_dep_merge(struct workspace *wk,
 	if (merge_all && src->objects) {
 		obj_array_extend(wk, dest->objects, src->objects);
 	}
+
+	return true;
 }
 
 static bool
@@ -2037,7 +2041,9 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 			}
 		}
 
-		build_dep_merge(wk, ctx->dest, &tgt->dep, 0);
+		if (!build_dep_merge(wk, ctx->dest, &tgt->dep, 0)) {
+			return false;
+		}
 		break;
 	}
 	case obj_custom_target: {

@@ -270,47 +270,45 @@ compiler_language_extension(struct workspace *wk, struct compiler_language l)
 	return get_str(wk, obj_array_index(wk, toolchain_language_get(wk, l)->exts, 0))->s;
 }
 
-struct compiler_language
-coalesce_link_languages(struct workspace *wk, struct compiler_language cur, struct compiler_language new)
+static bool
+coalesce_link_languages_(struct workspace *wk, struct compiler_language cur, struct compiler_language new, struct compiler_language *res)
 {
-#if 0
-	switch (new) {
-	case compiler_language_null:
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_objc_hdr:
-	case compiler_language_objcpp_hdr:
-	case compiler_language_llvm_ir: break;
-	case compiler_language_assembly:
-		if (!cur) {
-			return compiler_language_assembly;
-		}
-		break;
-	case compiler_language_nasm:
-	case compiler_language_masm:
-	case compiler_language_c:
-	case compiler_language_c_obj:
-	case compiler_language_objc:
-	case compiler_language_vala:
-		if (!cur) {
-			return compiler_language_c;
-		}
-		break;
-	case compiler_language_cpp:
-	case compiler_language_objcpp:
-		if (!cur || cur == compiler_language_c || cur == compiler_language_assembly) {
-			return compiler_language_cpp;
-		}
-		break;
-	case compiler_language_rust:
-		return compiler_language_rust;
-	case compiler_language_fortran:
-		return compiler_language_fortran;
-	case compiler_language_count: UNREACHABLE;
+	const struct language *new_l = toolchain_language_get(wk, new);
+	if (!new_l->env_option_names[toolchain_component_linker]) {
+		*res = cur;
+		return true;
+	} else if (!cur.id) {
+		*res = new;
+		return true;
 	}
 
-#endif
-	return new;
+	const struct language *cur_l = toolchain_language_get(wk, cur);
+	if (cur_l->link_language) {
+		struct args_norm an[] = { { .val = make_str(wk, new_l->name.s) }, { ARG_TYPE_NULL } };
+		obj fn_res;
+		if (!vm_eval_closure(wk, cur_l->link_language, an, 0, &fn_res)) {
+			return false;
+		}
+		if (!s_to_compiler_language(wk, get_str(wk, fn_res), res)) {
+			vm_error(wk, "%o is not a valid language", fn_res);
+			return false;
+		}
+	}
+
+	*res = cur;
+	return true;
+}
+
+bool
+coalesce_link_languages(struct workspace *wk, struct compiler_language cur, struct compiler_language new, struct compiler_language *res)
+{
+	bool ok = coalesce_link_languages_(wk, cur, new, res);
+	// L("coalesce %s -> %s == %s (%d)",
+	// 	compiler_language_to_s(wk, cur),
+	// 	compiler_language_to_s(wk, new),
+	// 	compiler_language_to_s(wk, *res),
+	// 	ok);
+	return ok;
 }
 
 static bool
