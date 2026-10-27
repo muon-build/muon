@@ -119,7 +119,6 @@ typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 #define FOREACH_COMPILER_ARG(_)                                    \
 	_(always, compiler, TOOLCHAIN_PARAMS_0)                    \
 	_(argument_syntax, compiler, TOOLCHAIN_PARAMS_0)           \
-	_(can_compile_llvm_ir, compiler, TOOLCHAIN_PARAMS_0rb)     \
 	_(check_ignored_option, compiler, TOOLCHAIN_PARAMS_1srb)   \
 	_(color_output, compiler, TOOLCHAIN_PARAMS_1s)             \
 	_(compile_only, compiler, TOOLCHAIN_PARAMS_0)              \
@@ -208,11 +207,14 @@ enum language_family {
 
 struct language {
 	struct str name;
-	struct str gcc_header_name;
+	struct compiler_language link_language;
+	struct compiler_language header_language;
 	bool is_header;
 	bool is_linkable;
 	obj exts;
-	obj link_language;
+	obj coalesce_link_language;
+	obj on_added;
+	obj inherit_compile_args;
 	enum language_family family;
 	const char *env_option_names[toolchain_component_count];
 };
@@ -236,7 +238,7 @@ struct toolchain_id {
 
 struct toolchain_registry_component {
 	struct toolchain_id id;
-	obj detect, overrides, exe;
+	obj detect, overrides, exe, on_detect;
 	struct {
 		obj fn;
 		uint32_t type;
@@ -274,10 +276,10 @@ const char *toolchain_component_to_s(enum toolchain_component comp);
 bool toolchain_component_from_s(struct workspace *wk, const char *name, uint32_t *res);
 
 const char *compiler_language_to_s(struct workspace *wk, struct compiler_language l);
-const char *compiler_language_to_gcc_header_name(struct workspace *wk, struct compiler_language l);
 bool s_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l);
 
 bool filename_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l);
+bool extension_to_compiler_language(struct workspace *wk, const struct str *ext, struct compiler_language *l);
 const char *compiler_language_extension(struct workspace *wk, struct compiler_language l);
 bool coalesce_link_languages(struct workspace *wk,
 	struct compiler_language cur,

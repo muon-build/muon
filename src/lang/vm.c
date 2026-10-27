@@ -3817,6 +3817,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field(obj_option, obj, max);
 	vm_reflect_obj_field(obj_option, obj, min);
 	vm_reflect_obj_field(obj_option, obj, deprecated);
+	vm_reflect_obj_field(obj_option, obj, inherit_env);
 	vm_reflect_obj_field(obj_option, obj, description);
 	vm_reflect_obj_field(obj_option, uint32_t, ip);
 	vm_reflect_obj_field(obj_option, enum option_value_source, source);

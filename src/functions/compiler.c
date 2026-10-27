@@ -140,7 +140,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	/* fallthrough */
 	case compiler_check_mode_compile:
 	case compiler_check_mode_preprocess:
-		ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
+		ca_get_option_compile_args(wk, compiler->lang, current_project(wk), NULL, compiler_args);
 		break;
 	}
 
@@ -2352,7 +2352,7 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 
 	ca_get_std_args(wk, self, current_project(wk), NULL, base_cmd);
 
-	ca_get_option_compile_args(wk, self, current_project(wk), NULL, base_cmd);
+	ca_get_option_compile_args(wk, comp->lang, current_project(wk), NULL, base_cmd);
 
 	bool have_dep = false;
 	struct build_dep dep = { 0 };
@@ -2573,14 +2573,49 @@ FUNC_IMPL(compiler, target_triple, tc_dict, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(compiler, machine, tc_machine, func_impl_flag_impure)
+FUNC_IMPL(compiler, machine, tc_machine, func_impl_flag_impure, .desc = "Get the machine this compiler object is for")
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = make_obj(wk, obj_machine);
-	set_obj_machine(wk, *res, get_obj_compiler(wk, self)->machine);
+	const char *machine_var = 0;
+	switch (get_obj_compiler(wk, self)->machine) {
+	case machine_kind_build: machine_var = "build_machine"; break;
+	case machine_kind_host: machine_var = "host_machine"; break;
+	case machine_kind_either: machine_var = 0; break;
+	}
+
+	if (!machine_var) {
+		vm_error(wk, "this copmiler has no concrete machine defined");
+		return false;
+	}
+
+
+	if (!obj_dict_index_str(wk, wk->vm.default_global_scope, machine_var, res)) {
+		UNREACHABLE;
+	}
+
+	return true;
+}
+
+FUNC_IMPL(compiler,
+	native,
+	tc_bool,
+	func_impl_flag_impure,
+	.desc = "Return true if this compiler object is for"
+		" the build machine, or false if it is for the host machine.")
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	switch (get_obj_compiler(wk, self)->machine) {
+	case machine_kind_build: *res = obj_bool_true; break;
+	case machine_kind_host: *res = obj_bool_false; break;
+	default: vm_error(wk, "this copmiler has no concrete machine defined"); return false;
+	}
+
 	return true;
 }
 
@@ -2637,6 +2672,7 @@ FUNC_REGISTER(compiler)
 		FUNC_IMPL_REGISTER(compiler, get_internal_archiver_id);
 		FUNC_IMPL_REGISTER(compiler, target_triple);
 		FUNC_IMPL_REGISTER(compiler, machine);
+		FUNC_IMPL_REGISTER(compiler, native);
 		FUNC_IMPL_REGISTER(compiler, version_raw);
 	}
 }

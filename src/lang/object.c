@@ -395,7 +395,7 @@ static struct {
 	{ .t = obj_file, .name = "file" },
 	{ .t = obj_build_target, .name = "build_tgt" },
 	{ .t = obj_subproject, .name = "subproject" },
-	{ .t = obj_machine, .name = "build_machine" },
+	{ .t = obj_machine, .name = "machine" },
 	{ .t = obj_feature_opt, .name = "feature" },
 	{ .t = obj_external_program, .name = "external_program" },
 	{ .t = obj_python_installation, .name = "python_installation" },
@@ -600,6 +600,9 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		}
 
 		break;
+	}
+	case obj_machine: {
+		return get_obj_machine(wk, left) == get_obj_machine(wk, right);
 	}
 	default:
 		/* LOG_W("TODO: compare %s", obj_type_to_s(t)); */
@@ -2124,6 +2127,8 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		}
 		break;
 	}
+	case obj_machine: {
+							}
 	default: tstr_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
 }

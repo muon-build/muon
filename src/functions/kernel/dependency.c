@@ -438,7 +438,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		obj_array_push(wk, cmd, make_str(wk, "-E"));
 		obj_array_push(wk, cmd, make_str(wk, "-"));
 		obj_array_extend(wk, cmd, toolchain_compiler_always(wk, compiler));
-		ca_get_option_compile_args(wk, compiler, current_project(wk), 0, cmd);
+		ca_get_option_compile_args(wk, comp->lang, current_project(wk), 0, cmd);
 
 		const char *argstr;
 		uint32_t argc;

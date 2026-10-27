@@ -213,14 +213,6 @@ compiler_language_to_s(struct workspace *wk, struct compiler_language l)
 	return toolchain_language_get(wk, l)->name.s;
 }
 
-const char *
-compiler_language_to_gcc_header_name(struct workspace *wk, struct compiler_language l)
-{
-	const char *n = toolchain_language_get(wk, l)->gcc_header_name.s;
-	assert(n);
-	return n;
-}
-
 bool
 s_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l)
 {
@@ -237,6 +229,31 @@ s_to_compiler_language(struct workspace *wk, const struct str *s, struct compile
 }
 
 bool
+extension_to_compiler_language(struct workspace *wk, const struct str *ext, struct compiler_language *l)
+{
+	if (!ext->len) {
+		return false;
+	}
+
+	for (uint32_t i = 0; i < wk->language_registry.languages.len; ++i) {
+		const struct language *lang = &((struct language *)wk->language_registry.languages.e)[i];
+		if (!lang->exts) {
+			continue;
+		}
+
+		obj e;
+		obj_array_for(wk, lang->exts, e) {
+			if (str_eql(get_str(wk, e), ext)) {
+				*l = (struct compiler_language){ i };
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool
 filename_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l)
 {
 	struct str_cut cut;
@@ -246,22 +263,8 @@ filename_to_compiler_language(struct workspace *wk, const struct str *s, struct 
 	}
 
 	const struct str ext = cut.after;
-	for (uint32_t i = 0; i < wk->language_registry.languages.len; ++i) {
-		const struct language *lang = &((struct language *)wk->language_registry.languages.e)[i];
-		if (!lang->exts) {
-			continue;
-		}
 
-		obj e;
-		obj_array_for(wk, lang->exts, e) {
-			if (str_eql(get_str(wk, e), &ext)) {
-				*l = (struct compiler_language){ i };
-				return true;
-			}
-		}
-	}
-
-	return false;
+	return extension_to_compiler_language(wk, &ext, l);
 }
 
 const char *
@@ -274,28 +277,33 @@ static bool
 coalesce_link_languages_(struct workspace *wk, struct compiler_language cur, struct compiler_language new, struct compiler_language *res)
 {
 	const struct language *new_l = toolchain_language_get(wk, new);
-	if (!new_l->env_option_names[toolchain_component_linker]) {
+	if (!new_l->link_language.id) {
 		*res = cur;
 		return true;
-	} else if (!cur.id) {
+	}
+
+	new = new_l->link_language;
+	new_l = toolchain_language_get(wk, new);
+
+	if (!cur.id) {
 		*res = new;
 		return true;
 	}
 
 	const struct language *cur_l = toolchain_language_get(wk, cur);
-	if (cur_l->link_language) {
+	if (cur_l->coalesce_link_language) {
 		struct args_norm an[] = { { .val = make_str(wk, new_l->name.s) }, { ARG_TYPE_NULL } };
 		obj fn_res;
-		if (!vm_eval_closure(wk, cur_l->link_language, an, 0, &fn_res)) {
+		if (!vm_eval_closure(wk, cur_l->coalesce_link_language, an, 0, &fn_res)) {
 			return false;
 		}
 		if (!s_to_compiler_language(wk, get_str(wk, fn_res), res)) {
 			vm_error(wk, "%o is not a valid language", fn_res);
 			return false;
 		}
+	} else {
+		*res = cur;
 	}
-
-	*res = cur;
 	return true;
 }
 
@@ -303,11 +311,11 @@ bool
 coalesce_link_languages(struct workspace *wk, struct compiler_language cur, struct compiler_language new, struct compiler_language *res)
 {
 	bool ok = coalesce_link_languages_(wk, cur, new, res);
-	// L("coalesce %s -> %s == %s (%d)",
-	// 	compiler_language_to_s(wk, cur),
-	// 	compiler_language_to_s(wk, new),
-	// 	compiler_language_to_s(wk, *res),
-	// 	ok);
+	L("coalesce %s -> %s == %s (%d)",
+		compiler_language_to_s(wk, cur),
+		compiler_language_to_s(wk, new),
+		compiler_language_to_s(wk, *res),
+		ok);
 	return ok;
 }
 
@@ -933,7 +941,9 @@ toolchain_detect(struct workspace *wk,
 		return true;
 	}
 
-	L("detecting toolchain for language %s", compiler_language_to_s(wk, lang));
+	L("detecting toolchain for language %s and %s machine",
+		compiler_language_to_s(wk, lang),
+		machine_kind_to_s(machine));
 
 	*comp = make_obj(wk, obj_compiler);
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
@@ -957,31 +967,50 @@ toolchain_detect(struct workspace *wk,
 
 	obj_dict_set_language(wk, wk->toolchains[machine], lang, *comp);
 
-	if (flags & toolchain_detect_flag_silent) {
-		return true;
-	}
-
-	LLOG_I("%s: ", compiler_log_prefix(wk, lang, machine));
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
-		if (i) {
-			log_plain(log_info, "\n  ");
-			log_plain(log_info, "%s: ", toolchain_component_to_s(i));
-		}
-
-		log_plain(log_info, CLR(c_bold) CLR(c_green) "%s" CLR(0), toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
-
-		const struct str *ver_str = get_str(wk, compiler->ver[i]);
-		if (!str_eql(ver_str, &STR("unknown"))) {
-			log_plain(log_info, " %s", ver_str->s);
-		}
-
-		if (i == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, *comp)) {
-			log_plain(log_info, " (passed-through)");
-		} else {
-			obj_lprintf(wk, log_info, " (%o)", compiler->cmd_arr[i]);
+		if (!compiler->ver[i]) {
+			compiler->ver[i] = make_str(wk, "unknown");
 		}
 	}
-	log_plain(log_info, "\n");
+
+	if (!(flags & toolchain_detect_flag_silent)) {
+		LLOG_I("%s: ", compiler_log_prefix(wk, lang, machine));
+		for (uint32_t i = 0; i < toolchain_component_count; ++i) {
+			if (i) {
+				log_plain(log_info, "\n  ");
+				log_plain(log_info, "%s: ", toolchain_component_to_s(i));
+			}
+
+			log_plain(log_info,
+				CLR(c_bold) CLR(c_green) "%s" CLR(0),
+				toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
+
+			const struct str *ver_str = get_str(wk, compiler->ver[i]);
+			if (!str_eql(ver_str, &STR("unknown"))) {
+				log_plain(log_info, " %s", ver_str->s);
+			}
+
+			if (i == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, *comp)) {
+				log_plain(log_info, " (passed-through)");
+			} else {
+				obj_lprintf(wk, log_info, " (%o)", compiler->cmd_arr[i]);
+			}
+		}
+		log_plain(log_info, "\n");
+	}
+
+	{
+		const struct arr *registry = &wk->toolchain_registry.components[toolchain_component_compiler];
+		const struct toolchain_registry_component *base = arr_get(registry, compiler->type[toolchain_component_compiler]);
+		if (base->on_detect) {
+			struct args_norm an[] = { { .val = *comp }, { ARG_TYPE_NULL } };
+			obj _res;
+			if (!vm_eval_closure(wk, base->on_detect, an, 0, &_res)) {
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -1157,7 +1186,6 @@ toolchain_handler_info_init(struct workspace *wk)
 	// compiler
 	doc(always, compiler, .desc = "Arguments that are almost always passed, except in special cases such as detection.");
 	doc(argument_syntax, compiler, .desc = "Defines the return value of compiler.get_argument_syntax().");
-	doc(can_compile_llvm_ir, compiler, .desc = "True if this compiler can compile llvm_ir, e.g. clang.");
 	doc(check_ignored_option,
 		compiler,
 		.desc
