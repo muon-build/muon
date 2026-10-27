@@ -89,7 +89,7 @@ determine_linker_iter(struct workspace *wk, void *_ctx, obj val)
 	struct compiler_language fl;
 
 	if (!filename_to_compiler_language(wk, get_file_path_str(wk, val), &fl)) {
-		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+		LOG_W("unable to determine language for '%s'", get_file_path(wk, val));
 		return ir_cont;
 	}
 
@@ -109,26 +109,30 @@ determine_linker_from_objects_iter(struct workspace *wk, void *_ctx, obj val)
 
 	/*
 	 * Try to see if the file looks like
-	 * path/to/object.language.object_extension
+	 * path/to/object.primary_extension
+	 * or
+	 * path/to/object.secondary_extension.primary_extension
 	 *
-	 * This means we expect two extensions, the first one will be stripped,
-	 * and then the second will be used to determine the language of the
-	 * file.
+	 * The secondary extension is preferred but will fall back to primary if it
+	 * is not present or not found
 	 */
 
-	const struct str *o = get_str(wk, *get_obj_file(wk, val));
-	TSTR(path);
-	path_basename(wk, &path, o->s);
-	const char *first_dot = strrchr(path.buf, '.');
-	path.len = first_dot - path.buf;
-	path.buf[path.len] = 0;
-
-	if (!strrchr(path.buf, '.')) {
+	struct str_cut cut;
+	if (!str_rcut(get_file_path_str(wk, val), '.', &cut)) {
+		// no extension
 		return ir_cont;
 	}
 
-	if (!filename_to_compiler_language(wk, &TSTR_STR(&path), &fl)) {
-		/* LOG_E("unable to determine language for '%s'", get_cstr(wk, src->dat.file)); */
+	struct str primary_ext = cut.after, secondary_ext = { 0 };
+
+	if (str_rcut(&cut.before, '.', &cut)) {
+		secondary_ext = cut.after;
+	}
+
+	if (extension_to_compiler_language(wk, &secondary_ext, &fl)) {
+		// prefery secondary extension
+	} else if (!extension_to_compiler_language(wk, &primary_ext, &fl)) {
+		LOG_W("unable to determine language for '%s'", get_file_path(wk, val));
 		return ir_cont;
 	}
 
@@ -148,22 +152,6 @@ build_tgt_determine_linker(struct workspace *wk, struct obj_build_target *tgt)
 
 	if (!obj_array_foreach(wk, tgt->objects, tgt, determine_linker_from_objects_iter)) {
 		return ir_err;
-	}
-
-	if (!tgt->dep_internal.link_language.id) {
-		// struct compiler_language clink_langs[] = {
-		// 	compiler_language_c,
-		// 	compiler_language_cpp,
-		// };
-
-		// obj comp;
-		// uint32_t i;
-		// for (i = 0; i < ARRAY_LEN(clink_langs); ++i) {
-		// 	if (obj_dict_get_language(wk, current_project(wk)->toolchains[tgt->machine], clink_langs[i], &comp)) {
-		// 		tgt->dep_internal.link_language = clink_langs[i];
-		// 		break;
-		// 	}
-		// }
 	}
 
 	if (!tgt->dep_internal.link_language.id) {
@@ -869,14 +857,6 @@ create_target(struct workspace *wk,
 			struct compiler_language l = { i };
 			struct args_kw *akw_lang = get_args_kw_lang(akw, l);
 
-			// { // copy c or cpp args to assembly args
-			// 	if (akw[bt_kw_c_args].set) {
-			// 		obj_dict_seti(wk, tgt->args, compiler_language_assembly, akw[bt_kw_c_args].val);
-			// 	} else if (akw[bt_kw_cpp_args].set) {
-			// 		obj_dict_seti(wk, tgt->args, compiler_language_assembly, akw[bt_kw_cpp_args].val);
-			// 	}
-			// }
-
 			obj args = 0;
 			if (!obj_dict_get_language(wk, tgt->args, l, &args)) {
 				args = make_obj(wk, obj_array);
@@ -901,6 +881,14 @@ create_target(struct workspace *wk,
 
 				if (!pch_kw->set) {
 					continue;
+				}
+
+				if (!toolchain_language_get(wk, l)->header_language.id) {
+					vm_error_at(wk,
+						pch_kw->node,
+						"language %s does not support pch",
+						compiler_language_to_s(wk, l));
+					return false;
 				}
 
 				obj pch;
@@ -1225,10 +1213,11 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 		kwargs_arr_push(wk,
 			&akw_arr,
 			&(struct args_kw){ tstr_f(wk, "%s_shared_args", lang->name.s), TYPE_TAG_LISTIFY | obj_string });
+
 		kwargs_arr_push(wk,
 			&akw_arr,
-			&(struct args_kw){
-				tstr_f(wk, "%s_pch", lang->name.s), tc_string | tc_file | tc_build_target | tc_array });
+			&(struct args_kw){ tstr_f(wk, "%s_pch", lang->name.s),
+				tc_string | tc_file | tc_build_target | tc_array });
 	}
 
 	struct args_kw *akw = (struct args_kw *)akw_arr.e;

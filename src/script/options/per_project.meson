@@ -18,22 +18,6 @@ option(
 option('werror', yield: true, type: 'boolean', value: false)
 
 option(
-    'cpp_std',
-    yield: true,
-    type: 'string',
-    value: 'none',
-    per_machine: true,
-)
-
-option(
-    'rust_std',
-    yield: true,
-    type: 'string',
-    value: 'none',
-    per_machine: true,
-)
-
-option(
     'buildtype',
     yield: true,
     type: 'combo',
@@ -101,42 +85,4 @@ option(
     value: 4,
     min: 2,
     description: 'Unity block size',
-) # TODO
-
-option(
-    'cpp_debugstl',
-    yield: true,
-    type: 'boolean',
-    value: false,
-    per_machine: true,
-) # TODO
-option(
-    'cpp_eh',
-    yield: true,
-    type: 'combo',
-    value: 'default',
-    choices: ['none', 'default', 'a', 's', 'sc'],
-    per_machine: true,
-) # TODO
-option(
-    'cpp_rtti',
-    yield: true,
-    type: 'boolean',
-    value: true,
-    per_machine: true,
-) # TODO
-option(
-    'cpp_thread_count',
-    yield: true,
-    type: 'integer',
-    value: 4,
-    min: 0,
-    per_machine: true,
-) # TODO
-option(
-    'cpp_winlibs',
-    yield: true,
-    type: 'array',
-    value: [],
-    per_machine: true,
 ) # TODO

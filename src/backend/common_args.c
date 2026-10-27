@@ -25,7 +25,7 @@
 
 static bool
 ca_try_get_lang_option_value_for_tgt(struct workspace *wk,
-	obj compiler,
+	const struct compiler_language lang,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	const char *name,
@@ -35,7 +35,7 @@ ca_try_get_lang_option_value_for_tgt(struct workspace *wk,
 	snprintf(opt_name,
 		sizeof(opt_name),
 		"%s_%s",
-		compiler_language_to_s(wk, get_obj_compiler(wk, compiler)->lang),
+		compiler_language_to_s(wk, lang),
 		name);
 	return try_get_option_value_for_machine_overridable(
 		wk, proj, tgt ? tgt->override_options : 0, opt_name, tgt ? tgt->machine : machine_kind_host, res);
@@ -194,8 +194,9 @@ ca_get_std_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
+	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
 	obj std;
-	if (!ca_try_get_lang_option_value_for_tgt(wk, comp, proj, tgt, "std", &std)) {
+	if (!ca_try_get_lang_option_value_for_tgt(wk, compiler->lang, proj, tgt, "std", &std)) {
 		return;
 	}
 
@@ -235,13 +236,13 @@ ca_get_std_args(struct workspace *wk,
 
 void
 ca_get_option_compile_args(struct workspace *wk,
-	obj comp,
+	struct compiler_language lang,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args_id)
 {
 	obj args;
-	if (ca_try_get_lang_option_value_for_tgt(wk, comp, proj, tgt, "args", &args)) {
+	if (ca_try_get_lang_option_value_for_tgt(wk, lang, proj, tgt, "args", &args)) {
 		obj_array_extend(wk, args_id, args);
 	}
 }
@@ -356,6 +357,33 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	}
 }
 
+static void
+ca_get_base_compiler_lang_args(struct workspace *wk,
+	obj args,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	struct compiler_language lang)
+{
+	LO("ca_get_base_compiler_lang_args: %o %s\n", tgt->name, compiler_language_to_s(wk, lang));
+	{ /* option args (from option('x_args')) */
+		ca_get_option_compile_args(wk, lang, proj, tgt, args);
+	}
+
+	{ /* global args */
+		obj global_args;
+		if (obj_dict_get_language(wk, wk->global_args[tgt->machine], lang, &global_args)) {
+			obj_array_extend(wk, args, global_args);
+		}
+	}
+
+	{ /* project args */
+		obj proj_args;
+		if (obj_dict_get_language(wk, proj->args[tgt->machine], lang, &proj_args)) {
+			obj_array_extend(wk, args, proj_args);
+		}
+	}
+}
+
 static obj
 ca_get_base_compiler_args(struct workspace *wk,
 	const struct project *proj,
@@ -380,23 +408,7 @@ ca_get_base_compiler_args(struct workspace *wk,
 
 	ca_setup_optional_b_args_compiler(wk, comp, proj, tgt, &buildtype, args);
 
-	{ /* option args (from option('x_args')) */
-		ca_get_option_compile_args(wk, comp, proj, tgt, args);
-	}
-
-	{ /* global args */
-		obj global_args;
-		if (obj_dict_get_language(wk, wk->global_args[tgt->machine], lang, &global_args)) {
-			obj_array_extend(wk, args, global_args);
-		}
-	}
-
-	{ /* project args */
-		obj proj_args;
-		if (obj_dict_get_language(wk, proj->args[tgt->machine], lang, &proj_args)) {
-			obj_array_extend(wk, args, proj_args);
-		}
-	}
+	ca_get_base_compiler_lang_args(wk, args, proj, tgt, lang);
 
 	return args;
 }
@@ -485,6 +497,22 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 			return false;
 		}
 
+		{ /* populate tgt->args with compile args */
+			if (tgt->dep_internal.compile_args) {
+				obj tgt_args;
+				if (obj_dict_get_language(wk, tgt->args, lang, &tgt_args)) {
+					obj_array_extend(wk, tgt_args, tgt->dep_internal.compile_args);
+				} else {
+					obj_dict_set_language(wk, tgt->args, lang, tgt->dep_internal.compile_args);
+				}
+			}
+		}
+
+		const struct language *l = toolchain_language_get(wk, lang);
+		if (l->inherit_compile_args) {
+			continue;
+		}
+
 		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp);
 
 		if (tgt->flags & build_tgt_flag_pic) {
@@ -517,17 +545,6 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		obj args_post;
 		args_post = make_obj(wk, obj_array);
 
-		{ /* compile args */
-			if (tgt->dep_internal.compile_args) {
-				obj tgt_args;
-				if (obj_dict_get_language(wk, tgt->args, lang, &tgt_args)) {
-					obj_array_extend(wk, tgt_args, tgt->dep_internal.compile_args);
-				} else {
-					obj_dict_set_language(wk, tgt->args, lang, tgt->dep_internal.compile_args);
-				}
-			}
-		}
-
 		{ /* target args */
 			obj tgt_args;
 			if (obj_dict_get_language(wk, tgt->args, lang, &tgt_args) && get_obj_array(wk, tgt_args)->len) {
@@ -549,8 +566,10 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 					obj_array_extend(wk, args_dup, toolchain_compiler_emit_pch(wk, comp));
 					obj_array_extend(wk,
 						args_dup,
-						toolchain_compiler_force_language(
-							wk, comp, compiler_language_to_gcc_header_name(wk, lang)));
+						toolchain_compiler_force_language(wk,
+							comp,
+							compiler_language_to_s(wk,
+								toolchain_language_get(wk, lang)->header_language)));
 					obj_dict_set_language(wk, tgt->processed_args_pch, lang, args_dup);
 				}
 
@@ -569,6 +588,47 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 
 		obj_dict_set_language(wk, tgt->processed_args, lang, args);
 	}
+
+	obj_dict_for(wk, tgt->required_compilers, lang_id, _n) {
+		(void)_n;
+		struct compiler_language lang = { lang_id };
+		const struct language *l = toolchain_language_get(wk, lang);
+		if (l->inherit_compile_args) {
+			obj args = 0;
+			obj inherit_name;
+			obj_array_for(wk, l->inherit_compile_args, inherit_name) {
+				struct compiler_language inherit;
+				if (!s_to_compiler_language(wk, get_str(wk, inherit_name), &inherit)) {
+					UNREACHABLE;
+				}
+
+				obj inherit_args;
+				if (obj_dict_get_language(wk, tgt->processed_args, inherit, &inherit_args)) {
+					LO("inheriting from %o\n", inherit_name);
+					obj_array_dup(wk, inherit_args, &args);
+					break;
+				}
+			}
+
+			if (!args) {
+				args = make_obj(wk, obj_array);
+			}
+
+			ca_get_base_compiler_lang_args(wk, args, proj, tgt, lang);
+
+			{ /* target args */
+				obj tgt_args;
+				if (obj_dict_get_language(wk, tgt->args, lang, &tgt_args)
+					&& get_obj_array(wk, tgt_args)->len) {
+					obj_array_extend(wk, args, tgt_args);
+				}
+			}
+
+			obj_dict_set_language(wk, tgt->processed_args, lang, args);
+			LO("> %o\n", args);
+		}
+	}
+
 
 	return true;
 }
@@ -599,7 +659,7 @@ ca_get_option_link_args(struct workspace *wk,
 	obj args_id)
 {
 	obj args;
-	if (ca_try_get_lang_option_value_for_tgt(wk, comp, proj, tgt, "link_args", &args)) {
+	if (ca_try_get_lang_option_value_for_tgt(wk, get_obj_compiler(wk, comp)->lang, proj, tgt, "link_args", &args)) {
 		obj_array_extend(wk, args_id, args);
 	}
 }

@@ -4,14 +4,16 @@
 toolchain = import('toolchain')
 
 toolchain.register_language(
- 	'object',
-    is_linkable: true,
-    file_extensions: ['o', 'obj'],
+    'c_header',
+    family: 'c',
+    is_header: true,
+    file_extensions: ['h'],
 )
 
 toolchain.register_language(
     'c',
     family: 'c',
+    header_language: 'c_header',
     file_extensions: ['c'],
     toolchain_options: {
         'compiler': 'CC',
@@ -20,87 +22,122 @@ toolchain.register_language(
     },
     options: {
         'std': toolchain.option(type: 'string', value: 'none'),
-        'std': toolchain.option(type: 'string', value: 'none'),
         'args': toolchain.option(type: 'shell_array', inherit_env: ['CFLAGS', 'CPPFLAGS']),
         'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
         'winlibs': toolchain.option(type: 'array', value: []), # TODO
         'thread_count': toolchain.option(type: 'array', value: []), # TODO
     },
-    link_language: func(cur str) -> str
-        if cur in ['cpp']
-            return cur
+    coalesce_link_language: func(new str) -> str
+        if new in ['cpp']
+            return new
         endif
         return 'c'
-    endfunc
+    endfunc,
 )
 
 toolchain.register_language(
- 	'c_header',
-    family: 'c',
-    is_header: true,
-    file_extensions: ['h'],
+    'object',
+    is_linkable: true,
+    file_extensions: ['o', 'obj'],
+    link_language: 'c',
 )
 
 toolchain.register_language(
-    'cpp',
-    toolchain_options: {
-        'compiler': 'CXX',
-        'linker': 'CXX_LD',
-        'archiver': 'AR',
-    },
-    family: 'c',
-    file_extensions: ['cc', 'cpp', 'cxx', 'C'],
-)
-
-toolchain.register_language(
- 	'cpp_header',
+    'cpp_header',
     family: 'c',
     is_header: true,
     file_extensions: ['hh', 'hpp', 'hxx'],
 )
 
 toolchain.register_language(
+    'cpp',
+    family: 'c',
+    header_language: 'cpp_header',
+    toolchain_options: {
+        'compiler': 'CXX',
+        'linker': 'CXX_LD',
+        'archiver': 'AR',
+    },
+    options: {
+        'std': toolchain.option(type: 'string', value: 'none'),
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['CXXFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+        'debugstl': toolchain.option(type: 'boolean', value: false), # TODO
+        'eh': toolchain.option(
+            type: 'combo',
+            value: 'default',
+            choices: ['none', 'default', 'a', 's', 'sc'],
+        ), # TODO
+        'rtti': toolchain.option(type: 'boolean', value: true), # TODO
+        'thread_count': toolchain.option(type: 'integer', value: 4, min: 0), # TODO
+        'winlibs': toolchain.option(type: 'array', value: []), # TODO
+    },
+    file_extensions: ['cc', 'cpp', 'cxx', 'C'],
+    coalesce_link_language: func(_new str) -> str
+        return 'cpp'
+    endfunc,
+)
+
+toolchain.register_language(
+    'objc_header',
+    family: 'c',
+    is_header: true,
+)
+
+toolchain.register_language(
     'objc',
+    family: 'c',
+    header_language: 'objc_header',
     toolchain_options: {
         'compiler': 'OBJC',
         'linker': 'OBJC_LD',
         'archiver': 'AR',
     },
-    family: 'c',
-    file_extensions: [ 'm', 'M' ],
+    options: {
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['OBJCFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+    },
+    file_extensions: ['m', 'M'],
+    link_language: 'c',
 )
 
 toolchain.register_language(
- 	'objc_header',
+    'objcpp_header',
     family: 'c',
     is_header: true,
 )
 
 toolchain.register_language(
     'objcpp',
+    family: 'c',
+    header_language: 'objcpp_header',
     toolchain_options: {
         'compiler': 'OBJCXX',
         'linker': 'OBJCXX_LD',
         'archiver': 'AR',
     },
-    family: 'c',
+    options: {
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['OBJCXXFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+    },
     file_extensions: ['mm'],
-)
-
-toolchain.register_language(
- 	'objcpp_header',
-    family: 'c',
-    is_header: true,
+    link_language: 'cpp',
+    coalesce_link_language: func(_new str) -> str
+        return 'cpp'
+    endfunc,
 )
 
 toolchain.register_language(
     'assembly',
     file_extensions: ['s', 'S'],
+    link_language: 'c',
+    inherit_compile_args: ['c', 'cpp'],
 )
 
 toolchain.register_language(
     'llvm_ir',
     file_extensions: ['ll'],
+    link_language: 'c',
 )
 
 toolchain.register_language(
@@ -111,6 +148,7 @@ toolchain.register_language(
         'archiver': 'AR',
     },
     file_extensions: ['asm'],
+    link_language: 'c',
 )
 
 toolchain.register_language(
@@ -119,6 +157,9 @@ toolchain.register_language(
 
 toolchain.register_language(
     'rust',
+    options: {
+        'std': toolchain.option(type: 'string', value: 'none'),
+    },
     file_extensions: ['rs'],
 )
 

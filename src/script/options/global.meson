@@ -376,8 +376,7 @@ option(
     value: true,
 )
 
-# muon-specific options.  These are safe from being overridden because meson
-# forbids . in an option name
+# muon-specific options
 
 option(
     'env.NINJA',

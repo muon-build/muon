@@ -192,10 +192,16 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		.return_type = tc_number,
 	};
 
+	const struct args_norm on_detect_an[] = { { tc_compiler }, { ARG_TYPE_NULL } };
+	const struct typecheck_closure_sig on_detect_sig = {
+		.an = on_detect_an,
+	};
+
 	TSTR(detect_desc);
 	TSTR(handlers_desc);
 	TSTR(linker_desc);
 	TSTR(archiver_desc);
+	TSTR(on_detect_desc);
 	if (wk->vm.dumping_docs) {
 		tstr_pushs(wk, &detect_desc, "If set, defines a function `");
 		typecheck_closure_type_to_s(wk, &detect_desc, &detect_sig);
@@ -233,6 +239,10 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 				"` that will be used to determine the %s id for this compiler.",
 				toolchain_component_to_s(sub_components[i].component));
 		}
+
+		tstr_pushs(wk, &on_detect_desc, "If set, defines a function `");
+		typecheck_closure_type_to_s(wk, &on_detect_desc, &detect_sig);
+		tstr_pushs(wk, &on_detect_desc, "` that will be called when this toolchain is successfully detected");
 	}
 
 	struct args_norm an[] = {
@@ -247,6 +257,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		kw_exe,
 		kw_linker,
 		kw_archiver,
+		kw_on_detect,
 	};
 	struct args_kw akw[] = {
 		[kw_public_id] = { "public_id", tc_string, .desc = "Returned by `compiler.get_id()` and `compiler.get_linker_id()`.  Defaults to `id` if not set." },
@@ -256,6 +267,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 		[kw_handlers] = { "handlers", COMPLEX_TYPE_PRESET(tc_cx_toolchain_overrides), .desc = handlers_desc.buf },
 		[kw_linker] = { component == toolchain_component_compiler ? "linker" : 0, tc_string | tc_closure, .desc = linker_desc.buf },
 		[kw_archiver] = { "archiver", tc_string | tc_closure, .desc = archiver_desc.buf },
+		[kw_on_detect] = { "on_detect", tc_closure, .desc = on_detect_desc.buf },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -285,6 +297,12 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 
 	if (akw[kw_detect].set) {
 		if (!typecheck_closure(wk, akw[kw_detect].node, akw[kw_detect].val, &detect_sig, "detect")) {
+			return false;
+		}
+	}
+
+	if (akw[kw_on_detect].set) {
+		if (!typecheck_closure(wk, akw[kw_on_detect].node, akw[kw_on_detect].val, &on_detect_sig, "on_detect")) {
 			return false;
 		}
 	}
@@ -323,6 +341,7 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 
 		base.detect = inherit->detect;
 		base.exe = inherit->exe;
+		base.on_detect = inherit->on_detect;
 		memcpy(base.sub_components, inherit->sub_components, sizeof(inherit->sub_components));
 	}
 
@@ -383,6 +402,10 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 	if (!base.exe) {
 		vm_error(wk, "exe not set manually or through inheritance");
 		return false;
+	}
+
+	if (akw[kw_on_detect].val) {
+		base.on_detect = akw[kw_on_detect].val;
 	}
 
 	return toolchain_register_component(wk, component, &base);
@@ -465,9 +488,13 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		kw_file_extensions,
 		kw_toolchain_options,
 		kw_options,
+		kw_coalesce_link_language,
+		kw_on_added,
 		kw_link_language,
+		kw_header_language,
 		kw_is_header,
 		kw_is_linkable,
+		kw_inherit_compile_args,
 	};
 	struct args_kw akw[] = {
 		[kw_family] = { "family", complex_type_enum_get(wk, enum language_family) },
@@ -478,9 +505,13 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 				module_toolchain_register_language_toolchain_options,
 				"accepted properties:\n```\n%s\n```") },
 		[kw_options] = { "options", tc_dict }, // TODO: better type
-		[kw_link_language] = { "link_language", tc_closure },
+		[kw_link_language] = { "link_language", tc_string },
+		[kw_header_language] = { "header_language", tc_string },
+		[kw_coalesce_link_language] = { "coalesce_link_language", tc_closure },
+		[kw_on_added] = { "on_added", tc_closure },
 		[kw_is_header] = { "is_header", tc_bool },
 		[kw_is_linkable] = { "is_linkable", tc_bool },
+		[kw_inherit_compile_args] = { "inherit_compile_args", COMPLEX_TYPE_PRESET(tc_cx_list_of_str) },
 		0,
 	};
 
@@ -488,14 +519,26 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		return false;
 	}
 
-	if (akw[kw_link_language].set)
+	if (akw[kw_coalesce_link_language].set)
 	{
-		const struct args_norm link_language_an[] = { { tc_string }, { ARG_TYPE_NULL } };
-		const struct typecheck_closure_sig link_language_sig = {
-			.an = link_language_an,
+		const struct args_norm an[] = { { tc_string }, { ARG_TYPE_NULL } };
+		const struct typecheck_closure_sig sig = {
+			.an = an,
 			.return_type = tc_string,
 		};
-		if (!typecheck_closure(wk, akw[kw_link_language].node, akw[kw_link_language].val, &link_language_sig, "link_language")) {
+		if (!typecheck_closure(wk,
+			    akw[kw_coalesce_link_language].node,
+			    akw[kw_coalesce_link_language].val,
+			    &sig,
+			    "coalesce_link_language")) {
+			return false;
+		}
+	}
+
+	if (akw[kw_on_added].set) {
+		const struct args_norm an[] = { { tc_compiler }, { ARG_TYPE_NULL } };
+		const struct typecheck_closure_sig sig = { .an = an };
+		if (!typecheck_closure(wk, akw[kw_on_added].node, akw[kw_on_added].val, &sig, "on_added")) {
 			return false;
 		}
 	}
@@ -505,6 +548,7 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		return false;
 	}
 
+	const struct compiler_language lang_id = { wk->language_registry.languages.len };
 	struct language *lang = arr_grow_by(wk->a, &wk->language_registry.languages, 1);
 	lang->name = *get_str(wk, an[0].val);
 
@@ -522,14 +566,42 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		}
 	}
 
+	if (akw[kw_family].set) {
+		if (!vm_obj_to_enum(wk, akw[kw_family].node, enum language_family, akw[kw_family].val, &lang->family)) {
+			return false;
+		}
+	}
+
 	if (wk->vm.in_analyzer) {
 		return true;
 	}
 
 	lang->exts = akw[kw_file_extensions].val;
-	lang->link_language = akw[kw_link_language].val;
+	lang->coalesce_link_language = akw[kw_coalesce_link_language].val;
+	lang->on_added = akw[kw_on_added].val;
 	lang->is_header = get_obj_bool_with_default(wk, akw[kw_is_header].val, false);
 	lang->is_linkable = get_obj_bool_with_default(wk, akw[kw_is_linkable].val, false);
+	lang->inherit_compile_args = akw[kw_inherit_compile_args].val;
+
+	struct {
+		const struct args_kw *src;
+		struct compiler_language *dest;
+	} related_langs[] = {
+		{ &akw[kw_link_language], &lang->link_language },
+		{ &akw[kw_header_language], &lang->header_language },
+	};
+
+	for (uint32_t i = 0; i < ARRAY_LEN(related_langs); ++i) {
+		const struct args_kw *kw = related_langs[i].src;
+		struct compiler_language *dest = related_langs[i].dest;
+
+		if (kw->set) {
+			if (!s_to_compiler_language(wk, get_str(wk, kw->val), dest)) {
+				vm_error_at(wk, kw->node, "unknown language %o", kw->val);
+				return false;
+			}
+		}
+	}
 
 	if (akw[kw_toolchain_options].set) {
 		struct module_toolchain_register_language_toolchain_options opts = { 0 };
@@ -545,6 +617,10 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		}
 		if (opts.linker) {
 			lang->env_option_names[toolchain_component_linker] = get_cstr(wk, opts.linker);
+
+			if (!akw[kw_link_language].set) {
+				lang->link_language = lang_id;
+			}
 		}
 		if (opts.archiver) {
 			lang->env_option_names[toolchain_component_archiver] = get_cstr(wk, opts.archiver);

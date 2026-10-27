@@ -924,68 +924,6 @@ init_dynamic_compiler_options(struct workspace *wk, bool is_first)
 			}
 		}
 	}
-
-#if 0
-	static struct {
-		struct compiler_language l;
-		const char *name;
-	} langs[] = {
-#define TOOLCHAIN_ENUM(lang) { compiler_language_##lang, #lang },
-		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
-#undef TOOLCHAIN_ENUM
-	};
-
-	static const struct compile_opt_env_var {
-		const char *compile_flags;
-		const char *link_flags;
-		const char *preprocess_flags;
-	} compile_opt_env_var[compiler_language_count] = {
-		[compiler_language_c] = { "CFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_cpp] = { "CXXFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_objc] = { "OBJCFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS", "CPPFLAGS" },
-	};
-
-	uint32_t i, machine;
-	for (i = 0; i < ARRAY_LEN(langs); ++i) {
-		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine) {
-			const char *option_prefix = machine == machine_kind_build ? option_group_build : "";
-			const struct compile_opt_env_var *ev = &compile_opt_env_var[langs[i].l];
-
-			struct {
-				obj option;
-				const char *env_var[2];
-			} custom_env_options[] = {
-				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), { ev->compile_flags, ev->preprocess_flags } },
-				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), { ev->link_flags, ev->preprocess_flags } },
-			};
-
-			for (uint32_t o = 0; o < ARRAY_LEN(custom_env_options); ++o) {
-				make_compiler_option(wk, custom_env_options[o].option);
-				if (is_first) {
-					const char *option = get_str(wk, custom_env_options[o].option)->s;
-
-					for (uint32_t j = 0; j < ARRAY_LEN(custom_env_options[o].env_var)
-							     && custom_env_options[o].env_var[j];
-						++j) {
-						set_env_option_with_fallback(wk,
-							custom_env_options[o].env_var[j],
-							option,
-							machine,
-							set_compile_opt_from_env);
-					}
-				}
-			}
-
-			make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler, machine, is_first);
-			make_compiler_env_option(wk, langs[i].l, toolchain_component_linker, machine, is_first);
-		}
-	}
-
-	// There is a single env.AR option shared by all languages
-	make_compiler_env_option(wk, compiler_language_c, toolchain_component_archiver, machine_kind_host, is_first);
-	make_compiler_env_option(wk, compiler_language_c, toolchain_component_archiver, machine_kind_build, is_first);
-#endif
 }
 
 static bool

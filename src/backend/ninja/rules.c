@@ -12,6 +12,7 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/object_iterators.h"
+#include "lang/types.h"
 #include "lang/workspace.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -106,26 +107,14 @@ write_linker_rule(struct workspace *wk,
 static void
 write_archiver_rule(struct workspace *wk, FILE *out, struct project *proj, enum machine_kind machine)
 {
-	// struct compiler_language archiver_precedence[] = {
-	// 	compiler_language_c,
-	// 	compiler_language_cpp,
-	// 	compiler_language_objc,
-	// 	compiler_language_objcpp,
-	// 	compiler_language_nasm,
-	// };
-
 	obj comp_id = 0;
-	// uint32_t j;
-	// for (j = 0; j < ARRAY_LEN(archiver_precedence); ++j) {
-	// 	if (obj_dict_get_language(wk, proj->toolchains[machine], archiver_precedence[j], &comp_id)) {
-	// 		break;
-	// 	}
-	// }
-	//
 	obj k, v;
 	obj_dict_for(wk, proj->toolchains[machine], k, v) {
-		comp_id = v;
-		break;
+		struct obj_compiler *comp = get_obj_compiler(wk, v);
+		if (comp->cmd_arr[toolchain_component_archiver]) {
+			comp_id = v;
+			break;
+		}
 	}
 
 	if (comp_id) {
