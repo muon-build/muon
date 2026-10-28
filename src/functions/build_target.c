@@ -24,7 +24,7 @@
 struct tgt_src_to_compiled_path_opts {
 	bool relative;
 	const char *default_ext;
-	compiler_get_arg_func_0 get_ext;
+	obj (*get_ext)(TOOLCHAIN_SIG_0);
 	struct compiler_language lang;
 };
 

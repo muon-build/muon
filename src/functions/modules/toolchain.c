@@ -479,6 +479,18 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		vm_struct_member(wk, module_toolchain_register_language_toolchain_options, archiver, vm_struct_type_obj);
 	}
 
+	TSTR(snippets_desc);
+	if (wk->vm.dumping_docs) {
+		tstr_pushs(wk,
+			&snippets_desc,
+			"A dict mapping snippet names to functions."
+			" If the snippet returns a constant value, then that may be used instead of a function."
+			" The full list of valid snippets are listed in the table below."
+			" For examples of snippets, see `src/script/runtime/languages.meson` in muon's source tree.\n");
+		language_snippets_doc(wk, &snippets_desc);
+		tstr_pushs(wk, &snippets_desc, "\n");
+	}
+
 	struct args_norm an[] = {
 		{ tc_string, .desc = "The name of this language" },
 		ARG_TYPE_NULL,
@@ -495,6 +507,7 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		kw_is_header,
 		kw_is_linkable,
 		kw_inherit_compile_args,
+		kw_snippets,
 	};
 	struct args_kw akw[] = {
 		[kw_family] = { "family", complex_type_enum_get(wk, enum language_family) },
@@ -512,6 +525,7 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		[kw_is_header] = { "is_header", tc_bool },
 		[kw_is_linkable] = { "is_linkable", tc_bool },
 		[kw_inherit_compile_args] = { "inherit_compile_args", COMPLEX_TYPE_PRESET(tc_cx_list_of_str) },
+		[kw_snippets] = { "snippets", COMPLEX_TYPE_PRESET(tc_cx_snippets), .desc = snippets_desc.buf },
 		0,
 	};
 
@@ -572,6 +586,12 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 		}
 	}
 
+	if (akw[kw_snippets].set) {
+		if (!language_snippets_validate(wk, akw[kw_snippets].node, akw[kw_snippets].val)) {
+			return false;
+		}
+	}
+
 	if (wk->vm.in_analyzer) {
 		return true;
 	}
@@ -582,6 +602,7 @@ FUNC_IMPL(module_toolchain, register_language, .desc = "Register a language")
 	lang->is_header = get_obj_bool_with_default(wk, akw[kw_is_header].val, false);
 	lang->is_linkable = get_obj_bool_with_default(wk, akw[kw_is_linkable].val, false);
 	lang->inherit_compile_args = akw[kw_inherit_compile_args].val;
+	lang->snippets = akw[kw_snippets].val;
 
 	struct {
 		const struct args_kw *src;

@@ -1019,10 +1019,13 @@ toolchain_detect(struct workspace *wk,
  ******************************************************************************/
 
 #define TOOLCHAIN_PROTO_0(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_0)
+#define TOOLCHAIN_PROTO_0rs(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_0rs)
 #define TOOLCHAIN_PROTO_1i(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1i)
 #define TOOLCHAIN_PROTO_1n(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1n)
 #define TOOLCHAIN_PROTO_1s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s)
+#define TOOLCHAIN_PROTO_1srs(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1srs)
 #define TOOLCHAIN_PROTO_2s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_2s)
+#define TOOLCHAIN_PROTO_2srs(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_2srs)
 #define TOOLCHAIN_PROTO_1s1b(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s1b)
 #define TOOLCHAIN_PROTO_ns(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_ns)
 #define TOOLCHAIN_PROTO_kw(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_kw)
@@ -1032,6 +1035,11 @@ toolchain_detect(struct workspace *wk,
 /* empty functions */
 
 TOOLCHAIN_PROTO_0(toolchain_arg_empty_0)
+{
+	return make_obj(wk, obj_array);
+}
+
+TOOLCHAIN_PROTO_0rs(toolchain_arg_empty_0rs)
 {
 	return make_obj(wk, obj_array);
 }
@@ -1051,7 +1059,17 @@ TOOLCHAIN_PROTO_1s(toolchain_arg_empty_1s)
 	return make_obj(wk, obj_array);
 }
 
+TOOLCHAIN_PROTO_1srs(toolchain_arg_empty_1srs)
+{
+	return make_obj(wk, obj_array);
+}
+
 TOOLCHAIN_PROTO_2s(toolchain_arg_empty_2s)
+{
+	return make_obj(wk, obj_array);
+}
+
+TOOLCHAIN_PROTO_2srs(toolchain_arg_empty_2srs)
 {
 	return make_obj(wk, obj_array);
 }
@@ -1112,10 +1130,13 @@ toolchain_register_component(struct workspace *wk,
 
 enum toolchain_arg_arity {
 	toolchain_arg_arity_0,
+	toolchain_arg_arity_0rs,
 	toolchain_arg_arity_1i,
 	toolchain_arg_arity_1n,
 	toolchain_arg_arity_1s,
+	toolchain_arg_arity_1srs,
 	toolchain_arg_arity_2s,
+	toolchain_arg_arity_2srs,
 	toolchain_arg_arity_1s1b,
 	toolchain_arg_arity_ns,
 	toolchain_arg_arity_kw,
@@ -1142,6 +1163,12 @@ static struct toolchain_handler_info toolchain_archiver_handler_info[]
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 
+#define TOOLCHAIN_ARG_MEMBER_(name, return_type, __type, params, names) { #name, toolchain_arg_arity_##__type },
+#define TOOLCHAIN_ARG_MEMBER(name, type) TOOLCHAIN_ARG_MEMBER_(name, type)
+static struct toolchain_handler_info language_snippet_handler_info[] = { FOREACH_LANGUAGE_SNIPPET(TOOLCHAIN_ARG_MEMBER) };
+#undef TOOLCHAIN_ARG_MEMBER
+#undef TOOLCHAIN_ARG_MEMBER_
+
 static struct {
 	struct toolchain_handler_info *handlers;
 	uint32_t len;
@@ -1165,6 +1192,18 @@ toolchain_handler_info_get(enum toolchain_component component, const char *n)
 	return 0;
 }
 
+static struct toolchain_handler_info *
+language_snippet_info_get(const char *n)
+{
+	const struct str *name = &STRL(n);
+	for (uint32_t i = 0; i < ARRAY_LEN(language_snippet_handler_info); ++i) {
+		if (str_eql(&STRL(language_snippet_handler_info[i].name), name)) {
+			return &language_snippet_handler_info[i];
+		}
+	}
+	return 0;
+}
+
 static void
 toolchain_handler_info_doc(enum toolchain_component component, const char *name, const struct toolchain_handler_info *src)
 {
@@ -1175,6 +1214,114 @@ toolchain_handler_info_doc(enum toolchain_component component, const char *name,
 
 	info->desc = src->desc;
 	info->enum_arg = src->enum_arg;
+}
+
+static void
+language_snippet_info_doc(const char *name, const struct toolchain_handler_info *src)
+{
+	struct toolchain_handler_info *info;
+	if (!(info = language_snippet_info_get(name))) {
+		UNREACHABLE;
+	}
+
+	info->desc = src->desc;
+	info->enum_arg = src->enum_arg;
+}
+
+static void
+handler_allow_any_kw(struct workspace *wk, struct toolchain_handler_info *handler)
+{
+	struct args_kw *akw = handler->akw;
+	akw[0].key = "kwargs";
+	akw[0].type = TYPE_TAG_GLOB | tc_any;
+	handler->sig.akw = akw;
+}
+
+static void
+handler_array_info_init(struct workspace *wk, struct toolchain_handler_info *arr, const uint32_t len)
+{
+	const type_tag list_of_str = complex_type_preset_get(wk, tc_cx_list_of_str);
+	const type_tag str_or_list_of_str = complex_type_preset_get(wk, tc_cx_str_or_list_of_str);
+	for (uint32_t i = 0; i < len; ++i) {
+		struct toolchain_handler_info *handler = &arr[i];
+		handler->sig.return_type = list_of_str;
+		assert(handler->desc);
+		struct args_norm *an = handler->an;
+		an[0].type = tc_compiler;
+		an[1].type = ARG_TYPE_NULL;
+		an[2].type = ARG_TYPE_NULL;
+		an[3].type = ARG_TYPE_NULL;
+
+		switch (handler->arity) {
+		case toolchain_arg_arity_0: {
+			break;
+		}
+		case toolchain_arg_arity_0rs: {
+			handler_allow_any_kw(wk, handler);
+			an[0].type = ARG_TYPE_NULL;
+			handler->sig.return_type = str_or_list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_1i: {
+			// arity 1i means it is an enum converted to an string obj on the C side, and
+			// a string on the meson side
+			assert(handler->enum_arg);
+			an[1].type = complex_type_enum_get_(wk, handler->enum_arg);
+			break;
+		}
+		case toolchain_arg_arity_1n: {
+			an[1].type = tc_number;
+			break;
+		}
+		case toolchain_arg_arity_1s: {
+			an[1].type = tc_string;
+			break;
+		}
+		case toolchain_arg_arity_1srs: {
+			handler_allow_any_kw(wk, handler);
+			an[0].type = tc_string;
+			handler->sig.return_type = str_or_list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_2s: {
+			an[1].type = tc_string;
+			an[2].type = tc_string;
+			break;
+		}
+		case toolchain_arg_arity_2srs: {
+			handler_allow_any_kw(wk, handler);
+			an[0].type = tc_string;
+			an[1].type = tc_string;
+			handler->sig.return_type = str_or_list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_1s1b: {
+			an[1].type = tc_string;
+			an[2].type = tc_bool;
+			break;
+		}
+		case toolchain_arg_arity_ns: {
+			an[1].type = list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_kw: {
+			handler_allow_any_kw(wk, handler);
+			break;
+		}
+		case toolchain_arg_arity_0rb: {
+			handler->sig.return_type = tc_bool;
+			break;
+		}
+		case toolchain_arg_arity_1srb: {
+			an[1].type = tc_string;
+			handler->sig.return_type = tc_bool;
+			break;
+		}
+		default: UNREACHABLE;
+		}
+
+		handler->sig.an = an;
+	}
 }
 
 static void
@@ -1288,91 +1435,47 @@ toolchain_handler_info_init(struct workspace *wk)
 
 #undef doc
 
-	// make sure we didn't miss anything
 	for (uint32_t c = 0; c < toolchain_component_count; ++c) {
-		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
-			const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
-			assert(handler->desc);
-		}
-	}
-
-	const type_tag list_of_str = make_complex_type(wk, complex_type_nested, tc_array, tc_string);
-	for (uint32_t c = 0; c < toolchain_component_count; ++c) {
-		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
-			struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
-			handler->sig.return_type = list_of_str;
-			struct args_norm *an = handler->an;
-			an[0].type = tc_compiler;
-			an[1].type = ARG_TYPE_NULL;
-			an[2].type = ARG_TYPE_NULL;
-			an[3].type = ARG_TYPE_NULL;
-
-			switch (handler->arity) {
-			case toolchain_arg_arity_0: {
-				break;
-			}
-			case toolchain_arg_arity_1i: {
-				// arity 1i means it is an enum converted to an string obj on the C side, and
-				// a string on the meson side
-				assert(handler->enum_arg);
-				an[1].type = complex_type_enum_get_(wk, handler->enum_arg);
-				break;
-			}
-			case toolchain_arg_arity_1n: {
-				an[1].type = tc_number;
-				break;
-			}
-			case toolchain_arg_arity_1s: {
-				an[1].type = tc_string;
-				break;
-			}
-			case toolchain_arg_arity_2s: {
-				an[1].type = tc_string;
-				an[2].type = tc_string;
-				break;
-			}
-			case toolchain_arg_arity_1s1b: {
-				an[1].type = tc_string;
-				an[2].type = tc_bool;
-				break;
-			}
-			case toolchain_arg_arity_ns: {
-				an[1].type = list_of_str;
-				break;
-			}
-			case toolchain_arg_arity_kw: {
-				struct args_kw *akw = handler->akw;
-				akw[0].key = "kwargs";
-				akw[0].type = TYPE_TAG_GLOB | tc_any;
-				handler->sig.akw = akw;
-				break;
-			}
-			case toolchain_arg_arity_0rb: {
-				handler->sig.return_type = tc_bool;
-				break;
-			}
-			case toolchain_arg_arity_1srb: {
-				an[1].type = tc_string;
-				handler->sig.return_type = tc_bool;
-				break;
-			}
-			default: UNREACHABLE;
-			}
-
-			handler->sig.an = an;
-		}
+		handler_array_info_init(wk, toolchain_arg_handlers[c].handlers, toolchain_arg_handlers[c].len);
 	}
 }
 
-void
-toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct tstr *buf)
+static void
+language_snippet_info_init(struct workspace *wk)
+{
+#define doc(name_, ...) \
+	language_snippet_info_doc(#name_, &(struct toolchain_handler_info){ __VA_ARGS__ })
+	doc(alignment, .desc = "alignment");
+	doc(attribute, .desc = "attribute");
+	doc(check_header, .desc = "check_header");
+	doc(get_define, .desc = "compiler_get_define");
+	doc(compute_int, .desc = "compute_int");
+	doc(has_builtin_function, .desc = "has_builtin_function");
+	doc(has_function, .desc = "has_function");
+	doc(has_header_symbol, .desc = "has_header_symbol");
+	doc(has_member, .desc = "has_member");
+	doc(has_type, .desc = "has_type");
+	doc(minimal_exe, .desc = "minimal_exe");
+	doc(sizeof, .desc = "sizeof");
+
+#undef doc
+
+	handler_array_info_init(wk, language_snippet_handler_info, ARRAY_LEN(language_snippet_handler_info));
+}
+
+static void
+handler_array_info_doc(struct workspace *wk,
+	struct toolchain_handler_info *arr,
+	const uint32_t len,
+	struct tstr *buf)
 {
 	tstr_pushs(wk, buf,
 			"|name|signature|description|\n"
 			"|---|---|---|\n");
 
-	for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
-		const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
+
+	for (uint32_t i = 0; i < len; ++i) {
+		struct toolchain_handler_info *handler = &arr[i];
 
 		TSTR(sig);
 		typecheck_closure_type_to_s(wk, &sig, &handler->sig);
@@ -1389,6 +1492,51 @@ toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct
 	}
 }
 
+void
+toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct tstr *buf)
+{
+	handler_array_info_doc(wk, toolchain_arg_handlers[c].handlers, toolchain_arg_handlers[c].len, buf);
+}
+
+void
+language_snippets_doc(struct workspace *wk, struct tstr *buf)
+{
+	handler_array_info_doc(wk, language_snippet_handler_info, ARRAY_LEN(language_snippet_handler_info), buf);
+}
+
+static bool
+handler_validate(struct workspace *wk,
+	uint32_t ip,
+	obj v,
+	const struct str *name,
+	const struct toolchain_handler_info *handler)
+{
+	if (get_obj_type(wk, v) == obj_closure) {
+		if (!typecheck_closure(wk, ip, v, &handler->sig, name->s)) {
+			return false;
+		}
+
+		if (handler->enum_arg) {
+			struct obj_closure *closure = get_obj_closure(wk, v);
+			closure->func->an[1].type = handler->an[1].type;
+
+			if (wk->vm.in_analyzer) {
+				az_analyze_func(wk, v);
+			}
+		}
+	} else if (!typecheck_custom(wk, 0, v, handler->sig.return_type, 0)) {
+		vm_error_at(wk,
+			ip,
+			"expected value type %s for handler '%s' with constant return value, got %s\n",
+			typechecking_type_to_s(wk, handler->sig.return_type),
+			name->s,
+			obj_typestr(wk, v));
+		return false;
+	}
+
+	return true;
+}
+
 bool
 toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component)
 {
@@ -1401,26 +1549,27 @@ toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, en
 			return false;
 		}
 
-		if (get_obj_type(wk, v) == obj_closure) {
-			if (!typecheck_closure(wk, ip, v, &handler->sig, name->s)) {
-				return false;
-			}
+		if (!handler_validate(wk, ip, v, name, handler)) {
+			return false;
+		}
+	}
 
-			if (handler->enum_arg) {
-				struct obj_closure *closure = get_obj_closure(wk, v);
-				closure->func->an[1].type = handler->an[1].type;
+	return true;
+}
 
-				if (wk->vm.in_analyzer) {
-					az_analyze_func(wk, v);
-				}
-			}
-		} else if (!typecheck_custom(wk, 0, v, handler->sig.return_type, 0)) {
-			vm_error_at(wk,
-				ip,
-				"expected value type %s for handler %o with constant return value, got %s\n",
-				typechecking_type_to_s(wk, handler->sig.return_type),
-				k,
-				obj_typestr(wk, v));
+bool
+language_snippets_validate(struct workspace *wk, uint32_t ip, obj handlers)
+{
+	obj k, v;
+	obj_dict_for(wk, handlers, k, v) {
+		const struct str *name = get_str(wk, k);
+		const struct toolchain_handler_info *handler;
+		if (!(handler = language_snippet_info_get(name->s))) {
+			vm_error_at(wk, ip, "unknown language snippet %o", k);
+			return false;
+		}
+
+		if (!handler_validate(wk, ip, v, name, handler)) {
 			return false;
 		}
 	}
@@ -1444,6 +1593,19 @@ lookup_toolchain_arg_override(struct workspace *wk,
 	return 0;
 }
 
+static obj
+lookup_language_snippet(struct workspace *wk, const struct compiler_language l, uint32_t arg)
+{
+	const struct language *lang = toolchain_language_get(wk, l);
+	obj snippet;
+	if (lang->snippets
+		&& obj_dict_index_str(wk, lang->snippets, language_snippet_handler_info[arg].name, &snippet)) {
+		return snippet;
+	}
+
+	return 0;
+}
+
 enum toolchain_arg_by_component {
 #define TOOLCHAIN_ARG_MEMBER_(comp, _name) toolchain_arg_by_component_##comp##_name,
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(comp, _##name)
@@ -1452,6 +1614,12 @@ enum toolchain_arg_by_component {
 	FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
+};
+
+enum language_snippet_arg {
+#define TOOLCHAIN_ARG_MEMBER(name, type) language_snippet_arg_##name,
+	FOREACH_LANGUAGE_SNIPPET(TOOLCHAIN_ARG_MEMBER)
+#undef TOOLCHAIN_ARG_MEMBER
 };
 
 static obj handle_toolchain_arg_override;
@@ -1469,6 +1637,21 @@ handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_n
 	}
 
 	return list;
+}
+
+static obj
+handle_toolchain_arg_override_returning_str(struct workspace *wk, struct args_norm *an, struct args_kw *akw)
+{
+	obj str = 0;
+	if (get_obj_type(wk, handle_toolchain_arg_override) != obj_closure) {
+		str = handle_toolchain_arg_override;
+	} else {
+		if (!vm_eval_closure(wk, handle_toolchain_arg_override, an, akw, &str)) {
+			UNREACHABLE;
+		}
+	}
+
+	return str;
 }
 
 static bool
@@ -1494,6 +1677,13 @@ handle_toolchain_arg_override_0(TOOLCHAIN_SIG_0)
 }
 
 static obj
+handle_toolchain_arg_override_0rs(TOOLCHAIN_SIG_0rs)
+{
+	struct args_norm an[] = { { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_str(wk, an, akw);
+}
+
+static obj
 handle_toolchain_arg_override_1i(TOOLCHAIN_SIG_1i)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = i1 }, { ARG_TYPE_NULL } };
@@ -1515,10 +1705,24 @@ handle_toolchain_arg_override_1s(TOOLCHAIN_SIG_1s)
 }
 
 static obj
+handle_toolchain_arg_override_1srs(TOOLCHAIN_SIG_1srs)
+{
+	struct args_norm an[] = { { .val = s1 }, { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_str(wk, an, akw);
+}
+
+static obj
 handle_toolchain_arg_override_2s(TOOLCHAIN_SIG_2s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { .val = make_str(wk, s2) }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an, 0);
+}
+
+static obj
+handle_toolchain_arg_override_2srs(TOOLCHAIN_SIG_2srs)
+{
+	struct args_norm an[] = { { .val = s1 }, { .val = s2 }, { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_str(wk, an, akw);
 }
 
 static obj
@@ -1675,6 +1879,24 @@ toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts)
 #undef TOOLCHAIN_ARG_MEMBER_
 }
 
+#define TOOLCHAIN_ARG_MEMBER_(name, return_type, _type, params, names)                           \
+	return_type language_snippet_##name params                                                            \
+	{                                                                                                          \
+		handle_toolchain_arg_override = lookup_language_snippet(                                     \
+			wk, l, language_snippet_arg_##name); \
+		if (handle_toolchain_arg_override) {                                                               \
+			return handle_toolchain_arg_override_##_type names;                                        \
+		}                                                                                                  \
+		return toolchain_arg_empty_ ##_type names;                                                                    \
+	}
+
+#define TOOLCHAIN_ARG_MEMBER(name, type) TOOLCHAIN_ARG_MEMBER_(name, type)
+
+FOREACH_LANGUAGE_SNIPPET(TOOLCHAIN_ARG_MEMBER)
+
+#undef TOOLCHAIN_ARG_MEMBER
+#undef TOOLCHAIN_ARG_MEMBER_
+
 const char *
 toolchain_compiler_flatten_one(struct workspace *wk, obj comp_id, obj args)
 {
@@ -1761,5 +1983,6 @@ toolchains_init(struct workspace *wk)
 	vm_enum_value_prefixed(wk, toolchain_component, archiver);
 
 	toolchain_handler_info_init(wk);
+	language_snippet_info_init(wk);
 }
 

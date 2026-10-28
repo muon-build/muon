@@ -3233,6 +3233,8 @@ vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const 
 {
 	bool ok;
 
+	struct obj_closure *closure = get_obj_closure(wk, c);
+
 	wk->vm.nargs = 0;
 	if (an) {
 		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
@@ -3246,6 +3248,25 @@ vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const 
 		for (i = 0; akw[i].key; ++i) {
 			if (!akw[i].val) {
 				continue;
+			}
+
+			if (akw[i].allow_not_found) {
+				if (closure->func->akw) {
+					uint32_t j = 0;
+					for (; closure->func->akw[j].key; ++j) {
+						if (strcmp(akw[i].key, closure->func->akw[j].key) == 0) {
+							break;
+						}
+					}
+
+					if (!closure->func->akw[j].key) {
+						// not found
+						continue;
+					}
+				} else {
+					// not found (no akw)
+					continue;
+				}
 			}
 
 			object_stack_push_ip(wk, akw[i].val, akw[i].node);

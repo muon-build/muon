@@ -45,7 +45,7 @@ struct compiler_check_opts {
 	struct run_cmd_ctx cmd_ctx;
 	enum compiler_check_mode mode;
 	obj comp_id;
-	struct args_kw *deps, *inc, *required, *werror;
+	struct args_kw *deps, *inc, *required, *werror, *prefix;
 	obj args;
 	bool skip_run_check;
 	bool src_is_path;
@@ -58,8 +58,10 @@ struct compiler_check_opts {
 	obj cache_key, cache_val;
 };
 
+struct args_kw *
+compiler_check_snippet_kwargs(struct workspace *wk, struct compiler_check_opts *opts);
 bool
-compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const char *src, uint32_t err_node, bool *res);
+compiler_check(struct workspace *wk, struct compiler_check_opts *opts, obj src, uint32_t err_node, bool *res);
 
 FUNC_REGISTER(compiler);
 #endif
