@@ -562,7 +562,8 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 			obj_array_extend(wk, opts.args, link_args);
 
 			bool ok;
-			const char *src = "int main(void) { return 0; }\n";
+			obj src = language_snippet_minimal_exe(
+				wk, get_obj_compiler(wk, opts.comp_id)->lang, compiler_check_snippet_kwargs(wk, &opts));
 			if (!compiler_check(wk, &opts, src, 0, &ok)) {
 				return false;
 			}
