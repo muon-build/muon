@@ -12,12 +12,14 @@
 #include "backend/ninja/build_target.h"
 #include "error.h"
 #include "functions/build_target.h"
+#include "lang/object.h"
 #include "lang/object_iterators.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "toolchains.h"
 #include "tracy.h"
 
 struct write_tgt_source_ctx {
@@ -37,6 +39,7 @@ enum write_tgt_src_flag {
 	write_tgt_src_flag_pch = 1 << 0,
 };
 
+#if 0
 static obj
 write_vala_two_stage_compilation(struct workspace *wk,
 	struct write_tgt_source_ctx *ctx,
@@ -151,9 +154,10 @@ write_vala_two_stage_compilation(struct workspace *wk,
 
 	return tstr_into_str(wk, dest_path);
 }
+#endif
 
 static obj
-write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum compiler_language lang, obj val, enum write_tgt_src_flag flags)
+write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, struct compiler_language lang, obj val, enum write_tgt_src_flag flags)
 {
 	TracyCZoneAutoS;
 	workspace_scratch_begin(wk);
@@ -185,23 +189,25 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 	const char *src = get_file_path(wk, val);
 	relativize_build_file_path(wk, &src_path, src);
 
+#if 0
 	/* Handle two-stage compilation for Vala */
 	if (lang == compiler_language_vala && !(flags & write_tgt_src_flag_pch)) {
 		dest_res = write_vala_two_stage_compilation(wk, ctx, val, src, &dest_path, &src_path);
 		goto done;
 	}
+#endif
 
 	/* build rules and args */
 
 	obj rule_name, specialized_rule;
 	if (flags & write_tgt_src_flag_pch) {
-		if (!obj_dict_geti(wk, ctx->proj->generic_rules[ctx->tgt->machine], lang, &rule_name)) {
+		if (!obj_dict_get_language(wk, ctx->proj->generic_rules[ctx->tgt->machine], lang, &rule_name)) {
 			UNREACHABLE;
 		}
 		specialized_rule = 0;
 	} else {
 		obj rule_name_arr;
-		if (!obj_dict_geti(wk, ctx->tgt->required_compilers, lang, &rule_name_arr)) {
+		if (!obj_dict_get_language(wk, ctx->tgt->required_compilers, lang, &rule_name_arr)) {
 			UNREACHABLE;
 		}
 
@@ -240,8 +246,8 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 		}
 
 		obj args;
-		if (!obj_dict_geti(wk, *joined_args, lang, &args)) {
-			LOG_E("No compiler defined for language %s", compiler_language_to_s(lang));
+		if (!obj_dict_get_language(wk, *joined_args, lang, &args)) {
+			LOG_E("No compiler defined for language %s", compiler_language_to_s(wk, lang));
 			goto done;
 		}
 
@@ -314,7 +320,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	if (tgt->pch) { /* pch */
 		obj k, v;
 		obj_dict_for(wk, tgt->pch, k, v) {
-			enum compiler_language lang = k;
+			struct compiler_language lang = { k };
 
 			if (!implicit_deps) {
 				implicit_deps = make_obj(wk, obj_array);
@@ -341,8 +347,8 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 
 		obj_array_for(wk, tgt->src, v) {
-			enum compiler_language lang;
-			if (!filename_to_compiler_language(get_file_path(wk, v), &lang)) {
+			struct compiler_language lang;
+			if (!filename_to_compiler_language(wk, get_file_path_str(wk, v), &lang)) {
 				UNREACHABLE;
 			}
 
@@ -385,7 +391,7 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 	case tgt_shared_module:
 	case tgt_dynamic_library:
 	case tgt_executable:
-		tstr_pushf(wk, &link_rule, "%s_linker", compiler_language_to_s(tgt->dep_internal.link_language));
+		tstr_pushf(wk, &link_rule, "%s_linker", compiler_language_to_s(wk, tgt->dep_internal.link_language));
 		link_args = get_cstr(wk, join_args_shell_ninja(wk, ctx.args.link_args));
 
 		if (tgt->dep_internal.link_early_args) {

@@ -14,17 +14,13 @@ enum initializing_builtin_options_state {
 };
 extern enum initializing_builtin_options_state initializing_builtin_options_state;
 extern const char *build_option_type_to_s[build_option_type_count];
-bool toolchain_component_option_name(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct tstr *dest);
+bool toolchain_component_option_name(struct workspace *wk, struct compiler_language l, enum toolchain_component c, enum machine_kind machine, struct tstr *dest);
 
 struct option_override {
 	// strings
 	obj proj, name, val;
 	enum option_value_source source;
 	bool obj_value, master_project_only;
-};
-
-enum create_option_flag {
-	create_option_flag_per_machine = 1 << 0,
 };
 
 bool create_option(struct workspace *wk, obj opts, obj opt, obj val, enum create_option_flag flags);
@@ -41,6 +37,7 @@ void get_option_value_overridable(struct workspace *wk,
 	obj overrides,
 	const char *name,
 	obj *res);
+bool try_get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res);
 void
 get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res);
 

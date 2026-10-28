@@ -32,6 +32,12 @@ else
 endif
 test_report = build / 'test_report.dat'
 
+func run_command_logged(args glob[str], check bool: false, env dict[str]: {}) -> run_result
+    print('executing: ')
+    p(args)
+    return run_command(args, check: check, env: env)
+endfunc
+
 steps = {}
 
 steps.prerun = func()
@@ -41,7 +47,7 @@ steps.prerun = func()
 
     if git_clean
         warning('running git clean on @0@'.format(source))
-        run_command('git', '-C', source, 'clean', '-xdf', check: true)
+        run_command_logged('git', '-C', source, 'clean', '-xdf', check: true)
     endif
 
     fs.mkdir(build / muon_private, make_parents: true)
@@ -52,7 +58,7 @@ steps.analyze = func()
         return
     endif
 
-    analyze_result = run_command(muon, '-vC', source, 'analyze')
+    analyze_result = run_command_logged(muon, '-vC', source, 'analyze')
 
     if analyze_result.returncode() != 0
         print(analyze_result.stdout())
@@ -70,7 +76,7 @@ steps.setup = func()
         endif
     endforeach
 
-    setup_result = run_command(
+    setup_result = run_command_logged(
         muon,
         '-vC', source,
         'setup',
@@ -99,16 +105,16 @@ steps.setup = func()
 endfunc
 
 steps.build = func()
-    run_command(ninja, '-C', build, check: true)
+    run_command_logged(ninja, '-C', build, check: true)
 endfunc
 
 steps.test = func()
-    run_command(muon, '-C', build, 'test', '-a', check: true)
+    run_command_logged(muon, '-C', build, 'test', '-a', check: true)
 endfunc
 
 steps.install = func()
     assert(not fs.exists(build / destdir), 'destdir must not exist')
-    run_command(
+    run_command_logged(
         muon,
         '-C', build,
         'install',
@@ -242,7 +248,7 @@ steps.uninstall = func()
         return
     endif
 
-    run_command(
+    run_command_logged(
         muon,
         '-C', build,
         'install',

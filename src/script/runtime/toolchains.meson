@@ -512,11 +512,27 @@ toolchain.register_linker(
 # compilers
 ################################################################################
 
+language_to_gcc_language = {
+    'c_header': 'c-header',
+    'cpp': 'c++',
+    'cpp_header': 'c++-header',
+    'objc': 'objective-c',
+    'objc_header': 'objective-c-header',
+    'objcpp': 'objective-c++',
+    'objcpp_header': 'objective-c++-header',
+}
+func normalize_compiler_language(l str) -> str
+    return language_to_gcc_language.get(l, l)
+endfunc
+
 toolchain.register_compiler(
     'posix',
     exe: {'c': 'cc', 'objc': 'cc', 'cpp': 'c++', 'objcpp': 'c++'},
     linker: 'ld-posix',
     archiver: 'ar-posix',
+    on_detect: func(c compiler)
+        add_languages('assembly', native: c.native(), toolchain: c)
+    endfunc,
     handlers: {
         'sanitize': [],
         'version': ['--version'],
@@ -573,7 +589,7 @@ toolchain.register_compiler(
             return c.machine().system() == 'windows' ? [] : ['-fPIC']
         endfunc,
         'force_language': func(_c compiler, s str) -> list[str]
-            return ['-x', s]
+            return ['-x', normalize_compiler_language(s)]
         endfunc,
         'werror': ['-Werror'],
     },
@@ -901,6 +917,10 @@ toolchain.register_compiler(
         score = build_machine.system() == 'windows' ? 50 : 100
         return 'clang' in out.to_lower() ? score : 0
     endfunc,
+    on_detect: func(c compiler)
+        add_languages('llvm_ir', native: c.native(), required: false, silent: true)
+        add_languages('assembly', native: c.native(), toolchain: c)
+    endfunc,
     handlers: {
         'lto_supported': true,
         'lto_compile': func(_c compiler, _threads int) -> list[str]
@@ -917,7 +937,6 @@ toolchain.register_compiler(
             endif
             return args
         endfunc,
-        'can_compile_llvm_ir': true,
         'color_output': func(_c compiler, s str) -> list[str]
             return ['-fdiagnostics-color=' + s]
         endfunc,
@@ -1097,9 +1116,13 @@ toolchain.register_compiler(
         score = build_machine.system() == 'windows' ? 100 : 50
         return 'CL.EXE COMPATIBILITY' in out ? score : 0
     endfunc,
+    on_detect: func(c compiler)
+        add_languages('llvm_ir', native: c.native(), required: false, silent: true)
+        add_languages('assembly', native: c.native(), toolchain: c)
+    endfunc,
     handlers: {
         'force_language': func(_c compiler, s str) -> list[str]
-            return ['-x', s]
+            return ['-x', normalize_compiler_language(s)]
         endfunc,
     },
 )

@@ -14,6 +14,7 @@
 #include "embedded.h"
 #include "error.h"
 #include "formats/ansi.h"
+#include "functions/kernel/options.h"
 #include "functions/modules/subprojects.h"
 #include "lang/analyze.h"
 #include "lang/object_iterators.h"
@@ -25,6 +26,7 @@
 #include "platform/filesystem.h"
 #include "platform/os.h"
 #include "platform/path.h"
+#include "toolchains.h"
 #include "wrap.h"
 
 enum initializing_builtin_options_state initializing_builtin_options_state =
@@ -696,31 +698,34 @@ host_fallback:
 	goto host_fallback;
 }
 
-void
-get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
+bool
+try_get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
 {
 	obj opt;
 	if (!get_option_for_machine_overridable(wk, proj, overrides, &STRL(name), m, &opt)) {
-		LOG_E("attempted to get unknown option '%s'", name);
-		UNREACHABLE;
+		return false;
 	}
 
 	struct obj_option *o = get_obj_option(wk, opt);
 	if (m == machine_kind_build && o->source <= option_value_source_default) {
-		get_option_value_for_machine_overridable(wk, proj, overrides, name, machine_kind_host, res);
-		return;
+		return try_get_option_value_for_machine_overridable(wk, proj, overrides, name, machine_kind_host, res);
 	}
 	*res = o->val;
+	return true;
+}
+
+void
+get_option_value_for_machine_overridable(struct workspace *wk, const struct project *proj, obj overrides, const char *name, enum machine_kind m, obj *res)
+{
+	if (!try_get_option_value_for_machine_overridable(wk, proj, overrides, name, m, res)) {
+		LOG_E("attempted to get unknown option '%s'", name);
+		UNREACHABLE;
+	}
 }
 
 static bool
-set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
+set_binary_from_env(struct workspace *wk, obj opt, const char *envvar)
 {
-	obj opt;
-	if (!get_option(wk, current_project(wk), &STRL(dest), &opt)) {
-		UNREACHABLE;
-	}
-
 	const char *v;
 	if (!(v = os_get_env(envvar)) || !*v) {
 		return false;
@@ -732,13 +737,19 @@ set_binary_from_env(struct workspace *wk, const char *envvar, const char *dest)
 }
 
 static bool
-set_compile_opt_from_env(struct workspace *wk, const char *envvar, const char *dest)
+set_str_binary_from_env(struct workspace *wk, const char *opt, const char *envvar)
 {
-	obj opt;
-	if (!get_option(wk, current_project(wk), &STRL(dest), &opt)) {
+	obj o;
+	if (!get_option(wk, current_project(wk), &STRL(opt), &o)) {
 		UNREACHABLE;
 	}
 
+	return set_binary_from_env(wk, o, envvar);
+}
+
+static bool
+set_compile_opt_from_env(struct workspace *wk, obj opt, const char *envvar)
+{
 	const char *v;
 	if (!(v = os_get_env(envvar))) {
 		return false;
@@ -783,18 +794,9 @@ option_env_var_mapping_for_machine(const char *env_var,
 }
 
 static bool
-toolchain_component_option_info(struct workspace *wk, enum compiler_language l, enum toolchain_component c, enum machine_kind machine, struct option_env_var_mapping *mapping)
+toolchain_component_option_info(struct workspace *wk, struct compiler_language l, enum toolchain_component c, enum machine_kind machine, struct option_env_var_mapping *mapping)
 {
-	const char *option_names[compiler_language_count][toolchain_component_count] = {
-		[compiler_language_c] = { "CC", "CC_LD", "AR" },
-		[compiler_language_cpp] = { "CXX", "CXX_LD", "AR" },
-		[compiler_language_objc] = { "OBJC", "OBJC_LD", "AR" },
-		[compiler_language_objcpp] = { "OBJCXX", "OBJCXX_LD", "AR" },
-		[compiler_language_nasm] = { "NASM", "NASM_LD", "AR" },
-		[compiler_language_vala] = { "VALAC", "VALAC_LD", "AR" },
-	};
-
-	const char *n = option_names[l][c];
+	const char* n = toolchain_language_get(wk, l)->env_option_names[c];
 	if (!n) {
 		return false;
 	}
@@ -814,7 +816,7 @@ toolchain_component_option_name_from_info(struct workspace *wk,
 
 bool
 toolchain_component_option_name(struct workspace *wk,
-	enum compiler_language l,
+	struct compiler_language l,
 	enum toolchain_component c,
 	enum machine_kind machine,
 	struct tstr *dest)
@@ -828,12 +830,12 @@ toolchain_component_option_name(struct workspace *wk,
 	return true;
 }
 
-typedef bool (*set_env_option_with_fallback_fn)(struct workspace *wk, const char *envvar, const char *dest);
+typedef bool (*set_env_option_with_fallback_fn)(struct workspace *wk, obj opt, const char *envvar);
 
 void
 set_env_option_with_fallback(struct workspace *wk,
+	obj opt,
 	const char *src,
-	const char *dest,
 	enum machine_kind m,
 	set_env_option_with_fallback_fn fn)
 {
@@ -842,20 +844,20 @@ set_env_option_with_fallback(struct workspace *wk,
 	option_env_var_mapping_for_machine(src, m, &mapping);
 	tstr_pushf(wk, &env_var, "%s%s", mapping.env_var, mapping.machine_suffix ? mapping.machine_suffix : "");
 
-	if (!fn(wk, env_var.buf, dest)) {
+	if (!fn(wk, opt, env_var.buf)) {
 		if (m == machine_kind_build) {
 			// If this is a build machine opt but no _FOR_BUILD envvar was set,
 			// propogate the plain envvar's value to the _FOR_BUILD option.
 			//
 			// This lets CC=clang apply to the host machine and build machine
 			// as long as no CC_FOR_BUILD is set.
-			fn(wk, mapping.env_var, dest);
+			fn(wk, opt, mapping.env_var);
 		}
 	}
 }
 
 static void
-make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum toolchain_component comp, enum machine_kind m, bool is_first)
+make_compiler_env_option(struct workspace *wk, struct compiler_language lang, enum toolchain_component comp, enum machine_kind m, bool is_first)
 {
 	struct option_env_var_mapping mapping;
 	if (!toolchain_component_option_info(wk, lang, comp, m, &mapping)) {
@@ -864,75 +866,64 @@ make_compiler_env_option(struct workspace *wk, enum compiler_language lang, enum
 
 	TSTR(env_opt);
 	toolchain_component_option_name_from_info(wk, &mapping, &env_opt);
+	// HACK: we currently share AR for all languages, but they all need to specify it
+	// TODO: we need to allow different languages to have different archivers
+	if (comp == toolchain_component_archiver && strcmp(mapping.env_var, "AR") == 0) {
+		obj opt;
+		if (get_option(wk, current_project(wk), &TSTR_STR(&env_opt), &opt)) {
+			// already defined, skip
+			return;
+		}
+	}
+
 	make_compiler_option(wk, tstr_into_str(wk, &env_opt));
 
 	if (is_first) {
-		set_env_option_with_fallback(wk, mapping.env_var, env_opt.buf, m, set_binary_from_env);
+		obj opt;
+		if (!get_option(wk, current_project(wk), &TSTR_STR(&env_opt), &opt)) {
+			UNREACHABLE;
+		}
+
+		set_env_option_with_fallback(wk, opt, env_opt.buf, m, set_binary_from_env);
 	}
 }
 
 static void
 init_dynamic_compiler_options(struct workspace *wk, bool is_first)
 {
-	static struct {
-		enum compiler_language l;
-		const char *name;
-	} langs[] = {
-#define TOOLCHAIN_ENUM(lang) { compiler_language_##lang, #lang },
-		FOREACH_COMPILER_EXPOSED_LANGUAGE(TOOLCHAIN_ENUM)
-#undef TOOLCHAIN_ENUM
-	};
+	for (int32_t machine = machine_kind_host; machine >= machine_kind_build; --machine) {
+		for (uint32_t i = 0; i < wk->language_registry.languages.len; ++i) {
+			struct compiler_language l = { i };
+			make_compiler_env_option(wk, l, toolchain_component_archiver, machine, is_first);
+			make_compiler_env_option(wk, l, toolchain_component_compiler, machine, is_first);
+			make_compiler_env_option(wk, l, toolchain_component_linker, machine, is_first);
+		}
 
-	static const struct compile_opt_env_var {
-		const char *compile_flags;
-		const char *link_flags;
-		const char *preprocess_flags;
-	} compile_opt_env_var[compiler_language_count] = {
-		[compiler_language_c] = { "CFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_cpp] = { "CXXFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_objc] = { "OBJCFLAGS", "LDFLAGS", "CPPFLAGS" },
-		[compiler_language_objcpp] = { "OBJCXXFLAGS", "LDFLAGS", "CPPFLAGS" },
-	};
-
-	uint32_t i, machine;
-	for (i = 0; i < ARRAY_LEN(langs); ++i) {
-		for (machine = machine_kind_build; machine <= machine_kind_host; ++machine) {
+		obj opt_;
+		obj_array_for(wk, wk->queued_options, opt_) {
+			obj opt;
+			if (!obj_clone(wk, wk, opt_, &opt)) {
+				UNREACHABLE;
+			}
+			struct obj_option *o = get_obj_option(wk, opt);
 			const char *option_prefix = machine == machine_kind_build ? option_group_build : "";
-			const struct compile_opt_env_var *ev = &compile_opt_env_var[langs[i].l];
+			o->name = make_strf(wk, "%s%s", option_prefix, get_str(wk, o->name)->s);
+			func_option_bind(wk, o->ip, o->name, opt, 0);
 
-			struct {
-				obj option;
-				const char *env_var[2];
-			} custom_env_options[] = {
-				{ make_strf(wk, "%s%s_args", option_prefix, langs[i].name), { ev->compile_flags, ev->preprocess_flags } },
-				{ make_strf(wk, "%s%s_link_args", option_prefix, langs[i].name), { ev->link_flags, ev->preprocess_flags } },
-			};
-
-			for (uint32_t o = 0; o < ARRAY_LEN(custom_env_options); ++o) {
-				make_compiler_option(wk, custom_env_options[o].option);
-				if (is_first) {
-					const char *option = get_str(wk, custom_env_options[o].option)->s;
-
-					for (uint32_t j = 0; j < ARRAY_LEN(custom_env_options[o].env_var)
-							     && custom_env_options[o].env_var[j];
-						++j) {
+			if (is_first) {
+				if (o->inherit_env) {
+					obj envvar;
+					obj_array_for(wk, o->inherit_env, envvar) {
 						set_env_option_with_fallback(wk,
-							custom_env_options[o].env_var[j],
-							option,
+							opt,
+							get_str(wk, envvar)->s,
 							machine,
 							set_compile_opt_from_env);
 					}
 				}
 			}
-
-			make_compiler_env_option(wk, langs[i].l, toolchain_component_compiler, machine, is_first);
-			make_compiler_env_option(wk, langs[i].l, toolchain_component_linker, machine, is_first);
 		}
 	}
-
-	// There is a single env.AR option shared by all languages
-	make_compiler_env_option(wk, compiler_language_c, toolchain_component_archiver, machine_kind_host, is_first);
-	make_compiler_env_option(wk, compiler_language_c, toolchain_component_archiver, machine_kind_build, is_first);
 }
 
 static bool
@@ -1133,8 +1124,8 @@ init_global_options(struct workspace *wk)
 
 	set_str_opt_from_env(wk, "PKG_CONFIG_PATH", "pkg_config_path", ENV_PATH_SEP_STR);
 
-	set_binary_from_env(wk, "NINJA", "env.NINJA");
-	set_binary_from_env(wk, "PKG_CONFIG", "env.PKG_CONFIG");
+	set_str_binary_from_env(wk, "env.NINJA", "NINJA");
+	set_str_binary_from_env(wk, "env.PKG_CONFIG", "PKG_CONFIG");
 
 	stack_pop(&wk->stack, initializing_builtin_options_state);
 

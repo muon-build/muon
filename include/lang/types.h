@@ -29,6 +29,7 @@ struct args_kw {
 	bool set;
 	bool required;
 	bool extension;
+	bool allow_not_found;
 };
 
 enum language_mode {
@@ -94,4 +95,9 @@ struct str {
 struct target_triple {
 	struct str arch, vendor, system, env;
 };
+
+enum create_option_flag {
+	create_option_flag_per_machine = 1 << 0,
+};
+
 #endif

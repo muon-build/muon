@@ -42,7 +42,7 @@ compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
-	LLOG_I("%s: ", compiler_log_prefix(comp->lang, comp->machine));
+	LLOG_I("%s: ", compiler_log_prefix(wk, comp->lang, comp->machine));
 	log_printv(log_info, fmt, args);
 	log_plain(log_info, "\n");
 
@@ -57,7 +57,7 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	LLOG_I("%s: ", compiler_log_prefix(comp->lang, comp->machine));
+	LLOG_I("%s: ", compiler_log_prefix(wk, comp->lang, comp->machine));
 	log_printv(log_info, fmt, args);
 
 	if (opts->from_cache) {
@@ -95,9 +95,10 @@ add_include_directory_args(struct workspace *wk,
 	return true;
 }
 
-bool
-compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const char *src, uint32_t err_node, bool *res)
+static bool
+compiler_check_impl(struct workspace *wk, struct compiler_check_opts *opts, obj src_, uint32_t err_node, bool *res)
 {
+	const char *src = get_cstr(wk, src_);
 	enum requirement_type req = requirement_auto;
 	if (opts->required && opts->required->set) {
 		if (!coerce_requirement(wk, opts->required, &req)) {
@@ -124,9 +125,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
-	if (compiler->lang == compiler_language_cpp) {
+	// if (compiler->lang == compiler_language_cpp) {
 		obj_array_extend(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
-	}
+	// }
 
 	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
 		obj_array_extend(wk, compiler_args, toolchain_compiler_werror(wk, comp));
@@ -140,7 +141,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	/* fallthrough */
 	case compiler_check_mode_compile:
 	case compiler_check_mode_preprocess:
-		ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
+		ca_get_option_compile_args(wk, compiler->lang, current_project(wk), NULL, compiler_args);
 		break;
 	}
 
@@ -163,7 +164,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	} else {
 		TSTR(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
-		tstr_pushs(wk, &test_source_path, compiler_language_extension(compiler->lang));
+		tstr_pushs(wk, &test_source_path, compiler_language_extension(wk, compiler->lang));
 		source_path = tstr_into_str(wk, &test_source_path);
 	}
 
@@ -188,7 +189,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 			output_path = test_output_path.buf;
 		} else {
 			path_join(wk, &test_output_path, wk->muon_private, "test.");
-			tstr_pushs(wk, &test_output_path, compiler_language_extension(compiler->lang));
+			tstr_pushs(wk, &test_output_path, compiler_language_extension(wk, compiler->lang));
 			const char *ext
 				= toolchain_compiler_flatten_one(wk, comp, toolchain_compiler_object_ext(wk, comp));
 			if (!ext) {
@@ -347,6 +348,26 @@ ret:
 	return ret;
 }
 
+bool
+compiler_check(struct workspace *wk, struct compiler_check_opts *opts, obj src, uint32_t err_node, bool *res)
+{
+	if (get_obj_type(wk, src) == obj_string) {
+		return compiler_check_impl(wk, opts, src, err_node, res);
+	}
+
+	obj v;
+	obj_array_for(wk, src, v) {
+		if (!compiler_check_impl(wk, opts, v, err_node, res)) {
+			return false;
+		}
+
+		if (*res) {
+			return true;
+		}
+	}
+	return true;
+}
+
 static int64_t
 compiler_check_parse_output_int(struct compiler_check_opts *opts)
 {
@@ -410,6 +431,10 @@ compiler_opts_init(obj self, struct args_kw *akw, struct compiler_check_opts *op
 	if (akw[cc_kw_werror].set) {
 		opts->werror = &akw[cc_kw_werror];
 	}
+
+	if (akw[cc_kw_prefix].set) {
+		opts->prefix = &akw[cc_kw_prefix];
+	}
 }
 
 static bool
@@ -465,20 +490,44 @@ func_compiler_check_args_common(struct workspace *wk,
 	return true;
 }
 
-static const char *
-compiler_check_prefix(struct workspace *wk, struct args_kw *akw)
-{
-	if (akw[cc_kw_prefix].set) {
-		if (get_obj_type(wk, akw[cc_kw_prefix].val) == obj_array) {
-			obj joined;
-			obj_array_join(wk, true, akw[cc_kw_prefix].val, make_str(wk, "\n"), &joined);
-			akw[cc_kw_prefix].val = joined;
-		}
+static const struct str compiler_check_delimiter_start = STR("\"MUON_GET_DEFINE_DELIMITER_START\"");
+static const struct str compiler_check_delimiter_end = STR("\"MUON_GET_DEFINE_DELIMITER_END\"");
+static const struct str compiler_check_delimiter_sentinel = STR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
 
-		return get_cstr(wk, akw[cc_kw_prefix].val);
-	} else {
-		return "";
+struct args_kw *
+compiler_check_snippet_kwargs(struct workspace *wk, struct compiler_check_opts *opts)
+{
+#define push_kw(...) kwargs_arr_push(wk, &kwargs, &(struct args_kw){ __VA_ARGS__ })
+	struct arr kwargs = { 0 };
+	kwargs_arr_init(wk, &kwargs);
+	{
+		obj prefix = 0;
+		if (opts->prefix && opts->prefix->set) {
+			if (get_obj_type(wk, opts->prefix->val) == obj_array) {
+				obj joined;
+				obj_array_join(wk, true, opts->prefix->val, make_str(wk, "\n"), &joined);
+				opts->prefix->val = joined;
+			}
+
+			prefix = opts->prefix->val;
+		} else {
+			prefix = make_str(wk, "");
+		}
+		push_kw("prefix", .val = prefix, .allow_not_found = true);
 	}
+	if (vm_enum(wk, enum compiler_check_mode)) {
+		vm_enum_value_prefixed(wk, compiler_check_mode, preprocess);
+		vm_enum_value_prefixed(wk, compiler_check_mode, compile);
+		vm_enum_value_prefixed(wk, compiler_check_mode, link);
+		vm_enum_value_prefixed(wk, compiler_check_mode, run);
+	}
+	push_kw("mode", .val = vm_enum_to_obj(wk, enum compiler_check_mode, opts->mode), .allow_not_found = true);
+	push_kw("delimiter_start", .val = make_strs(wk, &compiler_check_delimiter_start), .allow_not_found = true);
+	push_kw("delimiter_end", .val = make_strs(wk, &compiler_check_delimiter_end), .allow_not_found = true);
+	push_kw("delimiter_sentinel",
+		.val = make_strs(wk, &compiler_check_delimiter_sentinel),
+		.allow_not_found = true);
+	return (struct args_kw *)kwargs.e;
 }
 
 #define compiler_handle_has_required_kw_setup(__requirement, kw)        \
@@ -517,14 +566,8 @@ FUNC_IMPL(compiler, sizeof, tc_number, func_impl_flag_impure)
 		return false;
 	}
 
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"#include <stdio.h>\n"
-		"%s\n"
-		"int main(void) { printf(\"%%ld\", (long)(sizeof(%s))); return 0; }\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val));
+	obj src = language_snippet_sizeof(
+		wk, get_obj_compiler(wk, self)->lang, an[0].val, compiler_check_snippet_kwargs(wk, &opts));
 
 	bool ok;
 	if (compiler_check(wk, &opts, src, an[0].node, &ok) && ok) {
@@ -566,16 +609,8 @@ FUNC_IMPL(compiler, alignment, tc_number, func_impl_flag_impure)
 		return false;
 	}
 
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"#include <stdio.h>\n"
-		"#include <stddef.h>\n"
-		"%s\n"
-		"struct tmp { char c; %s target; };\n"
-		"int main(void) { printf(\"%%d\", (int)(offsetof(struct tmp, target))); return 0; }\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val));
+	obj src = language_snippet_alignment(
+		wk, get_obj_compiler(wk, self)->lang, an[0].val, compiler_check_snippet_kwargs(wk, &opts));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
@@ -615,16 +650,8 @@ FUNC_IMPL(compiler, compute_int, tc_number, func_impl_flag_impure)
 		return false;
 	}
 
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"#include <stdio.h>\n"
-		"%s\n"
-		"int main(void) {\n"
-		"printf(\"%%ld\", (long)(%s));\n"
-		"}\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val));
+	obj src = language_snippet_compute_int(
+		wk, get_obj_compiler(wk, self)->lang, an[0].val, compiler_check_snippet_kwargs(wk, &opts));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok) || !ok) {
@@ -646,119 +673,6 @@ FUNC_IMPL(compiler, compute_int, tc_number, func_impl_flag_impure)
 }
 
 static bool
-get_has_function_attribute_test(const struct str *name, const char **res)
-{
-	/* These functions are based on the following code:
-	 * https://git.savannah.gnu.org/gitweb/?p=autoconf-archive.git;a=blob_plain;f=m4/ax_gcc_func_attribute.m4,
-	 * which is licensed under the following terms:
-	 *
-	 *   Copyright (c) 2013 Gabriele Svelto <gabriele.svelto@gmail.com>
-	 *
-	 *   Copying and distribution of this file, with or without modification, are
-	 *   permitted in any medium without royalty provided the copyright notice
-	 *   and this notice are preserved.  This file is offered as-is, without any
-	 *   warranty.
-	 */
-	struct {
-		const char *name, *src;
-	} tests[] = { { "alias",
-			      "#ifdef __cplusplus\n"
-			      "extern \"C\" {\n"
-			      "#endif\n"
-			      "int foo(void) { return 0; }\n"
-			      "int bar(void) __attribute__((alias(\"foo\")));\n"
-			      "#ifdef __cplusplus\n"
-			      "}\n"
-			      "#endif\n" },
-		{ "aligned", "int foo(void) __attribute__((aligned(32)));\n" },
-		{ "alloc_size", "void *foo(int a) __attribute__((alloc_size(1)));\n" },
-		{ "always_inline", "inline __attribute__((always_inline)) int foo(void) { return 0; }\n" },
-		{ "artificial", "inline __attribute__((artificial)) int foo(void) { return 0; }\n" },
-		{ "cold", "int foo(void) __attribute__((cold));\n" },
-		{ "const", "int foo(void) __attribute__((const));\n" },
-		{ "constructor", "int foo(void) __attribute__((constructor));\n" },
-		{ "constructor_priority", "int foo( void ) __attribute__((__constructor__(65535/2)));\n" },
-		{ "counted_by",
-			"struct foo {\n"
-			"    unsigned int count;\n"
-			"    char bar[] __attribute__((counted_by(count)));\n"
-			"};\n" },
-		{ "deprecated", "int foo(void) __attribute__((deprecated(\"\")));\n" },
-		{ "destructor", "int foo(void) __attribute__((destructor));\n" },
-		{ "dllexport", "__declspec(dllexport) int foo(void) { return 0; }\n" },
-		{ "dllimport", "__declspec(dllimport) int foo(void);\n" },
-		{ "error", "int foo(void) __attribute__((error(\"\")));\n" },
-		{ "externally_visible", "int foo(void) __attribute__((externally_visible));\n" },
-		{ "fallthrough",
-			"int foo( void ) {\n"
-			"  switch (0) {\n"
-			"    case 1: __attribute__((fallthrough));\n"
-			"    case 2: break;\n"
-			"  }\n"
-			"  return 0;\n"
-			"};\n" },
-		{ "flatten", "int foo(void) __attribute__((flatten));\n" },
-		{ "format", "int foo(const char * p, ...) __attribute__((format(printf, 1, 2)));\n" },
-		{ "format_arg", "char * foo(const char * p) __attribute__((format_arg(1)));\n" },
-		{ "force_align_arg_pointer", "__attribute__((force_align_arg_pointer)) int foo(void) { return 0; }\n" },
-		{ "gnu_inline", "inline __attribute__((gnu_inline)) int foo(void) { return 0; }\n" },
-		{ "hot", "int foo(void) __attribute__((hot));\n" },
-		{ "ifunc",
-			"('int my_foo(void) { return 0; }'\n"
-			" static int (*resolve_foo(void))(void) { return my_foo; }'\n"
-			" int foo(void) __attribute__((ifunc(\"resolve_foo\")));'),\n" },
-		{ "leaf", "__attribute__((leaf)) int foo(void) { return 0; }\n" },
-		{ "malloc", "int *foo(void) __attribute__((malloc));\n" },
-		{ "noclone", "int foo(void) __attribute__((noclone));\n" },
-		{ "noinline", "__attribute__((noinline)) int foo(void) { return 0; }\n" },
-		{ "nonnull", "int foo(char * p) __attribute__((nonnull(1)));\n" },
-		{ "noreturn", "int foo(void) __attribute__((noreturn));\n" },
-		{ "nothrow", "int foo(void) __attribute__((nothrow));\n" },
-		{ "null_terminated_string_arg",
-			"int foo(const char * p) __attribute__((null_terminated_string_arg(1)));\n" },
-		{ "optimize", "__attribute__((optimize(3))) int foo(void) { return 0; }\n" },
-		{ "packed", "struct __attribute__((packed)) foo { int bar; };\n" },
-		{ "pure", "int foo(void) __attribute__((pure));\n" },
-		{ "returns_nonnull", "int *foo(void) __attribute__((returns_nonnull));\n" },
-		{ "section",
-			"#if defined(__APPLE__) && defined(__MACH__)\n"
-			"    extern int foo __attribute__((section(\"__BAR,__bar\")));\n"
-			"#else\n"
-			"    extern int foo __attribute__((section(\".bar\")));\n"
-			"#endif\n" },
-		{ "sentinel", "int foo(const char *bar, ...) __attribute__((sentinel));" },
-		{ "unused", "int foo(void) __attribute__((unused));\n" },
-		{ "used", "int foo(void) __attribute__((used));\n" },
-		{ "vector_size", "__attribute__((vector_size(32))); int foo(void) { return 0; }\n" },
-		{ "visibility",
-			"int foo_def(void) __attribute__((visibility(\"default\")));\n"
-			"int foo_hid(void) __attribute__((visibility(\"hidden\")));\n"
-			"int foo_int(void) __attribute__((visibility(\"internal\")));\n" },
-		{ "visibility:default", "int foo(void) __attribute__((visibility(\"default\")));\n" },
-		{ "visibility:hidden", "int foo(void) __attribute__((visibility(\"hidden\")));\n" },
-		{ "visibility:internal", "int foo(void) __attribute__((visibility(\"internal\")));\n" },
-		{ "visibility:protected", "int foo(void) __attribute__((visibility(\"protected\")));\n" },
-		{ "warning", "int foo(void) __attribute__((warning(\"\")));\n" },
-		{ "warn_unused_result", "int foo(void) __attribute__((warn_unused_result));\n" },
-		{ "weak", "int foo(void) __attribute__((weak));\n" },
-		{ "weakref",
-			"static int foo(void) { return 0; }\n"
-			"static int var(void) __attribute__((weakref(\"foo\")));\n" },
-		{ "retain", "__attribute__((retain)) int x;\n" },
-		{ 0 } };
-
-	uint32_t i;
-	for (i = 0; tests[i].name; ++i) {
-		if (str_eql(name, &STRL(tests[i].name))) {
-			*res = tests[i].src;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static bool
 compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_node, obj arg, bool *has_fattr)
 {
 	struct compiler_check_opts opts = {
@@ -766,11 +680,8 @@ compiler_has_function_attribute(struct workspace *wk, obj comp_id, uint32_t err_
 		.comp_id = comp_id,
 	};
 
-	const char *src;
-	if (!get_has_function_attribute_test(get_str(wk, arg), &src)) {
-		vm_error_at(wk, err_node, "unknown attribute '%s'", get_cstr(wk, arg));
-		return false;
-	}
+	obj src = language_snippet_attribute(
+		wk, get_obj_compiler(wk, comp_id)->lang, arg, compiler_check_snippet_kwargs(wk, &opts));
 
 	if (!compiler_check(wk, &opts, src, err_node, has_fattr)) {
 		return false;
@@ -864,52 +775,8 @@ FUNC_IMPL(compiler, has_function, tc_bool, func_impl_flag_impure)
 
 	compiler_handle_has_required_kw_setup(requirement, cc_kw_required);
 
-	const char *prefix = compiler_check_prefix(wk, akw), *func = get_cstr(wk, an[0].val);
-
-	bool prefix_contains_include = strstr(prefix, "#include") != NULL;
-
-	char src[BUF_SIZE_4k];
-	if (prefix_contains_include) {
-		snprintf(src,
-			BUF_SIZE_4k,
-			"%s\n"
-			"#include <limits.h>\n"
-			"#if defined __stub_%s || defined __stub___%s\n"
-			"fail fail fail this function is not going to work\n"
-			"#endif\n"
-			"int main(void) {\n"
-			"void *a = (void*) &%s;\n"
-			"long long b = (long long) a;\n"
-			"return (int) b;\n"
-			"}\n",
-			prefix,
-			func,
-			func,
-			func);
-	} else {
-		snprintf(src,
-			BUF_SIZE_4k,
-			"#define %s muon_disable_define_of_%s\n"
-			"%s\n"
-			"#include <limits.h>\n"
-			"#undef %s\n"
-			"#ifdef __cplusplus\n"
-			"extern \"C\"\n"
-			"#endif\n"
-			"char %s (void);\n"
-			"#if defined __stub_%s || defined __stub___%s\n"
-			"fail fail fail this function is not going to work\n"
-			"#endif\n"
-			"int main(void) { return %s(); }\n",
-			func,
-			func,
-			prefix,
-			func,
-			func,
-			func,
-			func,
-			func);
-	}
+	obj src = language_snippet_has_function(
+		wk, get_obj_compiler(wk, self)->lang, an[0].val, compiler_check_snippet_kwargs(wk, &opts));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
@@ -917,45 +784,8 @@ FUNC_IMPL(compiler, has_function, tc_bool, func_impl_flag_impure)
 	}
 
 	if (!ok) {
-		bool is_builtin = str_startswith(get_str(wk, an[0].val), &STR("__builtin_"));
-		const char *__builtin_ = is_builtin ? "" : "__builtin_";
-
-		/* With some toolchains (MSYS2/mingw for example) the compiler
-		 * provides various builtins which are not really implemented and
-		 * fall back to the stdlib where they aren't provided and fail at
-		 * build/link time. In case the user provides a header, including
-		 * the header didn't lead to the function being defined, and the
-		 * function we are checking isn't a builtin itself we assume the
-		 * builtin is not functional and we just error out. */
-		snprintf(src,
-			BUF_SIZE_4k,
-			"%s\n"
-			"int main(void) {\n"
-			"#if !%d && !defined(%s) && !%d\n"
-			"	#error \"No definition for %s%s found in the prefix\"\n"
-			"#endif\n"
-			"#ifdef __has_builtin\n"
-			"	#if !__has_builtin(%s%s)\n"
-			"		#error \"%s%s not found\"\n"
-			"	#endif\n"
-			"#elif ! defined(%s)\n"
-			"	%s%s;\n"
-			"#endif\n"
-			"return 0;\n"
-			"}\n",
-			prefix,
-			!prefix_contains_include,
-			func,
-			is_builtin,
-			__builtin_,
-			func,
-			__builtin_,
-			func,
-			__builtin_,
-			func,
-			func,
-			__builtin_,
-			func);
+		obj src = language_snippet_has_builtin_function(
+			wk, get_obj_compiler(wk, self)->lang, an[0].val, compiler_check_snippet_kwargs(wk, &opts));
 
 		if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
 			return false;
@@ -967,68 +797,6 @@ FUNC_IMPL(compiler, has_function, tc_bool, func_impl_flag_impure)
 	*res = make_obj_bool(wk, ok);
 
 	compiler_check_log(wk, &opts, "has function %s: %s", get_cstr(wk, an[0].val), bool_to_yn(ok));
-
-	return true;
-}
-
-static bool
-compiler_has_header_symbol_c(struct workspace *wk,
-	uint32_t node,
-	struct compiler_check_opts *opts,
-	const char *prefix,
-	obj header,
-	obj symbol,
-	bool *res)
-{
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"%s\n"
-		"#include <%s>\n"
-		"int main(void) {\n"
-		"    /* If it's not defined as a macro, try to use as a symbol */\n"
-		"    #ifndef %s\n"
-		"        %s;\n"
-		"    #endif\n"
-		"    return 0;\n"
-		"}\n",
-		prefix,
-		get_cstr(wk, header),
-		get_cstr(wk, symbol),
-		get_cstr(wk, symbol));
-
-	if (!compiler_check(wk, opts, src, node, res)) {
-		return false;
-	}
-
-	return true;
-}
-
-static bool
-compiler_has_header_symbol_cpp(struct workspace *wk,
-	uint32_t node,
-	struct compiler_check_opts *opts,
-	const char *prefix,
-	obj header,
-	obj symbol,
-	bool *res)
-{
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"%s\n"
-		"#include <%s>\n"
-		"using %s;\n"
-		"int main(void) {\n"
-		"    return 0;\n"
-		"}\n",
-		prefix,
-		get_cstr(wk, header),
-		get_cstr(wk, symbol));
-
-	if (!compiler_check(wk, opts, src, node, res)) {
-		return false;
-	}
 
 	return true;
 }
@@ -1053,27 +821,17 @@ FUNC_IMPL(compiler, has_header_symbol, tc_bool, func_impl_flag_impure)
 	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	bool ok;
-	switch (get_obj_compiler(wk, self)->lang) {
-	case compiler_language_c:
-		if (!compiler_has_header_symbol_c(
-			    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
-			return false;
-		}
-		break;
-	case compiler_language_cpp:
-		if (!compiler_has_header_symbol_c(
-			    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
-			return false;
-		}
 
-		if (!ok) {
-			if (!compiler_has_header_symbol_cpp(
-				    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
-				return false;
-			}
-		}
-		break;
-	default: UNREACHABLE;
+	if (!compiler_check(wk,
+		    &opts,
+		    language_snippet_has_header_symbol(wk,
+			    get_obj_compiler(wk, self)->lang,
+			    an[0].val,
+			    an[1].val,
+			    compiler_check_snippet_kwargs(wk, &opts)),
+		    an[0].node,
+		    &ok)) {
+		return false;
 	}
 
 	compiler_handle_has_required_kw(required, ok);
@@ -1095,34 +853,15 @@ compiler_get_define(struct workspace *wk,
 	uint32_t err_node,
 	struct compiler_check_opts *opts,
 	bool check_only,
-	const char *prefix,
-	const char *def,
+	obj def,
 	obj *res)
 {
 	opts->output_is_stdout = true;
 	opts->keep_cmd_ctx = true;
 	opts->mode = compiler_check_mode_preprocess;
 
-	char src[BUF_SIZE_4k];
-
-	// Delimiters must begin and end with with double quotes.
-	const struct str delim_start = STR("\"MUON_GET_DEFINE_DELIMITER_START\""),
-			 delim_end = STR("\"MUON_GET_DEFINE_DELIMITER_END\""),
-			 delim_sentinel = STR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
-	snprintf(src,
-		BUF_SIZE_4k,
-		"%s\n"
-		"#ifndef %s\n"
-		"#define %s %s\n"
-		"#endif \n"
-		"%s\n%s\n%s\n",
-		prefix,
-		def,
-		def,
-		delim_sentinel.s,
-		delim_start.s,
-		def,
-		delim_end.s);
+	obj src = language_snippet_get_define(
+		wk, get_obj_compiler(wk, opts->comp_id)->lang, def, compiler_check_snippet_kwargs(wk, opts));
 
 	bool ok;
 	if (!compiler_check(wk, opts, src, err_node, &ok)) {
@@ -1151,10 +890,10 @@ compiler_get_define(struct workspace *wk,
 		if (!started) {
 			// Look for the start delimiter.
 			// The first character check is a minor optimization.
-			if (output->buf[i] == '\"' && str_startswith(&output_s, &delim_start)) {
+			if (output->buf[i] == '\"' && str_startswith(&output_s, &compiler_check_delimiter_start)) {
 				started = true;
 				*res = make_str(wk, "");
-				i += delim_start.len;
+				i += compiler_check_delimiter_start.len;
 
 				// Skip whitespace before the defined value or subsequent delimiter.
 				for (; i < output->len && is_whitespace(output->buf[i]); ++i) {
@@ -1171,7 +910,7 @@ compiler_get_define(struct workspace *wk,
 
 		// Stop building defined value if we've encountered the end delimiter.
 		// The first character check is a minor optimization.
-		if (output->buf[i] == '\"' && str_startswith(&output_s, &delim_end)) {
+		if (output->buf[i] == '\"' && str_startswith(&output_s, &compiler_check_delimiter_end)) {
 			break;
 		}
 
@@ -1212,7 +951,7 @@ compiler_get_define(struct workspace *wk,
 		str_appn(wk, res, &output->buf[i], 1);
 	}
 
-	if (*res && str_eql(get_str(wk, *res), &delim_sentinel)) {
+	if (*res && str_eql(get_str(wk, *res), &compiler_check_delimiter_sentinel)) {
 		*res = 0;
 	}
 
@@ -1222,17 +961,17 @@ compiler_get_define(struct workspace *wk,
 		wk, opts->cache_key, &(struct compiler_check_cache_value){ .success = true, .value = *res });
 done:
 	if (check_only) {
-		compiler_check_log(wk, opts, "defines %s %s", def, bool_to_yn(!!*res));
+		compiler_check_log(wk, opts, "defines %s %s", get_cstr(wk, def), bool_to_yn(!!*res));
 	} else {
 		if (!*res) {
 			*res = make_str(wk, "");
 		}
 
-		compiler_check_log(wk, opts, "defines %s as '%s'", def, get_cstr(wk, *res));
+		compiler_check_log(wk, opts, "defines %s as '%s'", get_cstr(wk, def), get_cstr(wk, *res));
 	}
 	return true;
 failed:
-	vm_error_at(wk, err_node, "failed to %s define: '%s'", check_only ? "check" : "get", def);
+	vm_error_at(wk, err_node, "failed to %s define: '%s'", check_only ? "check" : "get", get_cstr(wk, def));
 	return false;
 }
 
@@ -1252,8 +991,7 @@ FUNC_IMPL(compiler, get_define, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	if (!compiler_get_define(
-		    wk, an[0].node, &opts, false, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
+	if (!compiler_get_define(wk, an[0].node, &opts, false, an[0].val, res)) {
 		return false;
 	}
 
@@ -1279,7 +1017,7 @@ FUNC_IMPL(compiler, has_define, tc_bool, func_impl_flag_impure)
 	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	if (!compiler_get_define(
-		    wk, an[0].node, &opts, true, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), res)) {
+		    wk, an[0].node, &opts, true, an[0].val, res)) {
 		return false;
 	}
 
@@ -1301,7 +1039,7 @@ FUNC_IMPL(compiler, symbols_have_underscore_prefix, tc_bool, func_impl_flag_impu
 	}
 
 	obj pre;
-	if (!compiler_get_define(wk, 0, &opts, false, "", "__USER_LABEL_PREFIX__", &pre)) {
+	if (!compiler_get_define(wk, 0, &opts, false, make_str(wk, "__USER_LABEL_PREFIX__"), &pre)) {
 		return false;
 	}
 
@@ -1331,12 +1069,12 @@ func_compiler_check_common(struct workspace *wk, obj self, obj *res, enum compil
 
 	enum obj_type t = get_obj_type(wk, an[0].val);
 
-	const char *src;
+	obj src;
 
 	switch (t) {
-	case obj_string: src = get_cstr(wk, an[0].val); break;
+	case obj_string: src = an[0].val; break;
 	case obj_file: {
-		src = get_file_path(wk, an[0].val);
+		src = *get_obj_file(wk, an[0].val);
 		opts.src_is_path = true;
 		break;
 	}
@@ -1381,36 +1119,12 @@ static bool
 compiler_check_header(struct workspace *wk,
 	uint32_t err_node,
 	struct compiler_check_opts *opts,
-	const char *prefix,
-	const char *hdr,
+	obj hdr,
 	enum requirement_type required,
 	obj *res)
 {
-	char src[BUF_SIZE_4k];
-
-	if (opts->mode == compiler_check_mode_preprocess) {
-		snprintf(src,
-			BUF_SIZE_4k,
-			"%s\n"
-			"#ifdef __has_include\n"
-			" #if !__has_include(\"%s\")\n"
-			"  #error \"header '%s' could not be found\"\n"
-			" #endif\n"
-			"#else\n"
-			" #include <%s>\n"
-			"#endif\n"
-			"int main(void) {}\n",
-			prefix,
-			hdr, hdr, hdr);
-	} else {
-		snprintf(src,
-			BUF_SIZE_4k,
-			"%s\n"
-			"#include <%s>\n"
-			"int main(void) {}\n",
-			prefix,
-			hdr);
-	}
+	obj src = language_snippet_check_header(
+		wk, get_obj_compiler(wk, opts->comp_id)->lang, hdr, compiler_check_snippet_kwargs(wk, opts));
 
 	bool ok;
 	if (!compiler_check(wk, opts, src, err_node, &ok)) {
@@ -1428,7 +1142,7 @@ compiler_check_header(struct workspace *wk,
 
 	*res = make_obj_bool(wk, ok);
 
-	compiler_check_log(wk, opts, "header %s %s: %s", hdr, mode_s, bool_to_yn(ok));
+	compiler_check_log(wk, opts, "header %s %s: %s", get_cstr(wk, hdr), mode_s, bool_to_yn(ok));
 
 	return true;
 }
@@ -1455,8 +1169,7 @@ compiler_check_header_common(struct workspace *wk, obj self, obj *res, enum comp
 
 	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
-	return compiler_check_header(
-		wk, an[0].node, &opts, compiler_check_prefix(wk, akw), get_cstr(wk, an[0].val), required, res);
+	return compiler_check_header(wk, an[0].node, &opts, an[0].val, required, res);
 }
 
 FUNC_IMPL(compiler, has_header, tc_bool, func_impl_flag_impure)
@@ -1488,13 +1201,8 @@ FUNC_IMPL(compiler, has_type, tc_bool, func_impl_flag_impure)
 
 	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"%s\n"
-		"void bar(void) { sizeof(%s); }\n",
-		compiler_check_prefix(wk, akw),
-		get_cstr(wk, an[0].val));
+	obj src = language_snippet_has_type(
+		wk, get_obj_compiler(wk, self)->lang, an[0].val, compiler_check_snippet_kwargs(wk, &opts));
 
 	bool ok;
 	if (!compiler_check(wk, &opts, src, an[0].node, &ok)) {
@@ -1514,24 +1222,14 @@ static bool
 compiler_has_member(struct workspace *wk,
 	struct compiler_check_opts *opts,
 	uint32_t err_node,
-	const char *prefix,
 	obj target,
 	obj member,
 	bool *res)
 {
 	opts->mode = compiler_check_mode_compile;
 
-	char src[BUF_SIZE_4k];
-	snprintf(src,
-		BUF_SIZE_4k,
-		"%s\n"
-		"void bar(void) {\n"
-		"%s foo;\n"
-		"foo.%s;\n"
-		"}\n",
-		prefix,
-		get_cstr(wk, target),
-		get_cstr(wk, member));
+	obj src = language_snippet_has_member(
+		wk, get_obj_compiler(wk, opts->comp_id)->lang, target, member, compiler_check_snippet_kwargs(wk, opts));
 
 	if (!compiler_check(wk, opts, src, err_node, res)) {
 		return false;
@@ -1561,7 +1259,7 @@ FUNC_IMPL(compiler, has_member, tc_bool, func_impl_flag_impure)
 	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	bool ok;
-	if (!compiler_has_member(wk, &opts, an[0].node, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+	if (!compiler_has_member(wk, &opts, an[0].node, an[0].val, an[1].val, &ok)) {
 		return false;
 	}
 
@@ -1574,7 +1272,6 @@ FUNC_IMPL(compiler, has_member, tc_bool, func_impl_flag_impure)
 struct compiler_has_members_ctx {
 	struct compiler_check_opts *opts;
 	uint32_t node;
-	const char *prefix;
 	obj target;
 	bool ok;
 };
@@ -1589,7 +1286,7 @@ compiler_has_members_iter(struct workspace *wk, void *_ctx, obj val)
 	}
 
 	bool ok;
-	if (!compiler_has_member(wk, ctx->opts, ctx->node, ctx->prefix, ctx->target, val, &ok)) {
+	if (!compiler_has_member(wk, ctx->opts, ctx->node, ctx->target, val, &ok)) {
 		return ir_err;
 	}
 
@@ -1626,7 +1323,6 @@ FUNC_IMPL(compiler, has_members, tc_bool, func_impl_flag_impure)
 	struct compiler_has_members_ctx ctx = {
 		.opts = &opts,
 		.node = an[0].node,
-		.prefix = compiler_check_prefix(wk, akw),
 		.target = an[0].val,
 		.ok = true,
 	};
@@ -1665,12 +1361,12 @@ FUNC_IMPL(compiler, run, tc_run_result, func_impl_flag_impure)
 
 	enum obj_type t = get_obj_type(wk, an[0].val);
 
-	const char *src;
+	obj src;
 
 	switch (t) {
-	case obj_string: src = get_cstr(wk, an[0].val); break;
+	case obj_string: src = an[0].val; break;
 	case obj_file: {
-		src = get_file_path(wk, an[0].val);
+		src = *get_obj_file(wk, an[0].val);
 		opts.src_is_path = true;
 		break;
 	}
@@ -1792,7 +1488,8 @@ compiler_has_argument(struct workspace *wk,
 		.keep_cmd_ctx = true,
 	};
 
-	const char *src = "int main(void){}\n";
+	obj src = language_snippet_minimal_exe(
+		wk, get_obj_compiler(wk, comp_id)->lang, compiler_check_snippet_kwargs(wk, &opts));
 	if (!compiler_check(wk, &opts, src, err_node, has_argument)) {
 		return false;
 	}
@@ -2101,7 +1798,8 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 		opts.args = make_obj(wk, obj_array);
 		obj_array_extend(wk, opts.args, toolchain_linker_lib(wk, compiler, libname));
 
-		const char *src = "int main(void) { return 0; }\n";
+		obj src = language_snippet_minimal_exe(
+			wk, get_obj_compiler(wk, opts.comp_id)->lang, compiler_check_snippet_kwargs(wk, &opts));
 		if (!compiler_check(wk, &opts, src, 0, &ok)) {
 			return (struct find_library_result){ 0 };
 		}
@@ -2152,7 +1850,6 @@ find_library_result_to_dependency(struct workspace *wk, struct find_library_resu
 struct compiler_find_library_check_headers_ctx {
 	uint32_t err_node;
 	struct compiler_check_opts *opts;
-	const char *prefix;
 	bool ok;
 };
 
@@ -2163,7 +1860,7 @@ compiler_find_library_check_headers_iter(struct workspace *wk, void *_ctx, obj h
 
 	obj res;
 	if (!compiler_check_header(
-		    wk, ctx->err_node, ctx->opts, ctx->prefix, get_cstr(wk, hdr), requirement_auto, &res)) {
+		    wk, ctx->err_node, ctx->opts, hdr, requirement_auto, &res)) {
 		return ir_err;
 	}
 
@@ -2269,7 +1966,6 @@ FUNC_IMPL(compiler, find_library, tc_dependency, func_impl_flag_impure)
 			.ok = true,
 			.err_node = akw[kw_has_headers].node,
 			.opts = &opts,
-			.prefix = compiler_check_prefix(wk, header_kwargs),
 		};
 		obj_array_foreach(
 			wk, akw[kw_has_headers].val, &check_headers_ctx, compiler_find_library_check_headers_iter);
@@ -2336,23 +2032,12 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 
 	obj_array_extend(wk, base_cmd, toolchain_compiler_preprocess_only(wk, self));
 
-	const char *lang = 0;
-	switch (comp->lang) {
-	case compiler_language_c: lang = "c"; break;
-	case compiler_language_cpp: lang = "c++"; break;
-	case compiler_language_objc: lang = "objective-c"; break;
-	default:
-		vm_error(wk,
-			"compiler for language %s does not support preprocess()",
-			compiler_language_to_s(comp->lang));
-		return false;
-	}
-
-	obj_array_extend(wk, base_cmd, toolchain_compiler_force_language(wk, self, lang));
+	obj_array_extend(
+		wk, base_cmd, toolchain_compiler_force_language(wk, self, compiler_language_to_s(wk, comp->lang)));
 
 	ca_get_std_args(wk, self, current_project(wk), NULL, base_cmd);
 
-	ca_get_option_compile_args(wk, self, current_project(wk), NULL, base_cmd);
+	ca_get_option_compile_args(wk, comp->lang, current_project(wk), NULL, base_cmd);
 
 	bool have_dep = false;
 	struct build_dep dep = { 0 };
@@ -2573,14 +2258,49 @@ FUNC_IMPL(compiler, target_triple, tc_dict, func_impl_flag_impure)
 	return true;
 }
 
-FUNC_IMPL(compiler, machine, tc_machine, func_impl_flag_impure)
+FUNC_IMPL(compiler, machine, tc_machine, func_impl_flag_impure, .desc = "Get the machine this compiler object is for")
 {
 	if (!pop_args(wk, NULL, NULL)) {
 		return false;
 	}
 
-	*res = make_obj(wk, obj_machine);
-	set_obj_machine(wk, *res, get_obj_compiler(wk, self)->machine);
+	const char *machine_var = 0;
+	switch (get_obj_compiler(wk, self)->machine) {
+	case machine_kind_build: machine_var = "build_machine"; break;
+	case machine_kind_host: machine_var = "host_machine"; break;
+	case machine_kind_either: machine_var = 0; break;
+	}
+
+	if (!machine_var) {
+		vm_error(wk, "this copmiler has no concrete machine defined");
+		return false;
+	}
+
+
+	if (!obj_dict_index_str(wk, wk->vm.default_global_scope, machine_var, res)) {
+		UNREACHABLE;
+	}
+
+	return true;
+}
+
+FUNC_IMPL(compiler,
+	native,
+	tc_bool,
+	func_impl_flag_impure,
+	.desc = "Return true if this compiler object is for"
+		" the build machine, or false if it is for the host machine.")
+{
+	if (!pop_args(wk, NULL, NULL)) {
+		return false;
+	}
+
+	switch (get_obj_compiler(wk, self)->machine) {
+	case machine_kind_build: *res = obj_bool_true; break;
+	case machine_kind_host: *res = obj_bool_false; break;
+	default: vm_error(wk, "this copmiler has no concrete machine defined"); return false;
+	}
+
 	return true;
 }
 
@@ -2637,6 +2357,7 @@ FUNC_REGISTER(compiler)
 		FUNC_IMPL_REGISTER(compiler, get_internal_archiver_id);
 		FUNC_IMPL_REGISTER(compiler, target_triple);
 		FUNC_IMPL_REGISTER(compiler, machine);
+		FUNC_IMPL_REGISTER(compiler, native);
 		FUNC_IMPL_REGISTER(compiler, version_raw);
 	}
 }

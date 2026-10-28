@@ -144,6 +144,7 @@ workspace_init_runtime(struct workspace *wk)
 	wk->global_opts = make_obj(wk, obj_dict);
 	wk->compiler_check_cache = make_obj(wk, obj_dict);
 	wk->dependency_handlers = make_obj(wk, obj_dict);
+	wk->queued_options = make_obj(wk, obj_array);
 
 	for (uint32_t i = 0; i < machine_kind_count; ++i) {
 		wk->toolchains[i] = make_obj(wk, obj_dict);
@@ -155,7 +156,7 @@ workspace_init_runtime(struct workspace *wk)
 		wk->machine_properties[i] = make_obj(wk, obj_dict);
 	}
 
-	compilers_init(wk);
+	toolchains_init(wk);
 
 	wk->init_flags |= workspace_init_flag_runtime;
 }
@@ -168,8 +169,9 @@ workspace_init_startup_files(struct workspace *wk)
 	}
 
 	const char *startup_files[] = {
-		"runtime/dependencies.meson",
+		"runtime/languages.meson",
 		"runtime/toolchains.meson",
+		"runtime/dependencies.meson",
 	};
 
 	for (uint32_t i = 0; i < ARRAY_LEN(startup_files); ++i) {

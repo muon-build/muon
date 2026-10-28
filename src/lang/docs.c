@@ -197,6 +197,7 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 		for (i = 0; i < kwargs_list.len; ++i) {
 			struct kwargs_list_elem *elem = arr_get(&kwargs_list, i);
 			struct args_kw kwarg = kwargs[elem->i];
+#if 0
 			char buf[256];
 
 			// This is a hack to convert e.g. cpp_args to <lang>_args
@@ -226,6 +227,7 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 					kwarg.key = buf;
 				}
 			}
+#endif
 
 			obj _res;
 			if (obj_dict_index_str(wk, dict, kwarg.key, &_res)) {
