@@ -1,5 +1,10 @@
 # Release Notes
 
+##   0.8.0
+
+- improve support for building and testing muon using meson
+- support b_lto_threads
+
 ## ✓ 0.7.0
 
 released on 2026.10.04
