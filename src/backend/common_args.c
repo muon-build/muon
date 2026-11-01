@@ -22,6 +22,7 @@
 #include "platform/filesystem.h"
 #include "platform/path.h"
 #include "toolchains.h"
+#include "util.h"
 
 static void
 ca_get_option_value_for_tgt(struct workspace *wk,
@@ -672,6 +673,18 @@ ca_link_args_to_native(struct workspace *wk, obj comp, obj *args)
 	*args = toolchain_linker_to_native(wk, comp, *args);
 }
 
+obj
+ca_linker_process_rpath_for_target(struct workspace *wk, obj comp, struct obj_build_target *tgt)
+{
+	struct args_kw akw[] = {
+		{ "build_rpath", .val = WITH_DEFAULT(tgt->dep_internal.build_rpath, make_obj(wk, obj_array)) },
+		{ "install_rpath", .val = WITH_DEFAULT(tgt->dep_internal.install_rpath, make_obj(wk, obj_array)) },
+		{ "build_dir", .val = WITH_DEFAULT(tgt->build_dir, make_str(wk, wk->build_root)) },
+		0,
+	};
+	return toolchain_linker_process_rpath(wk, comp, akw);
+}
+
 bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	obj comp,
@@ -773,13 +786,6 @@ ca_prepare_target_linker_args(struct workspace *wk,
 	}
 
 	{
-		struct args_kw akw[] = {
-			{ "build_rpath", .val = tgt->dep_internal.build_rpath },
-			{ "install_rpath", .val = tgt->dep_internal.install_rpath },
-			{ "build_dir", .val = tgt->build_dir },
-			0,
-		};
-		tgt->dep_internal.build_rpath = toolchain_linker_process_rpath(wk, comp, akw);
 		ca_push_linker_args(wk, comp, tgt, toolchain_linker_rpath(wk, comp, tgt->dep_internal.build_rpath));
 	}
 

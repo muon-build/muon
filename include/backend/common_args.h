@@ -28,6 +28,8 @@ obj ca_build_target_joined_args(struct workspace *wk, obj processed_args);
 
 void ca_link_args_to_native(struct workspace *wk, obj comp, obj *args);
 
+obj ca_linker_process_rpath_for_target(struct workspace *wk, obj comp, struct obj_build_target *tgt);
+
 bool
 ca_prepare_target_linker_args(struct workspace *wk,
 	obj comp,

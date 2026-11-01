@@ -24,4 +24,6 @@
 
 #define IS_POWER_OF_TWO(__i) ((__i & (__i - 1)) == 0)
 
+#define WITH_DEFAULT(a__, b__) ((a__) ? (a__) : (b__))
+
 #endif

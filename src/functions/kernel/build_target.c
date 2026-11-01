@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "args.h"
+#include "backend/common_args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "functions/build_target.h"
@@ -996,13 +997,7 @@ create_target(struct workspace *wk,
 			    wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp)) {
 			UNREACHABLE;
 		}
-		struct args_kw akw[] = {
-			{ "build_rpath", .val = tgt->dep_internal.build_rpath },
-			{ "install_rpath", .val = tgt->dep_internal.install_rpath },
-			{ "build_dir", .val = tgt->build_dir },
-			0,
-		};
-		tgt->dep_internal.build_rpath = toolchain_linker_process_rpath(wk, comp, akw);
+		tgt->dep_internal.build_rpath = ca_linker_process_rpath_for_target(wk, comp, tgt);
 	}
 
 	obj soname_install = 0, plain_name_install = 0;
