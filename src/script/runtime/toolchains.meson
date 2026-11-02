@@ -586,6 +586,8 @@ toolchain.register_compiler(
         m = c.machine()
         if m.system() == 'sunos'
             return 'ld-solaris'
+        elif m.system() == 'darwin'
+            return 'ld-apple'
         else
             return 'ld'
         endif
@@ -594,6 +596,8 @@ toolchain.register_compiler(
         m = c.machine()
         if m.system() == 'sunos'
             return 'ar-solaris'
+        elif m.system() == 'darwin'
+            return 'ar-posix'
         else
             return 'ar-gnu'
         endif
