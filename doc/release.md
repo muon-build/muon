@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+SPDX-License-Identifier: GPL-3.0-only
+-->
+
 # Making a release
 
 1. Ensure you are on the correct branch, either main or a <major>.<minor>
