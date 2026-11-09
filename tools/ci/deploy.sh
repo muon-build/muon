@@ -2,15 +2,31 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-set -eux
+set -eu
 
-if [ ! -d ~/.ssh ]; then exit 0
-elif [ "${GH_DEPLOY:-}" ]; then :
-fi
+export RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+export RCLONE_CONFIG_R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID
+export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY
+export RCLONE_CONFIG_R2_ENDPOINT=https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com
+export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
 
-sshopts="-o StrictHostKeyChecking=no -p 2975"
+set -x
 
-dest=$1
+cache_control="Cache-Control: public, max-age=300"
+bucket="r2:$R2_BUCKET"
+
+version=$1
 shift
 
-rsync --rsh="ssh $sshopts" "$@" deploy@mochiro.moe:muon"$dest"
+for path; do
+	path=${path%/}
+	if [ -d "$path" ]; then
+		op=sync
+	else
+		op=copyto
+	fi
+
+	for dest in "$version" edge; do
+		rclone "$op" "$path" "$bucket/$dest/${path##*/}" --header-upload "$cache_control"
+	done
+done

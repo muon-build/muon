@@ -24,20 +24,28 @@ jobs:
     - name: build
       run: |
         tools/ci/alpine.sh -c
-    - name: upload-binaries
+    - name: deploy gate
+      id: deploy_gate
+      if: github.event_name == 'push' && github.ref_type == 'branch'
+      shell: bash
       env:
-        GH_DEPLOY: 1
+          GIT_REF: refs/heads/${{ github.ref_name }}
       run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
-        chmod 600 ~/.ssh/deploy
-        cat >> ~/.ssh/config <<EOF
-        Host mochiro.moe
-            IdentityFile ~/.ssh/deploy
-            IdentitiesOnly yes
-        EOF
+        if tools/ci/ref_is_release_branch.sh "$GIT_REF"; then
+          echo deploy=true >> "$GITHUB_OUTPUT"
+        fi
+    - name: deploy_deps
+      if: steps.deploy_gate.outputs.deploy == 'true'
+      run: sudo apt-get install -y rclone
+    - name: deploy
+      if: steps.deploy_gate.outputs.deploy == 'true'
+      env:
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      run: |
         . "build-docker/version.sh"
-        tools/ci/deploy.sh "/releases/$version" \
+        tools/ci/deploy.sh "$version" \
           "build-docker/muon-$version-aarch64-linux" \
           "build-docker/muon-$version-aarch64-linux-small"
-      if: github.event_name != 'pull_request'
