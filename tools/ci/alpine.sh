@@ -88,7 +88,12 @@ install_packages_()
 	queue_package_ libpsl-static
 
 	# for releases
-	queue_package_ rsync
+	if [ "$cfg_deploy" ]; then
+		if [ "$cfg_website" ]; then
+			queue_package_ npm
+		fi
+		queue_package_ rclone
+	fi
 
 	if [ "$cfg_meson" ]; then
 		queue_package_ meson
@@ -216,19 +221,23 @@ step_prepare_release_()
 
 step_deploy_artifacts_()
 {
-	tools/ci/deploy.sh "/releases/$version" \
+	tools/ci/deploy.sh "$version" \
 		"build/muon-$version-$arch-linux" \
 		"build-small/muon-$version-$arch-linux-small" \
 		"muon-$version.tar.gz"
 
-	tools/ci/deploy.sh "/releases/$version" -r --delete build/doc/docs
-	tools/ci/deploy.sh "/releases/$version"
+	tools/ci/deploy.sh "$version" build/doc/docs
+}
+
+wrangler_()
+{
+	npx wrangler "$@"
 }
 
 step_deploy_website_()
 {
-	tools/ci/deploy.sh / -r --delete build/doc/website
-	tools/ci/deploy.sh / -r --delete build/doc/book
+	wrangler_ --cwd doc/website deploy
+	wrangler_ --cwd doc/book deploy
 }
 
 step_copy_container_results_()
@@ -387,11 +396,11 @@ queue_step_ "prepare_release"
 
 if [ "$cfg_deploy" ]; then
 	# only allow master and release branches through
-	if tools/ci/ref_is_release_branch.sh "$branch_name"; then :
+	if tools/ci/ref_is_release_branch.sh "$branch_name"; then
 		queue_step_ "deploy_artifacts"
 	fi
 
-	if [ "$cfg_website" ] && [ "$branch_name" = "refs/heads/master" ]; then :
+	if [ "$cfg_website" ] && [ "$branch_name" = "refs/heads/master" ]; then
 		queue_step_ "deploy_website"
 	fi
 fi

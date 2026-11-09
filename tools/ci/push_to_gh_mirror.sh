@@ -10,7 +10,7 @@ fi
 
 cat >> ~/.ssh/config <<EOF
 Host github.com
-    IdentityFile ~/.ssh/18083346-dfba-4050-bc05-413561f99228
+    IdentityFile ~/.ssh/1716cfef-0157-4499-a14a-84aee3867acd
     IdentitiesOnly yes
     StrictHostKeyChecking no
 EOF

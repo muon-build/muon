@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+name = "muon-main"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+routes = [{ pattern = "muon.build", custom_domain = true }]
+
+[assets]
+directory = "../../build/doc/website"
+binding = "ASSETS"
+run_worker_first = ["/releases"]
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "muon"

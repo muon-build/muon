@@ -21,6 +21,20 @@ jobs:
     environment: master
     steps:
     - uses: actions/checkout@v3
+    - name: deploy gate
+      id: deploy_gate
+      if: github.event_name == 'push' && github.ref_type == 'branch'
+      shell: bash
+      env:
+          GIT_REF: refs/heads/${{ github.ref_name }}
+      run: |
+        if tools/ci/ref_is_release_branch.sh "$GIT_REF"; then
+          echo deploy=true >> "$GITHUB_OUTPUT"
+        fi
+    # We have to install this prior to uninstalling
+    - name: deploy_deps
+      if: steps.deploy_gate.outputs.deploy == 'true'
+      run: brew install rclone
     # Uninstall homebrew packages so we don't pull in any of them
     - name: uninstall homebrew packages
       run: |
@@ -53,18 +67,14 @@ jobs:
         . "build/version.sh"
         lipo -create -output muon build-x86_64/muon build/muon
         zip "muon-$version-universal-macos.zip" muon
-    - name: upload-universal-binary
+    - name: deploy
+      if: steps.deploy_gate.outputs.deploy == 'true'
       env:
-        GH_DEPLOY: 1
+        R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+        R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       run: |
-        echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
-        chmod 600 ~/.ssh/deploy
-        cat >> ~/.ssh/config <<EOF
-        Host mochiro.moe
-            IdentityFile ~/.ssh/deploy
-            IdentitiesOnly yes
-        EOF
         . "build/version.sh"
-        tools/ci/deploy.sh "/releases/$version" \
+        tools/ci/deploy.sh "$version" \
           "muon-$version-universal-macos.zip"
-      if: github.event_name != 'pull_request'

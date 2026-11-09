@@ -39,26 +39,29 @@ jobs:
       - name: test
         run: >
           build\muon.exe -vC build devenv ./muon.exe test -R -t 2
-      - name: upload-binary
+      - name: deploy gate
+        id: deploy_gate
+        if: github.event_name == 'push' && github.ref_type == 'branch'
         shell: bash
         env:
-          GH_DEPLOY: 1
+            GIT_REF: refs/heads/${{ github.ref_name }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy
-          chmod 600 ~/.ssh/deploy
-          cat >> ~/.ssh/config <<EOF
-          Host mochiro.moe
-              IdentityFile ~/.ssh/deploy
-              IdentitiesOnly yes
-          EOF
+          if tools/ci/ref_is_release_branch.sh "$GIT_REF"; then
+            echo deploy=true >> "$GITHUB_OUTPUT"
+          fi
+      - name: deploy_deps
+        if: steps.deploy_gate.outputs.deploy == 'true'
+        run: choco install rclone -y
+      - name: deploy
+        if: steps.deploy_gate.outputs.deploy == 'true'
+        shell: bash
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
           . "build/version.sh"
           exe_name="muon-$version-amd64-win.exe"
-          dest_dir="muon/releases/$version"
-          ssh \
-            -o StrictHostKeyChecking=no\
-            -p 2975\
-            deploy@mochiro.moe\
-            "sh -c 'mkdir -p \"$dest_dir\"; cat - > \"$dest_dir/$exe_name\"'"\
-            < "build/muon.exe"
-        if: github.event_name != 'pull_request'
+          mv build/muon.exe "build/$exe_name"
+          tools/ci/deploy.sh "$version" "build/$exe_name"
