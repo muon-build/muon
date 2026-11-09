@@ -133,8 +133,6 @@ bool bounds_adjust(uint32_t len, int64_t *i);
 bool boundscheck(struct workspace *wk, uint32_t ip, uint32_t len, int64_t *i);
 bool rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t n);
 
-bool type_tags_eql(struct workspace *wk, type_tag a, type_tag b);
-
 type_tag flatten_type(struct workspace *wk, type_tag t);
 enum flatten_type_flag {
 	flatten_type_flag_keep_enums = 1 << 0,
@@ -143,6 +141,7 @@ type_tag flatten_type_flags(struct workspace *wk, type_tag t, enum flatten_type_
 
 enum complex_type_preset {
 	tc_cx_options_dict_or_list = 1,
+	tc_cx_str_or_list_of_str,
 	tc_cx_list_of_str,
 	tc_cx_options_deprecated_kw,
 	tc_cx_list_of_number,
@@ -152,6 +151,7 @@ enum complex_type_preset {
 	tc_cx_toolchain_overrides,
 	tc_cx_coercible_env,
 	tc_cx_coercible_env_base,
+	tc_cx_snippets,
 };
 
 type_tag complex_type_preset_get(struct workspace *wk, enum complex_type_preset t);

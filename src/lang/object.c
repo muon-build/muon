@@ -180,6 +180,12 @@ get_file_path(struct workspace *wk, obj o)
 }
 
 const struct str *
+get_file_path_str(struct workspace *wk, obj o)
+{
+	return get_str(wk, *get_obj_file(wk, o));
+}
+
+const struct str *
 get_str(struct workspace *wk, obj s)
 {
 	return get_obj_internal(wk, s, obj_string);
@@ -389,11 +395,11 @@ static struct {
 	{ .t = obj_file, .name = "file" },
 	{ .t = obj_build_target, .name = "build_tgt" },
 	{ .t = obj_subproject, .name = "subproject" },
-	{ .t = obj_machine, .name = "build_machine" },
+	{ .t = obj_machine, .name = "machine" },
 	{ .t = obj_feature_opt, .name = "feature" },
 	{ .t = obj_external_program, .name = "external_program" },
 	{ .t = obj_python_installation, .name = "python_installation" },
-	{ .t = obj_run_result, .name = "runresult" },
+	{ .t = obj_run_result, .name = "run_result" },
 	{ .t = obj_configuration_data, .name = "cfg_data" },
 	{ .t = obj_custom_target, .name = "custom_tgt" },
 	{ .t = obj_test, .name = "test" },
@@ -594,6 +600,9 @@ obj_equal(struct workspace *wk, obj left, obj right)
 		}
 
 		break;
+	}
+	case obj_machine: {
+		return get_obj_machine(wk, left) == get_obj_machine(wk, right);
 	}
 	default:
 		/* LOG_W("TODO: compare %s", obj_type_to_s(t)); */
@@ -2118,6 +2127,8 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		}
 		break;
 	}
+	case obj_machine: {
+							}
 	default: tstr_pushf(wk, sb, "<obj %s>", obj_type_to_s(t));
 	}
 }
@@ -2401,7 +2412,7 @@ obj_lprintf(struct workspace *wk, enum log_level lvl, const char *fmt, ...)
 void
 obj_inspect_dep(struct workspace *wk, const char *pre, const struct build_dep *dep)
 {
-	obj_lprintf(wk, log_info, "%slink_language: %s\n", pre, compiler_language_to_s(dep->link_language));
+	obj_lprintf(wk, log_info, "%slink_language: %s\n", pre, compiler_language_to_s(wk, dep->link_language));
 	obj_lprintf(wk, log_info, "%slink_whole: %o\n", pre, dep->link_whole);
 	obj_lprintf(wk, log_info, "%slink_with: %o\n", pre, dep->link_with);
 	obj_lprintf(wk, log_info, "%slink_with_not_found: %o\n", pre, dep->link_with_not_found);
@@ -2464,7 +2475,7 @@ obj_inspect(struct workspace *wk, obj val)
 		struct obj_compiler *compiler = get_obj_compiler(wk, val);
 		log_plain(lvl, "toolchain:\n");
 		obj_lprintf(wk, lvl, "  libdirs: %o\n", compiler->libdirs);
-		obj_lprintf(wk, lvl, "  lang: %s\n", compiler_language_to_s(compiler->lang));
+		obj_lprintf(wk, lvl, "  lang: %s\n", compiler_language_to_s(wk, compiler->lang));
 		obj_lprintf(wk, lvl, "  machine: %s\n", machine_kind_to_s(compiler->machine));
 		for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 			log_plain(lvl, "  %s:\n", toolchain_component_to_s(i));

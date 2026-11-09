@@ -68,11 +68,11 @@ arr_get_mem(struct arena *a, struct arr *arr)
 	return arr_point_at(arr, i);
 }
 
-void
+void *
 arr_grow_by(struct arena *a, struct arr *arr, uint32_t size)
 {
 	arr->len += size - 1;
-	arr_get_mem(a, arr);
+	return arr_get_mem(a, arr);
 }
 
 void

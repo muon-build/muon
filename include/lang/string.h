@@ -70,6 +70,10 @@ void tstr_push_json_escaped_quoted(struct workspace *wk, struct tstr *buf, const
 void tstr_trim_trailing_newline(struct tstr *sb);
 obj tstr_into_str(struct workspace *wk, struct tstr *sb);
 
+// like tstr_pushf, but returns the buffer directly.  strings returned from
+// this function have the same lifetime as a normal tstr
+const char *tstr_f(struct workspace *wk, const char *fmt, ...) MUON_ATTR_FORMAT(printf, 2, 3);
+
 void str_percent_encode(struct workspace *wk, const struct str *s, struct tstr *res);
 bool str_percent_decode(struct workspace *wk, const struct str *s, struct tstr *res);
 
@@ -145,6 +149,7 @@ struct str_cut {
 	struct str after;
 };
 bool str_cut(const struct str *s, const struct str *split, struct str_cut *cut);
+bool str_rcut(const struct str *s, char split, struct str_cut *cut);
 
 void cstr_copy_(char *dest, const struct str *src, uint32_t dest_len);
 #define cstr_copy(__dest, __src) cstr_copy_(__dest, __src, ARRAY_LEN(__dest));

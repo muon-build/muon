@@ -252,10 +252,10 @@ xc_file(struct xc_ctx *ctx, const char *name, const char *path)
 	obj pbx = xc_pbx_new_t(ctx, "PBXFileReference");
 
 	obj file_type;
-	enum compiler_language lang;
-	if (filename_to_compiler_language(path, &lang)) {
+	struct compiler_language lang;
+	if (filename_to_compiler_language(ctx->wk, &STRL(path), &lang)) {
 		file_type = make_strf(
-			ctx->wk, "sourcecode.%s.%s", compiler_language_to_s(lang), compiler_language_to_s(lang));
+			ctx->wk, "sourcecode.%s.%s", compiler_language_to_s(ctx->wk, lang), compiler_language_to_s(ctx->wk, lang));
 	} else {
 		file_type = make_str(ctx->wk, "text");
 	}

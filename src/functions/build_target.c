@@ -6,6 +6,7 @@
 
 #include "compat.h"
 
+#include "toolchains.h"
 #include <string.h>
 
 #include "args.h"
@@ -23,8 +24,8 @@
 struct tgt_src_to_compiled_path_opts {
 	bool relative;
 	const char *default_ext;
-	compiler_get_arg_func_0 get_ext;
-	enum compiler_language lang;
+	obj (*get_ext)(TOOLCHAIN_SIG_0);
+	struct compiler_language lang;
 };
 
 static bool
@@ -81,7 +82,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 
 	{
 		obj comp_id;
-		if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], opts->lang, &comp_id)) {
+		if (obj_dict_get_language(wk, current_project(wk)->toolchains[tgt->machine], opts->lang, &comp_id)) {
 			if (!(ext = toolchain_compiler_flatten_one(wk, comp_id, opts->get_ext(wk, comp_id)))) {
 				return false;
 			}
@@ -95,7 +96,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 bool
 tgt_src_to_pch_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
-	enum compiler_language lang,
+	struct compiler_language lang,
 	obj src_file,
 	struct tstr *res)
 {
@@ -109,7 +110,7 @@ tgt_src_to_pch_path(struct workspace *wk,
 	if (get_obj_type(wk, src_file) == obj_build_target) {
 		tgt = get_obj_build_target(wk, src_file);
 		obj tgt_pch = tgt->pch;
-		if (!obj_dict_geti(wk, tgt_pch, lang, &src_file)) {
+		if (!obj_dict_get_language(wk, tgt_pch, lang, &src_file)) {
 			UNREACHABLE;
 		}
 	}
@@ -120,7 +121,7 @@ tgt_src_to_pch_path(struct workspace *wk,
 bool
 tgt_src_to_object_path(struct workspace *wk,
 	const struct obj_build_target *tgt,
-	enum compiler_language lang,
+	struct compiler_language lang,
 	obj src_file,
 	bool relative,
 	struct tstr *res)
@@ -210,32 +211,17 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	default: UNREACHABLE_RETURN;
 	}
 
-	enum compiler_language l;
-	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
+	struct compiler_language l;
+	if (!filename_to_compiler_language(wk, get_file_path_str(wk, file), &l)) {
 		return false;
 	}
 
-	switch (l) {
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_objc_hdr:
-	case compiler_language_objcpp_hdr:
-	case compiler_language_c_obj:
-		// skip non-compileable sources
-		return true;
-	case compiler_language_assembly:
-	case compiler_language_nasm:
-	case compiler_language_masm:
-	case compiler_language_c:
-	case compiler_language_cpp:
-	case compiler_language_llvm_ir:
-	case compiler_language_objcpp:
-	case compiler_language_objc:
-	case compiler_language_rust:
-	case compiler_language_vala:
-	case compiler_language_fortran: break;
-	case compiler_language_null:
-	case compiler_language_count: UNREACHABLE;
+	// skip non-compileable sources
+	{
+		const struct language *lang = toolchain_language_get(wk, l);
+		if (lang->is_header || lang->is_linkable) {
+			return true;
+		}
 	}
 
 	if (ctx->verify_exists && !obj_array_in(wk, ctx->tgt->src, file)) {

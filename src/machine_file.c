@@ -121,8 +121,8 @@ machine_file_translate_cb(void *_ctx,
 		TSTR(key);
 		TSTR(option_override);
 
-		enum compiler_language l;
-		if (s_to_compiler_language(k, &l)) {
+		struct compiler_language l;
+		if (s_to_compiler_language(wk, &STRL(k), &l)) {
 			toolchain_component_option_name(wk, l, toolchain_component_compiler, ctx->machine, &option_override);
 			tstr_pushf(wk, &key, "muon_%s_compiler", k);
 		} else {

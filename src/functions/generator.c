@@ -82,16 +82,16 @@ generated_list_process_file(struct workspace *wk,
 			obj_array_push(wk, tmp_arr, file);
 
 			if (add_targets) {
-				const char *generated_path = get_cstr(wk, *get_obj_file(wk, file));
+				const struct str *generated_path = get_file_path_str(wk, file);
 
-				enum compiler_language l;
-				if (!*generated_include && filename_to_compiler_language(generated_path, &l)
-					&& languages[l].is_header) {
+				struct compiler_language l;
+				if (!*generated_include && filename_to_compiler_language(wk, generated_path, &l)
+					&& toolchain_language_get(wk, l)->is_header) {
 					*generated_include = true;
 				}
 
 				TSTR(rel);
-				relativize_build_file_path(wk, &rel, generated_path);
+				relativize_build_file_path(wk, &rel, generated_path->s);
 
 				str_app(wk, &name, " ");
 				str_app(wk, &name, rel.buf);

@@ -168,6 +168,7 @@ toolchain_component_from_s(struct workspace *wk, const char *name, uint32_t *res
 	return false;
 }
 
+#if 0
 static const char *compiler_language_names[compiler_language_count] = {
 	[compiler_language_null] = "null",
 	[compiler_language_c] = "c",
@@ -198,30 +199,28 @@ static const char *compiler_language_gcc_names[compiler_language_count] = {
 	[compiler_language_objcpp] = "objective-c++",
 	[compiler_language_objcpp_hdr] = "objective-c++-header",
 };
+#endif
 
-const char *
-compiler_language_to_s(enum compiler_language l)
+const struct language *
+toolchain_language_get(struct workspace *wk, struct compiler_language l)
 {
-	assert(l < compiler_language_count);
-	return compiler_language_names[l];
+	return arr_get(&wk->language_registry.languages, l.id);
 }
 
 const char *
-compiler_language_to_gcc_name(enum compiler_language l)
+compiler_language_to_s(struct workspace *wk, struct compiler_language l)
 {
-	const char *n = compiler_language_gcc_names[l];
-	assert(n);
-	return n;
+	return toolchain_language_get(wk, l)->name.s;
 }
 
 bool
-s_to_compiler_language(const char *_s, enum compiler_language *l)
+s_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l)
 {
-	const struct str s = STRL(_s);
 	uint32_t i;
-	for (i = 0; i < compiler_language_count; ++i) {
-		if (str_eqli(&s, &STRL(compiler_language_names[i]))) {
-			*l = i;
+	for (i = 0; i < wk->language_registry.languages.len; ++i) {
+		const struct language *lang = &((struct language *)wk->language_registry.languages.e)[i];
+		if (str_eqli(s, &lang->name)) {
+			*l = (struct compiler_language){ i };
 			return true;
 		}
 	}
@@ -229,47 +228,23 @@ s_to_compiler_language(const char *_s, enum compiler_language *l)
 	return false;
 }
 
-enum compiler_language
-compiler_language_to_hdr(enum compiler_language lang)
-{
-	switch (lang) {
-	case compiler_language_c: return compiler_language_c_hdr;
-	case compiler_language_cpp: return compiler_language_cpp_hdr;
-	case compiler_language_objc: return compiler_language_objc_hdr;
-	case compiler_language_objcpp: return compiler_language_objcpp_hdr;
-	default: UNREACHABLE_RETURN;
-	}
-}
-
-static const char *compiler_language_exts[compiler_language_count][10] = {
-	[compiler_language_c] = { "c" },
-	[compiler_language_c_hdr] = { "h" },
-	[compiler_language_cpp] = { "cc", "cpp", "cxx", "C" },
-	[compiler_language_cpp_hdr] = { "hh", "hpp", "hxx" },
-	[compiler_language_c_obj] = { "o", "obj" },
-	[compiler_language_objc] = { "m", "M" },
-	[compiler_language_objcpp] = { "mm" },
-	[compiler_language_assembly] = { "S", "s" },
-	[compiler_language_llvm_ir] = { "ll" },
-	[compiler_language_nasm] = { "asm" },
-	[compiler_language_vala] = { "vala", "vapi" },
-};
-
 bool
-filename_to_compiler_language(const char *str, enum compiler_language *l)
+extension_to_compiler_language(struct workspace *wk, const struct str *ext, struct compiler_language *l)
 {
-	uint32_t i, j;
-	const char *ext;
-
-	if (!(ext = strrchr(str, '.'))) {
+	if (!ext->len) {
 		return false;
 	}
-	++ext;
 
-	for (i = 0; i < compiler_language_count; ++i) {
-		for (j = 0; compiler_language_exts[i][j]; ++j) {
-			if (strcmp(ext, compiler_language_exts[i][j]) == 0) {
-				*l = i;
+	for (uint32_t i = 0; i < wk->language_registry.languages.len; ++i) {
+		const struct language *lang = &((struct language *)wk->language_registry.languages.e)[i];
+		if (!lang->exts) {
+			continue;
+		}
+
+		obj e;
+		obj_array_for(wk, lang->exts, e) {
+			if (str_eql(get_str(wk, e), ext)) {
+				*l = (struct compiler_language){ i };
 				return true;
 			}
 		}
@@ -278,51 +253,70 @@ filename_to_compiler_language(const char *str, enum compiler_language *l)
 	return false;
 }
 
-const char *
-compiler_language_extension(enum compiler_language l)
+bool
+filename_to_compiler_language(struct workspace *wk, const struct str *s, struct compiler_language *l)
 {
-	return compiler_language_exts[l][0];
-}
+	struct str_cut cut;
 
-enum compiler_language
-coalesce_link_languages(enum compiler_language cur, enum compiler_language new)
-{
-	switch (new) {
-	case compiler_language_null:
-	case compiler_language_c_hdr:
-	case compiler_language_cpp_hdr:
-	case compiler_language_objc_hdr:
-	case compiler_language_objcpp_hdr:
-	case compiler_language_llvm_ir: break;
-	case compiler_language_assembly:
-		if (!cur) {
-			return compiler_language_assembly;
-		}
-		break;
-	case compiler_language_nasm:
-	case compiler_language_masm:
-	case compiler_language_c:
-	case compiler_language_c_obj:
-	case compiler_language_objc:
-	case compiler_language_vala:
-		if (!cur) {
-			return compiler_language_c;
-		}
-		break;
-	case compiler_language_cpp:
-	case compiler_language_objcpp:
-		if (!cur || cur == compiler_language_c || cur == compiler_language_assembly) {
-			return compiler_language_cpp;
-		}
-		break;
-	case compiler_language_rust:
-		return compiler_language_rust;
-	case compiler_language_fortran:
-		return compiler_language_fortran;
-	case compiler_language_count: UNREACHABLE;
+	if (!str_rcut(s, '.', &cut)) {
+		return false;
 	}
 
-	return cur;
+	const struct str ext = cut.after;
+
+	return extension_to_compiler_language(wk, &ext, l);
+}
+
+const char *
+compiler_language_extension(struct workspace *wk, struct compiler_language l)
+{
+	return get_str(wk, obj_array_index(wk, toolchain_language_get(wk, l)->exts, 0))->s;
+}
+
+static bool
+coalesce_link_languages_(struct workspace *wk, struct compiler_language cur, struct compiler_language new, struct compiler_language *res)
+{
+	const struct language *new_l = toolchain_language_get(wk, new);
+	if (!new_l->link_language.id) {
+		*res = cur;
+		return true;
+	}
+
+	new = new_l->link_language;
+	new_l = toolchain_language_get(wk, new);
+
+	if (!cur.id) {
+		*res = new;
+		return true;
+	}
+
+	const struct language *cur_l = toolchain_language_get(wk, cur);
+	if (cur_l->coalesce_link_language) {
+		struct args_norm an[] = { { .val = make_str(wk, new_l->name.s) }, { ARG_TYPE_NULL } };
+		obj fn_res;
+		if (!vm_eval_closure(wk, cur_l->coalesce_link_language, an, 0, &fn_res)) {
+			return false;
+		}
+		if (!s_to_compiler_language(wk, get_str(wk, fn_res), res)) {
+			vm_error(wk, "%o is not a valid language", fn_res);
+			return false;
+		}
+	} else {
+		*res = cur;
+	}
+	return true;
+}
+
+bool
+coalesce_link_languages(struct workspace *wk, struct compiler_language cur, struct compiler_language new, struct compiler_language *res)
+{
+	bool ok = coalesce_link_languages_(wk, cur, new, res);
+	L("coalesce %s -> %s == %s (%d)",
+		compiler_language_to_s(wk, cur),
+		compiler_language_to_s(wk, new),
+		compiler_language_to_s(wk, *res),
+		ok);
+	return ok;
 }
 
 static bool
@@ -475,6 +469,18 @@ toolchain_component_detect_apply_candidate(struct obj_compiler *compiler,
 	*found = true;
 }
 
+bool
+obj_dict_get_language(struct workspace *wk, obj dict, const struct compiler_language l, obj *res)
+{
+	return obj_dict_geti(wk, dict, l.id, res);
+}
+
+void
+obj_dict_set_language(struct workspace *wk, obj dict, const struct compiler_language l, obj v)
+{
+	obj_dict_seti(wk, dict, l.id, v);
+}
+
 static bool
 toolchain_component_detect(struct workspace *wk,
 	enum toolchain_component component,
@@ -527,7 +533,7 @@ toolchain_component_detect(struct workspace *wk,
 				const struct toolchain_registry_component *base = arr_get(registry, i);
 
 				obj exe;
-				if (!obj_dict_geti(wk, base->exe, compiler->lang, &exe)) {
+				if (!obj_dict_get_language(wk, base->exe, compiler->lang, &exe)) {
 					continue;
 				}
 
@@ -536,7 +542,7 @@ toolchain_component_detect(struct workspace *wk,
 			candidates_len = get_obj_dict(wk, exe_list)->len;
 
 			if (!candidates_len) {
-				LOG_E("no candidate executables defined for language %s", compiler_language_to_s(compiler->lang));
+				LOG_E("no candidate executables defined for language %s", compiler_language_to_s(wk, compiler->lang));
 				return false;
 			}
 
@@ -581,7 +587,7 @@ toolchain_component_detect(struct workspace *wk,
 			} else {
 				L("skipping %s detecting for %s compiler",
 					toolchain_component_to_s(component),
-					compiler_language_to_s(compiler->lang));
+					compiler_language_to_s(wk, compiler->lang));
 				*found = true;
 				return true;
 			}
@@ -614,7 +620,7 @@ toolchain_component_detect(struct workspace *wk,
 				continue;
 			} else if (component == toolchain_component_compiler) {
 				obj _v;
-				if (!obj_dict_geti(wk, base->exe, compiler->lang, &_v)) {
+				if (!obj_dict_get_language(wk, base->exe, compiler->lang, &_v)) {
 					continue;
 				}
 			}
@@ -867,10 +873,10 @@ toolchain_component_compiler_apply_wrapper(struct workspace *wk, struct obj_comp
 		return true;
 	} else if (str_eql(compiler_wrapper, &STR("auto"))) {
 		if (set_from_option
-			|| !(compiler->lang == compiler_language_c
+			/*|| !(compiler->lang == compiler_language_c
 				|| compiler->lang == compiler_language_cpp
 				|| compiler->lang == compiler_language_objc
-				|| compiler->lang == compiler_language_objcpp)) {
+				|| compiler->lang == compiler_language_objcpp) */) {
 			return true;
 		}
 		is_auto = true;
@@ -928,14 +934,16 @@ bool
 toolchain_detect(struct workspace *wk,
 	obj *comp,
 	enum machine_kind machine,
-	enum compiler_language lang,
+	struct compiler_language lang,
 	enum toolchain_detect_flag flags)
 {
-	if (obj_dict_geti(wk, wk->toolchains[machine], lang, comp)) {
+	if (obj_dict_get_language(wk, wk->toolchains[machine], lang, comp)) {
 		return true;
 	}
 
-	L("detecting toolchain for language %s", compiler_language_to_s(lang));
+	L("detecting toolchain for language %s and %s machine",
+		compiler_language_to_s(wk, lang),
+		machine_kind_to_s(machine));
 
 	*comp = make_obj(wk, obj_compiler);
 	struct obj_compiler *compiler = get_obj_compiler(wk, *comp);
@@ -957,33 +965,52 @@ toolchain_detect(struct workspace *wk,
 		}
 	}
 
-	obj_dict_seti(wk, wk->toolchains[machine], lang, *comp);
+	obj_dict_set_language(wk, wk->toolchains[machine], lang, *comp);
 
-	if (flags & toolchain_detect_flag_silent) {
-		return true;
-	}
-
-	LLOG_I("%s: ", compiler_log_prefix(lang, machine));
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
-		if (i) {
-			log_plain(log_info, "\n  ");
-			log_plain(log_info, "%s: ", toolchain_component_to_s(i));
-		}
-
-		log_plain(log_info, CLR(c_bold) CLR(c_green) "%s" CLR(0), toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
-
-		const struct str *ver_str = get_str(wk, compiler->ver[i]);
-		if (!str_eql(ver_str, &STR("unknown"))) {
-			log_plain(log_info, " %s", ver_str->s);
-		}
-
-		if (i == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, *comp)) {
-			log_plain(log_info, " (passed-through)");
-		} else {
-			obj_lprintf(wk, log_info, " (%o)", compiler->cmd_arr[i]);
+		if (!compiler->ver[i]) {
+			compiler->ver[i] = make_str(wk, "unknown");
 		}
 	}
-	log_plain(log_info, "\n");
+
+	if (!(flags & toolchain_detect_flag_silent)) {
+		LLOG_I("%s: ", compiler_log_prefix(wk, lang, machine));
+		for (uint32_t i = 0; i < toolchain_component_count; ++i) {
+			if (i) {
+				log_plain(log_info, "\n  ");
+				log_plain(log_info, "%s: ", toolchain_component_to_s(i));
+			}
+
+			log_plain(log_info,
+				CLR(c_bold) CLR(c_green) "%s" CLR(0),
+				toolchain_component_type_to_id(wk, i, compiler->type[i])->id);
+
+			const struct str *ver_str = get_str(wk, compiler->ver[i]);
+			if (!str_eql(ver_str, &STR("unknown"))) {
+				log_plain(log_info, " %s", ver_str->s);
+			}
+
+			if (i == toolchain_component_linker && toolchain_compiler_do_linker_passthrough(wk, *comp)) {
+				log_plain(log_info, " (passed-through)");
+			} else {
+				obj_lprintf(wk, log_info, " (%o)", compiler->cmd_arr[i]);
+			}
+		}
+		log_plain(log_info, "\n");
+	}
+
+	{
+		const struct arr *registry = &wk->toolchain_registry.components[toolchain_component_compiler];
+		const struct toolchain_registry_component *base = arr_get(registry, compiler->type[toolchain_component_compiler]);
+		if (base->on_detect) {
+			struct args_norm an[] = { { .val = *comp }, { ARG_TYPE_NULL } };
+			obj _res;
+			if (!vm_eval_closure(wk, base->on_detect, an, 0, &_res)) {
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -992,10 +1019,13 @@ toolchain_detect(struct workspace *wk,
  ******************************************************************************/
 
 #define TOOLCHAIN_PROTO_0(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_0)
+#define TOOLCHAIN_PROTO_0rs(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_0rs)
 #define TOOLCHAIN_PROTO_1i(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1i)
 #define TOOLCHAIN_PROTO_1n(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1n)
 #define TOOLCHAIN_PROTO_1s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s)
+#define TOOLCHAIN_PROTO_1srs(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1srs)
 #define TOOLCHAIN_PROTO_2s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_2s)
+#define TOOLCHAIN_PROTO_2srs(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_2srs)
 #define TOOLCHAIN_PROTO_1s1b(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s1b)
 #define TOOLCHAIN_PROTO_ns(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_ns)
 #define TOOLCHAIN_PROTO_kw(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_kw)
@@ -1005,6 +1035,11 @@ toolchain_detect(struct workspace *wk,
 /* empty functions */
 
 TOOLCHAIN_PROTO_0(toolchain_arg_empty_0)
+{
+	return make_obj(wk, obj_array);
+}
+
+TOOLCHAIN_PROTO_0rs(toolchain_arg_empty_0rs)
 {
 	return make_obj(wk, obj_array);
 }
@@ -1024,7 +1059,17 @@ TOOLCHAIN_PROTO_1s(toolchain_arg_empty_1s)
 	return make_obj(wk, obj_array);
 }
 
+TOOLCHAIN_PROTO_1srs(toolchain_arg_empty_1srs)
+{
+	return make_obj(wk, obj_array);
+}
+
 TOOLCHAIN_PROTO_2s(toolchain_arg_empty_2s)
+{
+	return make_obj(wk, obj_array);
+}
+
+TOOLCHAIN_PROTO_2srs(toolchain_arg_empty_2srs)
 {
 	return make_obj(wk, obj_array);
 }
@@ -1053,17 +1098,6 @@ TOOLCHAIN_PROTO_1srb(toolchain_arg_empty_1srb)
 {
 	return false;
 }
-
-const struct language languages[compiler_language_count] = {
-	[compiler_language_null] = { 0 },
-	[compiler_language_c] = { .is_header = false },
-	[compiler_language_c_hdr] = { .is_header = true },
-	[compiler_language_cpp] = { .is_header = false },
-	[compiler_language_cpp_hdr] = { .is_header = true },
-	[compiler_language_c_obj] = { .is_linkable = true },
-	[compiler_language_assembly] = { 0 },
-	[compiler_language_llvm_ir] = { 0 },
-};
 
 bool
 toolchain_register_component(struct workspace *wk,
@@ -1096,10 +1130,13 @@ toolchain_register_component(struct workspace *wk,
 
 enum toolchain_arg_arity {
 	toolchain_arg_arity_0,
+	toolchain_arg_arity_0rs,
 	toolchain_arg_arity_1i,
 	toolchain_arg_arity_1n,
 	toolchain_arg_arity_1s,
+	toolchain_arg_arity_1srs,
 	toolchain_arg_arity_2s,
+	toolchain_arg_arity_2srs,
 	toolchain_arg_arity_1s1b,
 	toolchain_arg_arity_ns,
 	toolchain_arg_arity_kw,
@@ -1126,6 +1163,12 @@ static struct toolchain_handler_info toolchain_archiver_handler_info[]
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
 
+#define TOOLCHAIN_ARG_MEMBER_(name, return_type, __type, params, names) { #name, toolchain_arg_arity_##__type },
+#define TOOLCHAIN_ARG_MEMBER(name, type) TOOLCHAIN_ARG_MEMBER_(name, type)
+static struct toolchain_handler_info language_snippet_handler_info[] = { FOREACH_LANGUAGE_SNIPPET(TOOLCHAIN_ARG_MEMBER) };
+#undef TOOLCHAIN_ARG_MEMBER
+#undef TOOLCHAIN_ARG_MEMBER_
+
 static struct {
 	struct toolchain_handler_info *handlers;
 	uint32_t len;
@@ -1149,6 +1192,18 @@ toolchain_handler_info_get(enum toolchain_component component, const char *n)
 	return 0;
 }
 
+static struct toolchain_handler_info *
+language_snippet_info_get(const char *n)
+{
+	const struct str *name = &STRL(n);
+	for (uint32_t i = 0; i < ARRAY_LEN(language_snippet_handler_info); ++i) {
+		if (str_eql(&STRL(language_snippet_handler_info[i].name), name)) {
+			return &language_snippet_handler_info[i];
+		}
+	}
+	return 0;
+}
+
 static void
 toolchain_handler_info_doc(enum toolchain_component component, const char *name, const struct toolchain_handler_info *src)
 {
@@ -1162,6 +1217,114 @@ toolchain_handler_info_doc(enum toolchain_component component, const char *name,
 }
 
 static void
+language_snippet_info_doc(const char *name, const struct toolchain_handler_info *src)
+{
+	struct toolchain_handler_info *info;
+	if (!(info = language_snippet_info_get(name))) {
+		UNREACHABLE;
+	}
+
+	info->desc = src->desc;
+	info->enum_arg = src->enum_arg;
+}
+
+static void
+handler_allow_any_kw(struct workspace *wk, struct toolchain_handler_info *handler)
+{
+	struct args_kw *akw = handler->akw;
+	akw[0].key = "kwargs";
+	akw[0].type = TYPE_TAG_GLOB | tc_any;
+	handler->sig.akw = akw;
+}
+
+static void
+handler_array_info_init(struct workspace *wk, struct toolchain_handler_info *arr, const uint32_t len)
+{
+	const type_tag list_of_str = complex_type_preset_get(wk, tc_cx_list_of_str);
+	const type_tag str_or_list_of_str = complex_type_preset_get(wk, tc_cx_str_or_list_of_str);
+	for (uint32_t i = 0; i < len; ++i) {
+		struct toolchain_handler_info *handler = &arr[i];
+		handler->sig.return_type = list_of_str;
+		assert(handler->desc);
+		struct args_norm *an = handler->an;
+		an[0].type = tc_compiler;
+		an[1].type = ARG_TYPE_NULL;
+		an[2].type = ARG_TYPE_NULL;
+		an[3].type = ARG_TYPE_NULL;
+
+		switch (handler->arity) {
+		case toolchain_arg_arity_0: {
+			break;
+		}
+		case toolchain_arg_arity_0rs: {
+			handler_allow_any_kw(wk, handler);
+			an[0].type = ARG_TYPE_NULL;
+			handler->sig.return_type = str_or_list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_1i: {
+			// arity 1i means it is an enum converted to an string obj on the C side, and
+			// a string on the meson side
+			assert(handler->enum_arg);
+			an[1].type = complex_type_enum_get_(wk, handler->enum_arg);
+			break;
+		}
+		case toolchain_arg_arity_1n: {
+			an[1].type = tc_number;
+			break;
+		}
+		case toolchain_arg_arity_1s: {
+			an[1].type = tc_string;
+			break;
+		}
+		case toolchain_arg_arity_1srs: {
+			handler_allow_any_kw(wk, handler);
+			an[0].type = tc_string;
+			handler->sig.return_type = str_or_list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_2s: {
+			an[1].type = tc_string;
+			an[2].type = tc_string;
+			break;
+		}
+		case toolchain_arg_arity_2srs: {
+			handler_allow_any_kw(wk, handler);
+			an[0].type = tc_string;
+			an[1].type = tc_string;
+			handler->sig.return_type = str_or_list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_1s1b: {
+			an[1].type = tc_string;
+			an[2].type = tc_bool;
+			break;
+		}
+		case toolchain_arg_arity_ns: {
+			an[1].type = list_of_str;
+			break;
+		}
+		case toolchain_arg_arity_kw: {
+			handler_allow_any_kw(wk, handler);
+			break;
+		}
+		case toolchain_arg_arity_0rb: {
+			handler->sig.return_type = tc_bool;
+			break;
+		}
+		case toolchain_arg_arity_1srb: {
+			an[1].type = tc_string;
+			handler->sig.return_type = tc_bool;
+			break;
+		}
+		default: UNREACHABLE;
+		}
+
+		handler->sig.an = an;
+	}
+}
+
+static void
 toolchain_handler_info_init(struct workspace *wk)
 {
 #define doc(name_, comp_, ...) \
@@ -1170,7 +1333,6 @@ toolchain_handler_info_init(struct workspace *wk)
 	// compiler
 	doc(always, compiler, .desc = "Arguments that are almost always passed, except in special cases such as detection.");
 	doc(argument_syntax, compiler, .desc = "Defines the return value of compiler.get_argument_syntax().");
-	doc(can_compile_llvm_ir, compiler, .desc = "True if this compiler can compile llvm_ir, e.g. clang.");
 	doc(check_ignored_option,
 		compiler,
 		.desc
@@ -1273,91 +1435,47 @@ toolchain_handler_info_init(struct workspace *wk)
 
 #undef doc
 
-	// make sure we didn't miss anything
 	for (uint32_t c = 0; c < toolchain_component_count; ++c) {
-		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
-			const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
-			assert(handler->desc);
-		}
-	}
-
-	const type_tag list_of_str = make_complex_type(wk, complex_type_nested, tc_array, tc_string);
-	for (uint32_t c = 0; c < toolchain_component_count; ++c) {
-		for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
-			struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
-			handler->sig.return_type = list_of_str;
-			struct args_norm *an = handler->an;
-			an[0].type = tc_compiler;
-			an[1].type = ARG_TYPE_NULL;
-			an[2].type = ARG_TYPE_NULL;
-			an[3].type = ARG_TYPE_NULL;
-
-			switch (handler->arity) {
-			case toolchain_arg_arity_0: {
-				break;
-			}
-			case toolchain_arg_arity_1i: {
-				// arity 1i means it is an enum converted to an string obj on the C side, and
-				// a string on the meson side
-				assert(handler->enum_arg);
-				an[1].type = complex_type_enum_get_(wk, handler->enum_arg);
-				break;
-			}
-			case toolchain_arg_arity_1n: {
-				an[1].type = tc_number;
-				break;
-			}
-			case toolchain_arg_arity_1s: {
-				an[1].type = tc_string;
-				break;
-			}
-			case toolchain_arg_arity_2s: {
-				an[1].type = tc_string;
-				an[2].type = tc_string;
-				break;
-			}
-			case toolchain_arg_arity_1s1b: {
-				an[1].type = tc_string;
-				an[2].type = tc_bool;
-				break;
-			}
-			case toolchain_arg_arity_ns: {
-				an[1].type = list_of_str;
-				break;
-			}
-			case toolchain_arg_arity_kw: {
-				struct args_kw *akw = handler->akw;
-				akw[0].key = "kwargs";
-				akw[0].type = TYPE_TAG_GLOB | tc_any;
-				handler->sig.akw = akw;
-				break;
-			}
-			case toolchain_arg_arity_0rb: {
-				handler->sig.return_type = tc_bool;
-				break;
-			}
-			case toolchain_arg_arity_1srb: {
-				an[1].type = tc_string;
-				handler->sig.return_type = tc_bool;
-				break;
-			}
-			default: UNREACHABLE;
-			}
-
-			handler->sig.an = an;
-		}
+		handler_array_info_init(wk, toolchain_arg_handlers[c].handlers, toolchain_arg_handlers[c].len);
 	}
 }
 
-void
-toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct tstr *buf)
+static void
+language_snippet_info_init(struct workspace *wk)
+{
+#define doc(name_, ...) \
+	language_snippet_info_doc(#name_, &(struct toolchain_handler_info){ __VA_ARGS__ })
+	doc(alignment, .desc = "alignment");
+	doc(attribute, .desc = "attribute");
+	doc(check_header, .desc = "check_header");
+	doc(get_define, .desc = "compiler_get_define");
+	doc(compute_int, .desc = "compute_int");
+	doc(has_builtin_function, .desc = "has_builtin_function");
+	doc(has_function, .desc = "has_function");
+	doc(has_header_symbol, .desc = "has_header_symbol");
+	doc(has_member, .desc = "has_member");
+	doc(has_type, .desc = "has_type");
+	doc(minimal_exe, .desc = "minimal_exe");
+	doc(sizeof, .desc = "sizeof");
+
+#undef doc
+
+	handler_array_info_init(wk, language_snippet_handler_info, ARRAY_LEN(language_snippet_handler_info));
+}
+
+static void
+handler_array_info_doc(struct workspace *wk,
+	struct toolchain_handler_info *arr,
+	const uint32_t len,
+	struct tstr *buf)
 {
 	tstr_pushs(wk, buf,
 			"|name|signature|description|\n"
 			"|---|---|---|\n");
 
-	for (uint32_t i = 0; i < toolchain_arg_handlers[c].len; ++i) {
-		const struct toolchain_handler_info *handler = &toolchain_arg_handlers[c].handlers[i];
+
+	for (uint32_t i = 0; i < len; ++i) {
+		struct toolchain_handler_info *handler = &arr[i];
 
 		TSTR(sig);
 		typecheck_closure_type_to_s(wk, &sig, &handler->sig);
@@ -1374,6 +1492,51 @@ toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct
 	}
 }
 
+void
+toolchain_overrides_doc(struct workspace *wk, enum toolchain_component c, struct tstr *buf)
+{
+	handler_array_info_doc(wk, toolchain_arg_handlers[c].handlers, toolchain_arg_handlers[c].len, buf);
+}
+
+void
+language_snippets_doc(struct workspace *wk, struct tstr *buf)
+{
+	handler_array_info_doc(wk, language_snippet_handler_info, ARRAY_LEN(language_snippet_handler_info), buf);
+}
+
+static bool
+handler_validate(struct workspace *wk,
+	uint32_t ip,
+	obj v,
+	const struct str *name,
+	const struct toolchain_handler_info *handler)
+{
+	if (get_obj_type(wk, v) == obj_closure) {
+		if (!typecheck_closure(wk, ip, v, &handler->sig, name->s)) {
+			return false;
+		}
+
+		if (handler->enum_arg) {
+			struct obj_closure *closure = get_obj_closure(wk, v);
+			closure->func->an[1].type = handler->an[1].type;
+
+			if (wk->vm.in_analyzer) {
+				az_analyze_func(wk, v);
+			}
+		}
+	} else if (!typecheck_custom(wk, 0, v, handler->sig.return_type, 0)) {
+		vm_error_at(wk,
+			ip,
+			"expected value type %s for handler '%s' with constant return value, got %s\n",
+			typechecking_type_to_s(wk, handler->sig.return_type),
+			name->s,
+			obj_typestr(wk, v));
+		return false;
+	}
+
+	return true;
+}
+
 bool
 toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, enum toolchain_component component)
 {
@@ -1386,26 +1549,27 @@ toolchain_overrides_validate(struct workspace *wk, uint32_t ip, obj handlers, en
 			return false;
 		}
 
-		if (get_obj_type(wk, v) == obj_closure) {
-			if (!typecheck_closure(wk, ip, v, &handler->sig, name->s)) {
-				return false;
-			}
+		if (!handler_validate(wk, ip, v, name, handler)) {
+			return false;
+		}
+	}
 
-			if (handler->enum_arg) {
-				struct obj_closure *closure = get_obj_closure(wk, v);
-				closure->func->an[1].type = handler->an[1].type;
+	return true;
+}
 
-				if (wk->vm.in_analyzer) {
-					az_analyze_func(wk, v);
-				}
-			}
-		} else if (!typecheck_custom(wk, 0, v, handler->sig.return_type, 0)) {
-			vm_error_at(wk,
-				ip,
-				"expected value type %s for handler %o with constant return value, got %s\n",
-				typechecking_type_to_s(wk, handler->sig.return_type),
-				k,
-				obj_typestr(wk, v));
+bool
+language_snippets_validate(struct workspace *wk, uint32_t ip, obj handlers)
+{
+	obj k, v;
+	obj_dict_for(wk, handlers, k, v) {
+		const struct str *name = get_str(wk, k);
+		const struct toolchain_handler_info *handler;
+		if (!(handler = language_snippet_info_get(name->s))) {
+			vm_error_at(wk, ip, "unknown language snippet %o", k);
+			return false;
+		}
+
+		if (!handler_validate(wk, ip, v, name, handler)) {
 			return false;
 		}
 	}
@@ -1429,6 +1593,19 @@ lookup_toolchain_arg_override(struct workspace *wk,
 	return 0;
 }
 
+static obj
+lookup_language_snippet(struct workspace *wk, const struct compiler_language l, uint32_t arg)
+{
+	const struct language *lang = toolchain_language_get(wk, l);
+	obj snippet;
+	if (lang->snippets
+		&& obj_dict_index_str(wk, lang->snippets, language_snippet_handler_info[arg].name, &snippet)) {
+		return snippet;
+	}
+
+	return 0;
+}
+
 enum toolchain_arg_by_component {
 #define TOOLCHAIN_ARG_MEMBER_(comp, _name) toolchain_arg_by_component_##comp##_name,
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(comp, _##name)
@@ -1437,6 +1614,12 @@ enum toolchain_arg_by_component {
 	FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
+};
+
+enum language_snippet_arg {
+#define TOOLCHAIN_ARG_MEMBER(name, type) language_snippet_arg_##name,
+	FOREACH_LANGUAGE_SNIPPET(TOOLCHAIN_ARG_MEMBER)
+#undef TOOLCHAIN_ARG_MEMBER
 };
 
 static obj handle_toolchain_arg_override;
@@ -1454,6 +1637,21 @@ handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_n
 	}
 
 	return list;
+}
+
+static obj
+handle_toolchain_arg_override_returning_str(struct workspace *wk, struct args_norm *an, struct args_kw *akw)
+{
+	obj str = 0;
+	if (get_obj_type(wk, handle_toolchain_arg_override) != obj_closure) {
+		str = handle_toolchain_arg_override;
+	} else {
+		if (!vm_eval_closure(wk, handle_toolchain_arg_override, an, akw, &str)) {
+			UNREACHABLE;
+		}
+	}
+
+	return str;
 }
 
 static bool
@@ -1479,6 +1677,13 @@ handle_toolchain_arg_override_0(TOOLCHAIN_SIG_0)
 }
 
 static obj
+handle_toolchain_arg_override_0rs(TOOLCHAIN_SIG_0rs)
+{
+	struct args_norm an[] = { { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_str(wk, an, akw);
+}
+
+static obj
 handle_toolchain_arg_override_1i(TOOLCHAIN_SIG_1i)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = i1 }, { ARG_TYPE_NULL } };
@@ -1500,10 +1705,24 @@ handle_toolchain_arg_override_1s(TOOLCHAIN_SIG_1s)
 }
 
 static obj
+handle_toolchain_arg_override_1srs(TOOLCHAIN_SIG_1srs)
+{
+	struct args_norm an[] = { { .val = s1 }, { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_str(wk, an, akw);
+}
+
+static obj
 handle_toolchain_arg_override_2s(TOOLCHAIN_SIG_2s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { .val = make_str(wk, s2) }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an, 0);
+}
+
+static obj
+handle_toolchain_arg_override_2srs(TOOLCHAIN_SIG_2srs)
+{
+	struct args_norm an[] = { { .val = s1 }, { .val = s2 }, { ARG_TYPE_NULL } };
+	return handle_toolchain_arg_override_returning_str(wk, an, akw);
 }
 
 static obj
@@ -1660,6 +1879,24 @@ toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts)
 #undef TOOLCHAIN_ARG_MEMBER_
 }
 
+#define TOOLCHAIN_ARG_MEMBER_(name, return_type, _type, params, names)                           \
+	return_type language_snippet_##name params                                                            \
+	{                                                                                                          \
+		handle_toolchain_arg_override = lookup_language_snippet(                                     \
+			wk, l, language_snippet_arg_##name); \
+		if (handle_toolchain_arg_override) {                                                               \
+			return handle_toolchain_arg_override_##_type names;                                        \
+		}                                                                                                  \
+		return toolchain_arg_empty_ ##_type names;                                                                    \
+	}
+
+#define TOOLCHAIN_ARG_MEMBER(name, type) TOOLCHAIN_ARG_MEMBER_(name, type)
+
+FOREACH_LANGUAGE_SNIPPET(TOOLCHAIN_ARG_MEMBER)
+
+#undef TOOLCHAIN_ARG_MEMBER
+#undef TOOLCHAIN_ARG_MEMBER_
+
 const char *
 toolchain_compiler_flatten_one(struct workspace *wk, obj comp_id, obj args)
 {
@@ -1691,7 +1928,7 @@ toolchain_compiler_flatten_one_optional(struct workspace *wk, obj args)
 }
 
 const char *
-compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
+compiler_log_prefix(struct workspace *wk, struct compiler_language lang, enum machine_kind machine)
 {
 	static char buf[256];
 
@@ -1699,18 +1936,25 @@ compiler_log_prefix(enum compiler_language lang, enum machine_kind machine)
 		snprintf(buf,
 			sizeof(buf),
 			"%s %s machine compiler",
-			compiler_language_to_s(lang),
+			compiler_language_to_s(wk, lang),
 			machine_kind_to_s(machine));
 	} else {
-		snprintf(buf, sizeof(buf), "%s compiler", compiler_language_to_s(lang));
+		snprintf(buf, sizeof(buf), "%s compiler", compiler_language_to_s(wk, lang));
 	}
 
 	return buf;
 }
 
 void
-compilers_init(struct workspace *wk)
+toolchains_init(struct workspace *wk)
 {
+	arr_init(wk->a, &wk->language_registry.languages, 16, struct language);
+
+	{
+		struct language *lang = arr_grow_by(wk->a, &wk->language_registry.languages, 1);
+		lang->name = STR("null");
+	}
+
 	for (uint32_t i = 0; i < toolchain_component_count; ++i) {
 		arr_init(wk->a, &wk->toolchain_registry.components[i], 16, struct toolchain_registry_component);
 		toolchain_register_component(wk, i, &(struct toolchain_registry_component){ .id = { .id = "empty" } } );
@@ -1739,5 +1983,6 @@ compilers_init(struct workspace *wk)
 	vm_enum_value_prefixed(wk, toolchain_component, archiver);
 
 	toolchain_handler_info_init(wk);
+	language_snippet_info_init(wk);
 }
 

@@ -7,6 +7,8 @@
 #include "compat.h"
 
 #include "lang/object.h"
+#include "lang/vm.h"
+#include "toolchains.h"
 #include <string.h>
 
 #include "args.h"
@@ -55,9 +57,9 @@ project_add_language(struct workspace *wk,
 
 	obj comp_id;
 	obj res;
-	enum compiler_language l;
+	struct compiler_language l;
 
-	if (!s_to_compiler_language(get_cstr(wk, str), &l)) {
+	if (!s_to_compiler_language(wk, get_str(wk, str), &l)) {
 		if (req == requirement_required) {
 			vm_error_at(wk, err_node, "%o is not a valid language", str);
 			return false;
@@ -66,7 +68,7 @@ project_add_language(struct workspace *wk,
 		}
 	}
 
-	if (obj_dict_geti(wk, current_project(wk)->toolchains[machine], l, &res)) {
+	if (obj_dict_get_language(wk, current_project(wk)->toolchains[machine], l, &res)) {
 		*found = true;
 		return true;
 	}
@@ -84,7 +86,7 @@ project_add_language(struct workspace *wk,
 			}
 		}
 
-		obj_dict_seti(wk, wk->toolchains[machine], l, comp_id);
+		obj_dict_set_language(wk, wk->toolchains[machine], l, comp_id);
 	} else {
 		if (!toolchain_detect(wk, &comp_id, machine, l, detect_flags)) {
 			if (req == requirement_required) {
@@ -99,27 +101,35 @@ project_add_language(struct workspace *wk,
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	comp->machine = machine;
 
-	obj_dict_seti(wk, current_project(wk)->toolchains[machine], l, comp_id);
+	obj_dict_set_language(wk, current_project(wk)->toolchains[machine], l, comp_id);
 
-	/* if we just added a c or cpp compiler, set the assembly compiler to that */
-	if (l == compiler_language_c || l == compiler_language_cpp) {
-		obj_dict_seti(wk, current_project(wk)->toolchains[machine], compiler_language_assembly, comp_id);
+	const struct language *lang = toolchain_language_get(wk, l);
+	if (lang->on_added) {
+		struct args_norm an[] = { { .val = comp_id }, { ARG_TYPE_NULL } };
+		obj _res;
+		if (!vm_eval_closure(wk, lang->on_added, an, 0, &_res)) {
+			return false;
+		}
+	}
 
-		if (toolchain_compiler_can_compile_llvm_ir(wk, comp_id)) {
-			bool c_found;
+	{
+		obj link_compiler;
+		if (!obj_dict_get_language(wk, current_project(wk)->toolchains[machine], lang->link_language, &link_compiler)) {
+			bool found;
 			if (!project_add_language(wk,
 				    err_node,
-				    make_str(wk, "llvm_ir"),
+				    make_strs(wk, &toolchain_language_get(wk, lang->link_language)->name),
 				    compiler,
 				    machine,
-				    requirement_auto,
-				    toolchain_detect_flag_silent,
-				    &c_found)) {
+				    req,
+				    0,
+				    &found)) {
 				return false;
 			}
 		}
 	}
 
+#if 0
 	switch (l) {
 	case compiler_language_assembly:
 	case compiler_language_nasm:
@@ -148,6 +158,7 @@ project_add_language(struct workspace *wk,
 	} break;
 	default: break;
 	}
+#endif
 
 	*found = true;
 	return true;
@@ -298,12 +309,12 @@ FUNC_IMPL(kernel, project, 0)
 }
 
 static obj
-get_project_argument_array(struct workspace *wk, obj dict, enum compiler_language l)
+get_project_argument_array(struct workspace *wk, obj dict, struct compiler_language l)
 {
 	obj arg_arr;
-	if (!obj_dict_geti(wk, dict, l, &arg_arr)) {
+	if (!obj_dict_get_language(wk, dict, l, &arg_arr)) {
 		arg_arr = make_obj(wk, obj_array);
-		obj_dict_seti(wk, dict, l, arg_arr);
+		obj_dict_set_language(wk, dict, l, arg_arr);
 	}
 
 	return arg_arr;
@@ -335,9 +346,9 @@ static enum iteration_result
 add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct add_arguments_ctx *ctx = _ctx;
-	enum compiler_language l;
+	struct compiler_language l;
 
-	if (!s_to_compiler_language(get_cstr(wk, val), &l)) {
+	if (!s_to_compiler_language(wk, get_str(wk, val), &l)) {
 		vm_error_at(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, val));
 		return ir_err;
 	}
@@ -432,15 +443,15 @@ FUNC_IMPL(kernel, add_project_dependencies, 0, func_impl_flag_impure)
 
 	obj lang;
 	obj_array_for(wk, akw[kw_language].val, lang) {
-		enum compiler_language l;
+		struct compiler_language l;
 
-		if (!s_to_compiler_language(get_cstr(wk, lang), &l)) {
+		if (!s_to_compiler_language(wk, get_str(wk, lang), &l)) {
 			vm_error_at(wk, akw[kw_language].node, "unknown language '%s'", get_cstr(wk, lang));
 			return false;
 		}
 
 		obj res;
-		if (!obj_dict_geti(wk, current_project(wk)->toolchains[machine], l, &res)) {
+		if (!obj_dict_get_language(wk, current_project(wk)->toolchains[machine], l, &res)) {
 			// NOTE: Its a little weird that the other add_project_xxx
 			// functions don't check this and this function does, but that
 			// is how meson does it.
@@ -469,12 +480,13 @@ add_languages(struct workspace *wk,
 	obj compiler,
 	enum machine_kind machine,
 	enum requirement_type required,
+	enum toolchain_detect_flag detect_flags,
 	bool *missing)
 {
 	obj val;
 	obj_array_for(wk, langs, val) {
 		bool found = false;
-		if (!project_add_language(wk, node, val, compiler, machine, required, 0, &found)) {
+		if (!project_add_language(wk, node, val, compiler, machine, required, detect_flags, &found)) {
 			return false;
 		}
 
@@ -493,6 +505,7 @@ FUNC_IMPL(kernel, add_languages, tc_bool, func_impl_flag_impure)
 		kw_required,
 		kw_native,
 		kw_toolchain,
+		kw_silent,
 	};
 	struct args_kw akw[] = {
 		[kw_required] = { "required", tc_required_kw },
@@ -500,6 +513,10 @@ FUNC_IMPL(kernel, add_languages, tc_bool, func_impl_flag_impure)
 		[kw_toolchain] = { "toolchain",
 			tc_compiler,
 			.desc = "Instead of detecting a toolchain, use the compiler `toolchain` for this language.",
+			.extension = true },
+		[kw_silent] = { "silent",
+			obj_bool,
+			.desc = "do not print the detection header for this toolchain",
 			.extension = true },
 		0,
 	};
@@ -515,8 +532,15 @@ FUNC_IMPL(kernel, add_languages, tc_bool, func_impl_flag_impure)
 
 	enum machine_kind machine = coerce_machine_kind(wk, &akw[kw_native]);
 
+	enum toolchain_detect_flag detect_flags = 0;
+
+	if (get_obj_bool_with_default(wk, akw[kw_silent].val, false)) {
+		detect_flags |= toolchain_detect_flag_silent;
+	}
+
 	bool missing = false;
-	if (!add_languages(wk, an[0].node, an[0].val, akw[kw_toolchain].val, machine, required, &missing)) {
+	if (!add_languages(
+		    wk, an[0].node, an[0].val, akw[kw_toolchain].val, machine, required, detect_flags, &missing)) {
 		return false;
 	}
 
@@ -528,6 +552,7 @@ FUNC_IMPL(kernel, add_languages, tc_bool, func_impl_flag_impure)
 			    akw[kw_toolchain].val,
 			    machine_kind_build,
 			    requirement_auto,
+			    detect_flags,
 			    &_missing)) {
 			return false;
 		}

@@ -502,7 +502,7 @@ rangecheck(struct workspace *wk, uint32_t ip, int64_t min, int64_t max, int64_t 
 	return true;
 }
 
-bool
+static bool
 type_tags_eql(struct workspace *wk, type_tag a, type_tag b)
 {
 	if (!(a & TYPE_TAG_COMPLEX)) {
@@ -609,6 +609,9 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 	case tc_cx_list_of_str:
 		tag = make_complex_type(wk, complex_type_nested, tc_array, tc_string);
 		break;
+	case tc_cx_str_or_list_of_str:
+		tag = make_complex_type(wk, complex_type_or, tc_string, complex_type_preset_get(wk, tc_cx_list_of_str));
+		break;
 	case tc_cx_options_deprecated_kw:
 		tag = make_complex_type(wk,
 			complex_type_or,
@@ -648,6 +651,13 @@ complex_type_preset_get(struct workspace *wk, enum complex_type_preset t)
 					complex_type_or,
 					tc_bool,
 					complex_type_preset_get(wk, tc_cx_list_of_str))));
+		break;
+	}
+	case tc_cx_snippets: {
+		tag = make_complex_type(wk,
+			complex_type_nested,
+			tc_dict,
+			make_complex_type(wk, complex_type_or, tc_closure, tc_string));
 		break;
 	}
 	case tc_cx_coercible_env_base: {
@@ -718,12 +728,26 @@ typecheck_closure_type_to_s(struct workspace *wk,
 	obj_asprintf(wk, res, "(%#o) -> %s", joined, typechecking_type_to_s(wk, sig->return_type));
 }
 
+static bool
+typecheck_closure_return_type(struct workspace *wk, type_tag a, type_tag b)
+{
+	if (a & TYPE_TAG_COMPLEX) {
+		enum complex_type ct = COMPLEX_TYPE_TYPE(a);
+		if (ct == complex_type_or) {
+			uint32_t idx = COMPLEX_TYPE_INDEX(a);
+			struct bucket_arr *typeinfo_arr = &wk->vm.objects.obj_aos[obj_typeinfo - _obj_aos_start];
+			struct obj_typeinfo *ti = bucket_arr_get(typeinfo_arr, idx);
+
+			return typecheck_closure_return_type(wk, ti->type, b)
+			       || typecheck_closure_return_type(wk, ti->subtype, b);
+		}
+	}
+
+	return type_tags_eql(wk, a, b);
+}
+
 bool
-typecheck_closure(struct workspace *wk,
-	uint32_t ip,
-	obj v,
-	const struct typecheck_closure_sig *sig,
-	const char *name)
+typecheck_closure(struct workspace *wk, uint32_t ip, obj v, const struct typecheck_closure_sig *sig, const char *name)
 {
 	if (!typecheck(wk, ip, v, obj_closure)) {
 		return false;
@@ -762,8 +786,9 @@ typecheck_closure(struct workspace *wk,
 		goto type_err;
 	}
 
-	if (!type_tags_eql(wk, sig->return_type, fn->return_type)) {
+	if (!typecheck_closure_return_type(wk, sig->return_type, fn->return_type)) {
 		// return type mistmatch
+		L("mismatch");
 		goto type_err;
 	}
 

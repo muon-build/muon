@@ -12,10 +12,12 @@
 #include "buf_size.h"
 #include "error.h"
 #include "lang/object_iterators.h"
+#include "lang/types.h"
 #include "lang/workspace.h"
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "toolchains.h"
 #include "tracy.h"
 
 struct write_compiler_rule_ctx {
@@ -57,7 +59,7 @@ write_linker_rule(struct workspace *wk,
 	FILE *out,
 	struct project *proj,
 	enum machine_kind machine,
-	enum compiler_language l,
+	struct compiler_language l,
 	obj comp_id)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
@@ -97,7 +99,7 @@ write_linker_rule(struct workspace *wk,
 		"\n",
 		get_cstr(wk, proj->rule_prefix),
 		machine_kind_to_s(machine),
-		compiler_language_to_s(l),
+		compiler_language_to_s(wk, l),
 		get_cstr(wk, link_command),
 		linker_pool);
 }
@@ -105,18 +107,12 @@ write_linker_rule(struct workspace *wk,
 static void
 write_archiver_rule(struct workspace *wk, FILE *out, struct project *proj, enum machine_kind machine)
 {
-	enum compiler_language archiver_precedence[] = {
-		compiler_language_c,
-		compiler_language_cpp,
-		compiler_language_objc,
-		compiler_language_objcpp,
-		compiler_language_nasm,
-	};
-
 	obj comp_id = 0;
-	uint32_t j;
-	for (j = 0; j < ARRAY_LEN(archiver_precedence); ++j) {
-		if (obj_dict_geti(wk, proj->toolchains[machine], archiver_precedence[j], &comp_id)) {
+	obj k, v;
+	obj_dict_for(wk, proj->toolchains[machine], k, v) {
+		struct obj_compiler *comp = get_obj_compiler(wk, v);
+		if (comp->cmd_arr[toolchain_component_archiver]) {
+			comp_id = v;
 			break;
 		}
 	}
@@ -153,7 +149,7 @@ write_archiver_rule(struct workspace *wk, FILE *out, struct project *proj, enum 
 }
 
 static void
-write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_name, enum compiler_language l, obj comp_id)
+write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_name, struct compiler_language l, obj comp_id)
 {
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 
@@ -187,19 +183,19 @@ write_compiler_rule(struct workspace *wk, FILE *out, obj rule_args, obj rule_nam
 			" depfile = ${out}.d\n",
 			deps);
 	}
-	fprintf(out, " description = compiling %s $out\n\n", compiler_language_to_s(l));
+	fprintf(out, " description = compiling %s $out\n\n", compiler_language_to_s(wk, l));
 }
 
 static enum iteration_result
 write_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 {
-	enum compiler_language l = k;
+	struct compiler_language l = { k };
 	struct write_compiler_rule_ctx *ctx = _ctx;
 
 	obj rule_name;
 	{
 		obj rule_name_arr;
-		if (!obj_dict_geti(wk, ctx->tgt->required_compilers, l, &rule_name_arr)) {
+		if (!obj_dict_get_language(wk, ctx->tgt->required_compilers, l, &rule_name_arr)) {
 			return ir_cont;
 		}
 
@@ -213,7 +209,7 @@ write_compiler_rule_iter(struct workspace *wk, void *_ctx, obj k, obj comp_id)
 	}
 
 	obj rule_args;
-	if (!obj_dict_geti(wk, ctx->args[ctx->tgt->machine], l, &rule_args)) {
+	if (!obj_dict_get_language(wk, ctx->args[ctx->tgt->machine], l, &rule_args)) {
 		UNREACHABLE;
 	}
 
@@ -367,7 +363,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 				obj _l, _count;
 				obj_dict_for(wk, tgt->required_compilers, _l, _count) {
-					const enum compiler_language l = _l;
+					const struct compiler_language l = { _l };
 					const uint32_t count = _count;
 					bool specialized_rule = count > 2;
 					bool generic_rule = tgt->pch || !specialized_rule;
@@ -379,7 +375,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 							&rule_name_buf,
 							"%s_%s_compiler_for_%s",
 							get_cstr(wk, proj->rule_prefix),
-							compiler_language_to_s(l),
+							compiler_language_to_s(wk, l),
 							get_cstr(wk, tgt->build_name));
 
 						escape_rule(&rule_name_buf);
@@ -389,19 +385,19 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 
 					obj generic_rule_name = 0;
 					if (generic_rule) {
-						if (!obj_dict_geti(wk, proj->generic_rules[tgt->machine], l, &generic_rule_name)) {
+						if (!obj_dict_get_language(wk, proj->generic_rules[tgt->machine], l, &generic_rule_name)) {
 							tstr_clear(&rule_name_buf);
 							tstr_pushf(wk,
 								&rule_name_buf,
 								"%s_%s_%s_compiler",
 								get_cstr(wk, proj->rule_prefix),
 								machine_kind_to_s(tgt->machine),
-								compiler_language_to_s(l));
+								compiler_language_to_s(wk, l));
 
 							escape_rule(&rule_name_buf);
 							obj name = tstr_into_str(wk, &rule_name_buf);
 							uniqify_name(wk, compiler_rule_arr, name, &generic_rule_name);
-							obj_dict_seti(wk, proj->generic_rules[tgt->machine], l, generic_rule_name);
+							obj_dict_set_language(wk, proj->generic_rules[tgt->machine], l, generic_rule_name);
 						}
 					}
 
@@ -410,7 +406,7 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 					obj_array_push(wk, arr, specialized_rule_name ? specialized_rule_name : generic_rule_name);
 					obj_array_push(wk, arr, specialized_rule);
 
-					obj_dict_seti(wk, tgt->required_compilers, l, arr);
+					obj_dict_set_language(wk, tgt->required_compilers, l, arr);
 				}
 			}
 
@@ -435,13 +431,13 @@ ninja_write_rules(FILE *out, struct workspace *wk, struct project *main_proj, bo
 			for (enum machine_kind machine = 0; machine < machine_kind_count; ++machine) {
 				obj k, comp_id;
 				obj_dict_for(wk, proj->toolchains[machine], k, comp_id) {
-					enum compiler_language l = k;
+					struct compiler_language l = { k };
 
 					write_linker_rule(wk, out, proj, machine, l, comp_id);
 
 					{ // generic compiler rules
 						obj rule_name;
-						if (obj_dict_geti(wk, proj->generic_rules[machine], l, &rule_name)) {
+						if (obj_dict_get_language(wk, proj->generic_rules[machine], l, &rule_name)) {
 							write_compiler_rule(
 								wk, out, make_str(wk, "$ARGS"), rule_name, l, comp_id);
 						}

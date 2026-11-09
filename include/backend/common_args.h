@@ -14,7 +14,7 @@ void ca_get_std_args(struct workspace *wk,
 	const struct obj_build_target *tgt,
 	obj args);
 void ca_get_option_compile_args(struct workspace *wk,
-	obj comp,
+	struct compiler_language lang,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args);
