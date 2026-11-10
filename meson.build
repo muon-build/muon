@@ -68,33 +68,45 @@ foreach native : [false, true]
     project_arguments = []
 
     if machine_cc.get_argument_syntax() == 'msvc'
-        project_arguments += [
-            '/we4027', # -Wstrict-prototypes
-            '/we4056', # -Woverflow
-            '/we4013', # function undefined; assuming extern returning int
+        if get_option('c_std') == 'none'
+            project_arguments += '/std:c11'
+        endif
 
-            '/wd4100', # -Wno-unused-parameter
-            '/wd4706', # assignment within conditional expression
-            '/wd4267', # conversion from x to y, possible loss of data
-            '/wd4244', # conversion from x to y, possible loss of data
-            '/wd4456', # declaration of identifier hides previous local declaration
-            '/wd4457', # declaration of 'identifier' hides function parameter
+        if machine_cc.get_id() == 'clang-cl'
+            project_arguments += [
+                '/clang:-Wno-missing-field-initializers',
+                '/clang:-Wno-missing-braces',
+                '/clang:-Wno-unused-parameter',
+                '/clang:-Wno-sign-compare',
+            ]
+        else
+            project_arguments += [
+                '/we4027', # -Wstrict-prototypes
+                '/we4056', # -Woverflow
+                '/we4013', # function undefined; assuming extern returning int
 
-            # Lots of false positivies due to not understanding UNREACHABLE
-            '/wd4701', # potentially uninitialized local variable name used
-            '/wd4703', # potentially uninitialized local variable name used
-            '/wd4702', # unreachable code
+                '/wd4100', # -Wno-unused-parameter
+                '/wd4706', # assignment within conditional expression
+                '/wd4267', # conversion from x to y, possible loss of data
+                '/wd4244', # conversion from x to y, possible loss of data
+                '/wd4456', # declaration of identifier hides previous local declaration
+                '/wd4457', # declaration of 'identifier' hides function parameter
 
-            # msvc complaining about flexible array member
-            '/wd4200', # nonstandard extension used: zero-sized array in struct/union
+                # Lots of false positivies due to not understanding UNREACHABLE
+                '/wd4701', # potentially uninitialized local variable name used
+                '/wd4703', # potentially uninitialized local variable name used
+                '/wd4702', # unreachable code
 
-            '/std:c11',
-            # Occurs spuriously due to /std:c11 enabling a
-            # standards-conformant preprocessor
-            '/wd5105', # macro expansion producing 'defined' has undefined behavior
+                # msvc complaining about flexible array member
+                '/wd4200', # nonstandard extension used: zero-sized array in struct/union
 
-            '/wd4116', # unnamed type definition in parentheses
-        ]
+                # Occurs spuriously due to /std:c11 enabling a
+                # standards-conformant preprocessor
+                '/wd5105', # macro expansion producing 'defined' has undefined behavior
+
+                '/wd4116', # unnamed type definition in parentheses
+            ]
+        endif
     else
         project_arguments += [
             '-Wendif-labels',

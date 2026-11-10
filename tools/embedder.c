@@ -5,14 +5,29 @@
 
 #include "compat.h"
 
+#ifdef _MSC_VER
+#define _CRT_DECLARE_NONSTDC_NAMES 0
+#endif
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef _MSC_VER
+#include <io.h>
+#define access _access
+#ifndef F_OK
+#define F_OK 0
+#endif
+#else
+#include <unistd.h>
+#endif
+
 static bool
 embed(const char *path, const char *embedded_name)
 {
+#ifndef MUON_HAVE_EMBED
 	int c;
 	uint32_t i = 0;
 	FILE *f;
@@ -21,9 +36,16 @@ embed(const char *path, const char *embedded_name)
 		fprintf(stderr, "couldn't open '%s' for reading\n", path);
 		return false;
 	}
+#else
+	if (access(path, F_OK)) {
+		fprintf(stderr, "'%s' doesn't exist\n", path);
+		return false;
+	}
+#endif
 
 	printf("{ .name = \"%s\", .src = { .label = \"%s\", .type = source_type_embedded, .src = (char []){\n", embedded_name, embedded_name);
 
+#ifndef MUON_HAVE_EMBED
 	while ((c = fgetc(f)) != EOF) {
 		// output signed char
 		printf("%hhd, ", (signed char)c);
@@ -37,6 +59,10 @@ embed(const char *path, const char *embedded_name)
 	fprintf(stdout, "0x0\n}, .len = %d } },\n", i);
 
 	return fclose(f) == 0;
+#else
+	fprintf(stdout, "#embed \"%s\"\n, 0x0\n}, .len = sizeof((char []){\n#embed \"%s\"\n}) } },\n", path, path);
+	return true;
+#endif
 }
 
 int

@@ -6,13 +6,14 @@
 
 #include "compat.h"
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <errno.h>
 #include <io.h>
 #include <stdlib.h>
-#include <windows.h>
+#include "platform/windows/windows_min.h"
+#include "platform/windows/windows_console.h"
+#ifndef __TINYC__
+#include <stringapiset.h>
+#endif
 #include <winioctl.h>
 
 #include "lang/string.h"

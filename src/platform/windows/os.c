@@ -8,7 +8,8 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <windows.h>
+#include "platform/windows/windows_min.h"
+#include <stdlib.h>
 
 #include "lang/string.h"
 #include "platform/os.h"

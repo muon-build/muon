@@ -55,7 +55,7 @@ fs_coerce_file_path(struct workspace *wk, uint32_t node, obj o, bool abs_build_t
 		obj res;
 		if (!obj_array_flatten_one(wk, o, &res)) {
 			vm_error_at(wk, node, "couldn't get path for custom target with multiple outputs");
-			return false;
+			return 0;
 		}
 		return get_file_path(wk, res);
 	}

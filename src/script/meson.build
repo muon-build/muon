@@ -30,7 +30,7 @@ foreach s : [
     'runtime/toolchains.meson',
 ]
     scripts_input += s
-    scripts_cmdline += files(s) + [s]
+    scripts_cmdline += [files(s)[0].full_path()] + [s]
 endforeach
 
 script_sources = custom_target(
