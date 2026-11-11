@@ -112,7 +112,8 @@ build/muon -C build install
 
 Please refer to the [contributing guide] before sending patches.  Send patches
 on the [mailing list] or PRs on [github], report issues on the [issue tracker]
-or [github_issues], and discuss in [#muon on libera.chat].
+or [github_issues], and discuss in [#muon on libera.chat] or in [muon on
+discord].
 
 ## License
 
@@ -133,6 +134,7 @@ originally based on `boson`, though has since been almost completely rewritten.
 [issue tracker]: https://todo.sr.ht/~lattis/muon/
 [github_issues]: https://github.com/muon-build/muon/issues
 [#muon on libera.chat]: ircs://irc.libera.chat/#muon
+[muon on discord]: https://discord.gg/NrJpqFVgme
 [meson project tests]: https://github.com/mesonbuild/meson/tree/master/test%20cases
 [Apache 2.0]: https://www.apache.org/licenses/LICENSE-2.0.txt
 [boson]: https://sr.ht/~bl4ckb0ne/boson/
