@@ -13,6 +13,7 @@ tests = [
     ['muon/vala', {'vala': true}],
     ['muon/disabler', {}],
     ['muon/configure_file_cmake', {}],
+    ['muon/pch_target', {}],
 
     # project tests imported from meson unit tests
     # TODO: move this to meson-tests
