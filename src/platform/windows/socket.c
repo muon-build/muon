@@ -6,7 +6,7 @@
 #include "compat.h"
 
 #include <stdio.h>
-#include <windows.h>
+#include "platform/windows/windows_min.h"
 
 #include "buf_size.h"
 #include "lang/string.h"

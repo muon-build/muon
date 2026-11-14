@@ -10,11 +10,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <io.h>
-#include <windows.h>
+#include "platform/windows/windows_min.h"
+#include "platform/windows/windows_console.h"
 
 #include "platform/term.h"
 
