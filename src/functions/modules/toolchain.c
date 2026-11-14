@@ -5,18 +5,23 @@
 
 #include "compat.h"
 
+#include <stddef.h>
+
 #include "buf_size.h"
+#include "functions/kernel/options.h"
 #include "functions/modules/toolchain.h"
 #include "lang/analyze.h"
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "options.h"
+#include "toolchains.h"
 
 FUNC_IMPL(module_toolchain,
 	create,
 	tc_compiler,
 	.desc
-	= "Creates a new compiler object that can be passed in to the `toolchain` keyword on `add_languages` or inherited from when coreating a new toolchain.  The toolchain object is reffered to as a `compiler` for historical reasons, although it also contains other information required to compile programs such as linker metadata.")
+	= "Creates a new compiler object that can be passed in to the `toolchain` keyword on `add_languages` or inherited from when creating a new toolchain.  The toolchain object is reffered to as a `compiler` for historical reasons, although it also contains other information required to compile programs such as linker metadata.")
 {
 	enum kwargs {
 		kw_inherit,
@@ -365,12 +370,12 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 
 			obj k, v;
 			obj_dict_for(wk, akw[kw_exe].val, k, v) {
-				enum compiler_language l;
-				if (!s_to_compiler_language(get_cstr(wk, k), &l)) {
+				struct compiler_language l;
+				if (!s_to_compiler_language(wk, get_str(wk, k), &l)) {
 					vm_error(wk, "unknown language %o", k);
 					return false;
 				}
-				obj_dict_seti(wk, base.exe, l, v);
+				obj_dict_set_language(wk, base.exe, l, v);
 			}
 		}
 	}
@@ -383,17 +388,17 @@ func_modue_toolchain_register_component_common(struct workspace *wk, enum toolch
 	return toolchain_register_component(wk, component, &base);
 }
 
-FUNC_IMPL(module_toolchain, register_compiler, tc_dict, .desc = "Register a new compiler type")
+FUNC_IMPL(module_toolchain, register_compiler, 0, .desc = "Register a new compiler type")
 {
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_compiler, res);
 }
 
-FUNC_IMPL(module_toolchain, register_linker, tc_dict, .desc = "Register a new linker type")
+FUNC_IMPL(module_toolchain, register_linker, 0, .desc = "Register a new linker type")
 {
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_linker, res);
 }
 
-FUNC_IMPL(module_toolchain, register_archiver, tc_dict, .desc = "Register a new static linker type")
+FUNC_IMPL(module_toolchain, register_archiver, 0, .desc = "Register a new static linker type")
 {
 	return func_modue_toolchain_register_component_common(wk, toolchain_component_archiver, res);
 }
@@ -433,6 +438,97 @@ FUNC_IMPL(module_toolchain, handler, tc_closure | tc_array, func_impl_flag_impur
 	return true;
 }
 
+struct module_toolchain_register_language_toolchain_options
+{
+	obj compiler, linker, archiver;
+};
+
+FUNC_IMPL(module_toolchain, register_language, 0, func_impl_flag_impure, .desc = "Register a language")
+{
+	if (vm_enum(wk, enum language_family)) {
+		 vm_enum_value_prefixed(wk, language_family, c);
+		 vm_enum_value_prefixed(wk, language_family, unknown);
+	}
+
+	if (vm_struct(wk, module_toolchain_register_language_toolchain_options)) {
+		vm_struct_member(wk, module_toolchain_register_language_toolchain_options, compiler, vm_struct_type_obj);
+		vm_struct_member(wk, module_toolchain_register_language_toolchain_options, linker, vm_struct_type_obj);
+		vm_struct_member(wk, module_toolchain_register_language_toolchain_options, archiver, vm_struct_type_obj);
+	}
+
+	struct args_norm an[] = {
+		{ tc_string, .desc = "The name of this language" },
+		ARG_TYPE_NULL,
+	};
+	enum kwargs {
+		kw_family,
+		kw_file_extensions,
+		kw_toolchain_options,
+		kw_options,
+	};
+	struct args_kw akw[] = {
+		[kw_family] = { "family", complex_type_enum_get(wk, enum language_family) },
+		[kw_file_extensions] = { "file_extensions", COMPLEX_TYPE_PRESET(tc_cx_list_of_str) },
+		[kw_toolchain_options] = { "toolchain_options",
+			COMPLEX_TYPE_PRESET(tc_cx_dict_of_str),
+			.desc = vm_struct_docs(wk,
+				module_toolchain_register_language_toolchain_options,
+				"accepted properties:\n```\n%s\n```") },
+		[kw_options] = { "options", tc_dict }, // TODO: better type
+		0,
+	};
+
+	if (!pop_args(wk, an, akw)) {
+		return false;
+	}
+
+	struct language *lang = arr_grow_by(wk->a, &wk->language_registry.languages, 1);
+	lang->name = *get_str(wk, an[0].val);
+	lang->exts = akw[kw_file_extensions].val;
+
+	if (akw[kw_options].set) {
+		obj k, v;
+		obj_dict_for(wk, akw[kw_options].val, k, v) {
+			struct obj_option *o = get_obj_option(wk, v);
+			o->name = make_strf(wk, "%s_%s", lang->name.s, get_str(wk, k)->s);
+			o->yield = true;
+			obj_array_push(wk, wk->queued_options, v);
+		}
+	}
+
+	if (akw[kw_toolchain_options].set) {
+		struct module_toolchain_register_language_toolchain_options opts = { 0 };
+		if (!vm_obj_to_struct(wk,
+			    module_toolchain_register_language_toolchain_options,
+			    akw[kw_toolchain_options].val,
+			    &opts)) {
+			return false;
+		}
+
+		if (opts.compiler) {
+			lang->env_option_names[toolchain_component_compiler] = get_cstr(wk, opts.compiler);
+		}
+		if (opts.linker) {
+			lang->env_option_names[toolchain_component_linker] = get_cstr(wk, opts.linker);
+		}
+		if (opts.archiver) {
+			lang->env_option_names[toolchain_component_archiver] = get_cstr(wk, opts.archiver);
+		}
+	}
+
+	return true;
+}
+
+FUNC_IMPL(module_toolchain, option, tc_option, func_impl_flag_impure, .desc = "Create a toolchain option object")
+{
+	struct func_option_common_result r;
+	stack_push(&wk->stack, initializing_builtin_options_state, initializing_builtin_options_state_project);
+	bool ok = func_option_common(wk, 0, &r);
+	stack_pop(&wk->stack, initializing_builtin_options_state);
+	*res = r.option;
+	return ok;
+}
+
 FUNC_REGISTER(module_toolchain)
 {
 	if (lang_mode == language_internal) {
@@ -442,5 +538,7 @@ FUNC_REGISTER(module_toolchain)
 		FUNC_IMPL_REGISTER(module_toolchain, register_linker);
 		FUNC_IMPL_REGISTER(module_toolchain, register_archiver);
 		FUNC_IMPL_REGISTER(module_toolchain, handler);
+		FUNC_IMPL_REGISTER(module_toolchain, register_language);
+		FUNC_IMPL_REGISTER(module_toolchain, option);
 	}
 }

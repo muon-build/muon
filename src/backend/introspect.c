@@ -14,6 +14,7 @@
 #include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
+#include "toolchains.h"
 
 static obj
 introspect_id(struct workspace *wk, obj id)
@@ -101,15 +102,15 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 		obj_dict_for(wk, t->processed_args, _lang, args) {
 			obj lang_src;
 			lang_src = make_obj(wk, obj_dict);
-			enum compiler_language lang = _lang;
-			if (!obj_dict_geti(wk, proj->toolchains[t->machine], lang, &toolchain)) {
+			struct compiler_language lang = { _lang };
+			if (!obj_dict_get_language(wk, proj->toolchains[t->machine], lang, &toolchain)) {
 				UNREACHABLE;
 			}
 
 			struct obj_compiler *comp = get_obj_compiler(wk, toolchain);
 
 			obj_dict_set(
-				wk, lang_src, make_str(wk, "language"), make_str(wk, compiler_language_to_s(lang)));
+				wk, lang_src, make_str(wk, "language"), make_str(wk, compiler_language_to_s(wk, lang)));
 			obj_dict_set(
 				wk, lang_src, make_str(wk, "compiler"), comp->cmd_arr[toolchain_component_compiler]);
 			obj_dict_set(wk, lang_src, make_str(wk, "parameters"), args);
@@ -117,13 +118,13 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			obj file_list, file;
 			file_list = make_obj(wk, obj_array);
 			obj_array_for(wk, t->src, file) {
-				const char *path = get_file_path(wk, file);
-				enum compiler_language file_lang;
-				if (!filename_to_compiler_language(path, &file_lang)) {
+				const struct str *path = get_file_path_str(wk, file);
+				struct compiler_language file_lang;
+				if (!filename_to_compiler_language(wk, path, &file_lang)) {
 					UNREACHABLE;
 				}
 
-				if (file_lang == lang) {
+				if (file_lang.id == lang.id) {
 					obj_array_push(wk, file_list, *get_obj_file(wk, file));
 				}
 			}
@@ -138,7 +139,7 @@ introspect_build_target(struct workspace *wk, struct project *proj, obj tgt)
 			obj linker_src;
 			linker_src = make_obj(wk, obj_dict);
 			obj linker;
-			if (!obj_dict_geti(wk, proj->toolchains[t->machine], t->dep_internal.link_language, &linker)) {
+			if (!obj_dict_get_language(wk, proj->toolchains[t->machine], t->dep_internal.link_language, &linker)) {
 				UNREACHABLE;
 			}
 			struct obj_compiler *comp = get_obj_compiler(wk, linker);

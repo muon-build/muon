@@ -47,6 +47,10 @@ build_option_type_from_s(struct workspace *wk, uint32_t node, uint32_t name, enu
 static bool
 validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 {
+	if (initializing_builtin_options_state != initializing_builtin_options_state_none) {
+		return true;
+	}
+
 	uint32_t i;
 	const struct str *s = get_str(wk, name);
 	for (i = 0; i < s->len; ++i) {
@@ -62,9 +66,11 @@ validate_option_name(struct workspace *wk, uint32_t err_node, obj name)
 	return true;
 }
 
-FUNC_IMPL(kernel, option, 0, true)
+bool
+func_option_common(struct workspace *wk, struct args_norm* an, struct func_option_common_result *res)
 {
-	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	*res = (struct func_option_common_result){ 0 };
+
 	enum kwargs {
 		kw_type,
 		kw_value,
@@ -77,6 +83,7 @@ FUNC_IMPL(kernel, option, 0, true)
 		kwargs_count,
 		kw_kind = kwargs_count,
 		kw_per_machine,
+		kw_inherit_env,
 	};
 
 	struct args_kw akw[] = { [kw_type] = { "type", obj_string },
@@ -89,11 +96,13 @@ FUNC_IMPL(kernel, option, 0, true)
 		[kw_deprecated] = { "deprecated", COMPLEX_TYPE_PRESET(tc_cx_options_deprecated_kw) },
 		[kw_kind] = { 0 },
 		[kw_per_machine] = { 0 },
+		[kw_inherit_env] = { 0 },
 		0 };
 
 	if (initializing_builtin_options_state != initializing_builtin_options_state_none) {
 		akw[kw_kind] = (struct args_kw){ "kind", tc_string };
 		akw[kw_per_machine] = (struct args_kw){ "per_machine", tc_bool };
+		akw[kw_inherit_env] = (struct args_kw){ "inherit_env", COMPLEX_TYPE_PRESET(tc_cx_list_of_str) };
 	}
 
 	if (!pop_args(wk, an, akw)) {
@@ -177,17 +186,17 @@ FUNC_IMPL(kernel, option, 0, true)
 		}
 	}
 
-	obj opt;
-	opt = make_obj(wk, obj_option);
-	struct obj_option *o = get_obj_option(wk, opt);
-	o->name = an[0].val;
+	res->option = make_obj(wk, obj_option);
+	struct obj_option *o = get_obj_option(wk, res->option);
 	o->type = type;
+	o->val = val;
 	o->min = akw[kw_min].val;
 	o->max = akw[kw_max].val;
 	o->choices = akw[kw_choices].val;
 	o->yield = akw[kw_yield].set && get_obj_bool(wk, akw[kw_yield].val);
 	o->description = akw[kw_description].val;
 	o->deprecated = akw[kw_deprecated].val;
+	o->inherit_env = akw[kw_inherit_env].val;
 	o->ip = wk->vm.ip - 1;
 
 	if (akw[kw_kind].set) {
@@ -201,9 +210,21 @@ FUNC_IMPL(kernel, option, 0, true)
 		}
 	}
 
+	if (get_obj_bool_with_default(wk, akw[kw_per_machine].val, false)) {
+		res->flags |= create_option_flag_per_machine;
+	}
+	return true;
+}
+
+bool
+func_option_bind(struct workspace *wk, uint32_t node, obj name, obj option, enum create_option_flag flags)
+{
+	struct obj_option *o = get_obj_option(wk, option);
+	o->name = name;
+
 	obj opts;
 	if (wk->projects.len) {
-		if (!validate_option_name(wk, an[0].node, an[0].val)) {
+		if (!validate_option_name(wk, node, name)) {
 			return false;
 		}
 
@@ -211,16 +232,23 @@ FUNC_IMPL(kernel, option, 0, true)
 	} else {
 		opts = wk->global_opts;
 	}
-	enum create_option_flag flags = 0;
-	if (get_obj_bool_with_default(wk, akw[kw_per_machine].val, false)) {
-		flags |= create_option_flag_per_machine;
-	}
 
-	if (!create_option(wk, opts, opt, val, flags)) {
+	if (!create_option(wk, opts, option, o->val, flags)) {
 		return false;
 	}
 
 	return true;
+}
+
+FUNC_IMPL(kernel, option, 0, true)
+{
+	struct func_option_common_result r;
+	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
+	if (!func_option_common(wk, an, &r)) {
+		return false;
+	}
+
+	return func_option_bind(wk, an[0].node, an[0].val, r.option, r.flags);
 }
 
 static bool

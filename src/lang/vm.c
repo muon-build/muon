@@ -3863,7 +3863,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, ver);
 	vm_reflect_obj_field(obj_compiler, obj, libdirs);
 	vm_reflect_obj_field(obj_compiler, obj, fwdirs);
-	vm_reflect_obj_field(obj_compiler, enum compiler_language, lang);
+	vm_reflect_obj_field(obj_compiler, struct compiler_language, lang);
 	vm_reflect_obj_field(obj_compiler, enum machine_kind, machine);
 }
 

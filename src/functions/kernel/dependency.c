@@ -113,23 +113,20 @@ struct dep_lookup_ctx {
 };
 
 static obj
-get_dependency_c_compiler(struct workspace *wk, enum machine_kind machine)
+get_dependency_compiler(struct workspace *wk, enum machine_kind machine, enum language_family family)
 {
 	struct project *proj = current_project(wk);
 
 	obj compiler;
-
-	if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_c, &compiler)) {
-		return compiler;
-	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_cpp, &compiler)) {
-		return compiler;
-	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_objc, &compiler)) {
-		return compiler;
-	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_objcpp, &compiler)) {
-		return compiler;
-	} else {
-		return 0;
+	obj k;
+	obj_dict_for(wk, proj->toolchains[machine], k, compiler) {
+		struct compiler_language l = { k };
+		if (toolchain_language_get(wk, l)->family == family) {
+			return compiler;
+		}
 	}
+
+	return 0;
 }
 
 static bool
@@ -360,7 +357,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	*found = false;
 
 	if (!muon_pkgconfig_lookup(wk,
-		    get_dependency_c_compiler(wk, ctx->machine),
+		    get_dependency_compiler(wk, ctx->machine, language_family_c),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
 			ctx->machine,
@@ -426,7 +423,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		return true;
 	}
 
-	obj compiler = get_dependency_c_compiler(wk, ctx->machine);
+	obj compiler = get_dependency_compiler(wk, ctx->machine, language_family_c);
 	if (!compiler) {
 		L("skipping extraframework dependency lookup: no compiler defined");
 		return true;
@@ -649,7 +646,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 static bool
 get_dependency_system(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
-	obj compiler = get_dependency_c_compiler(wk, ctx->machine);
+	obj compiler = get_dependency_compiler(wk, ctx->machine, language_family_c);
 	if (!compiler) {
 		return true;
 	}
@@ -1754,7 +1751,7 @@ build_dep_merge(struct workspace *wk,
 
 	build_dep_init(wk, dest);
 
-	dest->link_language = coalesce_link_languages(src->link_language, dest->link_language);
+	dest->link_language = coalesce_link_languages(wk, src->link_language, dest->link_language);
 
 	if (src->link_with) {
 		obj_array_extend(wk, dest->link_with, src->link_with);

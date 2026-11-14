@@ -18,14 +18,6 @@ option(
 option('werror', yield: true, type: 'boolean', value: false)
 
 option(
-    'c_std',
-    yield: true,
-    type: 'string',
-    value: 'none',
-    per_machine: true,
-)
-
-option(
     'cpp_std',
     yield: true,
     type: 'string',
@@ -111,21 +103,6 @@ option(
     description: 'Unity block size',
 ) # TODO
 
-option(
-    'c_winlibs',
-    yield: true,
-    type: 'array',
-    value: [],
-    per_machine: true,
-)
-option(
-    'c_thread_count',
-    yield: true,
-    type: 'integer',
-    value: 4,
-    min: 0,
-    per_machine: true,
-) # TODO
 option(
     'cpp_debugstl',
     yield: true,

@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+toolchain = import('toolchain')
+
+toolchain.register_language(
+    'c',
+    family: 'c',
+    file_extensions: ['c'],
+    toolchain_options: {
+        'compiler': 'CC',
+        'linker': 'CC_LD',
+        'archiver': 'AR',
+    },
+    options: {
+        'std': toolchain.option(type: 'string', value: 'none'),
+        'std': toolchain.option(type: 'string', value: 'none'),
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['CFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+        'winlibs': toolchain.option(type: 'array', value: []), # TODO
+        'thread_count': toolchain.option(type: 'array', value: []), # TODO
+    },
+)
+
+toolchain.register_language(
+    'cpp',
+)
+
+toolchain.register_language(
+    'objc',
+)
+
+toolchain.register_language(
+    'objcpp',
+)
+
+toolchain.register_language(
+    'assembly',
+)
+
+toolchain.register_language(
+    'llvm_ir',
+)
+
+toolchain.register_language(
+    'nasm',
+)
+
+toolchain.register_language(
+    'masm',
+)
+
+toolchain.register_language(
+    'rust',
+)
+
+toolchain.register_language(
+    'vala',
+)
+
+toolchain.register_language(
+    'fortran',
+)

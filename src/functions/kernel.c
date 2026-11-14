@@ -7,6 +7,7 @@
 #include "compat.h"
 
 #include "lang/object.h"
+#include "toolchains.h"
 #include <string.h>
 
 #include "args.h"
@@ -55,9 +56,9 @@ project_add_language(struct workspace *wk,
 
 	obj comp_id;
 	obj res;
-	enum compiler_language l;
+	struct compiler_language l;
 
-	if (!s_to_compiler_language(get_cstr(wk, str), &l)) {
+	if (!s_to_compiler_language(wk, get_str(wk, str), &l)) {
 		if (req == requirement_required) {
 			vm_error_at(wk, err_node, "%o is not a valid language", str);
 			return false;
@@ -66,7 +67,7 @@ project_add_language(struct workspace *wk,
 		}
 	}
 
-	if (obj_dict_geti(wk, current_project(wk)->toolchains[machine], l, &res)) {
+	if (obj_dict_get_language(wk, current_project(wk)->toolchains[machine], l, &res)) {
 		*found = true;
 		return true;
 	}
@@ -84,7 +85,7 @@ project_add_language(struct workspace *wk,
 			}
 		}
 
-		obj_dict_seti(wk, wk->toolchains[machine], l, comp_id);
+		obj_dict_set_language(wk, wk->toolchains[machine], l, comp_id);
 	} else {
 		if (!toolchain_detect(wk, &comp_id, machine, l, detect_flags)) {
 			if (req == requirement_required) {
@@ -99,9 +100,10 @@ project_add_language(struct workspace *wk,
 	struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	comp->machine = machine;
 
-	obj_dict_seti(wk, current_project(wk)->toolchains[machine], l, comp_id);
+	obj_dict_set_language(wk, current_project(wk)->toolchains[machine], l, comp_id);
 
 	/* if we just added a c or cpp compiler, set the assembly compiler to that */
+#if 0
 	if (l == compiler_language_c || l == compiler_language_cpp) {
 		obj_dict_seti(wk, current_project(wk)->toolchains[machine], compiler_language_assembly, comp_id);
 
@@ -119,7 +121,9 @@ project_add_language(struct workspace *wk,
 			}
 		}
 	}
+#endif
 
+#if 0
 	switch (l) {
 	case compiler_language_assembly:
 	case compiler_language_nasm:
@@ -148,6 +152,7 @@ project_add_language(struct workspace *wk,
 	} break;
 	default: break;
 	}
+#endif
 
 	*found = true;
 	return true;
@@ -298,12 +303,12 @@ FUNC_IMPL(kernel, project, 0)
 }
 
 static obj
-get_project_argument_array(struct workspace *wk, obj dict, enum compiler_language l)
+get_project_argument_array(struct workspace *wk, obj dict, struct compiler_language l)
 {
 	obj arg_arr;
-	if (!obj_dict_geti(wk, dict, l, &arg_arr)) {
+	if (!obj_dict_get_language(wk, dict, l, &arg_arr)) {
 		arg_arr = make_obj(wk, obj_array);
-		obj_dict_seti(wk, dict, l, arg_arr);
+		obj_dict_set_language(wk, dict, l, arg_arr);
 	}
 
 	return arg_arr;
@@ -335,9 +340,9 @@ static enum iteration_result
 add_arguments_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct add_arguments_ctx *ctx = _ctx;
-	enum compiler_language l;
+	struct compiler_language l;
 
-	if (!s_to_compiler_language(get_cstr(wk, val), &l)) {
+	if (!s_to_compiler_language(wk, get_str(wk, val), &l)) {
 		vm_error_at(wk, ctx->lang_node, "unknown language '%s'", get_cstr(wk, val));
 		return ir_err;
 	}
@@ -432,15 +437,15 @@ FUNC_IMPL(kernel, add_project_dependencies, 0, func_impl_flag_impure)
 
 	obj lang;
 	obj_array_for(wk, akw[kw_language].val, lang) {
-		enum compiler_language l;
+		struct compiler_language l;
 
-		if (!s_to_compiler_language(get_cstr(wk, lang), &l)) {
+		if (!s_to_compiler_language(wk, get_str(wk, lang), &l)) {
 			vm_error_at(wk, akw[kw_language].node, "unknown language '%s'", get_cstr(wk, lang));
 			return false;
 		}
 
 		obj res;
-		if (!obj_dict_geti(wk, current_project(wk)->toolchains[machine], l, &res)) {
+		if (!obj_dict_get_language(wk, current_project(wk)->toolchains[machine], l, &res)) {
 			// NOTE: Its a little weird that the other add_project_xxx
 			// functions don't check this and this function does, but that
 			// is how meson does it.

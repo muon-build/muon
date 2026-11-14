@@ -144,23 +144,23 @@ clang_format_collect_source_files_from_list(struct workspace *wk, struct clang_f
 	obj_array_for(wk, list, file) {
 		const struct str *path = get_str(wk, *get_obj_file(wk, file));
 
-		enum compiler_language l;
-		if (!(filename_to_compiler_language(path->s, &l))) {
+		struct compiler_language l;
+		if (!(filename_to_compiler_language(wk, path, &l))) {
 			continue;
 		}
 
-		switch (l) {
-		case compiler_language_c:
-		case compiler_language_cpp:
-		case compiler_language_objc:
-		case compiler_language_objcpp:
-		case compiler_language_c_hdr:
-		case compiler_language_cpp_hdr:
-		case compiler_language_objc_hdr:
-		case compiler_language_objcpp_hdr:
-			break;
-		default: continue;
-		}
+		// switch (l) {
+		// case compiler_language_c:
+		// case compiler_language_cpp:
+		// case compiler_language_objc:
+		// case compiler_language_objcpp:
+		// case compiler_language_c_hdr:
+		// case compiler_language_cpp_hdr:
+		// case compiler_language_objc_hdr:
+		// case compiler_language_objcpp_hdr:
+		// 	break;
+		// default: continue;
+		// }
 
 		if (clang_format_matches_any_pattern(wk, path, ctx->ignore_patterns)) {
 			continue;

@@ -98,6 +98,8 @@ struct workspace {
 	obj backend_output_stack;
 	// list[str]
 	obj devenv;
+	// list[option]
+	obj queued_options;
 	/* ----------------- */
 
 	struct vm vm;
@@ -106,6 +108,7 @@ struct workspace {
 	struct arr projects;
 	struct arr option_overrides;
 	struct toolchain_registry toolchain_registry;
+	struct language_registry language_registry;
 
 	uint32_t cur_project, init_flags;
 

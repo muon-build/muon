@@ -42,7 +42,7 @@ compiler_log(struct workspace *wk, obj compiler, const char *fmt, ...)
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, compiler);
-	LLOG_I("%s: ", compiler_log_prefix(comp->lang, comp->machine));
+	LLOG_I("%s: ", compiler_log_prefix(wk, comp->lang, comp->machine));
 	log_printv(log_info, fmt, args);
 	log_plain(log_info, "\n");
 
@@ -57,7 +57,7 @@ compiler_check_log(struct workspace *wk, struct compiler_check_opts *opts, const
 	va_start(args, fmt);
 
 	struct obj_compiler *comp = get_obj_compiler(wk, opts->comp_id);
-	LLOG_I("%s: ", compiler_log_prefix(comp->lang, comp->machine));
+	LLOG_I("%s: ", compiler_log_prefix(wk, comp->lang, comp->machine));
 	log_printv(log_info, fmt, args);
 
 	if (opts->from_cache) {
@@ -124,9 +124,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
-	if (compiler->lang == compiler_language_cpp) {
+	// if (compiler->lang == compiler_language_cpp) {
 		obj_array_extend(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
-	}
+	// }
 
 	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
 		obj_array_extend(wk, compiler_args, toolchain_compiler_werror(wk, comp));
@@ -163,7 +163,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	} else {
 		TSTR(test_source_path);
 		path_join(wk, &test_source_path, wk->muon_private, "test.");
-		tstr_pushs(wk, &test_source_path, compiler_language_extension(compiler->lang));
+		tstr_pushs(wk, &test_source_path, compiler_language_extension(wk, compiler->lang));
 		source_path = tstr_into_str(wk, &test_source_path);
 	}
 
@@ -188,7 +188,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 			output_path = test_output_path.buf;
 		} else {
 			path_join(wk, &test_output_path, wk->muon_private, "test.");
-			tstr_pushs(wk, &test_output_path, compiler_language_extension(compiler->lang));
+			tstr_pushs(wk, &test_output_path, compiler_language_extension(wk, compiler->lang));
 			const char *ext
 				= toolchain_compiler_flatten_one(wk, comp, toolchain_compiler_object_ext(wk, comp));
 			if (!ext) {
@@ -1053,28 +1053,28 @@ FUNC_IMPL(compiler, has_header_symbol, tc_bool, func_impl_flag_impure)
 	compiler_handle_has_required_kw_setup(required, cc_kw_required);
 
 	bool ok;
-	switch (get_obj_compiler(wk, self)->lang) {
-	case compiler_language_c:
+	// switch (get_obj_compiler(wk, self)->lang) {
+	// case compiler_language_c:
 		if (!compiler_has_header_symbol_c(
 			    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
 			return false;
 		}
-		break;
-	case compiler_language_cpp:
-		if (!compiler_has_header_symbol_c(
-			    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
-			return false;
-		}
+		// break;
+	// case compiler_language_cpp:
+		// if (!compiler_has_header_symbol_c(
+		// 	    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+		// 	return false;
+		// }
 
-		if (!ok) {
-			if (!compiler_has_header_symbol_cpp(
-				    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
-				return false;
-			}
-		}
-		break;
-	default: UNREACHABLE;
-	}
+		// if (!ok) {
+		// 	if (!compiler_has_header_symbol_cpp(
+		// 		    wk, an[0].node, &opts, compiler_check_prefix(wk, akw), an[0].val, an[1].val, &ok)) {
+		// 		return false;
+		// 	}
+		// }
+		// break;
+	// default: UNREACHABLE;
+	// }
 
 	compiler_handle_has_required_kw(required, ok);
 
@@ -2336,19 +2336,19 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 
 	obj_array_extend(wk, base_cmd, toolchain_compiler_preprocess_only(wk, self));
 
-	const char *lang = 0;
-	switch (comp->lang) {
-	case compiler_language_c: lang = "c"; break;
-	case compiler_language_cpp: lang = "c++"; break;
-	case compiler_language_objc: lang = "objective-c"; break;
-	default:
-		vm_error(wk,
-			"compiler for language %s does not support preprocess()",
-			compiler_language_to_s(comp->lang));
-		return false;
-	}
+	// const char *lang = 0;
+	// switch (comp->lang) {
+	// case compiler_language_c: lang = "c"; break;
+	// case compiler_language_cpp: lang = "c++"; break;
+	// case compiler_language_objc: lang = "objective-c"; break;
+	// default:
+	// 	vm_error(wk,
+	// 		"compiler for language %s does not support preprocess()",
+	// 		compiler_language_to_s(comp->lang));
+	// 	return false;
+	// }
 
-	obj_array_extend(wk, base_cmd, toolchain_compiler_force_language(wk, self, lang));
+	// obj_array_extend(wk, base_cmd, toolchain_compiler_force_language(wk, self, lang));
 
 	ca_get_std_args(wk, self, current_project(wk), NULL, base_cmd);
 
