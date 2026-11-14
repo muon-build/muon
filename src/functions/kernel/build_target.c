@@ -930,7 +930,7 @@ create_target(struct workspace *wk,
 				}
 
 				obj pch_tgt_pch;
-				if (!obj_dict_geti(wk, pch_tgt->pch, pch_args[i].l, &pch_tgt_pch)) {
+				if (!pch_tgt->pch || !obj_dict_geti(wk, pch_tgt->pch, pch_args[i].l, &pch_tgt_pch)) {
 					vm_error_at(wk, pch_args[i].kw->node, "this build target does not define a pch for %s", compiler_language_to_s(pch_args[i].l));
 					return false;
 				}
