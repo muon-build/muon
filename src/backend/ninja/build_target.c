@@ -419,16 +419,20 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		fputs(" || ", wctx->out);
 		fputs(get_cstr(wk, ctx.order_deps), wctx->out);
 	}
+
+	fputc('\n', wctx->out);
+
 	if (link_early_args) {
-		fprintf(wctx->out, "\n LINK_EARLY_ARGS = %s", link_early_args);
+		fprintf(wctx->out, " LINK_EARLY_ARGS = %s\n", link_early_args);
 	}
+
 	if (link_args) {
-		fprintf(wctx->out, "\n LINK_ARGS = %s", link_args);
+		fprintf(wctx->out, " LINK_ARGS = %s\n", link_args);
 	}
 
 	if (tgt->flags & build_tgt_flag_build_by_default) {
 		wctx->wrote_default = true;
-		fprintf(wctx->out, "\ndefault %s\n", esc_path.buf);
+		fprintf(wctx->out, "default %s\n", esc_path.buf);
 	}
 
 	fprintf(wctx->out, "\n");
