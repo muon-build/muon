@@ -393,9 +393,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		}
 		break;
 	case tgt_static_library:
-		if (!get_obj_array(wk, ctx.object_names)->len) {
-			goto done;
-		}
 		tstr_pushs(wk, &link_rule, "archiver");
 		break;
 	default: UNREACHABLE_RETURN;
@@ -434,7 +431,6 @@ ninja_write_build_tgt(struct workspace *wk, obj tgt_id, struct write_tgt_ctx *wc
 		fprintf(wctx->out, "\ndefault %s\n", esc_path.buf);
 	}
 
-done:
 	fprintf(wctx->out, "\n");
 	TracyCZoneAutoE;
 	return true;
