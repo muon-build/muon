@@ -8,10 +8,6 @@ project(
 
 add_languages('c', native: false)
 
-if meson.get_compiler('c').get_id() not in ['clang', 'gcc']
-    error('MESON_SKIP_TEST: unsupported compiler')
-endif
-
 pch = static_library(
     'pch_target',
     c_pch: 'pch.h',

@@ -576,6 +576,7 @@ toolchain.register_compiler(
             return ['-x', s]
         endfunc,
         'werror': ['-Werror'],
+        'pch_ext': ['.pch_not_supported'],
     },
 )
 
@@ -1033,6 +1034,7 @@ toolchain.register_compiler(
                 return [f'/Fo@s@']
             endif
         endfunc,
+        'pch_ext': ['.pch_not_supported'],
         'preprocess_only': ['/EP'],
         'sanitize': func(_c compiler, sanitizers list[str]) -> list[str]
             res = []
