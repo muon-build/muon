@@ -110,6 +110,7 @@ write_archiver_rule(struct workspace *wk, FILE *out, struct project *proj, enum 
 	obj comp_id = 0;
 	obj k, v;
 	obj_dict_for(wk, proj->toolchains[machine], k, v) {
+		(void)k;
 		struct obj_compiler *comp = get_obj_compiler(wk, v);
 		if (comp->cmd_arr[toolchain_component_archiver]) {
 			comp_id = v;
