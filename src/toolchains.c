@@ -1986,3 +1986,22 @@ toolchains_init(struct workspace *wk)
 	language_snippet_info_init(wk);
 }
 
+
+obj
+try_get_toolchain_for_language_family(struct workspace *wk, enum machine_kind machine, enum language_family family)
+{
+	struct project *proj = current_project(wk);
+	if (!proj) {
+		return 0;
+	}
+
+	obj k, compiler;
+	obj_dict_for(wk, proj->toolchains[machine], k, compiler) {
+		struct compiler_language l = { k };
+		if (toolchain_language_get(wk, l)->family == family) {
+			return compiler;
+		}
+	}
+
+	return 0;
+}

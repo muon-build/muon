@@ -156,6 +156,13 @@ build_tgt_determine_linker(struct workspace *wk, struct obj_build_target *tgt)
 	}
 
 	if (!tgt->dep_internal.link_language.id) {
+		obj compiler = try_get_toolchain_for_language_family(wk, tgt->machine, language_family_c);
+		if (compiler) {
+			tgt->dep_internal.link_language = get_obj_compiler(wk, compiler)->lang;
+		}
+	}
+
+	if (!tgt->dep_internal.link_language.id) {
 		vm_error(wk, "unable to determine linker for target");
 		return false;
 	}

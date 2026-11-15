@@ -112,23 +112,6 @@ struct dep_lookup_ctx {
 	bool fallback_forced;
 };
 
-static obj
-get_dependency_compiler(struct workspace *wk, enum machine_kind machine, enum language_family family)
-{
-	struct project *proj = current_project(wk);
-
-	obj compiler;
-	obj k;
-	obj_dict_for(wk, proj->toolchains[machine], k, compiler) {
-		struct compiler_language l = { k };
-		if (toolchain_language_get(wk, l)->family == family) {
-			return compiler;
-		}
-	}
-
-	return 0;
-}
-
 static bool
 check_dependency_override_for_machine(struct workspace *wk,
 	const struct dep_lookup_ctx *ctx,
@@ -357,7 +340,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	*found = false;
 
 	if (!muon_pkgconfig_lookup(wk,
-		    get_dependency_compiler(wk, ctx->machine, language_family_c),
+		    try_get_toolchain_for_language_family(wk, ctx->machine, language_family_c),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
 			ctx->machine,
@@ -423,7 +406,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		return true;
 	}
 
-	obj compiler = get_dependency_compiler(wk, ctx->machine, language_family_c);
+	obj compiler = try_get_toolchain_for_language_family(wk, ctx->machine, language_family_c);
 	if (!compiler) {
 		L("skipping extraframework dependency lookup: no compiler defined");
 		return true;
@@ -647,7 +630,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 static bool
 get_dependency_system(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
-	obj compiler = get_dependency_compiler(wk, ctx->machine, language_family_c);
+	obj compiler = try_get_toolchain_for_language_family(wk, ctx->machine, language_family_c);
 	if (!compiler) {
 		return true;
 	}

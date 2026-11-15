@@ -353,4 +353,5 @@ const struct language *toolchain_language_get(struct workspace *wk, struct compi
 bool obj_dict_get_language(struct workspace *wk, obj dict, const struct compiler_language l, obj *res);
 void obj_dict_set_language(struct workspace *wk, obj dict, const struct compiler_language l, obj v);
 
+obj try_get_toolchain_for_language_family(struct workspace *wk, enum machine_kind machine, enum language_family family);
 #endif
