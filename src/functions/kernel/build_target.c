@@ -1201,8 +1201,7 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 	for (uint32_t i = 1; i < wk->language_registry.languages.len; ++i) {
 		const struct language *lang = arr_get(&wk->language_registry.languages, i);
 		if (wk->vm.dumping_docs) {
-			static struct language generic_lang = { 0 };
-			generic_lang.name = STR("<lang>");
+			static struct language generic_lang = { .name = STR_static("<lang>") };
 			lang = &generic_lang;
 		}
 

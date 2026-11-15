@@ -490,9 +490,9 @@ func_compiler_check_args_common(struct workspace *wk,
 	return true;
 }
 
-static const struct str compiler_check_delimiter_start = STR("\"MUON_GET_DEFINE_DELIMITER_START\"");
-static const struct str compiler_check_delimiter_end = STR("\"MUON_GET_DEFINE_DELIMITER_END\"");
-static const struct str compiler_check_delimiter_sentinel = STR("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
+static const struct str compiler_check_delimiter_start = STR_static("\"MUON_GET_DEFINE_DELIMITER_START\"");
+static const struct str compiler_check_delimiter_end = STR_static("\"MUON_GET_DEFINE_DELIMITER_END\"");
+static const struct str compiler_check_delimiter_sentinel = STR_static("\"MUON_GET_DEFINE_UNDEFINED_SENTINEL\"");
 
 struct args_kw *
 compiler_check_snippet_kwargs(struct workspace *wk, struct compiler_check_opts *opts)
