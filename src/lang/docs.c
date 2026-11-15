@@ -197,37 +197,6 @@ dump_function_args_cb(struct workspace *wk, struct args_norm posargs[], struct a
 		for (i = 0; i < kwargs_list.len; ++i) {
 			struct kwargs_list_elem *elem = arr_get(&kwargs_list, i);
 			struct args_kw kwarg = kwargs[elem->i];
-#if 0
-			char buf[256];
-
-			// This is a hack to convert e.g. cpp_args to <lang>_args
-			if (function_sig_dump.special_func == function_sig_dump_special_func_build_tgt) {
-#define E(lang, s)              \
-	{                       \
-		#lang #s, #lang \
-	}
-#define x(lang) E(lang, _args), E(lang, _static_args), E(lang, _shared_args), E(lang, _pch),
-				const struct {
-					const char *kw, *lang;
-				} lang_kws[] = { FOREACH_COMPILER_EXPOSED_LANGUAGE(x) };
-#undef x
-#undef E
-
-				bool found = false;
-				uint32_t i;
-				for (i = 0; i < ARRAY_LEN(lang_kws); ++i) {
-					if (strcmp(kwarg.key, lang_kws[i].kw) == 0) {
-						found = true;
-						break;
-					}
-				}
-
-				if (found) {
-					snprintf(buf, sizeof(buf), "<lang>%s", kwarg.key + strlen(lang_kws[i].lang));
-					kwarg.key = buf;
-				}
-			}
-#endif
 
 			obj _res;
 			if (obj_dict_index_str(wk, dict, kwarg.key, &_res)) {

@@ -659,7 +659,9 @@ FUNC_IMPL(module_toolchain, option, tc_option, .desc = "Create a toolchain optio
 	stack_push(&wk->stack, initializing_builtin_options_state, initializing_builtin_options_state_project);
 	bool ok = func_option_common(wk, 0, &r);
 	stack_pop(&wk->stack, initializing_builtin_options_state);
-	*res = r.option;
+	if ( ok ) {
+		*res = r.option;
+	}
 	return ok;
 }
 

@@ -1200,6 +1200,12 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 
 	for (uint32_t i = 1; i < wk->language_registry.languages.len; ++i) {
 		const struct language *lang = arr_get(&wk->language_registry.languages, i);
+		if (wk->vm.dumping_docs) {
+			static struct language generic_lang = { 0 };
+			generic_lang.name = STR("<lang>");
+			lang = &generic_lang;
+		}
+
 		kwargs_arr_push(wk,
 			&akw_arr,
 			&(struct args_kw){ tstr_f(wk, "%s_args", lang->name.s), TYPE_TAG_LISTIFY | obj_string });
@@ -1212,8 +1218,12 @@ tgt_common(struct workspace *wk, obj *res, enum tgt_type type, enum tgt_type arg
 
 		kwargs_arr_push(wk,
 			&akw_arr,
-			&(struct args_kw){ tstr_f(wk, "%s_pch", lang->name.s),
-				tc_string | tc_file | tc_build_target | tc_array });
+			&(struct args_kw){
+				tstr_f(wk, "%s_pch", lang->name.s), tc_string | tc_file | tc_build_target | tc_array });
+
+		if (wk->vm.dumping_docs) {
+			break;
+		}
 	}
 
 	struct args_kw *akw = (struct args_kw *)akw_arr.e;
