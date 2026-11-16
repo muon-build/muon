@@ -112,26 +112,6 @@ struct dep_lookup_ctx {
 	bool fallback_forced;
 };
 
-static obj
-get_dependency_c_compiler(struct workspace *wk, enum machine_kind machine)
-{
-	struct project *proj = current_project(wk);
-
-	obj compiler;
-
-	if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_c, &compiler)) {
-		return compiler;
-	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_cpp, &compiler)) {
-		return compiler;
-	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_objc, &compiler)) {
-		return compiler;
-	} else if (obj_dict_geti(wk, proj->toolchains[machine], compiler_language_objcpp, &compiler)) {
-		return compiler;
-	} else {
-		return 0;
-	}
-}
-
 static bool
 check_dependency_override_for_machine(struct workspace *wk,
 	const struct dep_lookup_ctx *ctx,
@@ -360,7 +340,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 	*found = false;
 
 	if (!muon_pkgconfig_lookup(wk,
-		    get_dependency_c_compiler(wk, ctx->machine),
+		    try_get_toolchain_for_language_family(wk, ctx->machine, language_family_c),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
 			ctx->machine,
@@ -426,7 +406,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		return true;
 	}
 
-	obj compiler = get_dependency_c_compiler(wk, ctx->machine);
+	obj compiler = try_get_toolchain_for_language_family(wk, ctx->machine, language_family_c);
 	if (!compiler) {
 		L("skipping extraframework dependency lookup: no compiler defined");
 		return true;
@@ -441,7 +421,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 		obj_array_push(wk, cmd, make_str(wk, "-E"));
 		obj_array_push(wk, cmd, make_str(wk, "-"));
 		obj_array_extend(wk, cmd, toolchain_compiler_always(wk, compiler));
-		ca_get_option_compile_args(wk, compiler, current_project(wk), 0, cmd);
+		ca_get_option_compile_args(wk, comp->lang, current_project(wk), 0, cmd);
 
 		const char *argstr;
 		uint32_t argc;
@@ -565,7 +545,8 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 			obj_array_extend(wk, opts.args, link_args);
 
 			bool ok;
-			const char *src = "int main(void) { return 0; }\n";
+			obj src = language_snippet_minimal_exe(
+				wk, get_obj_compiler(wk, opts.comp_id)->lang, compiler_check_snippet_kwargs(wk, &opts));
 			if (!compiler_check(wk, &opts, src, 0, &ok)) {
 				return false;
 			}
@@ -649,7 +630,7 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 static bool
 get_dependency_system(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
-	obj compiler = get_dependency_c_compiler(wk, ctx->machine);
+	obj compiler = try_get_toolchain_for_language_family(wk, ctx->machine, language_family_c);
 	if (!compiler) {
 		return true;
 	}
@@ -1744,7 +1725,7 @@ build_dep_init(struct workspace *wk, struct build_dep *dep)
 	}
 }
 
-void
+static bool
 build_dep_merge(struct workspace *wk,
 	struct build_dep *dest,
 	const struct build_dep *src,
@@ -1754,7 +1735,9 @@ build_dep_merge(struct workspace *wk,
 
 	build_dep_init(wk, dest);
 
-	dest->link_language = coalesce_link_languages(src->link_language, dest->link_language);
+	if (!coalesce_link_languages(wk, src->link_language, dest->link_language, &dest->link_language)) {
+		return false;
+	}
 
 	if (src->link_with) {
 		obj_array_extend(wk, dest->link_with, src->link_with);
@@ -1807,6 +1790,8 @@ build_dep_merge(struct workspace *wk,
 	if (merge_all && src->objects) {
 		obj_array_extend(wk, dest->objects, src->objects);
 	}
+
+	return true;
 }
 
 static bool
@@ -2040,7 +2025,9 @@ dep_process_link_with_lib(struct workspace *wk, struct dep_process_link_with_ctx
 			}
 		}
 
-		build_dep_merge(wk, ctx->dest, &tgt->dep, 0);
+		if (!build_dep_merge(wk, ctx->dest, &tgt->dep, 0)) {
+			return false;
+		}
 		break;
 	}
 	case obj_custom_target: {

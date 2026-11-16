@@ -27,7 +27,7 @@ void *arr_peek(struct arr *arr, uint32_t i);
 void *arr_get(const struct arr *arr, uint32_t i);
 void arr_del(struct arr *arr, uint32_t i);
 void arr_clear(struct arr *arr);
-void arr_grow_by(struct arena *a, struct arr *arr, uint32_t size);
+void *arr_grow_by(struct arena *a, struct arr *arr, uint32_t size);
 void arr_grow_to(struct arena *a, struct arr *arr, uint32_t size);
 
 typedef int32_t (*sort_func)(const void *a, const void *b, void *ctx);

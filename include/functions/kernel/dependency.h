@@ -11,8 +11,6 @@ enum build_dep_merge_flag {
 	build_dep_merge_flag_merge_all = 1 << 0,
 };
 
-void
-build_dep_merge(struct workspace *wk, struct build_dep *dest, const struct build_dep *src, enum build_dep_merge_flag flags);
 void dep_process_deps(struct workspace *wk, obj deps, struct build_dep *dest);
 void dep_process_includes(struct workspace *wk, obj arr, enum include_type include_type, struct build_dep *dep);
 

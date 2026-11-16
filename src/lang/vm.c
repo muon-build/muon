@@ -3233,6 +3233,8 @@ vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const 
 {
 	bool ok;
 
+	struct obj_closure *closure = get_obj_closure(wk, c);
+
 	wk->vm.nargs = 0;
 	if (an) {
 		for (wk->vm.nargs = 0; an[wk->vm.nargs].type != ARG_TYPE_NULL; ++wk->vm.nargs) {
@@ -3246,6 +3248,25 @@ vm_eval_closure(struct workspace *wk, obj c, const struct args_norm an[], const 
 		for (i = 0; akw[i].key; ++i) {
 			if (!akw[i].val) {
 				continue;
+			}
+
+			if (akw[i].allow_not_found) {
+				if (closure->func->akw) {
+					uint32_t j = 0;
+					for (; closure->func->akw[j].key; ++j) {
+						if (strcmp(akw[i].key, closure->func->akw[j].key) == 0) {
+							break;
+						}
+					}
+
+					if (!closure->func->akw[j].key) {
+						// not found
+						continue;
+					}
+				} else {
+					// not found (no akw)
+					continue;
+				}
 			}
 
 			object_stack_push_ip(wk, akw[i].val, akw[i].node);
@@ -3817,6 +3838,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field(obj_option, obj, max);
 	vm_reflect_obj_field(obj_option, obj, min);
 	vm_reflect_obj_field(obj_option, obj, deprecated);
+	vm_reflect_obj_field(obj_option, obj, inherit_env);
 	vm_reflect_obj_field(obj_option, obj, description);
 	vm_reflect_obj_field(obj_option, uint32_t, ip);
 	vm_reflect_obj_field(obj_option, enum option_value_source, source);
@@ -3863,7 +3885,7 @@ vm_reflect_objects(struct workspace *wk)
 	vm_reflect_obj_field_for_each_toolchain_component(obj_compiler, obj, ver);
 	vm_reflect_obj_field(obj_compiler, obj, libdirs);
 	vm_reflect_obj_field(obj_compiler, obj, fwdirs);
-	vm_reflect_obj_field(obj_compiler, enum compiler_language, lang);
+	vm_reflect_obj_field(obj_compiler, struct compiler_language, lang);
 	vm_reflect_obj_field(obj_compiler, enum machine_kind, machine);
 }
 

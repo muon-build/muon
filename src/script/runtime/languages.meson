@@ -1,0 +1,475 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+toolchain = import('toolchain')
+
+c_snippets = {
+    'minimal_exe': 'int main(void){};',
+
+    'sizeof': func(val str, prefix str:) -> str
+        return f'''
+            #include <stdio.h>
+            @prefix@
+            int main(void) {
+                printf("%ld", (long)(sizeof(@val@)));
+                return 0;
+            }
+        '''
+    endfunc,
+
+    'alignment': func(val str, prefix str:) -> str
+        return f'''
+            #include <stdio.h>
+            #include <stddef.h>
+            @prefix@
+            struct tmp { char c; @val@ target; };
+            int main(void) {
+                printf("%d", (int)(offsetof(struct tmp, target)));
+                return 0;
+            }
+        '''
+    endfunc,
+
+    'compute_int': func(val str, prefix str:) -> str
+        return f'''
+            #include <stdio.h>
+            @prefix@
+            int main(void) {
+                printf("%ld", (long)(@val@));
+            }
+        '''
+    endfunc,
+
+    'attribute': func(attr str) -> str
+        # These snippets are based on the following code:
+        # https://git.savannah.gnu.org/gitweb/?p=autoconf-archive.git;a=blob_plain;f=m4/ax_gcc_func_attribute.m4,
+        # which is licensed under the following terms:
+        #
+        #   Copyright (c) 2013 Gabriele Svelto <gabriele.svelto@gmail.com>
+        #
+        #   Copying and distribution of this file, with or without modification,
+        #   are permitted in any medium without royalty provided the copyright
+        #   notice and this notice are preserved.  This file is offered as-is,
+        #   without any warranty.
+        #
+        attrs = {
+            'alias': '''
+                  #ifdef __cplusplus
+                  extern "C" {
+                  #endif
+                  int foo(void) { return 0; }
+                  int bar(void) __attribute__((alias("foo")));
+                  #ifdef __cplusplus
+                  }
+                  #endif
+            ''',
+            'aligned': 'int foo(void) __attribute__((aligned(32)));',
+            'alloc_size': 'void *foo(int a) __attribute__((alloc_size(1)));',
+            'always_inline': 'inline __attribute__((always_inline)) int foo(void) { return 0; }',
+            'artificial': 'inline __attribute__((artificial)) int foo(void) { return 0; }',
+            'cold': 'int foo(void) __attribute__((cold));',
+            'const': 'int foo(void) __attribute__((const));',
+            'constructor': 'int foo(void) __attribute__((constructor));',
+            'constructor_priority': 'int foo( void ) __attribute__((__constructor__(65535/2)));',
+            'counted_by': '''
+                struct foo {
+                    unsigned int count;
+                    char bar[] __attribute__((counted_by(count)));
+                };
+            ''',
+            'deprecated': 'int foo(void) __attribute__((deprecated("")));',
+            'destructor': 'int foo(void) __attribute__((destructor));',
+            'dllexport': '__declspec(dllexport) int foo(void) { return 0; }',
+            'dllimport': '__declspec(dllimport) int foo(void);',
+            'error': 'int foo(void) __attribute__((error("")));',
+            'externally_visible': 'int foo(void) __attribute__((externally_visible));',
+            'fallthrough': '''
+                int foo( void ) {
+                  switch (0) {
+                    case 1: __attribute__((fallthrough));
+                    case 2: break;
+                  }
+                  return 0;
+                };
+            ''',
+            'flatten': 'int foo(void) __attribute__((flatten));',
+            'format': 'int foo(const char * p, ...) __attribute__((format(printf, 1, 2)));',
+            'format_arg': 'char * foo(const char * p) __attribute__((format_arg(1)));',
+            'force_align_arg_pointer': '__attribute__((force_align_arg_pointer)) int foo(void) { return 0; }',
+            'gnu_inline': 'inline __attribute__((gnu_inline)) int foo(void) { return 0; }',
+            'hot': 'int foo(void) __attribute__((hot));',
+            'ifunc': '''
+                ('int my_foo(void) { return 0; }'
+                 static int (*resolve_foo(void))(void) { return my_foo; }'
+                 int foo(void) __attribute__((ifunc('resolve_foo')));'),
+            ''',
+            'leaf': '__attribute__((leaf)) int foo(void) { return 0; }',
+            'malloc': 'int *foo(void) __attribute__((malloc));',
+            'noclone': 'int foo(void) __attribute__((noclone));',
+            'noinline': '__attribute__((noinline)) int foo(void) { return 0; }',
+            'nonnull': 'int foo(char * p) __attribute__((nonnull(1)));',
+            'noreturn': 'int foo(void) __attribute__((noreturn));',
+            'nothrow': 'int foo(void) __attribute__((nothrow));',
+            'null_terminated_string_arg': '''
+                int foo(const char * p) __attribute__((null_terminated_string_arg(1)));
+            ''',
+            'optimize': '__attribute__((optimize(3))) int foo(void) { return 0; }',
+            'packed': 'struct __attribute__((packed)) foo { int bar; };',
+            'pure': 'int foo(void) __attribute__((pure));',
+            'returns_nonnull': 'int *foo(void) __attribute__((returns_nonnull));',
+            'section': '''
+                #if defined(__APPLE__) && defined(__MACH__)
+                    extern int foo __attribute__((section("__BAR,__bar")));
+                #else
+                    extern int foo __attribute__((section(".bar")));
+                #endif
+            ''',
+            'sentinel': 'int foo(const char *bar, ...) __attribute__((sentinel));',
+            'unused': 'int foo(void) __attribute__((unused));',
+            'used': 'int foo(void) __attribute__((used));',
+            'vector_size': '__attribute__((vector_size(32))); int foo(void) { return 0; }',
+            'visibility': '''
+                int foo_def(void) __attribute__((visibility("default")));
+                int foo_hid(void) __attribute__((visibility("hidden")));
+                int foo_int(void) __attribute__((visibility("internal")));
+            ''',
+            'visibility:default': 'int foo(void) __attribute__((visibility("default")));',
+            'visibility:hidden': 'int foo(void) __attribute__((visibility("hidden")));',
+            'visibility:internal': 'int foo(void) __attribute__((visibility("internal")));',
+            'visibility:protected': 'int foo(void) __attribute__((visibility("protected")));',
+            'warning': 'int foo(void) __attribute__((warning("")));',
+            'warn_unused_result': 'int foo(void) __attribute__((warn_unused_result));',
+            'weak': 'int foo(void) __attribute__((weak));',
+            'weakref': '''
+                static int foo(void) { return 0; }
+                static int var(void) __attribute__((weakref("foo")));
+            ''',
+            'retain': '__attribute__((retain)) int x;',
+        }
+
+        assert(attr in attrs, f'Unknown attribute @attr@')
+        return attrs[attr]
+    endfunc,
+
+    'has_function': func(val str, prefix str:) -> str
+        if '#include' in prefix
+            return f'''
+                @prefix@
+                #include <limits.h>
+                #if defined __stub_@val@ || defined __stub___@val@
+                fail fail fail this function is not going to work
+                #endif
+                int main(void) {
+                    void *a = (void*) &@val@;
+                    long long b = (long long) a;
+                    return (int) b;
+                }
+            '''
+        else
+            return f'''
+                #define @val@ muon_disable_define_of_@val@
+                @prefix@
+                #include <limits.h>
+                #undef @val@
+                #ifdef __cplusplus
+                extern "C"
+                #endif
+                char @val@ (void);
+                #if defined __stub_@val@ || defined __stub___@val@
+                fail fail fail this function is not going to work
+                #endif
+                int main(void) { return @val@(); }
+            '''
+        endif
+    endfunc,
+
+    'has_builtin_function': func(val str, prefix str:) -> str
+        is_builtin = val.startswith('__builtin_')
+        __builtin_ = is_builtin ? '' : '__builtin_'
+        is_builtin = is_builtin ? 1 : 0
+        prefix_contains_include = '#include' in prefix ? 1 : 0
+
+        # With some toolchains (MSYS2/mingw for example) the compiler
+        # provides various builtins which are not really implemented and
+        # fall back to the stdlib where they arent provided and fail at
+        # build/link time. In case the user provides a header, including
+        # the header didnt lead to the function being defined, and the
+        # function we are checking isnt a builtin itself we assume the
+        # builtin is not functional and we just error out.
+        return f'''
+            @prefix@
+            int main(void) {
+                #if @prefix_contains_include@ && !defined(@val@) && !@is_builtin@
+                    #error "No definition for @__builtin_@@val@ found in the prefix"
+                #endif
+                #ifdef __has_builtin
+                    #if !__has_builtin(@__builtin_@@val@)
+                        #error "@__builtin_@@val@ not found"
+                    #endif
+                #elif ! defined(@val@)
+                    @__builtin_@@val@;
+                #endif
+                return 0;
+            }
+        '''
+    endfunc,
+
+    'has_header_symbol': func(header str, symbol str, prefix str:) -> str
+        return f'''
+	        @prefix@
+            #include <@header@>
+            int main(void) {
+                /* If it's not defined as a macro, try to use as a symbol */
+                #ifndef @symbol@
+                    @symbol@;
+                #endif
+                return 0;
+            }
+        '''
+    endfunc,
+
+    'get_define': func(
+        def str,
+        prefix str:,
+        delimiter_start str:,
+        delimiter_end str:,
+        delimiter_sentinel str:,
+    ) -> str
+        return f'''
+            @prefix@
+            #ifndef @def@
+            #define @def@ @delimiter_sentinel@
+            #endif
+        ''' + f'@delimiter_start@\n@def@\n@delimiter_end@'
+    endfunc,
+
+    'check_header': func(header str, prefix str:, mode str:) -> str
+        if mode == 'compiler_check_mode_preprocess'
+            return f'''
+                @prefix@
+                #ifdef __has_include
+                 #if !__has_include("@header@")
+                  #error "header '@header@' could not be found"
+                 #endif
+                #else
+                 #include <@header@>
+                #endif
+                int main(void) {}
+            '''
+        else
+            return f'''
+                @prefix@
+                #include <@header@>
+                int main(void) {}
+            '''
+        endif
+    endfunc,
+
+    'has_type': func(type str, prefix str:) -> str
+        return f'''
+            @prefix@
+            void bar(void) { sizeof(@type@); }
+        '''
+    endfunc,
+
+    'has_member': func(target str, member str, prefix str:) -> str
+        return f'''
+            @prefix@
+            void bar(void) {
+                @target@ foo;
+                foo.@member@;
+            }
+        '''
+    endfunc,
+}
+
+toolchain.register_language(
+    'c_header',
+    family: 'c',
+    is_header: true,
+    file_extensions: ['h'],
+)
+
+toolchain.register_language(
+    'c',
+    family: 'c',
+    header_language: 'c_header',
+    file_extensions: ['c'],
+    toolchain_options: {
+        'compiler': 'CC',
+        'linker': 'CC_LD',
+        'archiver': 'AR',
+    },
+    options: {
+        'std': toolchain.option(type: 'string', value: 'none'),
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['CFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+        'winlibs': toolchain.option(type: 'array', value: []), # TODO
+        'thread_count': toolchain.option(type: 'array', value: []), # TODO
+    },
+    coalesce_link_language: func(new str) -> str
+        if new in ['cpp']
+            return new
+        endif
+        return 'c'
+    endfunc,
+    snippets: c_snippets,
+)
+
+toolchain.register_language(
+    'object',
+    is_linkable: true,
+    file_extensions: ['o', 'obj'],
+    link_language: 'c',
+)
+
+cpp_snippets = c_snippets
+cpp_snippets.has_header_symbol = func(header str, symbol str, prefix str:) -> list[str]
+    return [
+        c_snippets.has_header_symbol(header, symbol, prefix: prefix),
+        f'''
+            @prefix@
+            #include <@header@>
+            using @symbol@;
+            int main(void) {
+                return 0;
+            }
+        ''',
+    ]
+endfunc
+
+toolchain.register_language(
+    'cpp_header',
+    family: 'c',
+    is_header: true,
+    file_extensions: ['hh', 'hpp', 'hxx'],
+)
+
+toolchain.register_language(
+    'cpp',
+    family: 'c',
+    header_language: 'cpp_header',
+    toolchain_options: {
+        'compiler': 'CXX',
+        'linker': 'CXX_LD',
+        'archiver': 'AR',
+    },
+    options: {
+        'std': toolchain.option(type: 'string', value: 'none'),
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['CXXFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+        'debugstl': toolchain.option(type: 'boolean', value: false), # TODO
+        'eh': toolchain.option(
+            type: 'combo',
+            value: 'default',
+            choices: ['none', 'default', 'a', 's', 'sc'],
+        ), # TODO
+        'rtti': toolchain.option(type: 'boolean', value: true), # TODO
+        'thread_count': toolchain.option(type: 'integer', value: 4, min: 0), # TODO
+        'winlibs': toolchain.option(type: 'array', value: []), # TODO
+    },
+    file_extensions: ['cc', 'cpp', 'cxx', 'C'],
+    coalesce_link_language: func(_new str) -> str
+        return 'cpp'
+    endfunc,
+    snippets: cpp_snippets,
+)
+
+toolchain.register_language(
+    'objc_header',
+    family: 'c',
+    is_header: true,
+)
+
+toolchain.register_language(
+    'objc',
+    family: 'c',
+    header_language: 'objc_header',
+    toolchain_options: {
+        'compiler': 'OBJC',
+        'linker': 'OBJC_LD',
+        'archiver': 'AR',
+    },
+    options: {
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['OBJCFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+    },
+    file_extensions: ['m', 'M'],
+    link_language: 'c',
+)
+
+toolchain.register_language(
+    'objcpp_header',
+    family: 'c',
+    is_header: true,
+)
+
+toolchain.register_language(
+    'objcpp',
+    family: 'c',
+    header_language: 'objcpp_header',
+    toolchain_options: {
+        'compiler': 'OBJCXX',
+        'linker': 'OBJCXX_LD',
+        'archiver': 'AR',
+    },
+    options: {
+        'args': toolchain.option(type: 'shell_array', inherit_env: ['OBJCXXFLAGS', 'CPPFLAGS']),
+        'link_args': toolchain.option(type: 'shell_array', inherit_env: ['LDFLAGS', 'CPPFLAGS']),
+    },
+    file_extensions: ['mm'],
+    link_language: 'cpp',
+    coalesce_link_language: func(_new str) -> str
+        return 'cpp'
+    endfunc,
+)
+
+toolchain.register_language(
+    'assembly',
+    file_extensions: ['s', 'S'],
+    link_language: 'c',
+    inherit_compile_args: ['c', 'cpp'],
+)
+
+toolchain.register_language(
+    'llvm_ir',
+    file_extensions: ['ll'],
+    link_language: 'c',
+)
+
+toolchain.register_language(
+    'nasm',
+    toolchain_options: {
+        'compiler': 'NASM',
+        'linker': 'NASM_LD',
+        'archiver': 'AR',
+    },
+    file_extensions: ['asm'],
+    link_language: 'c',
+)
+
+toolchain.register_language(
+    'masm',
+)
+
+toolchain.register_language(
+    'rust',
+    options: {
+        'std': toolchain.option(type: 'string', value: 'none'),
+    },
+    file_extensions: ['rs'],
+)
+
+toolchain.register_language(
+    'vala',
+    toolchain_options: {
+        'compiler': 'VALAC',
+        'linker': 'VALAC_LD',
+        'archiver': 'AR',
+    },
+    file_extensions: ['vala', 'vapi'],
+)
+
+toolchain.register_language(
+    'fortran',
+)

@@ -41,9 +41,9 @@ FUNC_IMPL(meson, get_compiler, tc_compiler, func_impl_flag_impure)
 		return false;
 	}
 
-	enum compiler_language l;
-	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)
-		|| !obj_dict_geti(
+	struct compiler_language l;
+	if (!s_to_compiler_language(wk, get_str(wk, an[0].val), &l)
+		|| !obj_dict_get_language(
 			wk, current_project(wk)->toolchains[coerce_machine_kind(wk, &akw[kw_native])], l, res)) {
 		vm_error_at(wk, an[0].node, "no compiler found for '%s'", get_cstr(wk, an[0].val));
 		return false;
@@ -676,7 +676,8 @@ compiler_dict_to_str_dict(struct workspace *wk, obj d[machine_kind_count])
 
 		obj k, v;
 		obj_dict_for(wk, d[machine], k, v) {
-			obj_dict_set(wk, r, make_str(wk, compiler_language_to_s(k)), v);
+			struct compiler_language l = { k };
+			obj_dict_set(wk, r, make_str(wk, compiler_language_to_s(wk, l)), v);
 		}
 
 		obj_dict_set(wk, res, make_str(wk, machine_kind_to_s(machine)), r);
@@ -848,15 +849,15 @@ FUNC_IMPL(meson,
 		return false;
 	}
 
-	enum compiler_language l;
-	if (!s_to_compiler_language(get_cstr(wk, an[0].val), &l)) {
+	struct compiler_language l;
+	if (!s_to_compiler_language(wk, get_str(wk, an[0].val), &l)) {
 		vm_error_at(wk, an[0].node, "unknown compiler language: '%s'", get_cstr(wk, an[0].val));
 		return false;
 	}
 
 	obj _;
 	*res = make_obj_bool(wk,
-		obj_dict_geti(wk, current_project(wk)->toolchains[coerce_machine_kind(wk, &akw[kw_native])], l, &_));
+		obj_dict_get_language(wk, current_project(wk)->toolchains[coerce_machine_kind(wk, &akw[kw_native])], l, &_));
 
 	return true;
 }

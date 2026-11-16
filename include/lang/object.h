@@ -240,7 +240,7 @@ enum build_dep_flag {
 };
 
 struct build_dep {
-	enum compiler_language link_language;
+	struct compiler_language link_language;
 	obj frameworks; // not in raw
 
 	obj compile_args;
@@ -467,7 +467,7 @@ struct obj_compiler {
 	struct target_triple triple;
 	obj libdirs;
 	obj fwdirs;
-	enum compiler_language lang;
+	struct compiler_language lang;
 	enum machine_kind machine;
 };
 
@@ -536,6 +536,7 @@ struct obj_option {
 	obj min;
 	obj deprecated;
 	obj description;
+	obj inherit_env;
 	uint32_t ip;
 	enum option_value_source source;
 	enum build_option_type type;
@@ -621,6 +622,7 @@ int64_t get_obj_number(struct workspace *wk, obj o);
 void set_obj_number(struct workspace *wk, obj o, int64_t v);
 obj *get_obj_file(struct workspace *wk, obj o);
 const char *get_file_path(struct workspace *wk, obj o);
+const struct str *get_file_path_str(struct workspace *wk, obj o);
 const struct str *get_str(struct workspace *wk, obj s);
 enum feature_opt_state get_obj_feature_opt(struct workspace *wk, obj fo);
 void set_obj_feature_opt(struct workspace *wk, obj fo, enum feature_opt_state state);
