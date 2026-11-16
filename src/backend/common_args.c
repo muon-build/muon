@@ -605,7 +605,6 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 
 				obj inherit_args;
 				if (obj_dict_get_language(wk, tgt->processed_args, inherit, &inherit_args)) {
-					LO("inheriting from %o\n", inherit_name);
 					obj_array_dup(wk, inherit_args, &args);
 					break;
 				}
@@ -626,7 +625,6 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 			}
 
 			obj_dict_set_language(wk, tgt->processed_args, lang, args);
-			LO("> %o\n", args);
 		}
 	}
 
