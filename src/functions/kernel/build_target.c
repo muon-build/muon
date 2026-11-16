@@ -958,6 +958,35 @@ create_target(struct workspace *wk,
 		}
 	}
 
+	{
+		// Check if this target references any languages that inherit their
+		// compile args from another language.  If it does, we inc_required the
+		// first language that is inherited from and already added to the
+		// project.  This is so that a target consisting solely of languages
+		// that inherit their args get those args defined.
+		obj k, _v;
+		obj_dict_for(wk, tgt->required_compilers, k, _v) {
+			struct compiler_language lang = { k };
+			const struct language *l = toolchain_language_get(wk, lang);
+			if (l->inherit_compile_args) {
+				obj inherit_name;
+				obj_array_for(wk, l->inherit_compile_args, inherit_name) {
+					struct compiler_language inherit;
+					if (!s_to_compiler_language(wk, get_str(wk, inherit_name), &inherit)) {
+						UNREACHABLE;
+					}
+
+					obj _v;
+					if (obj_dict_get_language(
+						    wk, current_project(wk)->toolchains[tgt->machine], inherit, &_v)) {
+						build_tgt_inc_required_compiler(wk, tgt, inherit);
+						break;
+					}
+				}
+			}
+		}
+	}
+
 	{ // Verify required compilers
 		obj k, _v;
 		obj_dict_for(wk, tgt->required_compilers, k, _v) {
