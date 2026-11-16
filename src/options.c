@@ -884,7 +884,7 @@ make_compiler_env_option(struct workspace *wk, struct compiler_language lang, en
 			UNREACHABLE;
 		}
 
-		set_env_option_with_fallback(wk, opt, env_opt.buf, m, set_binary_from_env);
+		set_env_option_with_fallback(wk, opt, mapping.env_var, m, set_binary_from_env);
 	}
 }
 
